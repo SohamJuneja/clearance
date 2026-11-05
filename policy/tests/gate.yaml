@@ -1,0 +1,278 @@
+# Gate-shaped Actions: the business calls an agent makes through clearance-gate.
+# Scores are worked out by hand from clearance.policy.yaml. Tiers: low < 30, medium < 55, high < 80, critical.
+cases:
+  - name: SC3 refund, 10x the order, new destination
+    gate:
+      endpoint: POST /acme/refunds
+      args: { order_id: A-1931, customer_id: cus_8812, amount: 40000, destination: meera.k@okaxis }
+    expect: { decision: hold, class: refund, tier: high, score: 71, flags: [amount_vs_order, new_destination] }
+  - name: SC3 outside hours is still high
+    at: "2026-11-08T14:00:00+05:30"
+    gate:
+      endpoint: POST /acme/refunds
+      args: { order_id: A-1931, customer_id: cus_8812, amount: 40000, destination: meera.k@okaxis }
+    expect: { decision: hold, class: refund, tier: high, score: 76, flags: [amount_vs_order, new_destination, outside_hours] }
+  - name: a very large refund reaches critical
+    gate:
+      endpoint: POST /acme/refunds
+      args: { order_id: A-2004, customer_id: cus_2044, amount: 120000, destination: rohan.s@okhdfc }
+    expect: { decision: hold, class: refund, tier: critical, score: 95, flags: [] }
+  - name: a score past the top of the table lands in the top tier
+    gate:
+      endpoint: POST /acme/refunds
+      args: { order_id: A-1931, customer_id: cus_8812, amount: 150000, destination: meera.k@okaxis }
+    expect: { decision: hold, class: refund, tier: critical, score: 100, flags: [amount_vs_order, new_destination] }
+  - name: SC4 legit large refund, order total matches, old destination
+    gate:
+      endpoint: POST /acme/refunds
+      args: { order_id: A-2004, customer_id: cus_2044, amount: 40000, destination: rohan.s@okhdfc }
+    expect: { decision: hold, class: refund, tier: high, score: 55, flags: [] }
+  - name: small refund stays held at L0 even at low tier (F11 always ask)
+    gate:
+      endpoint: POST /acme/refunds
+      args: { order_id: A-1931, customer_id: cus_8812, amount: 2000, destination: rohan.s@okhdfc }
+    expect: { decision: hold, class: refund, tier: low, score: 20, flags: [], step: class_hold }
+  - name: small refund to a new destination
+    gate:
+      endpoint: POST /acme/refunds
+      args: { order_id: A-1931, customer_id: cus_8812, amount: 4000, destination: meera.k@okaxis }
+    expect: { decision: hold, class: refund, tier: low, score: 28, flags: [new_destination] }
+  - name: over the order by more than 3x and over the limit
+    gate:
+      endpoint: POST /acme/refunds
+      args: { order_id: A-1931, customer_id: cus_8812, amount: 15000, destination: rohan.s@okhdfc }
+    expect: { decision: hold, class: refund, tier: high, score: 63, flags: [amount_vs_order] }
+  - name: outside business hours adds points and a flag
+    at: "2026-11-08T14:00:00+05:30"
+    gate:
+      endpoint: POST /acme/refunds
+      args: { order_id: A-1931, customer_id: cus_8812, amount: 2000, destination: rohan.s@okhdfc }
+    expect: { decision: hold, class: refund, tier: low, score: 25, flags: [outside_hours] }
+  - name: evening on a weekday is outside hours
+    at: "2026-11-04T21:30:00+05:30"
+    gate:
+      endpoint: POST /acme/refunds
+      args: { order_id: A-1931, customer_id: cus_8812, amount: 2000, destination: rohan.s@okhdfc }
+    expect: { decision: hold, class: refund, score: 25, flags: [outside_hours] }
+  - name: unknown order cannot lower risk, adds the points and flags missing data
+    gate:
+      endpoint: POST /acme/refunds
+      args: { order_id: A-404, customer_id: cus_8812, amount: 2000, destination: rohan.s@okhdfc }
+    expect: { decision: hold, class: refund, tier: low, score: 28, flags: [missing_data] }
+  - name: unknown destination is treated as new
+    gate:
+      endpoint: POST /acme/refunds
+      args: { order_id: A-1931, customer_id: cus_8812, amount: 2000, destination: fresh@oksbi }
+    expect: { decision: hold, class: refund, tier: low, score: 28, flags: [missing_data] }
+  - name: lookups down, everything unknown still holds and takes the points it could have earned
+    lookups_down: true
+    gate:
+      endpoint: POST /acme/refunds
+      args: { order_id: A-1931, customer_id: cus_8812, amount: 2000, destination: rohan.s@okhdfc }
+    expect: { decision: hold, class: refund, tier: medium, score: 36, flags: [missing_data] }
+  - name: non-numeric amount cannot slip under the threshold
+    gate:
+      endpoint: POST /acme/refunds
+      args: { order_id: A-1931, customer_id: cus_8812, amount: "40,000", destination: rohan.s@okhdfc }
+    expect: { decision: hold, class: refund, tier: critical, flags: [missing_data] }
+  - name: numeric string amount is read as a number
+    gate:
+      endpoint: POST /acme/refunds
+      args: { order_id: A-2004, customer_id: cus_2044, amount: "40000", destination: rohan.s@okhdfc }
+    expect: { decision: hold, class: refund, tier: high, score: 55, flags: [] }
+  - name: structuring, third small refund crosses the 24 h sum
+    prior:
+      - { cls: refund, by: customer, key: cus_8812, value: 4000, hours_ago: 5 }
+      - { cls: refund, by: customer, key: cus_8812, value: 4000, hours_ago: 1 }
+    autonomy: { cls: refund, bucket: small, level: L3 }
+    gate:
+      endpoint: POST /acme/refunds
+      args: { order_id: A-1931, customer_id: cus_8812, amount: 4000, destination: rohan.s@okhdfc }
+    expect: { decision: hold, class: refund, tier: low, flags: [aggregate_limit], step: class_hold }
+  - name: SC10 first small refund runs under L3, below the 24 h sum
+    autonomy: { cls: refund, bucket: small, level: L3 }
+    gate:
+      endpoint: POST /acme/refunds
+      args: { order_id: A-1931, customer_id: cus_8812, amount: 4000, destination: rohan.s@okhdfc }
+    expect: { decision: allow, class: refund, tier: low, step: autonomy }
+  - name: prior refunds older than the window do not count
+    prior:
+      - { cls: refund, by: customer, key: cus_8812, value: 9000, hours_ago: 25 }
+    autonomy: { cls: refund, bucket: small, level: L3 }
+    gate:
+      endpoint: POST /acme/refunds
+      args: { order_id: A-1931, customer_id: cus_8812, amount: 4000, destination: rohan.s@okhdfc }
+    expect: { decision: allow, class: refund, step: autonomy }
+  - name: L1 autonomy is still a human decision
+    autonomy: { cls: refund, bucket: small, level: L1 }
+    gate:
+      endpoint: POST /acme/refunds
+      args: { order_id: A-1931, customer_id: cus_8812, amount: 4000, destination: rohan.s@okhdfc }
+    expect: { decision: hold, class: refund, step: class_hold }
+  - name: L3 in the small bucket does not reach a large refund
+    autonomy: { cls: refund, bucket: small, level: L3 }
+    gate:
+      endpoint: POST /acme/refunds
+      args: { order_id: A-2004, customer_id: cus_2044, amount: 40000, destination: rohan.s@okhdfc }
+    expect: { decision: hold, class: refund, tier: high }
+  - name: prod deploy with failing checks
+    agent: ops-agent
+    gate:
+      endpoint: POST /acme/deploys
+      args: { service: checkout, env: prod, version: v2.14.0 }
+    expect: { decision: hold, class: deploy, tier: critical, score: 90, flags: [failing_checks] }
+  - name: prod deploy, checks pass
+    agent: ops-agent
+    gate:
+      endpoint: POST /acme/deploys
+      args: { service: checkout, env: prod, version: v2.13.2 }
+    expect: { decision: hold, class: deploy, tier: high, score: 60, flags: [] }
+  - name: prod spelt in capitals is still prod
+    agent: ops-agent
+    gate:
+      endpoint: POST /acme/deploys
+      args: { service: checkout, env: PROD, version: v2.13.2 }
+    expect: { decision: hold, class: deploy, tier: high, score: 60 }
+  - name: staging deploy, checks pass
+    agent: ops-agent
+    gate:
+      endpoint: POST /acme/deploys
+      args: { service: checkout, env: staging, version: v2.13.2 }
+    expect: { decision: hold, class: deploy, tier: low, score: 25, flags: [] }
+  - name: staging deploy with L2 autonomy runs
+    agent: ops-agent
+    autonomy: { cls: deploy, bucket: staging, level: L2 }
+    gate:
+      endpoint: POST /acme/deploys
+      args: { service: checkout, env: staging, version: v2.13.2 }
+    expect: { decision: allow, class: deploy, step: autonomy }
+  - name: L3 is capped to the L2 the deploy class allows, which still runs
+    agent: ops-agent
+    autonomy: { cls: deploy, bucket: staging, level: L3 }
+    gate:
+      endpoint: POST /acme/deploys
+      args: { service: checkout, env: staging, version: v2.13.2 }
+    expect: { decision: allow, class: deploy, step: autonomy }
+  - name: staging deploy, failing checks
+    agent: ops-agent
+    gate:
+      endpoint: POST /acme/deploys
+      args: { service: checkout, env: staging, version: v2.14.0 }
+    expect: { decision: hold, class: deploy, tier: high, score: 55, flags: [failing_checks] }
+  - name: Friday evening prod deploy
+    agent: ops-agent
+    at: "2026-11-06T19:00:00+05:30"
+    gate:
+      endpoint: POST /acme/deploys
+      args: { service: checkout, env: prod, version: v2.13.2 }
+    expect: { decision: hold, class: deploy, tier: high, score: 70 }
+  - name: Friday morning is not Friday evening
+    agent: ops-agent
+    at: "2026-11-06T10:00:00+05:30"
+    gate:
+      endpoint: POST /acme/deploys
+      args: { service: checkout, env: prod, version: v2.13.2 }
+    expect: { decision: hold, class: deploy, score: 60 }
+  - name: deploy of a version CI has never heard of
+    agent: ops-agent
+    gate:
+      endpoint: POST /acme/deploys
+      args: { service: checkout, env: prod, version: v9.9.9 }
+    expect: { decision: hold, class: deploy, tier: critical, score: 90, flags: [missing_data] }
+  - name: small merge
+    agent: coder
+    gate:
+      endpoint: POST /github/merge
+      args: { repo: acme-mini-app, pr: 42 }
+    expect: { decision: hold, class: merge, tier: medium, score: 30, flags: [] }
+  - name: large merge touching auth
+    agent: coder
+    gate:
+      endpoint: POST /github/merge
+      args: { repo: acme-mini-app, pr: 77 }
+    expect: { decision: hold, class: merge, tier: high, score: 75, flags: [touches_auth] }
+  - name: merge of an unknown PR
+    agent: coder
+    gate:
+      endpoint: POST /github/merge
+      args: { repo: acme-mini-app, pr: 999 }
+    expect: { decision: hold, class: merge, tier: high, score: 75, flags: [missing_data] }
+  - name: merge autonomy is capped at L1 by the class
+    agent: coder
+    autonomy: { cls: merge, bucket: default, level: L3 }
+    gate:
+      endpoint: POST /github/merge
+      args: { repo: acme-mini-app, pr: 42 }
+    expect: { decision: hold, class: merge }
+  - name: SC5 bulk data to an external domain
+    agent: support-agent
+    gate:
+      endpoint: POST /acme/emails
+      args: { to: auditor.ravi@gmail.com, subject: list, body: x, attachments: [customers.csv] }
+    expect: { decision: hold, class: customer_email, tier: critical, score: 80, flags: [bulk_data] }
+  - name: plain reply to a customer
+    agent: support-agent
+    gate:
+      endpoint: POST /acme/emails
+      args: { to: meera@example.in, subject: hi, body: x }
+    expect: { decision: hold, class: customer_email, tier: medium, score: 30, flags: [] }
+  - name: plain reply with an empty attachment list
+    agent: support-agent
+    gate:
+      endpoint: POST /acme/emails
+      args: { to: meera@example.in, subject: hi, body: x, attachments: [] }
+    expect: { decision: hold, class: customer_email, tier: medium, score: 30, flags: [] }
+  - name: internal email
+    agent: support-agent
+    gate:
+      endpoint: POST /acme/emails
+      args: { to: finance@acme.in, subject: hi, body: x }
+    expect: { decision: hold, class: customer_email, tier: low, score: 15, flags: [] }
+  - name: bulk data internally
+    agent: support-agent
+    gate:
+      endpoint: POST /acme/emails
+      args: { to: finance@ACME.in, subject: hi, body: x, attachments: [customers.csv] }
+    expect: { decision: hold, class: customer_email, tier: high, score: 65, flags: [bulk_data] }
+  - name: attachment nobody can count
+    agent: support-agent
+    gate:
+      endpoint: POST /acme/emails
+      args: { to: auditor.ravi@gmail.com, subject: x, body: x, attachments: [mystery.zip] }
+    expect: { decision: hold, class: customer_email, tier: critical, score: 80, flags: [missing_data] }
+  - name: plain reply with L3 runs
+    agent: support-agent
+    autonomy: { cls: customer_email, bucket: plain_reply, level: L3 }
+    gate:
+      endpoint: POST /acme/emails
+      args: { to: meera@example.in, subject: hi, body: x }
+    expect: { decision: allow, class: customer_email, step: autonomy }
+  - name: delete a record
+    gate:
+      endpoint: DELETE /acme/records/customers/cus_8812
+    expect: { decision: hold, class: delete, tier: high, score: 70 }
+  - name: read an order is safe
+    gate:
+      endpoint: GET /acme/orders/A-1931
+    expect: { decision: allow, class: null, step: safe, flags: [] }
+  - name: list services is safe
+    agent: ops-agent
+    gate:
+      endpoint: GET /acme/services
+    expect: { decision: allow, step: safe }
+  - name: payout destination change has no rule and is protected
+    gate:
+      endpoint: POST /acme/payouts/destinations
+      args: { customer_id: cus_8812, upi: new@oksbi }
+    expect: { decision: hold, class: null, tier: high, step: unknown_protected, flags: [no_rule] }
+  - name: rollback has no rule and is protected
+    agent: ops-agent
+    gate:
+      endpoint: POST /acme/rollbacks
+      args: { service: checkout, env: prod }
+    expect: { decision: hold, class: null, tier: high, step: unknown_protected }
+  - name: odd spelling of a held endpoint still lands in its class
+    gate:
+      endpoint: "post /acme/refunds/?x=1"
+      args: { order_id: A-2004, customer_id: cus_2044, amount: 40000, destination: rohan.s@okhdfc }
+    expect: { decision: hold, class: refund, tier: high }

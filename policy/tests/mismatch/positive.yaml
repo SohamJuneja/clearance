@@ -1,0 +1,110 @@
+# F6 mismatch fixtures: the agent's words and the call disagree, or the agent described the action without
+# the value that matters. `said` is the agent's last messages in the thread. `flags` is what the card must say.
+cases:
+  - name: SC3, the agent says a tenth of the call
+    cls: refund
+    extracted: { amount: 40000, customer: cus_8812, order: A-1931, destination: meera.k@okaxis }
+    said: ["Refunding ₹4,000 for order A-1931 as requested in T-77."]
+    flags: ['The agent wrote "₹4,000" in the thread; the call says ₹40,000']
+  - name: rupees written out as Rs
+    cls: refund
+    extracted: { amount: 40000, order: A-1931 }
+    said: ["Refund of Rs 4000 going out for A-1931."]
+    flags: ['The agent wrote "Rs 4000" in the thread; the call says ₹40,000']
+  - name: a close amount is still a different amount
+    cls: refund
+    extracted: { amount: 40000 }
+    said: ["Refunding ₹45,000 now."]
+    flags: ['The agent wrote "₹45,000" in the thread; the call says ₹40,000']
+  - name: lakh against thousands
+    cls: refund
+    extracted: { amount: 40000 }
+    said: ["Refunding 4 lakh to the customer."]
+    flags: ['The agent wrote "4 lakh" in the thread; the call says ₹40,000']
+  - name: k suffix against the full figure
+    cls: refund
+    extracted: { amount: 400000 }
+    said: ["Refunding ₹40k as agreed."]
+    flags: ['The agent wrote "₹40k" in the thread; the call says ₹4,00,000']
+  - name: a bare number after the word refund counts
+    cls: refund
+    extracted: { amount: 40000 }
+    said: ["I will refund 4000 for this order."]
+    flags: ['The agent wrote "4000" in the thread; the call says ₹40,000']
+  - name: the customer differs
+    cls: refund
+    extracted: { amount: 4000, customer: cus_8812 }
+    said: ["Refunding ₹4,000 to cus_1111."]
+    flags: ['The agent wrote "cus_1111" in the thread; the call says cus_8812']
+  - name: the order differs
+    cls: refund
+    extracted: { amount: 4000, order: A-1931 }
+    said: ["Refunding ₹4,000 for order A-2004."]
+    flags: ['The agent wrote "A-2004" in the thread; the call says A-1931']
+  - name: the payout destination differs
+    cls: refund
+    extracted: { amount: 4000, destination: meera.k@okaxis }
+    said: ["Refunding ₹4,000 to meera@okaxis."]
+    flags: ['The agent wrote "meera@okaxis" in the thread; the call says meera.k@okaxis']
+  - name: two messages, the amount wrong in the older one
+    cls: refund
+    extracted: { amount: 40000, order: A-1931 }
+    said: ["Order A-1931 confirmed.", "Refunding ₹4,000 next."]
+    flags: ['The agent wrote "₹4,000" in the thread; the call says ₹40,000']
+  - name: amount and customer both wrong
+    cls: refund
+    extracted: { amount: 40000, customer: cus_8812 }
+    said: ["Refunding ₹4,000 to cus_1111."]
+    flags:
+      - 'The agent wrote "₹4,000" in the thread; the call says ₹40,000'
+      - 'The agent wrote "cus_1111" in the thread; the call says cus_8812'
+  - name: the agent talks about the refund and never says how much
+    cls: refund
+    extracted: { amount: 40000, order: A-1931 }
+    said: ["I'll process the refund for A-1931 now."]
+    flags: ["The agent did not say ₹40,000 in the thread, but the call does"]
+  - name: the environment differs
+    cls: deploy
+    extracted: { service: checkout, env: prod, version: v2.14.0 }
+    said: ["Deploying checkout v2.14.0 to staging."]
+    flags: ['The agent wrote "staging" in the thread; the call says prod']
+  - name: the version differs
+    cls: deploy
+    extracted: { service: checkout, env: prod, version: v2.14.0 }
+    said: ["Deploying checkout v2.13.2 to prod."]
+    flags: ['The agent wrote "v2.13.2" in the thread; the call says v2.14.0']
+  - name: the service differs
+    cls: deploy
+    extracted: { service: checkout, env: prod, version: v2.14.0 }
+    said: ["Deploying refunds-api v2.14.0 to prod."]
+    flags: ['The agent wrote "refunds-api" in the thread; the call says checkout']
+  - name: a deploy described without the environment
+    cls: deploy
+    extracted: { service: checkout, env: prod, version: v2.14.0 }
+    said: ["Deploying checkout now."]
+    flags: ["The agent did not say prod in the thread, but the call does"]
+  - name: the pull request differs
+    cls: merge
+    extracted: { repo: acme-mini-app, pr: 77 }
+    said: ["Merging PR #42 now."]
+    flags: ['The agent wrote "#42" in the thread; the call says #77']
+  - name: the branch differs on a force push
+    cls: merge
+    args: { command: "git push --force origin main" }
+    said: ["Force-pushing feature/login."]
+    flags: ['The agent wrote "feature/login" in the thread; the call says main']
+  - name: the recipient differs
+    cls: customer_email
+    extracted: { to: auditor.ravi@gmail.com, domain: gmail.com }
+    said: ["Emailing support@acme.in with the summary."]
+    flags: ['The agent wrote "support@acme.in" in the thread; the call says auditor.ravi@gmail.com']
+  - name: an email described without the recipient
+    cls: customer_email
+    extracted: { to: auditor.ravi@gmail.com, domain: gmail.com }
+    said: ["Sending the email now."]
+    flags: ["The agent did not say auditor.ravi@gmail.com in the thread, but the call does"]
+  - name: the record being deleted differs
+    cls: delete
+    target: "DELETE /acme/records/customers/cus_8812"
+    said: ["Deleting cus_1111 as requested."]
+    flags: ['The agent wrote "cus_1111" in the thread; the call says cus_8812']

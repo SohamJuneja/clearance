@@ -1,0 +1,549 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`cards from real calls: snapshots across fixture calls > 'SC3 refund, 10x the order, new destin…' 1`] = `
+[
+  {
+    "detail": "The call (parsed from what the agent ran, not from its words)
+  Refund ₹40,000 to customer Meera K. (cus_8812)
+  Destination: UPI meera.k@okaxis
+  Order A-1931 · total ₹4,000
+
+Context
+  Refunds to this customer in 24 h: ₹0
+  Destination added 4 minutes ago
+  refunds-agent refunds today: 0
+
+Flags
+  ⚠ Amount is 10x the order total
+  ⚠ Destination added in the last 24 h
+
+Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
+Why you: finance approver on duty. Can't approve: Priya (requester, agent owner).
+Policy: refunds over ₹10,000 need 1 finance approver · expires 14:25 IST
+
+@clearance why CLR-0001",
+    "roomId": "dm-sam",
+    "title": "CLR-0001 · REFUND ₹40,000 · HIGH · irreversible",
+  },
+  {
+    "detail": "The call (parsed from what the agent ran, not from its words)
+  Refund ₹40,000 to customer Meera K. (cus_8812)
+  Destination: UPI meera.k@okaxis
+  Order A-1931 · total ₹4,000
+
+Context
+  Refunds to this customer in 24 h: ₹0
+  Destination added 4 minutes ago
+  refunds-agent refunds today: 0
+
+Flags
+  ⚠ Amount is 10x the order total
+  ⚠ Destination added in the last 24 h
+
+Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
+Why here: copy for this room; Sam (finance, on duty) decides. Can't approve: Priya (requester, agent owner).
+Policy: refunds over ₹10,000 need 1 finance approver · expires 14:25 IST
+
+@clearance why CLR-0001",
+    "roomId": "#support",
+    "title": "CLR-0001 · REFUND ₹40,000 · HIGH · irreversible",
+  },
+]
+`;
+
+exports[`cards from real calls: snapshots across fixture calls > 'SC3 with the agent\\'s words on record' 1`] = `
+[
+  {
+    "detail": "The call (parsed from what the agent ran, not from its words)
+  Refund ₹40,000 to customer Meera K. (cus_8812)
+  Destination: UPI meera.k@okaxis
+  Order A-1931 · total ₹4,000
+
+Context
+  Refunds to this customer in 24 h: ₹0
+  Destination added 4 minutes ago
+  refunds-agent refunds today: 0
+
+Flags
+  ⚠ Amount is 10x the order total
+  ⚠ Destination added in the last 24 h
+  ⚠ The agent wrote "₹4,000" in the thread; the call says ₹40,000
+
+Agent's claim (unverified): "Refunding ₹4,000 for order A-1931 as requested in T-77."
+
+Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
+Why you: finance approver on duty. Can't approve: Priya (requester, agent owner).
+Policy: refunds over ₹10,000 need 1 finance approver · expires 14:25 IST
+
+@clearance why CLR-0001",
+    "roomId": "dm-sam",
+    "title": "CLR-0001 · REFUND ₹40,000 · HIGH · irreversible",
+  },
+  {
+    "detail": "The call (parsed from what the agent ran, not from its words)
+  Refund ₹40,000 to customer Meera K. (cus_8812)
+  Destination: UPI meera.k@okaxis
+  Order A-1931 · total ₹4,000
+
+Context
+  Refunds to this customer in 24 h: ₹0
+  Destination added 4 minutes ago
+  refunds-agent refunds today: 0
+
+Flags
+  ⚠ Amount is 10x the order total
+  ⚠ Destination added in the last 24 h
+  ⚠ The agent wrote "₹4,000" in the thread; the call says ₹40,000
+
+Agent's claim (unverified): "Refunding ₹4,000 for order A-1931 as requested in T-77."
+
+Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
+Why here: copy for this room; Sam (finance, on duty) decides. Can't approve: Priya (requester, agent owner).
+Policy: refunds over ₹10,000 need 1 finance approver · expires 14:25 IST
+
+@clearance why CLR-0001",
+    "roomId": "#support",
+    "title": "CLR-0001 · REFUND ₹40,000 · HIGH · irreversible",
+  },
+]
+`;
+
+exports[`cards from real calls: snapshots across fixture calls > 'SC4 legit large refund' 1`] = `
+[
+  {
+    "detail": "The call (parsed from what the agent ran, not from its words)
+  Refund ₹40,000 to customer Rohan S. (cus_2044)
+  Destination: UPI rohan.s@okhdfc
+  Order A-2004 · total ₹40,000
+
+Context
+  Refunds to this customer in 24 h: ₹0
+  Destination added 83 days ago
+  refunds-agent refunds today: 0
+
+Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
+Why you: finance approver on duty. Can't approve: Priya (requester, agent owner).
+Policy: refunds over ₹10,000 need 1 finance approver · expires 14:25 IST
+
+@clearance why CLR-0001",
+    "roomId": "dm-sam",
+    "title": "CLR-0001 · REFUND ₹40,000 · HIGH · irreversible",
+  },
+  {
+    "detail": "The call (parsed from what the agent ran, not from its words)
+  Refund ₹40,000 to customer Rohan S. (cus_2044)
+  Destination: UPI rohan.s@okhdfc
+  Order A-2004 · total ₹40,000
+
+Context
+  Refunds to this customer in 24 h: ₹0
+  Destination added 83 days ago
+  refunds-agent refunds today: 0
+
+Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
+Why here: copy for this room; Sam (finance, on duty) decides. Can't approve: Priya (requester, agent owner).
+Policy: refunds over ₹10,000 need 1 finance approver · expires 14:25 IST
+
+@clearance why CLR-0001",
+    "roomId": "#support",
+    "title": "CLR-0001 · REFUND ₹40,000 · HIGH · irreversible",
+  },
+]
+`;
+
+exports[`cards from real calls: snapshots across fixture calls > 'bulk email to an external domain' 1`] = `
+[
+  {
+    "detail": "The call (parsed from what the agent ran, not from its words)
+  Email to auditor.ravi@gmail.com
+  Subject: Customer list
+  Attachments: customers.csv
+
+Context
+  Recipient domain: gmail.com
+  Rows in attachments: 3,000
+
+Flags
+  ⚠ Attachments hold 3,000 rows
+
+Asked by Sam (finance) through support-agent (Codex, owned by Priya)
+Why you: support-lead approver. Can't approve: Sam (requester).
+Policy: customer emails with bulk data need 1 support-lead approver · expires 14:25 IST
+
+@clearance why CLR-0001",
+    "roomId": "dm-priya",
+    "title": "CLR-0001 · CUSTOMER EMAIL auditor.ravi@gmail.com · CRITICAL · irreversible",
+  },
+  {
+    "detail": "The call (parsed from what the agent ran, not from its words)
+  Email to auditor.ravi@gmail.com
+  Subject: Customer list
+  Attachments: customers.csv
+
+Context
+  Recipient domain: gmail.com
+  Rows in attachments: 3,000
+
+Flags
+  ⚠ Attachments hold 3,000 rows
+
+Asked by Sam (finance) through support-agent (Codex, owned by Priya)
+Why here: copy for this room; Priya (support) decides. Can't approve: Sam (requester).
+Policy: customer emails with bulk data need 1 support-lead approver · expires 14:25 IST
+
+@clearance why CLR-0001",
+    "roomId": "#support",
+    "title": "CLR-0001 · CUSTOMER EMAIL auditor.ravi@gmail.com · CRITICAL · irreversible",
+  },
+]
+`;
+
+exports[`cards from real calls: snapshots across fixture calls > 'delete a record' 1`] = `
+[
+  {
+    "detail": "The call (parsed from what the agent ran, not from its words)
+  Delete customers/cus_8812
+
+Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
+Why you: eng approver. Can't approve: Priya (requester, agent owner).
+Policy: deletes need 2 eng approvers · expires 14:25 IST
+
+@clearance why CLR-0001",
+    "roomId": "dm-alex",
+    "title": "CLR-0001 · DELETE customers/cus_8812 · HIGH · irreversible",
+  },
+  {
+    "detail": "The call (parsed from what the agent ran, not from its words)
+  Delete customers/cus_8812
+
+Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
+Why here: nobody else could take it, so it came to eng-leads. Can't approve: Priya (requester, agent owner).
+Policy: deletes need 2 eng approvers · expires 14:25 IST
+
+@clearance why CLR-0001",
+    "roomId": "#approvals",
+    "title": "CLR-0001 · DELETE customers/cus_8812 · HIGH · irreversible",
+  },
+  {
+    "detail": "The call (parsed from what the agent ran, not from its words)
+  Delete customers/cus_8812
+
+Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
+Why here: copy for this room; Alex (eng) decides. Can't approve: Priya (requester, agent owner).
+Policy: deletes need 2 eng approvers · expires 14:25 IST
+
+@clearance why CLR-0001",
+    "roomId": "#support",
+    "title": "CLR-0001 · DELETE customers/cus_8812 · HIGH · irreversible",
+  },
+]
+`;
+
+exports[`cards from real calls: snapshots across fixture calls > 'force push through a hook' 1`] = `
+[
+  {
+    "detail": "The call (parsed from what the agent ran, not from its words)
+  Run: git push --force origin main
+
+Context
+  Not a tracked pull request: nothing to look up
+
+Flags
+  ⚠ Could not verify diff_lines, touches_auth from systems of record: treated as risky
+  ⚠ Could not tell who the author is, so nobody was excluded for it
+
+Asked by Priya (support) through coder (Claude Code, owned by Alex)
+Why here: nobody else could take it, so it came to eng-leads. Can't approve: Alex (agent owner), Priya (requester).
+Policy: merges to main need 1 eng approver · expires 14:25 IST
+
+@clearance why CLR-0001",
+    "roomId": "#approvals",
+    "title": "CLR-0001 · MERGE · HIGH · reversible",
+  },
+  {
+    "detail": "The call (parsed from what the agent ran, not from its words)
+  Run: git push --force origin main
+
+Context
+  Not a tracked pull request: nothing to look up
+
+Flags
+  ⚠ Could not verify diff_lines, touches_auth from systems of record: treated as risky
+  ⚠ Could not tell who the author is, so nobody was excluded for it
+
+Asked by Priya (support) through coder (Claude Code, owned by Alex)
+Why here: copy for this room; eng-leads in #approvals decides. Can't approve: Alex (agent owner), Priya (requester).
+Policy: merges to main need 1 eng approver · expires 14:25 IST
+
+@clearance why CLR-0001",
+    "roomId": "#eng",
+    "title": "CLR-0001 · MERGE · HIGH · reversible",
+  },
+]
+`;
+
+exports[`cards from real calls: snapshots across fixture calls > 'merge touching auth' 1`] = `
+[
+  {
+    "detail": "The call (parsed from what the agent ran, not from its words)
+  Merge PR #77 in acme-mini-app
+
+Context
+  Author: coder
+  Diff: 640 lines
+  Files: auth/login.ts, src/app.ts
+  Checks: passing
+
+Flags
+  ⚠ The diff touches auth code
+
+Asked by Priya (support) through coder (Claude Code, owned by Alex)
+Why here: nobody else could take it, so it came to eng-leads. Can't approve: Alex (agent owner, code author), Priya (requester).
+Policy: merges to main need 1 eng approver · expires 14:25 IST
+
+@clearance why CLR-0001",
+    "roomId": "#approvals",
+    "title": "CLR-0001 · MERGE acme-mini-app#77 · HIGH · reversible",
+  },
+  {
+    "detail": "The call (parsed from what the agent ran, not from its words)
+  Merge PR #77 in acme-mini-app
+
+Context
+  Author: coder
+  Diff: 640 lines
+  Files: auth/login.ts, src/app.ts
+  Checks: passing
+
+Flags
+  ⚠ The diff touches auth code
+
+Asked by Priya (support) through coder (Claude Code, owned by Alex)
+Why here: copy for this room; eng-leads in #approvals decides. Can't approve: Alex (agent owner, code author), Priya (requester).
+Policy: merges to main need 1 eng approver · expires 14:25 IST
+
+@clearance why CLR-0001",
+    "roomId": "#support",
+    "title": "CLR-0001 · MERGE acme-mini-app#77 · HIGH · reversible",
+  },
+]
+`;
+
+exports[`cards from real calls: snapshots across fixture calls > 'nobody known to have asked' 1`] = `
+[
+  {
+    "detail": "The call (parsed from what the agent ran, not from its words)
+  Refund ₹40,000 to customer Rohan S. (cus_2044)
+  Destination: UPI rohan.s@okhdfc
+  Order A-2004 · total ₹40,000
+
+Context
+  Refunds to this customer in 24 h: ₹0
+  Destination added 83 days ago
+  refunds-agent refunds today: 0
+
+Flags
+  ⚠ Requester unknown: nobody addressed this agent in the last 10 minutes
+
+Asked by: requester unknown, through refunds-agent (Claude Code, owned by Priya)
+Why you: finance approver on duty. Can't approve: Priya (agent owner).
+Policy: refunds over ₹10,000 need 1 finance approver · expires 14:25 IST
+
+@clearance why CLR-0001",
+    "roomId": "dm-sam",
+    "title": "CLR-0001 · REFUND ₹40,000 · HIGH · irreversible",
+  },
+  {
+    "detail": "The call (parsed from what the agent ran, not from its words)
+  Refund ₹40,000 to customer Rohan S. (cus_2044)
+  Destination: UPI rohan.s@okhdfc
+  Order A-2004 · total ₹40,000
+
+Context
+  Refunds to this customer in 24 h: ₹0
+  Destination added 83 days ago
+  refunds-agent refunds today: 0
+
+Flags
+  ⚠ Requester unknown: nobody addressed this agent in the last 10 minutes
+
+Asked by: requester unknown, through refunds-agent (Claude Code, owned by Priya)
+Why here: copy for this room; Sam (finance, on duty) decides. Can't approve: Priya (agent owner).
+Policy: refunds over ₹10,000 need 1 finance approver · expires 14:25 IST
+
+@clearance why CLR-0001",
+    "roomId": "#support",
+    "title": "CLR-0001 · REFUND ₹40,000 · HIGH · irreversible",
+  },
+]
+`;
+
+exports[`cards from real calls: snapshots across fixture calls > 'prod deploy with failing checks' 1`] = `
+[
+  {
+    "detail": "The call (parsed from what the agent ran, not from its words)
+  Deploy checkout v2.14.0 to prod
+
+Context
+  Service owner: Alex
+  Live now: v2.13.2
+  Checks: failing (2 failing: checkout-e2e, payment-contract)
+
+Flags
+  ⚠ Checks are not passing for v2.14.0
+
+Asked by Priya (support) through ops-agent (OpenCode, owned by Alex)
+Why you: owner of checkout. Can't approve: Priya (requester).
+Policy: prod deploys need 1 eng approver · expires 14:25 IST
+
+@clearance why CLR-0001",
+    "roomId": "dm-alex",
+    "title": "CLR-0001 · DEPLOY checkout v2.14.0 prod · CRITICAL · reversible",
+  },
+  {
+    "detail": "The call (parsed from what the agent ran, not from its words)
+  Deploy checkout v2.14.0 to prod
+
+Context
+  Service owner: Alex
+  Live now: v2.13.2
+  Checks: failing (2 failing: checkout-e2e, payment-contract)
+
+Flags
+  ⚠ Checks are not passing for v2.14.0
+
+Asked by Priya (support) through ops-agent (OpenCode, owned by Alex)
+Why here: copy for this room; Alex (eng, owner of checkout) decides. Can't approve: Priya (requester).
+Policy: prod deploys need 1 eng approver · expires 14:25 IST
+
+@clearance why CLR-0001",
+    "roomId": "#support",
+    "title": "CLR-0001 · DEPLOY checkout v2.14.0 prod · CRITICAL · reversible",
+  },
+]
+`;
+
+exports[`cards from real calls: snapshots across fixture calls > 'protected call with no rule' 1`] = `
+[
+  {
+    "detail": "The call (parsed from what the agent ran, not from its words)
+  Call: POST /acme/payouts/destinations
+  Arguments: {"customer_id":"cus_8812","upi":"new@oksbi"}
+
+Flags
+  ⚠ No policy rule covers this protected resource
+
+Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
+Why here: nobody else could take it, so it came to eng-leads. Can't approve: Priya (requester, agent owner).
+Policy: protected calls with no rule need 1 approver · expires 14:25 IST
+
+@clearance why CLR-0001",
+    "roomId": "#approvals",
+    "title": "CLR-0001 · PROTECTED · HIGH · reversibility unknown",
+  },
+  {
+    "detail": "The call (parsed from what the agent ran, not from its words)
+  Call: POST /acme/payouts/destinations
+  Arguments: {"customer_id":"cus_8812","upi":"new@oksbi"}
+
+Flags
+  ⚠ No policy rule covers this protected resource
+
+Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
+Why here: copy for this room; eng-leads in #approvals decides. Can't approve: Priya (requester, agent owner).
+Policy: protected calls with no rule need 1 approver · expires 14:25 IST
+
+@clearance why CLR-0001",
+    "roomId": "#support",
+    "title": "CLR-0001 · PROTECTED · HIGH · reversibility unknown",
+  },
+]
+`;
+
+exports[`cards from real calls: snapshots across fixture calls > 'small refund, unknown order' 1`] = `
+[
+  {
+    "detail": "The call (parsed from what the agent ran, not from its words)
+  Refund ₹2,000 to customer Meera K. (cus_8812)
+  Destination: UPI rohan.s@okhdfc
+  Order A-404 · total unknown
+
+Context
+  Refunds to this customer in 24 h: ₹0
+  Destination added 83 days ago
+  refunds-agent refunds today: 0
+
+Flags
+  ⚠ Could not verify order_total from systems of record: treated as risky
+
+Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
+Why you: finance approver on duty. Can't approve: Priya (requester).
+Policy: refunds need 1 finance approver · expires 14:25 IST
+
+@clearance why CLR-0001",
+    "roomId": "dm-sam",
+    "title": "CLR-0001 · REFUND ₹2,000 · LOW · irreversible",
+  },
+  {
+    "detail": "The call (parsed from what the agent ran, not from its words)
+  Refund ₹2,000 to customer Meera K. (cus_8812)
+  Destination: UPI rohan.s@okhdfc
+  Order A-404 · total unknown
+
+Context
+  Refunds to this customer in 24 h: ₹0
+  Destination added 83 days ago
+  refunds-agent refunds today: 0
+
+Flags
+  ⚠ Could not verify order_total from systems of record: treated as risky
+
+Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
+Why here: copy for this room; Sam (finance, on duty) decides. Can't approve: Priya (requester).
+Policy: refunds need 1 finance approver · expires 14:25 IST
+
+@clearance why CLR-0001",
+    "roomId": "#support",
+    "title": "CLR-0001 · REFUND ₹2,000 · LOW · irreversible",
+  },
+]
+`;
+
+exports[`cards from real calls: snapshots across fixture calls > 'staging deploy, checks pass' 1`] = `
+[
+  {
+    "detail": "The call (parsed from what the agent ran, not from its words)
+  Deploy checkout v2.13.2 to staging
+
+Context
+  Service owner: Alex
+  Live now: v2.13.2
+  Checks: passing
+
+Asked by Priya (support) through ops-agent (OpenCode, owned by Alex)
+Why you: owner of checkout. Can't approve: Priya (requester).
+Policy: deploys need 1 eng approver · expires 14:25 IST
+
+@clearance why CLR-0001",
+    "roomId": "dm-alex",
+    "title": "CLR-0001 · DEPLOY checkout v2.13.2 staging · LOW · reversible",
+  },
+  {
+    "detail": "The call (parsed from what the agent ran, not from its words)
+  Deploy checkout v2.13.2 to staging
+
+Context
+  Service owner: Alex
+  Live now: v2.13.2
+  Checks: passing
+
+Asked by Priya (support) through ops-agent (OpenCode, owned by Alex)
+Why here: copy for this room; Alex (eng, owner of checkout) decides. Can't approve: Priya (requester).
+Policy: deploys need 1 eng approver · expires 14:25 IST
+
+@clearance why CLR-0001",
+    "roomId": "#support",
+    "title": "CLR-0001 · DEPLOY checkout v2.13.2 staging · LOW · reversible",
+  },
+]
+`;

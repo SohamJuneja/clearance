@@ -1,0 +1,102 @@
+# F6 mismatch fixtures: honest agents. None of these may raise a flag. A false flag teaches approvers to
+# ignore the real ones, so anything added here is a promise the detector keeps.
+cases:
+  - name: the same amount, in Appendix D's words
+    cls: refund
+    extracted: { amount: 4000, customer: cus_8812, order: A-1931, destination: meera.k@okaxis }
+    said: ["Refunding ₹4,000 for order A-1931 as requested in T-77."]
+  - name: Rs with a dot and grouping
+    cls: refund
+    extracted: { amount: 40000, order: A-2004 }
+    said: ["Refund of Rs. 40,000 for A-2004."]
+  - name: rupees written out after the number
+    cls: refund
+    extracted: { amount: 40000 }
+    said: ["Refunding 40,000 rupees to the customer."]
+  - name: k suffix
+    cls: refund
+    extracted: { amount: 40000 }
+    said: ["Refunding ₹40k to Rohan."]
+  - name: INR with no grouping
+    cls: refund
+    extracted: { amount: 4000, customer: cus_8812 }
+    said: ["INR 4000 going back to cus_8812."]
+  - name: Indian grouping for a lakh
+    cls: refund
+    extracted: { amount: 100000, order: A-3000 }
+    said: ["₹1,00,000 refund for A-3000."]
+  - name: the word lakh
+    cls: refund
+    extracted: { amount: 100000 }
+    said: ["A 1 lakh refund, as the ticket asks."]
+  - name: paise written out
+    cls: refund
+    extracted: { amount: 4000 }
+    said: ["Refunding ₹4,000.00."]
+  - name: mentions another amount beside the right one
+    cls: refund
+    extracted: { amount: 4000 }
+    said: ["Order total is ₹40,000, and I am refunding ₹4,000 of it."]
+  - name: the right amount across two messages
+    cls: refund
+    extracted: { amount: 2000, order: A-1931 }
+    said: ["Looking at T-77 now.", "Refunding ₹2,000 for A-1931."]
+  - name: ticket numbers, dates, times and counts are not amounts
+    cls: refund
+    extracted: { amount: 4000, order: A-1931 }
+    said: ["Ticket T-77 from 12 Nov at 10:30 has 3 items. Refunding ₹4,000 for A-1931."]
+  - name: the bare number after refunding matches, the total does not count
+    cls: refund
+    extracted: { amount: 2000, order: A-1931 }
+    said: ["Order A-1931 total was 4000, refunding 2000."]
+  - name: the same UPI id, in another case
+    cls: refund
+    extracted: { amount: 4000, destination: meera.k@okaxis }
+    said: ["Refunding ₹4,000 to Meera.K@okaxis."]
+  - name: an agent that has not described anything yet
+    cls: refund
+    extracted: { amount: 40000, order: A-1931 }
+    said: ["Checking the ticket now."]
+  - name: no messages at all
+    cls: refund
+    extracted: { amount: 40000, customer: cus_8812 }
+    said: []
+  - name: the right deploy
+    cls: deploy
+    extracted: { service: checkout, env: prod, version: v2.14.0 }
+    said: ["Deploying checkout v2.14.0 to prod."]
+  - name: production is prod
+    cls: deploy
+    extracted: { service: checkout, env: prod, version: v2.14.0 }
+    said: ["Shipping checkout v2.14.0 to production."]
+  - name: the word production inside another word is not an environment
+    cls: deploy
+    extracted: { service: checkout, env: staging, version: v2.13.2 }
+    said: ["Deploying checkout v2.13.2 to staging for reproduction of the bug."]
+  - name: the right pull request
+    cls: merge
+    extracted: { repo: acme-mini-app, pr: 42 }
+    said: ["Merging PR #42."]
+  - name: pull request written out
+    cls: merge
+    extracted: { repo: acme-mini-app, pr: 42 }
+    said: ["Merging pull request 42 into main."]
+  - name: force push onto main, as asked
+    cls: merge
+    args: { command: "git push --force origin main" }
+    said: ["Force-pushing my branch onto main."]
+  - name: the right recipient
+    cls: customer_email
+    extracted: { to: auditor.ravi@gmail.com, domain: gmail.com }
+    said: ["Emailing auditor.ravi@gmail.com the list."]
+  - name: the recipient in another case
+    cls: customer_email
+    extracted: { to: meera@example.in, domain: example.in }
+    said: ["Sending the reply to MEERA@example.in."]
+  - name: the right record
+    cls: delete
+    target: "DELETE /acme/records/customers/cus_8812"
+    said: ["Deleting customer cus_8812."]
+  - name: a class with nothing to compare
+    cls: unknown_protected
+    said: ["Refunding ₹4,000 for order A-1931."]

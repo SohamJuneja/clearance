@@ -9,9 +9,9 @@ rotas:
     - { person: neha, backup: true }
 owners:
   services: { checkout: alex, refunds-api: alex }
-agents:                     # maps the hook's cwd to the agent; the owner comes from Switch (Agent.owner_id)
-  refunds-agent: { cwd: "~/.switch/agents/<host>/refunds-agent" }
-  support-agent: { cwd: "~/.switch/agents/<host>/support-agent" }
-  coder:         { cwd: "~/.switch/agents/<host>/coder" }
-  ops-agent:     { cwd: "~/.switch/agents/<host>/ops-agent" }
-  reviewer:      { cwd: "~/.switch/agents/<host>/reviewer" }
+agents:                     # maps the hook's cwd to the agent; owner here is the fallback when Switch's Agent.owner_id is not known at hold time
+  refunds-agent: { cwd: "~/.switch/agents/<host>/refunds-agent", owner: priya, vendor: claude }
+  support-agent: { cwd: "~/.switch/agents/<host>/support-agent", owner: priya, vendor: codex }
+  coder:         { cwd: "~/.switch/agents/<host>/coder", owner: alex, vendor: claude }
+  ops-agent:     { cwd: "~/.switch/agents/<host>/ops-agent", owner: alex, vendor: opencode }
+  reviewer:      { cwd: "~/.switch/agents/<host>/reviewer", owner: alex, vendor: cursor }

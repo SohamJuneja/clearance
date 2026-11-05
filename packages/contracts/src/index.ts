@@ -106,13 +106,14 @@ export const LedgerEntryTypeSchema = z.enum([
   "demoted",
   "policy_loaded",
   "break_glass",
+  "cancelled",
 ]);
 export type LedgerEntryType = z.infer<typeof LedgerEntryTypeSchema>;
 
 // ── Chat events coming from Switch (produced by switch-agent, consumed by core) ──
 
 /**
- * A message event from Switch. `sender` and `onBehalfOf` are opaque participant ids.
+ * A message event from Switch. `sender` is an opaque participant id; `onBehalfOf` is a display name, platform messages only.
  * These are the only source of identity for requesters.
  */
 export const ChatMessageEventSchema = z.object({
@@ -120,8 +121,8 @@ export const ChatMessageEventSchema = z.object({
   threadId: z.string().nullable().optional(),
   messageId: z.string(),
   sender: z.string(),
-  senderName: z.string().optional(),
-  senderKind: z.string().optional(),
+  senderName: z.string().nullable().optional(),
+  senderKind: z.string().nullable().optional(),
   /** For a platform message only (a template's kickoff): the person's display name, not a participant id. */
   onBehalfOf: z.string().nullable().optional(),
   addressed: z.boolean(),

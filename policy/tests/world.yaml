@@ -1,0 +1,23 @@
+# Synthetic systems of record for policy table tests. Mirrors the Acme Mini seed in PLAN 8.1.
+orders:
+  A-1931: { id: A-1931, customer_id: cus_8812, total: 4000, status: paid }
+  A-2004: { id: A-2004, customer_id: cus_2044, total: 40000, status: paid }
+customers:
+  cus_8812: { id: cus_8812, name: Meera K., email: meera@example.in }
+  cus_2044: { id: cus_2044, name: Rohan S., email: rohan@example.in }
+destinations:
+  meera.k@okaxis: { id: meera.k@okaxis, customer_id: cus_8812, upi: meera.k@okaxis, age_hours: 0.07 }
+  rohan.s@okhdfc: { id: rohan.s@okhdfc, customer_id: cus_2044, upi: rohan.s@okhdfc, age_hours: 2000 }
+ci:
+  v2.14.0: { version: v2.14.0, status: failing, failing: [checkout-e2e, payment-contract] }
+  v2.13.2: { version: v2.13.2, status: passing, failing: [] }
+  v1.8.0: { version: v1.8.0, status: passing, failing: [] }
+services:
+  checkout: { name: checkout, live_version: v2.13.2, owner: alex }
+  refunds-api: { name: refunds-api, live_version: v1.8.0, owner: alex }
+github:
+  "42": { number: 42, repo: acme-mini-app, author: alex, changes: 120, files: [src/cart.ts], checks: passing }
+  "77": { number: 77, repo: acme-mini-app, author: coder, changes: 640, files: [auth/login.ts, src/app.ts], checks: passing }
+files:
+  customers.csv: { name: customers.csv, rows: 3000, bytes: 180000, synthetic: true }
+  invoice.pdf: { name: invoice.pdf, rows: 1, bytes: 4096, synthetic: true }

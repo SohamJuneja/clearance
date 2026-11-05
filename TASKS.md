@@ -21,37 +21,37 @@ Tick a box only when tests or a run prove it. Acceptance text is copied from PLA
 ### P0: the submittable spine
 
 - **F1 One policy file** (brain)
-  - [ ] Schema validated with zod at load; a bad policy refuses to start with a line-numbered error.
-  - [ ] `pnpm policy:test` runs table tests: 60+ example calls across four vendors map to the expected class and tier (`policy/tests/*.yaml`).
-  - [ ] Hot reload on file change, recorded as a ledger entry with the new policy hash.
-  - [ ] Unknown tool calls default to `allow` only if they match the `safe` list; anything touching a protected resource with no rule defaults to `hold`.
+  - [x] Schema validated with zod at load; a bad policy refuses to start with a line-numbered error.
+  - [x] `pnpm policy:test` runs table tests: 60+ example calls across four vendors map to the expected class and tier (`policy/tests/*.yaml`).
+  - [x] Hot reload on file change, recorded as a ledger entry with the new policy hash.
+  - [x] Unknown tool calls default to `allow` only if they match the `safe` list; anything touching a protected resource with no rule defaults to `hold`.
 - **F2 Enforcement points** (gate-hooks; P0 gate + Claude hook, P1 others)
   - [ ] For each vendor in the coverage table, a scripted run shows a held refund and a held `git push --force origin main`, or the README marks that vendor "gate only".
   - [ ] Hooks never use `ask`; they return `allow` or `deny` with a reason.
   - [ ] Hook round trip p95 under 50 ms for allowed calls on the demo host (E4).
 - **F3 Hold, grant, execute** (gate-hooks + brain)
-  - [ ] Replay of a consumed grant is held again (test).
-  - [ ] Changing one argument after approval creates a new request (test).
+  - [x] Replay of a consumed grant is held again (test).
+  - [x] Changing one argument after approval creates a new request (test).
   - [ ] Request TTL 25 minutes; on expiry the action is denied and the requester is told.
-  - [ ] Two parallel identical calls with one grant: exactly one executes (SQLite transaction, test).
+  - [x] Two parallel identical calls with one grant: exactly one executes (SQLite transaction, test).
 - **F4 Router with separation of duties** (brain; P0 core, P1 presence, load, quorum)
   - [ ] Authority suite cases 1 to 4, 12 and 13 pass.
   - [ ] Requester answering their own card: Clearance records `INELIGIBLE_ANSWER (requester)`, posts a visible refusal in the room, and re-routes.
   - [ ] Identity resolution: two chat accounts linked to the same Switch user count as one person.
 - **F6 Evidence card** (switchboard + brain; P0 card, P1 mismatch and context)
-  - [ ] Snapshot tests for card text across 10 fixture calls.
-  - [ ] Mismatch detector fixtures: 20 positive, 20 negative, 0 false flags on the negatives.
+  - [x] Snapshot tests for card text across 10 fixture calls.
+  - [x] Mismatch detector fixtures: 20 positive, 20 negative, 0 false flags on the negatives.
   - [ ] Type-to-confirm rejects a wrong value and re-asks once.
 - **F8 Ledger** (brain; P0 table, P1 mirror and verify)
-  - [ ] Tampering with one row makes verify fail at that row (test).
+  - [x] Tampering with one row makes verify fail at that row (test).
   - [ ] `!list-documents` in `#approvals` shows today's ledger document.
 
 ### P1: the differentiators
 
 - **F5 Escalation and fail-closed expiry** (brain)
-  - [ ] Timers survive a Clearance restart (stored in SQLite, resumed on boot).
+  - [x] Timers survive a Clearance restart (stored in SQLite, resumed on boot).
   - [ ] Expired requests never execute (test with the gate).
-  - [ ] Each escalation step is a ledger entry.
+  - [x] Each escalation step is a ledger entry.
 - **F7 One inbox across rooms** (switchboard)
   - [ ] Two requests from two rooms appear in one approver's inbox within 2 seconds of being held.
   - [ ] Answering from the inbox handle settles the original request.
@@ -70,7 +70,7 @@ Tick a box only when tests or a run prove it. Acceptance text is copied from PLA
   - [ ] Loads in under 1 s locally.
   - [ ] Every number on the Desk matches the API.
 - **F13 Why me / why held** (brain)
-  - [ ] Trace is generated from the same function the router uses (no second implementation).
+  - [x] Trace is generated from the same function the router uses (no second implementation).
 - **F14 Anti-evasion** (gate-hooks + brain)
   - [ ] Authority suite cases 9, 10 and 11 pass.
 - **F15 One-command install** (switchboard)

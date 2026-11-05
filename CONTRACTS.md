@@ -34,12 +34,35 @@ POST /v1/requests/{id}/decision
   200:  the full request; 404 unknown id; 409 already decided
 
 GET  /v1/health   -> {"ok": true}
+GET  /v1/pending  -> [{"id", "agent", "tool_name", "action_class", "risk", "approver_roles", "created_at"}, ...]
 GET  /v1/ledger   -> last 100 ledger lines
 POST /v1/drills   -> sends one drill now
 
 The hook polls `wait` until allow/deny, max 10 minutes, then prints Claude Code PreToolUse JSON:
 {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "allow"|"deny", "permissionDecisionReason": "..."}}
 Server unreachable: deny risky tools, allow read-only ones (fail closed).
+
+### Hook wiring
+`.claude/settings.json` for an agent folder 3 levels below the repo root (`demo/agents/<name>/`). `$CLAUDE_PROJECT_DIR` is set by Claude Code, so no absolute paths are needed:
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "mcp__acme__.*|Bash|Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/../../../hook/clearance_hook.py\" --agent <AGENT-NAME>",
+            "timeout": 600
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+Use `python3` instead of `python` on macOS/Linux.
 
 ## Contract 3: fake company tools (B owns)
 MCP server name `acme` → Claude Code tool names `mcp__acme__<tool>`.

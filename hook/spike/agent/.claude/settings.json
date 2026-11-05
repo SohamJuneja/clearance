@@ -2,11 +2,11 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Write|Bash",
+        "matcher": "mcp__acme__.*|Bash|Write|Edit",
         "hooks": [
           {
             "type": "command",
-            "command": "python \"E:/blockchain/clearance/hook/spike/spike_hook.py\" --agent spike-bot",
+            "command": "python \"$CLAUDE_PROJECT_DIR/../../../hook/clearance_hook.py\" --agent spike-bot",
             "timeout": 600
           }
         ]

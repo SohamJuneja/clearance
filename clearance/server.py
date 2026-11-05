@@ -105,6 +105,14 @@ def create_app(
             raise HTTPException(404, f"unknown request {rid}")
         return req.to_dict()
 
+    @app.get("/v1/pending")
+    def pending() -> list[dict[str, Any]]:
+        return [
+            {"id": r.id, "agent": r.agent, "tool_name": r.tool_name, "action_class": r.action_class,
+             "risk": r.risk, "approver_roles": r.approver_roles, "created_at": r.created_at}
+            for r in store.list_pending()
+        ]
+
     @app.get("/v1/health")
     def health() -> dict[str, Any]:
         return {"ok": True, "pending": len(store.list_pending())}

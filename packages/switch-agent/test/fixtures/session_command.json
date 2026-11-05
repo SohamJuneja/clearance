@@ -1,0 +1,17 @@
+{
+  "contractVersion": 1,
+  "commandId": "f57ebc5e-1e15-5e9f-b548-c808e02cdf69",
+  "sessionId": "clr-room-14e5d462-172f-4c2e-9164-f77109bef326",
+  "epoch": "current",
+  "origin": {
+    "surface": "mattermost",
+    "actorId": "@switch-mattermost-7ff92a16-bb1a-4a5b-a94d-789f03a4dbf9-alex:localhost",
+    "roomId": "14e5d462-172f-4c2e-9164-f77109bef326",
+    "threadId": "sw_da6a988a9c688d565d227230cb449b19",
+    "messageId": "sw_da6a988a9c688d565d227230cb449b19"
+  },
+  "body": {
+    "type": "session.reset"
+  },
+  "requesterName": "alex"
+}

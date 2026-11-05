@@ -1,0 +1,14 @@
+{
+  "type": "command",
+  "room_id": "57502d55-cd11-479b-beed-9c2d1d826c73",
+  "bridge_id": "7ff92a16-bb1a-4a5b-a94d-789f03a4dbf9",
+  "channel_type": "channel_private",
+  "payload": {
+    "command": "reset",
+    "args": "",
+    "user_id": "@switch-mattermost-7ff92a16-bb1a-4a5b-a94d-789f03a4dbf9-alex:localhost",
+    "user_name": "alex",
+    "thread_id": "sw_22ac1954f547be73c714f266e991c512"
+  },
+  "sequence": 9007194959773697
+}

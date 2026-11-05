@@ -1,0 +1,9 @@
+{
+  "status": 409,
+  "body": {
+    "detail": {
+      "code": "unfenced",
+      "message": "connection e7440b63-b813-45ef-96a3-e58a38bcfdc1 is held by a client speaking agent-protocol 9, which carries the connection incarnation on every heartbeat; this tick carried none, so it could not be fenced and was refused — reopen the stream and beat with the incarnation its first frame gives you"
+    }
+  }
+}

@@ -1,7 +1,7 @@
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["**/dist/**", "**/node_modules/**", "vendor/**", "spikes/**", "agents/**/.opencode/**"] },
+  { ignores: ["**/dist/**", "**/node_modules/**", "vendor/**", "**/.claude/**", "**/spikes/**", "agents/**/.opencode/**"] },
   ...tseslint.configs.recommended,
   {
     rules: {

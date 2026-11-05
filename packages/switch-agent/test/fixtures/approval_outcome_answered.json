@@ -1,0 +1,10 @@
+{
+  "session_id": "clr-room-476f4e5e-e69a-499b-91f0-3d954c6ab661",
+  "request_id": "s2-1793913420452-1",
+  "kind": "approval",
+  "state": "answered",
+  "answer": "allow",
+  "answers": null,
+  "answered_by": "@switch-mattermost-7ff92a16-bb1a-4a5b-a94d-789f03a4dbf9-sam:localhost",
+  "answered_at": "2026-11-05T21:17:00.745631+00:00"
+}

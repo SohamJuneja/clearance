@@ -1,0 +1,26 @@
+{
+  "from_sequence": 4294967298,
+  "resumed_at": 4294967298,
+  "resumed_position": {
+    "s": 4294967298,
+    "r:7fbbc531-f93a-4048-8348-345d8c34920d": 12,
+    "r:476f4e5e-e69a-499b-91f0-3d954c6ab661": 11,
+    "r:835f8067-b66f-4184-9a75-315d72a2e213": 15,
+    "r:b2424069-eede-4358-bb50-69ba6f5a31a6": 9,
+    "r:a042aaf2-63b4-4c47-8c39-43eb2aff56e3": 21,
+    "r:1bdf9c28-3eba-4524-a07f-e3a0f1924b0d": 9,
+    "r:14486ad8-f575-473c-b46a-5ba34b9324ad": 8,
+    "r:ee8e61d5-69c3-4c68-a23f-1eca9b21cb23": 12,
+    "r:663c603e-cf9c-4580-8c8f-a59df94ba92a": 5,
+    "r:8a57482d-af01-4a26-8e0c-ec78899469e0": 9,
+    "r:57d94395-cfca-46d8-800b-6bc594af824b": 21,
+    "r:f69e5ca0-ac88-47df-935e-226234f96b17": 19,
+    "r:03ca4ad7-e10d-4a49-bc8f-75b2c6ef64f3": 21,
+    "r:0e7bb4ff-25fb-4eb9-b3cc-ba4dd43beef4": 8,
+    "r:c64707d9-d58e-4f6c-9d5f-0ffc87065c3c": 11,
+    "r:55689012-ead0-460e-84d4-539a468c0bdd": 8
+  },
+  "rooms": [],
+  "all_rooms": true,
+  "reason": "the server restarted since your last connection; sequence numbers have been reset and events from before the restart are gone in every room, including any this connection has yet to claim — re-read room context"
+}

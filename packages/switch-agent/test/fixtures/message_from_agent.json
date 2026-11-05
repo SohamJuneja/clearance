@@ -1,0 +1,24 @@
+{
+  "type": "message",
+  "room_id": "14e5d462-172f-4c2e-9164-f77109bef326",
+  "bridge_id": "7ff92a16-bb1a-4a5b-a94d-789f03a4dbf9",
+  "channel_type": "channel_private",
+  "payload": {
+    "addressed": false,
+    "sender": "@switch-agent-9d6cc48a:localhost",
+    "sender_name": "spike-worker",
+    "sender_kind": null,
+    "on_behalf_of": null,
+    "message_id": "sw_5c5226ad678c42e4a6d3b67681240d4a",
+    "body": "Refunding 4,000 for order A-1931 as requested in T-77.",
+    "timestamp": 1793915103340,
+    "thread_id": null,
+    "attachments": [],
+    "opening_message": null,
+    "sender_role": null,
+    "switch_notice": null
+  },
+  "position": {
+    "r:14e5d462-172f-4c2e-9164-f77109bef326": 13
+  }
+}

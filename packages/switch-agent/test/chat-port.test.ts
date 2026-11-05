@@ -1,0 +1,485 @@
+import type { ChatPort, OpenCardInput } from "@clearance/contracts";
+import { describe, expect, it, vi } from "vitest";
+import { roomSessionId, SwitchApiError, type OpenApprovalBody, type SwitchAgent } from "../src/agent.js";
+import {
+  createChatPort,
+  createMattermostHandleResolver,
+  directRoomName,
+  fallbackRoomName,
+  optionDecision,
+  type ChatPortOptions,
+} from "../src/chat-port.js";
+import { registerAgent } from "../src/register.js";
+import { fixture } from "./helpers.js";
+
+type OpCall = { name: string; args: Record<string, unknown>; roomId?: string };
+
+function fakeAgent(ops: Record<string, (args: Record<string, unknown>) => unknown> = {}) {
+  const opCalls: OpCall[] = [];
+  const opened: OpenApprovalBody[] = [];
+  const closed: [string, string][] = [];
+  const sent: [string, string][] = [];
+  const agent = {
+    connectionId: "conn",
+    agentId: "agent-1",
+    start: vi.fn(),
+    stop: vi.fn(),
+    async op(name: string, args: Record<string, unknown> = {}, opts: { roomId?: string } = {}) {
+      opCalls.push({ name, args, roomId: opts.roomId });
+      const handler = ops[name];
+      if (!handler) throw new Error(`unexpected op ${name}`);
+      return handler(args);
+    },
+    async sendMessage(roomId: string, content: string) {
+      sent.push([roomId, content]);
+      return { eventId: "sw_sent" };
+    },
+    async openApproval(body: OpenApprovalBody) {
+      opened.push(body);
+      return fixture("approval_view_open");
+    },
+    async closeApproval(sessionId: string, requestId: string) {
+      closed.push([sessionId, requestId]);
+      return fixture("approval_view_open");
+    },
+    markDelivered: vi.fn(),
+    undeliveredOutcomes: vi.fn(),
+  } as unknown as SwitchAgent;
+  return { agent, opCalls, opened, closed, sent };
+}
+
+function port(ops: Parameters<typeof fakeAgent>[0] = {}, options: ChatPortOptions = {}) {
+  const fake = fakeAgent(ops);
+  const warnings: string[] = [];
+  const chat: ChatPort = createChatPort(fake.agent, { warn: (line) => warnings.push(line), ...options });
+  return { ...fake, chat, warnings };
+}
+
+const approvalCard: OpenCardInput = {
+  roomId: "room-a",
+  kind: "approval",
+  title: "CLR-0042 · REFUND ₹40,000 · HIGH",
+  detail: "The call\n  Refund ₹40,000",
+  options: [
+    { id: "allow", label: "Allow" },
+    { id: "deny", label: "Deny" },
+  ],
+  questions: [],
+};
+
+describe("optionDecision", () => {
+  it.each([
+    ["allow", "accept"],
+    ["approve", "accept"],
+    ["yes", "accept"],
+    ["deny", "decline"],
+    ["reject", "decline"],
+    ["no", "decline"],
+    ["ALLOW", "accept"],
+  ])("reads %s as %s", (id, decision) => {
+    expect(optionDecision({ id, label: id })).toBe(decision);
+  });
+
+  it("never lets a typed yes or no land on an option it cannot name", () => {
+    expect(optionDecision({ id: "escalate", label: "Escalate" })).toBe("cancel");
+  });
+
+  it("prefers what the caller said", () => {
+    expect(optionDecision({ id: "escalate", label: "x", decision: "decline" })).toBe("decline");
+  });
+});
+
+describe("openCard", () => {
+  it("opens an approval with the fields Switch requires and reports where it lives", async () => {
+    const { chat, opened } = port();
+    const result = await chat.openCard({ ...approvalCard, threadId: "sw_thread", expiresAtMs: 1_800_000_000_000 });
+    const body = opened[0]!;
+    expect(body.session_id).toBe(roomSessionId("room-a"));
+    expect(body.request_id).toBe(result.switchRequestId);
+    expect(body.turn_id).toEqual(expect.any(String));
+    expect(body.kind).toBe("approval");
+    expect(body.options).toEqual([
+      { id: "allow", label: "Allow", decision: "accept" },
+      { id: "deny", label: "Deny", decision: "decline" },
+    ]);
+    expect(body.questions).toEqual([]);
+    expect(body.room_id).toBe("room-a");
+    expect(body.thread_id).toBe("sw_thread");
+    expect(body.expires_at).toBe(new Date(1_800_000_000_000).toISOString());
+    expect(result.sessionId).toBe(roomSessionId("room-a"));
+    expect(result.handle).toBeUndefined();
+  });
+
+  it("gives two cards two request ids", async () => {
+    const { chat } = port();
+    const first = await chat.openCard(approvalCard);
+    const second = await chat.openCard(approvalCard);
+    expect(first.switchRequestId).not.toBe(second.switchRequestId);
+  });
+
+  it("sends no expiry when none is given, and null detail when it is empty", async () => {
+    const { chat, opened } = port();
+    await chat.openCard({ ...approvalCard, detail: "" });
+    expect(opened[0]!.expires_at).toBeNull();
+    expect(opened[0]!.detail).toBeNull();
+    expect(opened[0]!.thread_id).toBeNull();
+  });
+
+  it("folds an option's description into its label, the only place the wire has for it", async () => {
+    const { chat, opened } = port();
+    await chat.openCard({
+      ...approvalCard,
+      options: [{ id: "allow", label: "Allow", description: "runs once" }],
+    });
+    expect(opened[0]!.options[0]!.label).toBe("Allow: runs once");
+  });
+
+  it("maps a questions card to the snake_case the wire takes, with no options of its own", async () => {
+    const { chat, opened } = port();
+    await chat.openCard({
+      roomId: "room-a",
+      kind: "questions",
+      title: "CLR-0051 is high risk",
+      detail: "",
+      options: [{ id: "ignored", label: "Ignored" }],
+      questions: [
+        {
+          id: "amount",
+          title: "Amount",
+          prompt: "Type the refund amount in rupees to approve, or answer no.",
+          options: [{ id: "no", label: "No" }],
+          multiSelect: false,
+          allowCustomAnswer: true,
+        },
+      ],
+    });
+    const body = opened[0]!;
+    expect(body.options).toEqual([]);
+    expect(body.questions).toEqual([
+      {
+        id: "amount",
+        title: "Amount",
+        prompt: "Type the refund amount in rupees to approve, or answer no.",
+        options: [{ id: "no", label: "No", description: null }],
+        multi_select: false,
+        allow_custom_answer: true,
+      },
+    ]);
+  });
+
+  it("refuses over-long text rather than cutting evidence off a card", async () => {
+    const { chat, opened } = port();
+    await expect(chat.openCard({ ...approvalCard, title: "x".repeat(501) })).rejects.toThrow("at most 500");
+    await expect(chat.openCard({ ...approvalCard, detail: "x".repeat(4001) })).rejects.toThrow("at most 4000");
+    await expect(chat.openCard({ ...approvalCard, title: "   " })).rejects.toThrow("needs a title");
+    expect(opened).toHaveLength(0);
+  });
+
+  it("returns the handle when it can be read", async () => {
+    const { chat } = port({}, { resolveHandle: async () => "A12" });
+    await expect(chat.openCard(approvalCard)).resolves.toMatchObject({ handle: "A12" });
+  });
+
+  it("still returns the card when the handle cannot be read", async () => {
+    const { chat, warnings } = port(
+      {},
+      {
+        resolveHandle: async () => {
+          throw new Error("Mattermost answered 503");
+        },
+      },
+    );
+    const result = await chat.openCard(approvalCard);
+    expect(result.switchRequestId).toEqual(expect.any(String));
+    expect(result.handle).toBeUndefined();
+    expect(warnings[0]).toContain("503");
+  });
+});
+
+describe("closeCard", () => {
+  it("closes the card it is told to", async () => {
+    const { chat, closed } = port();
+    await chat.closeCard("session", "request");
+    expect(closed).toEqual([["session", "request"]]);
+  });
+});
+
+describe("postMessage", () => {
+  it("uses the plain route at the top level", async () => {
+    const { chat, sent, opCalls } = port();
+    await expect(chat.postMessage({ roomId: "room-a", body: "hi" })).resolves.toEqual({ messageId: "sw_sent" });
+    expect(sent).toEqual([["room-a", "hi"]]);
+    expect(opCalls).toHaveLength(0);
+  });
+
+  it("uses the operation in a thread, which the plain route cannot do", async () => {
+    const { chat, opCalls } = port({ post_message: () => ({ event_id: "sw_threaded" }) });
+    const result = await chat.postMessage({ roomId: "room-a", body: "hi", threadId: "sw_root" });
+    expect(result).toEqual({ messageId: "sw_threaded" });
+    expect(opCalls[0]).toEqual({ name: "post_message", args: { body: "hi", thread_id: "sw_root" }, roomId: "room-a" });
+  });
+});
+
+describe("sendTargeted", () => {
+  const ok = () => ({ event_id: "sw", target_statuses: { "refunds-agent": "live" } });
+
+  it("addresses by name, in the room, in the thread", async () => {
+    const { chat, opCalls, warnings } = port({ send_targeted_message: ok });
+    await chat.sendTargeted({ roomId: "room-a", body: "approved", targets: ["refunds-agent", "@sam"], threadId: "sw_root" });
+    expect(opCalls[0]).toEqual({
+      name: "send_targeted_message",
+      args: { body: "approved", target_names: ["refunds-agent", "sam"], thread_id: "sw_root" },
+      roomId: "room-a",
+    });
+    expect(warnings).toHaveLength(0);
+  });
+
+  it("turns a participant id into the name Switch needs", async () => {
+    const id = "@switch-mattermost-b-sam:localhost";
+    const { chat, opCalls } = port({ send_targeted_message: ok }, { participantNames: { [id]: "sam" } });
+    await chat.sendTargeted({ roomId: "room-a", body: "x", targets: [id] });
+    expect(opCalls[0]!.args.target_names).toEqual(["sam"]);
+  });
+
+  it("refuses a participant id it has no name for, rather than guess", async () => {
+    const { chat, opCalls } = port({ send_targeted_message: ok });
+    await expect(chat.sendTargeted({ roomId: "room-a", body: "x", targets: ["@nobody:localhost"] })).rejects.toThrow("No name known");
+    expect(opCalls).toHaveLength(0);
+  });
+
+  it("says so when an agent will not wake for the message", async () => {
+    const { chat, warnings } = port({
+      send_targeted_message: () => ({ target_statuses: { "refunds-agent": "not_permitted" } }),
+    });
+    await chat.sendTargeted({ roomId: "room-a", body: "x", targets: ["refunds-agent"] });
+    expect(warnings[0]).toContain("not_permitted");
+  });
+});
+
+describe("ensureDirectRoom", () => {
+  it("finds the direct room the person opened", async () => {
+    const { chat, opCalls } = port({
+      list_rooms: () => [{ room_id: "dm-1", name: directRoomName("sam", "clearance"), archived: false }],
+      get_room_detail: () => ({ channel_type: "direct" }),
+    });
+    await expect(chat.ensureDirectRoom({ userName: "sam" })).resolves.toEqual({ roomId: "dm-1" });
+    expect(opCalls.some((call) => call.name === "create_room")).toBe(false);
+  });
+
+  it("reopens an archived direct room rather than losing it", async () => {
+    const { chat, opCalls } = port({
+      list_rooms: () => [{ room_id: "dm-1", name: directRoomName("sam", "clearance"), archived: true }],
+      get_room_detail: () => ({ channel_type: "direct" }),
+      unarchive_room: () => ({ ok: true }),
+    });
+    await chat.ensureDirectRoom({ userName: "sam" });
+    expect(opCalls.find((call) => call.name === "unarchive_room")?.args).toEqual({ room_id: "dm-1" });
+  });
+
+  it("falls back to a private room when no direct room exists, because Mattermost will not make one", async () => {
+    const { chat, opCalls } = port({
+      list_rooms: () => [],
+      create_room: () => ({ id: "private-1" }),
+    });
+    await expect(chat.ensureDirectRoom({ userName: "neha" })).resolves.toEqual({ roomId: "private-1" });
+    expect(opCalls.find((call) => call.name === "create_room")?.args).toMatchObject({
+      name: fallbackRoomName("neha", "clearance"),
+      agent_names: ["clearance"],
+      user_names: ["neha"],
+      channel_type: "channel_private",
+    });
+  });
+
+  it("reuses a private room it made earlier", async () => {
+    const { chat, opCalls } = port({
+      list_rooms: () => [{ room_id: "private-1", name: fallbackRoomName("neha", "clearance") }],
+    });
+    await expect(chat.ensureDirectRoom({ userName: "neha" })).resolves.toEqual({ roomId: "private-1" });
+    expect(opCalls.some((call) => call.name === "create_room")).toBe(false);
+  });
+
+  it("does not take a room that only happens to have the name", async () => {
+    const { chat } = port({
+      list_rooms: () => [{ room_id: "impostor", name: directRoomName("sam", "clearance") }],
+      get_room_detail: () => ({ channel_type: "channel_public" }),
+      create_room: () => ({ id: "private-1" }),
+    });
+    await expect(chat.ensureDirectRoom({ userName: "sam" })).resolves.toEqual({ roomId: "private-1" });
+  });
+
+  it("asks Switch once per person", async () => {
+    const { chat, opCalls } = port({
+      list_rooms: () => [{ room_id: "dm-1", name: directRoomName("sam", "clearance") }],
+      get_room_detail: () => ({ channel_type: "direct" }),
+    });
+    await chat.ensureDirectRoom({ userName: "sam" });
+    await chat.ensureDirectRoom({ userName: "sam" });
+    expect(opCalls.filter((call) => call.name === "list_rooms")).toHaveLength(1);
+  });
+});
+
+describe("upsertDocument", () => {
+  const input = { roomId: "room-a", name: "clearance-ledger-2026-11-06", content: "# Ledger\n" };
+
+  it("creates a document the room does not have", async () => {
+    const { chat, opCalls } = port({
+      connect_to_room: () => ({ documents: [] }),
+      create_room_document: () => ({ document_id: "doc-1" }),
+    });
+    await chat.upsertDocument(input);
+    const create = opCalls.find((call) => call.name === "create_room_document")!;
+    expect(create.roomId).toBe("room-a");
+    expect(create.args).toMatchObject({ name: input.name, content: input.content });
+    expect(create.args.description).toEqual(expect.any(String));
+    expect(create.args.instructions).toEqual(expect.any(String));
+  });
+
+  it("updates one that exists, found by name", async () => {
+    const { chat, opCalls } = port({
+      connect_to_room: () => ({ documents: [{ id: "doc-1", name: input.name }] }),
+      update_room_document: () => ({ document_id: "doc-1", status: "ok" }),
+    });
+    await chat.upsertDocument(input);
+    expect(opCalls.find((call) => call.name === "update_room_document")?.args).toEqual({
+      document_id: "doc-1",
+      content: input.content,
+    });
+    expect(opCalls.some((call) => call.name === "create_room_document")).toBe(false);
+  });
+
+  it("remembers the id, so a later write takes one call", async () => {
+    const { chat, opCalls } = port({
+      connect_to_room: () => ({ documents: [] }),
+      create_room_document: () => ({ document_id: "doc-1" }),
+      update_room_document: () => ({ status: "ok" }),
+    });
+    await chat.upsertDocument(input);
+    await chat.upsertDocument({ ...input, content: "later" });
+    expect(opCalls.map((call) => call.name)).toEqual(["connect_to_room", "create_room_document", "update_room_document"]);
+  });
+
+  it("creates it again if a person deleted it from the room", async () => {
+    const { chat } = port({
+      connect_to_room: () => ({ documents: [{ id: "doc-1", name: input.name }] }),
+      update_room_document: () => {
+        throw new SwitchApiError(400, "/ops/update_room_document", "Document not found");
+      },
+      create_room_document: () => ({ document_id: "doc-2" }),
+    });
+    await expect(chat.upsertDocument(input)).resolves.toBeUndefined();
+  });
+
+  it("does not swallow any other failure", async () => {
+    const { chat } = port({
+      connect_to_room: () => ({ documents: [{ id: "doc-1", name: input.name }] }),
+      update_room_document: () => {
+        throw new SwitchApiError(400, "/ops/update_room_document", "content exceeds 1048576 bytes");
+      },
+    });
+    await expect(chat.upsertDocument(input)).rejects.toThrow("exceeds");
+  });
+});
+
+describe("createMattermostHandleResolver", () => {
+  const card = fixture<{ message: string }>("mattermost_card_post");
+  const postsResponse = (messages: string[]) =>
+    Response.json({
+      order: messages.map((_, index) => `p${index}`),
+      posts: Object.fromEntries(messages.map((message, index) => [`p${index}`, { message }])),
+    });
+
+  function resolver(fetchImpl: typeof fetch) {
+    const { agent, opCalls } = fakeAgent({ get_room_detail: () => ({ external_channel_id: "chan-1" }) });
+    return {
+      opCalls,
+      resolve: createMattermostHandleResolver({
+        agent,
+        mattermostUrl: "http://mm.test/",
+        token: "reader-token",
+        timeoutMs: 40,
+        pollMs: 5,
+        fetch: fetchImpl,
+      }),
+    };
+  }
+
+  it("reads the handle off a card as Mattermost really stores it, escaping and all", async () => {
+    // The recorded post has a zero-width space in the address, which the title does not.
+    expect(card.message).toContain("meera.k@​okaxis");
+    const fetchImpl = vi.fn(async () => postsResponse(["chatter", card.message])) as unknown as typeof fetch;
+    const { resolve } = resolver(fetchImpl);
+    await expect(resolve({ roomId: "room-a", title: "CLR-S21 refund ₹40,000 to meera.k@okaxis · HIGH" })).resolves.toBe("A1");
+    const [url, init] = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("http://mm.test/api/v4/channels/chan-1/posts?per_page=30");
+    expect((init.headers as Record<string, string>).authorization).toBe("Bearer reader-token");
+  });
+
+  it("waits for a card that is not drawn yet", async () => {
+    let calls = 0;
+    const { resolve } = resolver((async () => {
+      calls += 1;
+      return postsResponse(calls < 3 ? [] : [card.message]);
+    }) as unknown as typeof fetch);
+    await expect(resolve({ roomId: "room-a", title: "CLR-S21 refund ₹40,000 to meera.k@okaxis · HIGH" })).resolves.toBe("A1");
+    expect(calls).toBe(3);
+  });
+
+  it("does not take another card's handle", async () => {
+    const { resolve } = resolver((async () => postsResponse([card.message])) as unknown as typeof fetch);
+    await expect(resolve({ roomId: "room-a", title: "CLR-9999 something else" })).resolves.toBeUndefined();
+  });
+
+  it("looks the channel up once per room", async () => {
+    const { resolve, opCalls } = resolver((async () => postsResponse([card.message])) as unknown as typeof fetch);
+    const title = "CLR-S21 refund ₹40,000 to meera.k@okaxis · HIGH";
+    await resolve({ roomId: "room-a", title });
+    await resolve({ roomId: "room-a", title });
+    expect(opCalls.filter((call) => call.name === "get_room_detail")).toHaveLength(1);
+  });
+
+  it("gives up cleanly on a room with no channel", async () => {
+    const { agent } = fakeAgent({ get_room_detail: () => ({ external_channel_id: null }) });
+    const resolve = createMattermostHandleResolver({ agent, mattermostUrl: "http://mm.test", token: "t" });
+    await expect(resolve({ roomId: "room-a", title: "x" })).resolves.toBeUndefined();
+  });
+
+  it("has no handle to give for a channel its token may not read, such as a real DM", async () => {
+    const { resolve } = resolver((async () => new Response("no", { status: 403 })) as unknown as typeof fetch);
+    await expect(resolve({ roomId: "room-a", title: "x" })).resolves.toBeUndefined();
+  });
+
+  it("reports any other failed read", async () => {
+    const { resolve } = resolver((async () => new Response("no", { status: 502 })) as unknown as typeof fetch);
+    await expect(resolve({ roomId: "room-a", title: "x" })).rejects.toThrow("502");
+  });
+});
+
+describe("registerAgent", () => {
+  it("registers an always-on protocol agent under the key's owner", async () => {
+    const fetchImpl = vi.fn(async () => Response.json({ id: "agent-1", api_key: "secret" })) as unknown as typeof fetch;
+    const result = await registerAgent({
+      bridgeUrl: "http://switch.test/",
+      registrationKey: "reg",
+      name: "clearance",
+      description: "d",
+      fetch: fetchImpl,
+    });
+    expect(result).toEqual({ agentId: "agent-1", apiKey: "secret" });
+    const [url, init] = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("http://switch.test/agents");
+    expect((init.headers as Record<string, string>).authorization).toBe("Bearer reg");
+    expect(JSON.parse(init.body as string)).toMatchObject({
+      name: "clearance",
+      connector_type: "external",
+      overwrite: false,
+      integration_profile: { connection_model: "always_on", message_exchange: true },
+    });
+  });
+
+  it("raises Switch's refusal", async () => {
+    const fetchImpl = (async () => Response.json({ detail: "Agent already exists" }, { status: 409 })) as unknown as typeof fetch;
+    await expect(
+      registerAgent({ bridgeUrl: "http://switch.test", registrationKey: "reg", name: "clearance", description: "d", fetch: fetchImpl }),
+    ).rejects.toThrow("Agent already exists");
+  });
+});

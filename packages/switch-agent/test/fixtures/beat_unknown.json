@@ -1,0 +1,6 @@
+{
+  "status": 404,
+  "body": {
+    "detail": "connection a7eb890c-9a03-4f6e-87ca-5e6016959c3f is not open; reconnect and resume from where you got to"
+  }
+}

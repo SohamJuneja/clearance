@@ -1,0 +1,29 @@
+{
+  "type": "message",
+  "room_id": "14e5d462-172f-4c2e-9164-f77109bef326",
+  "bridge_id": "7ff92a16-bb1a-4a5b-a94d-789f03a4dbf9",
+  "channel_type": "channel_private",
+  "payload": {
+    "addressed": true,
+    "sender": "@switch-mattermost-7ff92a16-bb1a-4a5b-a94d-789f03a4dbf9-priya:localhost",
+    "sender_name": "priya",
+    "sender_kind": null,
+    "on_behalf_of": null,
+    "message_id": "sw_86359bc927a54944d9b59caec649c9c8",
+    "body": "@spike-worker refund order A-1931",
+    "timestamp": 1793915102631,
+    "thread_id": null,
+    "attachments": [],
+    "opening_message": null,
+    "sender_role": "member",
+    "switch_notice": null
+  },
+  "sequence": 4294967297,
+  "position": {
+    "s": 4294967297
+  },
+  "missed": {
+    "count": 0,
+    "reason": null
+  }
+}

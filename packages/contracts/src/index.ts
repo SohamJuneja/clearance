@@ -122,6 +122,7 @@ export const ChatMessageEventSchema = z.object({
   sender: z.string(),
   senderName: z.string().optional(),
   senderKind: z.string().optional(),
+  /** For a platform message only (a template's kickoff): the person's display name, not a participant id. */
   onBehalfOf: z.string().nullable().optional(),
   addressed: z.boolean(),
   body: z.string(),
@@ -138,8 +139,12 @@ export const ApprovalOutcomeEventSchema = z.object({
   state: z.string(),
   /** The chosen option id for an approval card, for example "allow" or "deny". */
   answer: z.string().nullable().optional(),
-  /** Question answers, stored shape from Switch. */
+  /** Question answers, stored shape from Switch: `{question_id, selected_option_ids, custom_text}`. */
   answers: z.array(z.record(z.unknown())).nullable().optional(),
+  /**
+   * A participant id for an answer given on a chat platform. An answer given from Switch Console or
+   * the web is recorded as `user:<switchUserId>` instead: match that against `switchUserId`.
+   */
   answeredBy: z.string().nullable().optional(),
   answeredAtMs: z.number().nullable().optional(),
 });
@@ -147,7 +152,17 @@ export type ApprovalOutcomeEvent = z.infer<typeof ApprovalOutcomeEventSchema>;
 
 // ── Ports: core depends on these interfaces, main.ts wires real implementations ──
 
-export type CardOption = { id: string; label: string; description?: string };
+export type CardOption = {
+  id: string;
+  label: string;
+  description?: string;
+  /**
+   * What choosing it means to Switch: how the button is styled and what a typed "A12 yes" or "A12 no"
+   * resolves to. Optional: `allow`/`approve`/`yes` read as accept, `deny`/`reject`/`no` as decline, and
+   * anything else as cancel, which only a press or a typed number can reach.
+   */
+  decision?: "accept" | "acceptForSession" | "decline" | "cancel";
+};
 export type CardQuestion = {
   id: string;
   title: string;

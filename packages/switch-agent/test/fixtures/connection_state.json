@@ -1,0 +1,35 @@
+{
+  "connection_id": "2def4f28-d314-41d8-afb5-8e1503e2d144",
+  "agent_id": "b6ae5f75-b1dc-4c82-b0b4-42e716f3e7c6",
+  "generation": 8589934595,
+  "scope": "all",
+  "filter": "all",
+  "spawn_capable": false,
+  "rooms": [],
+  "cursor": 4294967296,
+  "position": {
+    "s": 4294967296,
+    "r:7fbbc531-f93a-4048-8348-345d8c34920d": 8,
+    "r:14486ad8-f575-473c-b46a-5ba34b9324ad": 8,
+    "r:1bdf9c28-3eba-4524-a07f-e3a0f1924b0d": 9,
+    "r:ee8e61d5-69c3-4c68-a23f-1eca9b21cb23": 8,
+    "r:8a57482d-af01-4a26-8e0c-ec78899469e0": 9
+  },
+  "protocol": 9,
+  "heartbeat_interval_seconds": 10,
+  "server": {
+    "version": "0.31.0",
+    "contracts": {
+      "agent-protocol": {
+        "speaks": 9,
+        "accepts": 1
+      }
+    }
+  },
+  "client": {
+    "speaks": 9,
+    "accepts": 9,
+    "artifact": "clearance-switch-agent",
+    "version": "0.1.0"
+  }
+}

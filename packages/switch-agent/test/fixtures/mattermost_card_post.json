@@ -1,0 +1,36 @@
+{
+  "message": "**Permission needed** · request `A1`\nCLR-S21 refund ₹40,000 to meera.k@​okaxis · HIGH\nThe call\n  Refund ₹40,000 to Meera K.\n\nFlags\n  ⚠ Amount is 10x the order total\nReply with `A1` and your choice, e.g. `A1 1`.\nNobody here is linked to this agent's owner, so this notified no one. Link your Mattermost account in Switch Console to be notified.",
+  "props": {
+    "attachments": [
+      {
+        "id": 0,
+        "fallback": "",
+        "color": "",
+        "pretext": "",
+        "author_name": "",
+        "author_link": "",
+        "author_icon": "",
+        "title": "",
+        "title_link": "",
+        "text": "",
+        "fields": null,
+        "image_url": "",
+        "thumb_url": "",
+        "footer": "",
+        "footer_icon": "",
+        "ts": null,
+        "actions": [
+          {
+            "id": "switch1",
+            "name": "1. Allow"
+          },
+          {
+            "id": "switch2",
+            "name": "2. Deny"
+          }
+        ]
+      }
+    ],
+    "from_bot": "true"
+  }
+}

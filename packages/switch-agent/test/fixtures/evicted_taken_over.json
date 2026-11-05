@@ -1,0 +1,5 @@
+{
+  "code": "taken_over",
+  "reason": "another stream attached to this connection and took it over",
+  "room_id": null
+}

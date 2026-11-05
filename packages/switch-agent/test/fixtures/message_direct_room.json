@@ -1,0 +1,29 @@
+{
+  "type": "message",
+  "room_id": "0e7bb4ff-25fb-4eb9-b3cc-ba4dd43beef4",
+  "bridge_id": "7ff92a16-bb1a-4a5b-a94d-789f03a4dbf9",
+  "channel_type": "direct",
+  "payload": {
+    "addressed": true,
+    "sender": "@switch-mattermost-7ff92a16-bb1a-4a5b-a94d-789f03a4dbf9-sam:localhost",
+    "sender_name": "sam",
+    "sender_kind": null,
+    "on_behalf_of": null,
+    "message_id": "sw_2554e61624475289cdee733141ad1de9",
+    "body": "hello",
+    "timestamp": 1793914337088,
+    "thread_id": null,
+    "attachments": [],
+    "opening_message": null,
+    "sender_role": "member",
+    "switch_notice": null
+  },
+  "sequence": 4294967304,
+  "position": {
+    "s": 4294967304
+  },
+  "missed": {
+    "count": 0,
+    "reason": null
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "status": 409,
+  "body": {
+    "detail": {
+      "code": "taken_over",
+      "message": "connection e7440b63-b813-45ef-96a3-e58a38bcfdc1 was reopened since incarnation 8589934611 and is now at 8589934612; another client holds it, so this heartbeat was refused"
+    }
+  }
+}

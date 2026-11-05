@@ -1,0 +1,29 @@
+{
+  "type": "message",
+  "room_id": "631050c3-b1c2-49f5-bb98-4c8e8251301d",
+  "bridge_id": "7ff92a16-bb1a-4a5b-a94d-789f03a4dbf9",
+  "channel_type": "channel_public",
+  "payload": {
+    "addressed": true,
+    "sender": "@switch-admin:localhost",
+    "sender_name": "alex",
+    "sender_kind": "platform",
+    "on_behalf_of": "alex",
+    "message_id": "sw_98a17541323e414e8a1d294ad756bd55",
+    "body": "@clearance a person's template names you here.",
+    "timestamp": 1793914765112,
+    "thread_id": null,
+    "attachments": [],
+    "opening_message": null,
+    "sender_role": null,
+    "switch_notice": null
+  },
+  "sequence": 4294967309,
+  "position": {
+    "s": 4294967309
+  },
+  "missed": {
+    "count": null,
+    "reason": "nothing recorded what you had already seen in this room"
+  }
+}

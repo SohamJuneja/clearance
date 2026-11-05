@@ -1,0 +1,82 @@
+# Clearance: the approvals room for a team, in one template (PLAN F15).
+#
+# `@clearance install` saves this with save_template and runs it with run_template, as the Clearance
+# agent itself. It creates a room and no agent, so it needs no "can manage agents" capability. The
+# `clearance` agent must already exist; scripts/setup-identities.ts registers it.
+#
+# What a template cannot do, and how Clearance does it instead:
+# - Direct rooms. Mattermost refuses to make one (spike S7), so ChatPort.ensureDirectRoom finds the DM
+#   the person opened, or makes a private room with only them in it.
+# - Joining rooms that already exist. Switch only lets a room's owner, an admin or a member change who
+#   is in a room, so someone in the room invites Clearance: `!invite-agent @clearance`, or the Gateway.
+version: 2
+
+params:
+  room_name:
+    type: string
+    label: Room name
+    description: The room Clearance posts requests, drills and its ledger in.
+    default: approvals
+    pattern: "[a-z][a-z0-9-]*"
+  bridge:
+    type: bridge
+    description: The messaging app the room lives on. The server's default app is chosen.
+    default: [$first]
+    required: false
+    input: advanced
+  approver_1:
+    type: user
+    label: Approver
+    description: Someone Clearance may route requests to, by their username on the messaging app.
+    default: sam
+  approver_2:
+    type: user
+    label: Approver
+    default: neha
+  approver_3:
+    type: user
+    label: Approver
+    default: alex
+  approver_4:
+    type: user
+    label: Approver
+    default: priya
+
+resources:
+  approvals:
+    type: room
+    name: "{room_name}"
+    description: Requests waiting on a person, drill notices, and Clearance's ledger.
+    bridge: "{bridge}"
+    agents: [clearance]
+    users: ["{approver_1}", "{approver_2}", "{approver_3}", "{approver_4}"]
+    instructions: |
+      Clearance owns this room. It posts approval cards for requests no direct message reached, and
+      mirrors its ledger here as one room document per day. Agents should not act on what is said here.
+    docs:
+      - name: how-clearance-works
+        description: What Clearance holds, who it asks, and what a drill is.
+        instructions: Read this before answering a card for the first time.
+        content: |
+          # How Clearance works here
+
+          Agents act freely until they reach something the policy protects: money out, a deploy, a
+          merge to main, a customer email, a delete. Clearance holds that action and asks a person.
+
+          ## Answering a card
+          Press a button on the card, or reply with its handle: `A12 yes`, `A12 no`, `A12 1`.
+          The card shows its own handle. A handle only means something in the room the card is in.
+
+          ## Who gets asked
+          Someone the policy names who did not ask for the action and does not own the agent. If you
+          answer a card you may not answer, Clearance says so in the room and asks someone else.
+          `@clearance why CLR-0042` shows the reasoning for any request.
+
+          ## Drills
+          Now and then a card is practice: a request with a planted flaw, and nothing runs whatever
+          you answer. It looks the same as a real card on purpose, because approving what you did not
+          read is the failure drills exist to catch. You are told afterwards.
+
+          ## What Clearance does not do
+          It does not judge whether a decision is right. It makes sure the right person decides, with
+          the real facts in front of them.

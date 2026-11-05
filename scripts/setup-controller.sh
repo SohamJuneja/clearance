@@ -1,42 +1,82 @@
 #!/usr/bin/env bash
-# Build, enroll and start the headless Switch agent controller on this host.
-# Repeatable: each step is skipped when it is already done. No sudo.
+# Build, enroll and start a headless Switch agent controller on this host, one per owner: an agent can
+# only run on a machine its owner holds. Repeatable: each step is skipped when it is already done. No sudo.
 #
-#   scripts/setup-controller.sh            # build + enroll + start
-#   scripts/setup-controller.sh --doctor   # doctor only
-#   scripts/setup-controller.sh --restart  # stop, rewrite the env file, start
-#   scripts/setup-controller.sh --stop     # stop
+#   scripts/setup-controller.sh --owner priya            # build + enroll + start
+#   scripts/setup-controller.sh --owner priya --doctor   # doctor only
+#   scripts/setup-controller.sh --owner priya --restart  # stop, rewrite the env file, start
+#   scripts/setup-controller.sh --owner priya --stop     # stop
+#   scripts/setup-controller.sh --owner priya --status   # PID and RSS of the controller and its children
+#   scripts/setup-controller.sh --owner priya --isolated-home   # run sessions from the isolated HOME,
+#                                                                 which needs ANTHROPIC_API_KEY in .env
 #
+# --owner defaults to admin, the Gateway admin's machine `clearance-host`. A persona signs in to the
+# Gateway as <owner>@clearance.example with PERSONA_PASSWORD from the root .env.
 # Secrets are read from .env files by this script and never printed.
 set -euo pipefail
 
+OWNER=admin
+ACTION=up
+ISOLATED=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --owner)
+      OWNER="$2"
+      shift 2
+      ;;
+    --doctor | --stop | --restart | --status)
+      ACTION="${1#--}"
+      shift
+      ;;
+    --isolated-home)
+      ISOLATED=1
+      shift
+      ;;
+    *)
+      echo "usage: $0 [--owner <name>] [--isolated-home] [--doctor|--stop|--restart|--status]" >&2
+      exit 2
+      ;;
+  esac
+done
+
 REPO_ROOT="${CLEARANCE_ROOT:-/home/prashant/projects/Clearance}"
+HERE="$(cd "$(dirname "$0")" && pwd)"
 SWITCH_DIR="$REPO_ROOT/vendor/switch"
 TOOLS="$HOME/.local/share/clearance-tools"
 SRC="$TOOLS/controller-src/console"
 CLI="$SRC/packages/agent-controller/dist/cli.mjs"
-DATA_DIR="$TOOLS/controller-data"
 RUN_DIR="$REPO_ROOT/data"
-ENV_FILE="$RUN_DIR/controller.env"
-LOG_FILE="$RUN_DIR/controller.log"
-PID_FILE="$RUN_DIR/controller.pid"
+if [ "$OWNER" = admin ]; then
+  DATA_DIR="$TOOLS/controller-data"
+  STEM=controller
+  MACHINE_NAME="${CLEARANCE_MACHINE_NAME:-clearance-host}"
+else
+  DATA_DIR="$TOOLS/controller-data-$OWNER"
+  STEM="controller-$OWNER"
+  MACHINE_NAME="${CLEARANCE_MACHINE_NAME:-clearance-$OWNER}"
+fi
+ENV_FILE="$RUN_DIR/$STEM.env"
+LOG_FILE="$RUN_DIR/$STEM.log"
+PID_FILE="$RUN_DIR/$STEM.pid"
 BRIDGE_URL="${SWITCH_BRIDGE_URL:-http://127.0.0.1:8000}"
 GATEWAY_URL="${SWITCH_GATEWAY_URL:-http://127.0.0.1:3000}"
-MACHINE_NAME="${CLEARANCE_MACHINE_NAME:-clearance-host}"
 PNPM="npx --yes pnpm@10.28.2"
 
-# The PATH agents get. The pinned OpenCode comes first; the controller appends
-# the login shell's entries after whatever it is given (login-path.ts).
-AGENT_PATH="$TOOLS/node_modules/.bin:$HOME/.local/bin:$HOME/.volta/bin:/usr/local/bin:/usr/bin:/bin"
+NODE="$(node -p process.execPath)"
+# The PATH agents get. The pinned OpenCode comes first; the controller appends the login shell's
+# entries after whatever it is given (login-path.ts). Node's own folder is named because Volta's shim
+# cannot find its home under an isolated HOME.
+AGENT_PATH="$TOOLS/node_modules/.bin:$(dirname "$NODE"):$HOME/.local/bin:$HOME/.volta/bin:/usr/local/bin:/usr/bin:/bin"
 
-# Only these reach the controller, so nothing from the invoking shell (a parent
-# agent's CLAUDE_* variables, say) leaks in.
-CLEAN_ENV=(env -i "HOME=$HOME" "USER=${USER:-$(id -un)}" "SHELL=${SHELL:-/bin/bash}"
+SESSION_HOME="$HOME"
+if [ "$ISOLATED" = 1 ]; then
+  SESSION_HOME="$TOOLS/agent-home"
+fi
+
+# Only these reach the controller, so nothing from the invoking shell (a parent agent's CLAUDE_*
+# variables, say) leaks in. Sessions take HOME from here.
+CLEAN_ENV=(env -i "HOME=$SESSION_HOME" "USER=${USER:-$(id -un)}" "SHELL=${SHELL:-/bin/bash}"
   "LANG=${LANG:-C.UTF-8}" "PATH=$AGENT_PATH")
-
-env_value() { # file name
-  sed -n "s/^$2=//p" "$1" | tail -n 1 | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'$/\1/"
-}
 
 running_pid() {
   [ -f "$PID_FILE" ] || return 1
@@ -55,15 +95,25 @@ stop_controller() {
       kill -0 "$pid" 2>/dev/null || break
       sleep 1
     done
-    echo "stopped controller pid $pid"
+    echo "stopped $MACHINE_NAME, pid $pid"
   else
-    echo "controller not running"
+    echo "$MACHINE_NAME not running"
   fi
   rm -f "$PID_FILE"
 }
 
+status() {
+  local pid
+  if pid="$(running_pid)"; then
+    echo "$MACHINE_NAME pid $pid"
+    ps -o pid,ppid,rss,etime,comm -p "$pid" --ppid "$pid"
+  else
+    echo "$MACHINE_NAME not running"
+  fi
+}
+
 doctor() {
-  "${CLEAN_ENV[@]}" node "$CLI" doctor --data-dir "$DATA_DIR" --env-file "$ENV_FILE" || true
+  "${CLEAN_ENV[@]}" "$NODE" "$CLI" doctor --data-dir "$DATA_DIR" --env-file "$ENV_FILE" || true
 }
 
 build_controller() {
@@ -83,18 +133,13 @@ build_controller() {
   )
 }
 
+# CLEARANCE_HOOK_TOKEN does not go here: the session allowlist drops it (spikes/RESULTS-vendors.md).
+# scripts/setup-agents.ts delivers it per agent directory instead.
 write_env_file() {
   mkdir -p "$RUN_DIR"
-  local token
-  token="$(env_value "$REPO_ROOT/.env" CLEARANCE_HOOK_TOKEN)"
-  [ -n "$token" ] || {
-    echo "CLEARANCE_HOOK_TOKEN is empty in $REPO_ROOT/.env" >&2
-    exit 1
-  }
   (
     umask 077
     {
-      echo "CLEARANCE_HOOK_TOKEN=$token"
       echo "PATH=$AGENT_PATH"
       # A build from source cannot update itself, and we pin the commit.
       echo "SWITCH_CONTROLLER_SELF_UPDATE=off"
@@ -103,26 +148,38 @@ write_env_file() {
   chmod 600 "$ENV_FILE"
 }
 
-# The Machines page's "Add machine" button: POST /gateway/management/enrollment-codes
-# with the signed-in admin's cookie. The code is valid for 10 minutes.
+# The Machines page's "Add machine" button: POST /gateway/management/enrollment-codes with the owner's
+# session cookie. The code is valid for 10 minutes and is bound to whoever asked for it.
 enrollment_code() {
-  SWITCH_ENV="$SWITCH_DIR/.env" GATEWAY_URL="$GATEWAY_URL" node --input-type=module -e '
+  OWNER="$OWNER" SWITCH_ENV="$SWITCH_DIR/.env" ROOT_ENV="$REPO_ROOT/.env" GATEWAY_URL="$GATEWAY_URL" \
+    "$NODE" --input-type=module -e '
     import { readFileSync } from "node:fs";
-    const env = Object.fromEntries(
-      readFileSync(process.env.SWITCH_ENV, "utf8").split("\n")
+    const read = (path) => Object.fromEntries(
+      readFileSync(path, "utf8").split("\n")
         .filter((l) => /^[A-Z_]+=/.test(l))
         .map((l) => [l.slice(0, l.indexOf("=")), l.slice(l.indexOf("=") + 1).replace(/^(["\x27])(.*)\1$/, "$2")])
     );
+    const owner = process.env.OWNER;
+    let email, password;
+    if (owner === "admin") {
+      const env = read(process.env.SWITCH_ENV);
+      email = env.GATEWAY_ADMIN_EMAIL;
+      password = env.GATEWAY_ADMIN_PASSWORD;
+    } else {
+      email = owner + "@clearance.example";
+      password = read(process.env.ROOT_ENV).PERSONA_PASSWORD;
+    }
+    if (!password) throw new Error("no password for " + owner);
     const base = process.env.GATEWAY_URL + "/gateway";
     const login = await fetch(base + "/auth/login", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: env.GATEWAY_ADMIN_EMAIL, password: env.GATEWAY_ADMIN_PASSWORD }),
+      body: JSON.stringify({ email, password }),
     });
-    if (!login.ok) throw new Error("gateway login failed: " + login.status);
+    if (!login.ok) throw new Error("gateway login as " + owner + " failed: " + login.status);
     const cookie = login.headers.getSetCookie().map((c) => c.split(";")[0]).join("; ");
     const res = await fetch(base + "/management/enrollment-codes", { method: "POST", headers: { cookie } });
-    if (!res.ok) throw new Error("enrollment code refused: " + res.status);
+    if (!res.ok) throw new Error("enrollment code refused for " + owner + ": " + res.status);
     process.stdout.write((await res.json()).code);
   '
 }
@@ -134,48 +191,51 @@ enroll_if_needed() {
   fi
   local code
   code="$(enrollment_code)"
-  "${CLEAN_ENV[@]}" node "$CLI" enroll --server "$BRIDGE_URL" --code "$code" \
-    --name "$MACHINE_NAME" --description "Clearance demo host" \
+  "${CLEAN_ENV[@]}" "$NODE" "$CLI" enroll --server "$BRIDGE_URL" --code "$code" \
+    --name "$MACHINE_NAME" --description "Clearance demo machine for $OWNER" \
     --data-dir "$DATA_DIR" --secret-store file
 }
 
 start_controller() {
   local pid
   if pid="$(running_pid)"; then
-    echo "controller already running, pid $pid"
+    echo "$MACHINE_NAME already running, pid $pid"
     return
   fi
-  nohup setsid "${CLEAN_ENV[@]}" node "$CLI" run --data-dir "$DATA_DIR" --env-file "$ENV_FILE" \
+  nohup setsid "${CLEAN_ENV[@]}" "$NODE" "$CLI" run --data-dir "$DATA_DIR" --env-file "$ENV_FILE" \
     >>"$LOG_FILE" 2>&1 </dev/null &
   echo $! >"$PID_FILE"
   sleep 5
   pid="$(running_pid)" || {
-    echo "controller exited at once; see $LOG_FILE" >&2
+    echo "$MACHINE_NAME exited at once; see $LOG_FILE" >&2
     tail -n 20 "$LOG_FILE" >&2
     exit 1
   }
-  echo "controller running, pid $pid, log $LOG_FILE"
+  echo "$MACHINE_NAME running, pid $pid, log $LOG_FILE"
 }
 
-case "${1:-}" in
-  --doctor)
+case "$ACTION" in
+  doctor)
     doctor
     exit 0
     ;;
-  --stop)
+  stop)
     stop_controller
     exit 0
     ;;
-  --restart) stop_controller ;;
-  "") ;;
-  *)
-    echo "usage: $0 [--doctor|--stop|--restart]" >&2
-    exit 2
+  status)
+    status
+    exit 0
     ;;
+  restart) stop_controller ;;
 esac
 
+if [ "$ISOLATED" = 1 ]; then
+  "$HERE/setup-agent-home.sh"
+fi
 build_controller
 write_env_file
 enroll_if_needed
 doctor
 start_controller
+status

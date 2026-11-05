@@ -101,16 +101,39 @@ Asked directly to remove the hooks block, the agent refused and the file stayed 
 
 `mcp__clearance_gate__refund_customer` (HTTP) and `mcp__spike_stdio__ping` (stdio) both loaded, with no `enableAllProjectMcpServers`. The server logged `initialize` and `tools/list` from outside the agent, and the call returned `PENDING CLR-0042: refund of 1 for acme needs approval.`
 
-### Agents inherit the operator's claude.ai connectors
+### Agents inherit the operator's claude.ai connectors: contained
 
-The same listing showed the host login's connectors: Gmail (`send_message`), Google Drive (`share_file`), Calendar, Docs, Canva and more. Any managed Claude agent on this login can reach them. No connector tool was called.
+A managed Claude agent on the operator's login gets his connectors: Gmail (`send_message`), Google Drive (`share_file`), Calendar, Docs, Canva and more. **No connector tool was called in any test.**
 
-| Tried in `.claude/settings.json` | Result |
+Evidence is the session's own init message under Switch, captured by `claude-init-tee/claude` on a probe controller's PATH (`connector-probe.mjs`). One word prompt, Haiku, fresh session per row.
+
+| Layer in project `.claude/settings.json` | Tools | `mcp__claude_ai_*` | claude.ai servers | Verdict |
+|---|---|---|---|---|
+| None (control) | 204 | **113** | 8 connected | Exposed |
+| `env: {ENABLE_CLAUDEAI_MCP_SERVERS: "false"}` | 204 | **113** | 8 connected | **No effect** |
+| `permissions.deny: ["mcp__claude_ai_*"]` | 91 | 0 | 8 **still connected** | Tools hidden, servers stay up |
+| `disableClaudeAiConnectors: true` | 88 | 0 | none | **Works: they never connect** |
+| Both of the last two | 88 | 0 | none | **Use this** |
+
+- **The variable name is real, but the `env` block is too late.** As real process env it works (0 connector tools, `connector-env-direct.sh`), and the binary names it beside the setting: "disableClaudeAiConnectors setting or ENABLE_CLAUDEAI_MCP_SERVERS env var". It cannot reach a session as real env, because it is not on Switch's allowlist.
+- **`disableClaudeAiConnectors` is the setting PLAN and the brief did not name.** It sits in a file the agent can edit, and settings hot-reload, so have core deny unknown MCP servers as well.
+
+**Isolated HOME, the strong layer: works, waiting for a key.** Tested with a dummy key against a local API stub (`anthropic-stub.mjs`), so nothing left the machine:
+
+| Measure | Result |
 |---|---|
-| `env: {ENABLE_CLAUDEAI_MCP_SERVERS: "false"}` | **No effect.** ToolSearch still finds `mcp__claude_ai_Gmail__send_message` |
-| `permissions.deny: ["mcp__claude_ai_*"]` | **Works.** ToolSearch returns none. The transcript no longer lists the connector tools; the only names left are two in text the agent read from room history |
+| Init | `apiKeySource: apiKeyHelper`, 84 tools, 0 connector tools, only `switch` connected |
+| Tools the model actually received, at the stub | 84, of which 0 `mcp__claude_ai_*` and 60 `mcp__switch__*` |
+| User plugins | None. 3 built-in plugins remain, and skills drop from 61 to 18 |
 
-The deny rule lives in a file the agent can edit, so also have core deny unknown MCP servers. Not tested: a `claude setup-token` token instead of the login, which may not carry connector scope.
+- `scripts/setup-agent-home.sh` builds it from `ANTHROPIC_API_KEY` in the root `.env`, using `apiKeyHelper`, so the key is not in the session's environment. The agent can still read the key file, since it is the same Linux user.
+- With no key it exits 3 and creates nothing. `scripts/setup-controller.sh --owner <name> --isolated-home` uses it. It never copies Claude credentials.
+- **Not tested:** a real key against the real API.
+
+Other things measured on the way:
+
+- The controller's sign-in check sends one short prompt to the default model at startup (source: "for setting up and rechecks asked for, not for every periodic check"). So each controller start costs one small request.
+- `HOME` also decides where agents with no `directory` work, so set `directory` explicitly.
 
 ## S5 and S6: OpenCode: PASS
 
@@ -208,6 +231,30 @@ Set B changes the name because `clearance` already belongs to the real agent on 
 - When an agent mentions `@clearance` and it is not in the room, Switch posts `Clearance (clearance) isn't in this room, so your message won't reach it.` Rooms need Clearance as a member.
 
 **PLAN's bar of 5 of 5 is not met on the retry half.** Take the documented fallback: execute on approval through the gate for business actions, and for shell actions accept the occasional nudge and say so. Not measured: other Claude models, stronger pressure prompts.
+
+## Controllers per owner and agent setup
+
+**One controller per owner works.** An agent can only run on a machine its owner holds, so `scripts/setup-controller.sh --owner <name>` signs in to the Gateway as that persona and enrols its own machine, with separate data dirs.
+
+| Machine | Owner | State | RSS |
+|---|---|---|---|
+| `clearance-priya` | Priya | Running, detached | 88 MB |
+| `clearance-alex` | Alex | Running, detached | 86 MB |
+| `clearance-host` | Gateway admin | Stopped, still enrolled | 0 |
+
+- **Stopping the old `clearance-host` took two tries.** Its PID file held Volta's `node` shim, so killing that orphaned the real controller. The script now runs real `node` directly, which has no child to orphan.
+- The controller env file no longer holds `CLEARANCE_HOOK_TOKEN`, since the session allowlist drops it anyway.
+
+**`scripts/setup-agents.ts` is tested live on a small fixture**, 21 unit tests plus two real runs:
+
+- It delegates tokens and Codex trust to `packages/hook-cli/src/setup.ts` rather than copying it. It takes models, briefs and addressing from `templates/acme-mini.template.yaml`.
+- Second run: `folder=kept`, `agent=unchanged`, and a file left in the agent's folder survived.
+- Measured on the server and on disk: right owner, `model` set, brief has the rules, addressing cleared, modes 600 and 700, and each gate token belongs to its own agent.
+- It writes containment into `.claude/settings.local.json`, so it holds whatever the repo's settings say. Real init from that file: 88 tools, 0 connector tools, Switch only, user plugins off.
+- **The server refuses to place Codex and Cursor agents today:** `provider_login_missing` and `provider_not_installed`. Folders and Codex trust are still prepared, so rerunning after a login finishes the job. The script exits 1 and says so.
+- **Templates hit the same wall.** A template checks every machine's provider login, so `acme-mini` with `create_support_agents=true` cannot run until Codex has a login. That is why this script creates agents directly.
+
+**Not run:** `setup-agents.ts` against `acme-mini-app` itself, or any session from the agents it creates.
 
 ## Things to fix before Phase 1
 

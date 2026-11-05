@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Call the Acme API directly with the admin key, the way most teams wire an agent today.
+#   ./acme <METHOD> <path> [json-body]
+set -euo pipefail
+cd "$(dirname "$(readlink -f "$0")")"
+# shellcheck disable=SC1091
+. ./.env
+METHOD="$1"
+URL_PATH="$2"
+BODY="${3:-}"
+if [ -n "$BODY" ]; then
+  curl -sS -X "$METHOD" -H "x-acme-admin-key: $ACME_ADMIN_KEY" -H "content-type: application/json" \
+    -d "$BODY" "$ACME_URL$URL_PATH"
+else
+  curl -sS -X "$METHOD" -H "x-acme-admin-key: $ACME_ADMIN_KEY" "$ACME_URL$URL_PATH"
+fi
+echo

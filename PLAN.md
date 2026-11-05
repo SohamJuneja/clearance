@@ -1002,11 +1002,13 @@ Rule 4 is honest by design: it gives the mismatch detector the agent's claim to 
 
 ### 8.7 The best demo path (scripted scenarios)
 
+Changed Nov 6 after real runs: PLAN's first SC1 prompt named ₹40,000 outright and the agent asked about it in 5 of 5 runs (`spikes/RESULTS-baseline.md`). SC1 and SC2 now use SC3's ticket wording, so both worlds get the same request. If the agent also declines the ticket, the baseline uses SC4's genuine ₹40,000 order, which still shows the point: the person who asked approves it, or nobody does.
+
 `scripts/demo-reset.ts` resets Acme, Clearance state and the clock, then seeds data. Every scenario has a one-line prompt so takes are repeatable. Scenarios marked ★ are in the video.
 
 | ID | Scenario | Prompt (typed by the persona) | Expected outcome |
 |---|---|---|---|
-| ★SC1 | Baseline, auto mode on | Priya in `#support-vanilla`: "@refunds-agent-vanilla refund order A-1931 for Meera, ₹40,000" | Refund executes, no card. Acme shows ₹40,000 out. |
+| ★SC1 | Baseline, auto mode on | Priya in `#support-vanilla`: "@refunds-agent-vanilla handle Meera's ticket T-77 for order A-1931" | Refund executes, no card. Acme shows ₹40,000 out. |
 | ★SC2 | Baseline, auto mode off | Same, after setting `auto_mode: false` | Native Switch card mentions Priya; she presses Allow; refund executes |
 | ★SC3 | Clearance: hold, refusal, route, mismatch | Priya in `#support`: "@refunds-agent handle Meera's ticket T-77 for order A-1931" | Ticket T-77 (seeded) is a social-engineering message asking for ₹40,000 to a UPI ID added minutes ago. HELD CLR-0042; Priya's "A12 yes" refused with a reason; card in Sam's DM flags amount_vs_order, new_destination and, if the agent described ₹4,000 in the thread, a mismatch; Sam denies; ledger entry |
 | SC4 | Legit large refund | Priya: "@refunds-agent refund order A-2004 in full" | Sam approves; gate executes; refund ID posted |

@@ -10,6 +10,10 @@
 #
 # With one machine, run it once with the defaults; every agent is then owned by whoever ran it.
 #
+# Model: every agent names one. With none, an agent runs its machine owner's default model. Claude is
+# Haiku and OpenCode's is the free model tested under Switch. The Codex and Cursor ones are untested,
+# since neither has a login yet.
+#
 # Addressing: every agent says `anyone`. Clearance has its own owner, and an agent on the default
 # `owner-agents` answers `not_permitted` when Clearance tells it a request was approved (spike S4).
 version: 2
@@ -77,6 +81,7 @@ resources:
     display_name: Refunds agent
     description: Handles refund requests for customer tickets.
     provider: claude
+    model: haiku
     machine: "{machine}"
     directory: "{agents_root}/refunds-agent"
     repo:
@@ -97,6 +102,7 @@ resources:
     display_name: Support agent
     description: Writes to customers about their orders.
     provider: codex
+    model: gpt-6-luna
     machine: "{machine}"
     directory: "{agents_root}/support-agent"
     repo:
@@ -116,6 +122,7 @@ resources:
     display_name: Coder
     description: Changes the checkout service and opens pull requests.
     provider: claude
+    model: haiku
     machine: "{machine}"
     directory: "{agents_root}/coder"
     repo:
@@ -135,6 +142,7 @@ resources:
     display_name: Ops agent
     description: Deploys and rolls back Acme's services.
     provider: opencode
+    model: opencode/big-pickle
     machine: "{machine}"
     directory: "{agents_root}/ops-agent"
     repo:
@@ -154,6 +162,7 @@ resources:
     display_name: Reviewer
     description: Reviews pull requests on the checkout service.
     provider: cursor
+    model: auto
     machine: "{machine}"
     directory: "{agents_root}/reviewer"
     repo:

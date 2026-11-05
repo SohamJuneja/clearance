@@ -1,5 +1,10 @@
 {
-  "permissions": { "deny": ["mcp__claude_ai_*"] },
+  "disableClaudeAiConnectors": true,
+  "permissions": {
+    "deny": [
+      "mcp__claude_ai_*"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {
@@ -10,8 +15,12 @@
             "url": "http://127.0.0.1:7700/v1/hooks/claude",
             "timeout": 20,
             "onFailure": "block",
-            "headers": { "Authorization": "Bearer $CLEARANCE_HOOK_TOKEN" },
-            "allowedEnvVars": ["CLEARANCE_HOOK_TOKEN"]
+            "headers": {
+              "Authorization": "Bearer $CLEARANCE_HOOK_TOKEN"
+            },
+            "allowedEnvVars": [
+              "CLEARANCE_HOOK_TOKEN"
+            ]
           }
         ]
       }

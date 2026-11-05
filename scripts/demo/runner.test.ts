@@ -151,7 +151,7 @@ describe("the demo runner", () => {
         world.state.refunds.push({ id: "re_1", amount: 40000, order_id: "A-1931" });
       };
       const result = await runScenario(sc01, options);
-      expect(output()).toContain('"@refunds-agent-vanilla refund order A-1931 for Meera, ₹40,000"');
+      expect(output()).toContain(`"@refunds-agent-vanilla handle Meera's ticket T-77 for order A-1931"`);
       expect(result.verdict).toBe("pass");
       expect(result.steps.map((step) => step.outcome)).toEqual(["pass", "pass", "pass", "pass"]);
     });

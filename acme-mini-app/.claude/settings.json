@@ -1,4 +1,5 @@
 {
+  "disableClaudeAiConnectors": true,
   "permissions": { "deny": ["mcp__claude_ai_*"] },
   "hooks": {
     "PreToolUse": [

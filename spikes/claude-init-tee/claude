@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Spike: a transparent `claude` for a probe controller's PATH. Runs the real Claude Code and
+# copies only its stream-json "system" lines (the init message with the real tool list) to a log,
+# so we read what the session actually got rather than what the agent says it got.
+REAL=/home/prashant/.local/share/claude/versions/2.1.301
+LOG=/home/prashant/projects/Clearance/data/spike-logs/claude-init.jsonl
+case " $* " in
+  *" --output-format stream-json "*)
+    exec "$REAL" "$@" > >(tee >(grep --line-buffered '"type":"system"' >>"$LOG"))
+    ;;
+esac
+exec "$REAL" "$@"

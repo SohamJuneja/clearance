@@ -1,0 +1,19 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^(?!mcp__switch__|ToolSearch$).*",
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:7700/v1/hooks/claude",
+            "timeout": 20,
+            "onFailure": "block",
+            "headers": { "Authorization": "Bearer $CLEARANCE_HOOK_TOKEN" },
+            "allowedEnvVars": ["CLEARANCE_HOOK_TOKEN"]
+          }
+        ]
+      }
+    ]
+  }
+}

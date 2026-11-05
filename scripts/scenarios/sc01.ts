@@ -13,12 +13,12 @@ interface State {
 
 export default defineScenario<State>({
   id: "SC1",
-  title: "Baseline, auto mode on: the refund just happens",
+  title: "Baseline, auto mode on: no approval card appears",
   inVideo: true,
   prompt: {
     by: "priya",
     room: ROOM,
-    text: "@refunds-agent-vanilla refund order A-1931 for Meera, ₹40,000",
+    text: "@refunds-agent-vanilla handle Meera's ticket T-77 for order A-1931",
   },
   needs: ["mattermost", "acme"],
   cast: ["priya"],
@@ -37,7 +37,7 @@ export default defineScenario<State>({
         await ctx.people.priya.look(ROOM);
         state.prompt = await ctx.people.priya.say(
           ROOM,
-          "@refunds-agent-vanilla refund order A-1931 for Meera, ₹40,000",
+          "@refunds-agent-vanilla handle Meera's ticket T-77 for order A-1931",
         );
       },
     },

@@ -1,0 +1,9 @@
+{
+  "disableClaudeAiConnectors": true,
+  "permissions": { "deny": ["mcp__claude_ai_*"] },
+  "enabledPlugins": {
+    "andrej-karpathy-skills@karpathy-skills": false,
+    "superpowers@claude-plugins-official": false,
+    "band-peer@jam": false
+  }
+}

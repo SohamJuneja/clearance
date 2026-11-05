@@ -1,0 +1,30 @@
+{
+  "name": "@clearance/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@clearance/contracts": "workspace:*",
+    "@clearance/adapters": "workspace:*",
+    "fastify": "^5.2.0",
+    "better-sqlite3": "^12.0.0",
+    "zod": "^3.25.0",
+    "yaml": "^2.6.0",
+    "ulid": "^2.3.0",
+    "jsep": "^1.4.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vitest": "^3.2.0",
+    "tsx": "^4.19.0",
+    "@types/node": "^22.0.0",
+    "@types/better-sqlite3": "^7.6.0"
+  }
+}

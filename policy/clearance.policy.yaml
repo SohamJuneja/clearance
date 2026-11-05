@@ -1,0 +1,165 @@
+version: 1
+mode: enforce            # enforce | shadow
+currency: INR
+time_scale: 1            # the demo sets CLEARANCE_TIME_SCALE=10
+
+tiers:                   # score thresholds; the score comes from the risk rules below
+  low:      [0, 30]
+  medium:   [30, 55]
+  high:     [55, 80]
+  critical: [80, 101]
+
+defaults:
+  request_ttl: 25m
+  grant_ttl: 10m
+  max_open_cards_per_person: 6
+  exclude_requester: true
+  exclude_agent_owner_from: high      # tier at or above which the agent's owner cannot approve
+  unknown_protected_action: hold
+
+safe:                    # pass silently, no card ("quiet on safe work")
+  - { shell: '^(ls|cat|grep|rg|git (status|diff|log|show)|pnpm (test|lint|typecheck))\b' }
+  - { file_write: '^(src|tests|docs)/' }
+  - { gate: 'GET /acme/*' }
+
+classes:
+  refund:
+    match:
+      - { gate: 'POST /acme/refunds' }
+      - { mcp: 'refund_customer' }
+      - { shell: 'acme\s+refund\b' }
+    extract:
+      amount: 'args.amount'
+      customer: 'args.customer_id'
+      destination: 'args.destination'
+      order_total: 'lookup("orders", args.order_id).total'
+      destination_age_hours: 'lookup("destinations", args.destination).age_hours'
+    risk:
+      base: 20
+      add:
+        - { when: 'amount > 10000', points: 35 }
+        - { when: 'amount > 3 * order_total', points: 30, flag: amount_vs_order }
+        - { when: 'destination_age_hours < 24', points: 25, flag: new_destination }
+        - { when: 'outside_hours()', points: 5 }
+    aggregate:                         # anti-structuring: ten small refunds do not slip under the threshold
+      - { sum: amount, by: customer, window: 24h, over: 10000, then: hold }
+    reversible: false
+    approvers:
+      any_of: [ { role: finance-approver }, { group: finance } ]
+      quorum: { default: 1, critical: 2 }
+    escalate:
+      - { after: 3m,  add: backup }
+      - { after: 8m,  post: '#approvals', mention: '@finance-approvers' }
+      - { after: 20m, notify: requester }
+    autonomy:
+      max_level: L3
+      buckets: [ { name: small, when: 'amount <= 5000' } ]
+      promote_after: { approvals: 20, days: 7, min_distinct_approvers: 2 }
+    drills: true
+
+  deploy:
+    match:
+      - { gate: 'POST /acme/deploys' }
+      - { shell: '(acme\s+deploy|kubectl\s+(apply|rollout)|terraform\s+apply)\b' }
+    extract:
+      service: 'args.service'
+      env: 'args.env'
+      version: 'args.version'
+      checks: 'lookup("ci", args.version).status'
+    risk:
+      base: 25
+      add:
+        - { when: 'env == "prod"', points: 35 }
+        - { when: 'checks != "passing"', points: 30, flag: failing_checks }
+        - { when: 'friday_after("18:00")', points: 10 }
+    reversible: true                   # a rollback exists
+    approvers:
+      any_of: [ { owner_of: service }, { role: eng-oncall } ]
+      quorum: { default: 1 }
+    escalate:
+      - { after: 5m,  add: backup }
+      - { after: 10m, post: '#eng' }
+    autonomy:
+      max_level: L2
+      buckets: [ { name: staging, when: 'env == "staging"' } ]
+    drills: true
+
+  merge:
+    match:
+      - { gate: 'POST /github/merge' }
+      - { shell: 'git\s+push\b.*\b(main|master)\b' }
+      - { shell: 'git\s+push\s+.*--force' }
+    extract:
+      repo: 'args.repo'
+      pr: 'args.pr'
+      author: 'lookup("github", args.pr).author'
+      diff_lines: 'lookup("github", args.pr).changes'
+    risk:
+      base: 30
+      add:
+        - { when: 'diff_lines > 400', points: 20 }
+        - { when: 'touches("auth/**")', points: 25, flag: touches_auth }
+    reversible: true
+    approvers:
+      any_of: [ { group: eng } ]
+      exclude: [ author ]
+      quorum: { default: 1, critical: 2 }
+    autonomy: { max_level: L1 }
+
+  customer_email:
+    match:
+      - { gate: 'POST /acme/emails' }
+      - { mcp: 'send_customer_email' }
+    extract:
+      to: 'args.to'
+      domain: 'domain(args.to)'
+      rows: 'count_rows(args.attachments)'
+      attachments: 'len(args.attachments)'
+    risk:
+      base: 15
+      add:
+        - { when: 'rows > 100', points: 50, flag: bulk_data }
+        - { when: 'not (domain in ["acme.in"])', points: 15 }
+    reversible: false
+    approvers:
+      any_of: [ { role: support-lead } ]
+    autonomy:
+      max_level: L3
+      buckets: [ { name: plain_reply, when: 'attachments == 0' } ]
+    drills: true
+
+  delete:
+    match:
+      - { gate: 'DELETE /acme/records/*' }
+      - { shell: '\brm\s+-rf\s+(/|~|\.\.)' }
+      - { shell: '\bDROP\s+TABLE\b' }
+    risk: { base: 70 }
+    reversible: false
+    approvers:
+      any_of: [ { group: eng } ]
+      quorum: { default: 2 }
+    autonomy: { max_level: L0 }
+
+  protected_config:                    # anti-evasion (F14): never routed, always denied with a reason
+    match:
+      - { file_write: '(^|/)\.(claude|codex|opencode|cursor)/' }
+      - { file_write: 'clearance.*\.ya?ml$' }
+      - { file_read: '(^|/)\.env' }
+      - { shell: '\bdocker\b' }
+      - { shell: 'curl\b.*(localhost|127\.0\.0\.1):7800' }
+    decision: deny
+
+drills:
+  enabled: true
+  rate: 0.05
+  max_per_person_per_day: 1
+  library: drills/flaws.yaml
+
+rubber_stamp:
+  t_min: { base_s: 2, per_evidence_line_s: 0.25, tier_bonus_s: { high: 3, critical: 6 } }
+  streak: { approvals: 5, max_denials: 0 }
+  friction: type_to_confirm
+
+policy_owners: [ { role: finance-approver }, { group: eng-leads } ]
+policy_change_quorum: 2
+break_glass: { people: [alex], review_within: 24h }

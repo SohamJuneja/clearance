@@ -1,0 +1,17 @@
+people:
+  - { id: priya, name: Priya, switch_user: "<id>", groups: [support], roles: [support-lead] }
+  - { id: sam,   name: Sam,   switch_user: "<id>", groups: [finance], roles: [finance-approver] }
+  - { id: neha,  name: Neha,  switch_user: "<id>", groups: [finance], roles: [finance-approver] }   # backup approver
+  - { id: alex,  name: Alex,  switch_user: "<id>", groups: [eng, eng-leads], roles: [eng-oncall] }
+rotas:
+  finance-approver:
+    - { person: sam,  days: Mon-Fri, hours: "09:00-19:00", tz: Asia/Kolkata }
+    - { person: neha, backup: true }
+owners:
+  services: { checkout: alex, refunds-api: alex }
+agents:                     # maps the hook's cwd to the agent; the owner comes from Switch (Agent.owner_id)
+  refunds-agent: { cwd: "~/.switch/agents/<host>/refunds-agent" }
+  support-agent: { cwd: "~/.switch/agents/<host>/support-agent" }
+  coder:         { cwd: "~/.switch/agents/<host>/coder" }
+  ops-agent:     { cwd: "~/.switch/agents/<host>/ops-agent" }
+  reviewer:      { cwd: "~/.switch/agents/<host>/reviewer" }

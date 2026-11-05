@@ -1,0 +1,39 @@
+{
+  "name": "clearance",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.14.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "pnpm -r --parallel --workspace-concurrency=4 test",
+    "typecheck": "pnpm -r --workspace-concurrency=4 typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "policy:test": "pnpm --filter @clearance/core exec vitest run test/policy-table.test.ts",
+    "ledger:verify": "tsx packages/core/src/cli/ledger-verify.ts",
+    "demo:reset": "tsx scripts/demo-reset.ts",
+    "demo:run": "tsx scripts/demo-run.ts",
+    "eval:authority": "tsx eval/authority-suite/run.ts",
+    "eval:vendors": "tsx eval/cross-vendor/run.ts",
+    "eval:classifier": "tsx eval/classifier/run.ts",
+    "eval:latency": "tsx eval/latency-soak/latency.ts",
+    "eval:soak": "tsx eval/latency-soak/soak.ts",
+    "eval:study": "tsx eval/study/run.ts",
+    "eval:autonomy": "tsx eval/autonomy/run.ts",
+    "eval:report": "tsx eval/report.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "tsx": "^4.19.0",
+    "vitest": "^3.2.0",
+    "@types/node": "^22.0.0",
+    "eslint": "^9.15.0",
+    "typescript-eslint": "^8.15.0",
+    "prettier": "^3.4.0",
+    "yaml": "^2.6.0",
+    "zod": "^3.25.0"
+  }
+}

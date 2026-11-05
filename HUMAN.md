@@ -76,7 +76,7 @@ Everything else is being done without you. Tick a box when done (or just tell me
 - [ ] **Look at the study on your phone** before the first participant (2 minutes). No real browser has rendered it on a phone yet. I'll mark this NOW and send the link when it's up.
 - [ ] **Make the repos public** (needs your OK; I run the command after you tick). Must happen before submission.
 - [ ] **Track 03 comment on #803 and the PR from a fork**, plus signing the CLA. Text will be here.
-- [ ] **Voice-over (optional, 15 minutes).** I'll make a TTS version; your voice is better if you have time. Script will be here.
+- [ ] **Voice-over (optional, 15 minutes).** The offline TTS (Piper) version works, but I can't hear audio, so please listen to it once when the first cut exists. Your voice is better if you have time: drop files at `scripts/video/voice/<scene>.wav` and they win over TTS. Script will be here.
 - [ ] **Optional, stronger anti-evasion:** needs sudo for `/etc/claude-code/managed-settings.json`, which agents can't edit. Not tested yet. I'd only use it if you want it for the demo host.
 - [ ] **Optional: report the `!list-documents` crash upstream** (`commands.py:1963`, no `_package_store`, at the pinned commit). It's public, so yours to post. I can draft the text.
 - [ ] **Blog and three #HowISwitch posts.** Ready to post here with clips.

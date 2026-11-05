@@ -119,12 +119,12 @@ Tick a box only when tests or a run prove it. Acceptance text is copied from PLA
 - [x] **D2** (world-ui) Acme Mini services, CLI, seed data; `scripts/demo-reset.ts` under 10 s.
 - [x] **D3** (switchboard) `templates/` for clearance, acme-mini, acme-vanilla.
 - [ ] **D4** (proof) `pnpm demo:run SCn` for every scenario through the Mattermost API and Playwright. People scripted, agents never.
-- [ ] **D5** (proof) Video pipeline: Playwright capture at 1920x1080, ffmpeg split screens, captions, "clock 10x", numbers slide from RESULTS.md, offline TTS. Under 3:00.
+- [ ] **D5** (proof; pipeline proven on a smoke capture, real footage pending) Video pipeline: Playwright capture at 1920x1080, ffmpeg split screens, captions, "clock 10x", numbers slide from RESULTS.md, offline TTS. Under 3:00.
 - [ ] **D6** (lead) README per PLAN 13, including Best demo path, "Remove Switch and this breaks", Related work, How we used AI tools, Threat model and limits, vendor coverage table.
 - [ ] **D7** (lead) `docs/threat-model.md`, `docs/architecture.md`, `docs/policy-reference.md`, `docs/built-by-voice.md`.
 - [ ] **D8** (lead) Blog draft, 1,000 to 1,500 words, in HUMAN.md.
 - [ ] **D9** (lead) Three #HowISwitch posts with clips, in HUMAN.md.
 - [ ] **D10** (switchboard) Track 03 #803: design comment text, PR code in a fork, in HUMAN.md.
 - [ ] **D11** (world-ui) Study: recruitment text, consent, sets X and Y, Approval Lab, in-Switch study bot, analysis.
-- [ ] **D12** (proof) Competition re-scan Fri 12:00 and Sat 12:00; update README Related work.
+- [ ] **D12** (proof; first scan done, docs/competition-scan.md) Competition re-scan Fri 12:00 and Sat 12:00; update README Related work.
 - [ ] **D13** (lead) `SUBMISSION.md` with every form field. Tag `v1.0.0`. CI green. Fresh-clone `just demo` verified in a clean temp directory.

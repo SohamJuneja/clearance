@@ -1,0 +1,45 @@
+# The smoke test's storyboard: every kind of scene, on a real capture of the Mattermost login page.
+# `pnpm video:smoke` writes docs/media/raw/smoke.mp4 from this. Nothing here is in the demo video.
+
+max_duration_s: 180
+
+default_notices:
+  - "persona actions are scripted; agents' words are not"
+
+scenes:
+  - id: smoke-title
+    kind: card
+    planned_s: 3
+    headline: "Pipeline smoke test: a title card with a ₹40,000 sign in it."
+    voiceover: "This is the pipeline's smoke test. It only proves the video tooling works."
+
+  - id: smoke-clip
+    kind: clip
+    planned_s: 6
+    clock10x: true
+    callouts: ["staged illustration, real clicks"]
+    source: { clip: takes/SMOKE/latest/priya.mp4 }
+    voiceover: "A real capture of the Mattermost login page, with a long caption that has to wrap onto a second line and then carry on into another caption afterwards. A ₹40,000 sign must render too."
+
+  - id: smoke-split
+    kind: split
+    planned_s: 5
+    sources:
+      - { clip: takes/SMOKE/latest/half-a.mp4 }
+      - { clip: takes/SMOKE/latest/half-b.mp4 }
+    voiceover: "Two windows, side by side, each with its own label."
+
+  - id: smoke-numbers
+    kind: numbers
+    planned_s: 5
+    headline: "Measured, not claimed"
+    rows: [E1, E2/risky, E5/catch, E3/cards, NEG]
+    voiceover: "Bad outcomes prevented, of 25: {{E1.clearance}}. And one place we lose: {{NEG.text}}."
+
+  - id: smoke-close
+    kind: card
+    planned_s: 3
+    headline: "End card."
+    lines:
+      - "`templates/clearance.template.yaml`"
+      - "{{repo_url}}"

@@ -172,6 +172,9 @@ importers:
       eslint:
         specifier: ^9.15.0
         version: 9.39.5(supports-color@7.2.0)
+      playwright-core:
+        specifier: 1.58.2
+        version: 1.58.2
       prettier:
         specifier: ^3.4.0
         version: 3.9.10
@@ -2077,6 +2080,11 @@ packages:
   pkce-challenge@5.0.1:
     resolution: {integrity: sha512-wQ0b/W4Fr01qtpHlqSqspcj3EhBvimsdh0KlHhH8HRZnMsEa0ea2fTULOXOS9ccQr3om+GcGRk4e+isrZWV8qQ==}
     engines: {node: '>=16.20.0'}
+
+  playwright-core@1.58.2:
+    resolution: {integrity: sha512-yZkEtftgwS8CsfYo7nm0KE8jsvm6i/PTgVtB8DL726wNf6H2IMsDuxCpJj59KDaxCtSnrWan2AeDqM7JBaultg==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   postcss@8.5.32:
     resolution: {integrity: sha512-LJlKCCAUFKOuZxipUdYw1NzIITEsPcgyOG9LkvRJvuKj/bRzbuRY0ARXvL0pWGpsZvn8jku+LMep2eU0seHp8g==}
@@ -4086,6 +4094,8 @@ snapshots:
       thread-stream: 4.2.1
 
   pkce-challenge@5.0.1: {}
+
+  playwright-core@1.58.2: {}
 
   postcss@8.5.32:
     dependencies:

@@ -1,0 +1,96 @@
+# The demo video, built from the table in PLAN section 12. `pnpm video:build` reads this.
+#
+# Voice-over is read as written. `{{E1.clearance}}` pulls a cell from RESULTS.md at build time, and a cell
+# with no number yet reads "pending". Never type a result here.
+#
+# Clips are relative to docs/media/raw/ and come from `pnpm demo:run <SC> --record`. Pin a good take by
+# replacing `latest` with its number. `segments` keeps parts of a clip, in seconds or by scenario step name.
+#
+# The 93% in sc14 and sc9 is Anthropic's published figure, not one of ours. It's in the plan's script, and
+# the notice on those scenes names the source.
+
+max_duration_s: 180
+
+default_notices:
+  - "persona actions are scripted; agents' words are not"
+
+scenes:
+  - id: sc2
+    kind: clip
+    planned_s: 8
+    source: { clip: takes/SC2/latest/priya.mp4 }
+    voiceover: "This is Switch today. Priya asks her agent for a ₹40,000 refund, and the approval card goes to Priya. She approves her own refund."
+
+  - id: sc14
+    kind: clip
+    planned_s: 9
+    source: { clip: takes/SC14/latest/sam.mp4 }
+    callouts: ["staged illustration, real clicks"]
+    notices: ["93%: Anthropic, Claude Code auto mode, Mar 2026"]
+    voiceover: "And when someone else approves, people approve 93% of what they're shown. Approval gates are everywhere in this hackathon. They don't stay meaningful on their own."
+
+  - id: title
+    kind: card
+    planned_s: 9
+    headline: "Clearance: the approval layer that keeps approvals meaningful, across every room and every agent."
+    lines: ["Built on Switch."]
+    voiceover: "Clearance is the approval layer for the whole team, for every room and every agent vendor, with no changes to Switch."
+
+  - id: sc3
+    kind: split
+    planned_s: 34
+    sources:
+      - { clip: takes/SC3/latest/priya.mp4 }
+      - { clip: takes/SC3/latest/sam.mp4 }
+    voiceover: "Clearance holds the refund, refuses Priya's own approval, and sends it to Sam in finance. Sam sees the real call, not the agent's story: ten times the order total, to a payment ID added four minutes ago. He denies it."
+
+  - id: sc5-sc6
+    kind: split
+    planned_s: 20
+    sources:
+      - { clip: takes/SC5/latest/priya.mp4 }
+      - { clip: takes/SC6/latest/alex.mp4 }
+    voiceover: "Same policy file, different vendors. A Codex agent's customer export and an OpenCode agent's production deploy are held the same way, even though OpenCode's auto mode would have asked no one."
+
+  - id: sc8
+    kind: split
+    planned_s: 15
+    clock10x: true
+    sources:
+      - { clip: takes/SC8/latest/sam.mp4 }
+      - { clip: takes/SC8/latest/neha.mp4 }
+    voiceover: "If nobody answers, Clearance escalates on a timer, and every approver has one inbox across rooms."
+
+  - id: sc9
+    kind: clip
+    planned_s: 20
+    source: { clip: takes/SC9/latest/sam.mp4 }
+    notices: ["93%: Anthropic, Claude Code auto mode, Mar 2026"]
+    voiceover: "People rubber-stamp. Claude Code users approve 93% of prompts. So Clearance runs drills, like phishing tests, and adds friction when approvals get too fast."
+
+  - id: sc11
+    kind: split
+    planned_s: 20
+    callouts: ["7-day history is synthetic, labelled in the repo"]
+    sources:
+      - { clip: takes/SC11/latest/sam.mp4 }
+      - { clip: takes/SC11/latest/alex.mp4 }
+    voiceover: "Agents earn autonomy from a record people signed. Two humans approve the promotion, and one incident takes it away."
+
+  - id: numbers
+    kind: numbers
+    planned_s: 25
+    headline: "Measured, not claimed"
+    rows: [E1, E2/risky, E5/catch, E3/cards, NEG]
+    voiceover: "Measured, not claimed. Bad outcomes prevented, of 25: {{E1.clearance}}. Risky actions executed without an eligible human: {{E2/risky.clearance}}. {{E5/catch.clearance}} on flawed requests. And one place we lose: {{NEG.text}}."
+
+  - id: close
+    kind: card
+    planned_s: 10
+    headline: "One template and a few config files."
+    lines:
+      - "`templates/clearance.template.yaml`"
+      - "`.claude/settings.json`  `.codex/hooks.json`  `.opencode/plugins/clearance.ts`  `.cursor/hooks.json`"
+      - "Built on Switch's rooms, identities, approval cards and documents."
+      - "{{repo_url}}"
+    voiceover: "One template and a few config files. Clearance is built on Switch's rooms, identities, approval cards and documents. Link below."

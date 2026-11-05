@@ -38,7 +38,7 @@ Main track: Track 01 Best Business Workflow. Side tracks: Code with Wispr, Best 
 
 **One sentence.** Approval gates are everywhere in this hackathon, but they decay: in Switch the requester can approve their own ₹40,000 refund, auto mode (on by default for new agents since late October) often shows no card at all, and people approve 93% of the prompts they do see. Clearance is the layer that keeps approvals meaningful across every room and every agent vendor: one policy, one inbox, the right other person with the real call in front of them, drills that measure whether approvers are still paying attention, and autonomy that agents earn from a record people signed.
 
-**Where we stand in the field (section 16).** About 60 of 180 public entries have an approval gate and at least 8 already block self-approval, so separation of duties, hash-bound approvals and ledgers are table stakes. What nobody we found ships: one policy across every vendor's tool calls, one inbox across rooms, live rubber-stamp detection, drills as a standing feature, earned autonomy driven by those signals, and a human study. Those are the pitch; everything else must simply be done well.
+**Where we stand in the field (section 16).** About 60 of 180 public entries have an approval gate and at least 8 already block self-approval, so separation of duties, hash-bound approvals and ledgers are table stakes. What nobody we found ships: one policy across every vendor's tool calls, one inbox across rooms, drills as a standing feature, earned autonomy driven by rubber-stamp signals, and a human study. (Litti ships rubber-stamp detection itself; see 16.3.) Those are the pitch; everything else must simply be done well.
 
 **The five things we build** (from the agreed spec, plus what this plan adds):
 
@@ -918,9 +918,9 @@ Each persona is a separate Mattermost account linked to its own Switch user. Age
 
 | Room | Members | Purpose |
 |---|---|---|
-| `#support` | Priya, refunds-agent, support-agent, clearance | Customer requests, refunds, customer email |
+| `#support` | Priya, Sam (SC5 has him asking here), refunds-agent, support-agent, clearance | Customer requests, refunds, customer email |
 | `#finance` | Sam, Neha, clearance | Finance chatter; escalation step 2 for refunds |
-| `#eng` | Alex, coder, ops-agent, reviewer, clearance | Code, merges, deploys |
+| `#eng` | Alex, Priya (SC6 has her asking here), coder, ops-agent, reviewer, clearance | Code, merges, deploys |
 | `#approvals` | Sam, Neha, Alex, Priya, clearance | Inbox fallback, drills notice, ledger documents, daily digest |
 | DM: clearance ↔ each approver | one person + clearance | Cards and "Needs your response (N)" |
 | `#support-vanilla` | Priya, refunds-agent-vanilla | Baseline: Switch default, no Clearance |
@@ -1444,7 +1444,7 @@ Scanned on Nov 5 (IST). There is no public gallery (WeMakeDevs `/projects`, `/su
 **Ours (pitch these, prove each with a number):**
 1. **One policy across every agent vendor's tool calls**, in every room (E2: Claude Code, Codex, OpenCode, Cursor).
 2. **One inbox across rooms and agents** for every approver.
-3. **Live rubber-stamp detection** with adaptive friction, on real approvals over time (F10).
+3. **Rubber-stamp signals that feed everything else.** Not unique: [Litti](https://github.com/Abhishek764/litti) also ships timed reading, quizzes and a serial-stamper rule, on a separate review page, and agents must choose to call it. Ours runs in the chat, on every held action, and its signal stops fast approvals counting toward autonomy (F10). Credit Litti in the README.
 4. **Approval drills as a standing feature**, with a measured catch rate (F9, E5).
 5. **Earned autonomy driven by those signals**: rubber-stamped approvals do not count as evidence; incidents demote instantly (F11, E6).
 6. **A human study** comparing Switch's card with ours (E5). We did not see one in the READMEs scanned on Nov 5; re-check before saying so in public.

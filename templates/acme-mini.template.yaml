@@ -187,7 +187,7 @@ resources:
     description: Customer requests, refunds and customer email.
     bridge: "{bridge}"
     agents: [refunds-agent, support-agent, clearance]
-    users: [priya]
+    users: [priya, sam]
     instructions: |
       Customer requests arrive here. refunds-agent handles refunds, support-agent writes to customers.
       Clearance is here to hold what the policy protects; it reads this room and says little.
@@ -209,7 +209,7 @@ resources:
     description: Code, merges and deploys.
     bridge: "{bridge}"
     agents: [coder, ops-agent, reviewer, clearance]
-    users: [alex]
+    users: [alex, priya]
     instructions: |
       Engineering work happens here. coder changes code, reviewer reviews it, ops-agent deploys it.
       Clearance is here to hold what the policy protects; it reads this room and says little.

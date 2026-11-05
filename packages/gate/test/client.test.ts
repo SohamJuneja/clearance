@@ -74,13 +74,16 @@ describe("createGateClient GatePort", () => {
     });
   });
 
-  it("returns a failed result rather than throwing when the gate is down or rejects the token", async () => {
+  it("throws when the gate is down, so core keeps the approval and retries", async () => {
     const dead = createGateClient({ baseUrl: await deadUrl(), internalToken: INTERNAL_TOKEN });
-    const result = await dead.execute("CLR-3", "x");
+    await expect(dead.execute("CLR-3", "x")).rejects.toThrow();
+  });
+
+  it("returns a failed result when the gate answers with a refusal, so core voids at once", async () => {
+    const wrongToken = createGateClient({ baseUrl, internalToken: "wrong" });
+    const result = await wrongToken.execute("CLR-3", "x");
     expect(result.ok).toBe(false);
     expect(result.error).toBeTruthy();
-    const wrongToken = createGateClient({ baseUrl, internalToken: "wrong" });
-    expect((await wrongToken.execute("CLR-3", "x")).ok).toBe(false);
   });
 
   it("encodes the request id", async () => {

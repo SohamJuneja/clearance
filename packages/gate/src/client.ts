@@ -1,7 +1,9 @@
 /**
  * Core's HTTP client for the gate. Implements `GatePort` and `LookupPort` from contracts.
  *
- * `execute` never throws: core gets `{ok:false, error}` and exactly-once still holds on a retry.
+ * `execute` throws when the gate can't be reached, so core keeps the approval and retries: exactly-once by
+ * request id makes that safe. An answer from the gate that isn't a success stays `{ok:false, error}`, and core
+ * voids on it, since retrying a refusal can't change it.
  * `lookup` returns null only for a real not-found and throws otherwise, so a gate that cannot
  * answer is never read as "this order does not exist".
  */
@@ -29,33 +31,28 @@ export function createGateClient(options: GateClientOptions): GateClient {
 
   return {
     async execute(requestId: string, callHash: string): Promise<ExecuteResult> {
+      const res = await fetch(`${base}/internal/execute/${encodeURIComponent(requestId)}`, {
+        method: "POST",
+        headers: { authorization, "content-type": "application/json" },
+        body: JSON.stringify({ call_hash: callHash }),
+        redirect: "error",
+        signal: AbortSignal.timeout(executeTimeoutMs),
+      });
+      const text = await res.text();
+      let parsed: unknown;
       try {
-        const res = await fetch(`${base}/internal/execute/${encodeURIComponent(requestId)}`, {
-          method: "POST",
-          headers: { authorization, "content-type": "application/json" },
-          body: JSON.stringify({ call_hash: callHash }),
-          redirect: "error",
-          signal: AbortSignal.timeout(executeTimeoutMs),
-        });
-        const text = await res.text();
-        let parsed: unknown;
-        try {
-          parsed = JSON.parse(text);
-        } catch {
-          parsed = undefined;
-        }
-        const result = ExecuteResultSchema.safeParse(parsed);
-        if (result.success) return result.data;
-        return {
-          ok: false,
-          alreadyExecuted: false,
-          status: res.status,
-          error: `gate answered ${res.status}`,
-        };
-      } catch (err) {
-        const reason = err instanceof Error ? err.message : "unknown error";
-        return { ok: false, alreadyExecuted: false, error: `gate unreachable: ${reason}` };
+        parsed = JSON.parse(text);
+      } catch {
+        parsed = undefined;
       }
+      const result = ExecuteResultSchema.safeParse(parsed);
+      if (result.success) return result.data;
+      return {
+        ok: false,
+        alreadyExecuted: false,
+        status: res.status,
+        error: `gate answered ${res.status}`,
+      };
     },
 
     async lookup(kind: string, id: string): Promise<Record<string, unknown> | null> {

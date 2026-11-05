@@ -19,11 +19,13 @@ const Flags = {
   synthetic: z.boolean().optional(),
 };
 
+/** A count, or why there isn't one: "blocked", "not run", "5 of 12". A blocked vendor is never a zero. */
+const VendorCell = z.union([z.number(), z.string()]);
 const Vendors = z.object({
-  claude: z.number().optional(),
-  codex: z.number().optional(),
-  opencode: z.number().optional(),
-  cursor: z.number().optional(),
+  claude: VendorCell.optional(),
+  codex: VendorCell.optional(),
+  opencode: VendorCell.optional(),
+  cursor: VendorCell.optional(),
 });
 type VendorCounts = z.infer<typeof Vendors>;
 
@@ -39,6 +41,8 @@ const E1 = z.object({
   b_ask: Prevented.optional(),
   clearance: Prevented.optional(),
   cases: z.number().int().positive().optional(),
+  /** How the baselines were obtained. Set when they were read from code rather than run. */
+  baseline_basis: z.string().optional(),
 });
 
 const E2 = z.object({
@@ -46,7 +50,8 @@ const E2 = z.object({
   experiment: z.literal("E2"),
   risky_unapproved: z.object({ baseline: Vendors, clearance: Vendors }).optional(),
   safe_interrupted: z.object({ baseline: Vendors, clearance: Vendors }).optional(),
-  runs: z.number().int().positive().optional(),
+  runs: z.number().int().nonnegative().optional(),
+  claude_model: z.string().optional(),
 });
 
 const E3 = z.object({
@@ -69,6 +74,14 @@ const E4Latency = z.object({
   hook: Percentiles.optional(),
   gate: Percentiles.optional(),
   calls_each: z.number().int().positive().optional(),
+  /** The Codex hook CLI as a process per call, which is a different cost and is reported apart. */
+  codex_cli: z
+    .object({
+      direct_node: Percentiles.optional(),
+      as_configured: Percentiles.optional(),
+      calls: z.number().int().positive().optional(),
+    })
+    .optional(),
 });
 
 const E4Soak = z.object({
@@ -78,6 +91,8 @@ const E4Soak = z.object({
   hours: z.number().positive().optional(),
   calls: z.number().int().positive().optional(),
   restarts: z.number().int().nonnegative().optional(),
+  /** A smoke test writes its own experiment id. If one ever says this, it's refused rather than counted. */
+  smoke_test: z.literal(false).optional(),
 });
 
 const Split = z.object({ legit: z.number().optional(), flawed: z.number().optional() });
@@ -110,6 +125,52 @@ const Negative = z.object({
   text: z.string().min(1),
   source: z.string().optional(),
 });
+
+/** What eval/study writes. `headline` is null for synthetic data or no participants, so no number reaches E5. */
+const Study = z.object({
+  experiment: z.literal("E5 human study"),
+  synthetic: z.boolean().optional(),
+  headline: z
+    .object({
+      n: z.number(),
+      catch_rate: z.object({ A: z.number().nullable(), B: z.number().nullable() }),
+      median_s_legit: z.object({ A: z.number().nullable(), B: z.number().nullable() }),
+      median_s_flawed: z.object({ A: z.number().nullable(), B: z.number().nullable() }),
+    })
+    .nullable(),
+});
+
+/** Condition A is Switch's card and B is Clearance's. */
+function studyToE5(study: z.infer<typeof Study>): z.infer<typeof E5> {
+  const { headline } = study;
+  if (!headline) return { experiment: "E5" };
+  const present = (value: number | null): number | undefined => value ?? undefined;
+  return {
+    experiment: "E5",
+    catch_rate: {
+      switch_card: present(headline.catch_rate.A),
+      clearance_card: present(headline.catch_rate.B),
+    },
+    median_seconds: {
+      switch_card: {
+        legit: present(headline.median_s_legit.A),
+        flawed: present(headline.median_s_flawed.A),
+      },
+      clearance_card: {
+        legit: present(headline.median_s_legit.B),
+        flawed: present(headline.median_s_flawed.B),
+      },
+    },
+    people: headline.n,
+    ...(study.synthetic ? { synthetic: true } : {}),
+  };
+}
+
+/** Real output that isn't a result for this table, and why, so it can't look like it was lost. */
+const NOT_FOR_THIS_TABLE: Record<string, string> = {
+  "E4-soak-smoke": "it's a smoke test of the soak, not the 2 hour result",
+  "E1-live": "the table reports the isolated run; live results are read separately",
+};
 
 const SCHEMAS = {
   E1,
@@ -150,8 +211,12 @@ function pct(value: number | undefined): string {
   return value === undefined ? BLANK : `${Math.round(value * 1000) / 10}%`;
 }
 
+function vendorCell(value: number | string | undefined): string {
+  return typeof value === "string" ? value : num(value);
+}
+
 function vendors(counts: VendorCounts | undefined): string {
-  return `Claude ${num(counts?.claude)}, Codex ${num(counts?.codex)}, OpenCode ${num(counts?.opencode)}, Cursor ${num(counts?.cursor)}`;
+  return `Claude ${vendorCell(counts?.claude)}, Codex ${vendorCell(counts?.codex)}, OpenCode ${vendorCell(counts?.opencode)}, Cursor ${vendorCell(counts?.cursor)}`;
 }
 
 function vendorsOrBlank(counts: VendorCounts | undefined): string {
@@ -177,23 +242,22 @@ export function renderTable(inputs: Inputs): string {
   const { E1: e1, E2: e2, E3: e3, E5: e5, E6: e6, NEG: neg } = inputs;
   const latency = inputs["E4-latency"];
   const soak = inputs["E4-soak"];
-  const latencyCell =
-    latency?.hook && latency.gate
-      ? `hook ${triple(latency.hook)}, gate ${triple(latency.gate)}`
-      : latency?.hook
-        ? `hook ${triple(latency.hook)}`
-        : latency?.gate
-          ? `gate ${triple(latency.gate)}`
-          : triple(undefined);
+  const codexProcess = latency?.codex_cli?.as_configured ?? latency?.codex_cli?.direct_node;
+  const latencyParts = [
+    latency?.hook ? `hook ${triple(latency.hook)}` : "",
+    latency?.gate ? `gate ${triple(latency.gate)}` : "",
+    codexProcess ? `Codex hook process ${triple(codexProcess)}` : "",
+  ].filter(Boolean);
+  const latencyCell = latencyParts.length > 0 ? latencyParts.join(", ") : triple(undefined);
   const rows = [
     HEADER,
     "|---|---|---|---|---|---|",
-    `| E1 | Bad outcomes prevented (of ${e1?.clearance?.total ?? e1?.b_auto?.total ?? 25}) | B-auto: ${prevented(e1?.b_auto)} / B-ask: ${prevented(e1?.b_ask)} | ${prevented(e1?.clearance)} | ${synthetic(e1, `${e1?.cases ?? 25} scripted cases`)} | \`pnpm eval:authority\` |`,
-    `| E2 | Risky actions executed without an eligible human (of 20 per vendor) | ${vendors(e2?.risky_unapproved?.baseline)} | ${vendors(e2?.risky_unapproved?.clearance)} | ${synthetic(e2, `${num(e2?.runs ?? 360)} agent runs`)} | \`pnpm eval:vendors\` |`,
+    `| E1 | Bad outcomes prevented (of ${e1?.clearance?.total ?? e1?.b_auto?.total ?? 25}) | B-auto: ${prevented(e1?.b_auto)} / B-ask: ${prevented(e1?.b_ask)} | ${prevented(e1?.clearance)} | ${synthetic(e1, `${e1?.cases ?? 25} scripted cases${e1?.baseline_basis ? "; baselines read from code, not run" : ""}`)} | \`pnpm eval:authority\` |`,
+    `| E2 | Risky actions executed without an eligible human (of 20 per vendor) | ${vendors(e2?.risky_unapproved?.baseline)} | ${vendors(e2?.risky_unapproved?.clearance)} | ${synthetic(e2, `${num(e2?.runs ?? 360)} agent runs${e2?.claude_model ? `, Claude on ${e2.claude_model}` : ""}`)} | \`pnpm eval:vendors\` |`,
     `| E2 | Safe actions interrupted (of 20 per vendor) | ${vendorsOrBlank(e2?.safe_interrupted?.baseline)} | ${vendorsOrBlank(e2?.safe_interrupted?.clearance)} | same | same |`,
     `| E3 | Recall on risky calls, held-out | approval-required: ${pct(e3?.recall?.approval_required)} | ${pct(e3?.recall?.clearance)} | ${synthetic(e3, `${num(e3?.labelled_calls)} labelled calls after Fri 20:00`)} | \`pnpm eval:classifier\` |`,
     `| E3 | Cards per 100 tool calls | approval-required: ${num(e3?.cards_per_100?.approval_required)} | ${num(e3?.cards_per_100?.clearance)} | same | same |`,
-    `| E4 | Added latency p50 / p95 / p99 (ms) | n/a | ${latencyCell} | ${synthetic(latency, `${num(latency?.calls_each ?? 1000)} calls each`)} | \`pnpm eval:latency\` |`,
+    `| E4 | Added latency p50 / p95 / p99 (ms) | n/a | ${latencyCell} | ${synthetic(latency, `${num(latency?.calls_each ?? 1000)} calls each${latency?.codex_cli?.calls ? `; Codex hook ${num(latency.codex_cli.calls)} runs, each a new process` : ""}`)} | \`pnpm eval:latency\` |`,
     `| E4 | Soak invariant violations | n/a | ${num(soak?.violations)} | ${synthetic(soak, `${soak?.hours ?? 2} h, ${num(soak?.calls)} calls, ${soak?.restarts ?? 3} restarts`)} | \`pnpm eval:soak\` |`,
     `| E5 | Catch rate on flawed requests | Switch card: ${pct(e5?.catch_rate?.switch_card)} | Clearance card: ${pct(e5?.catch_rate?.clearance_card)} | ${synthetic(e5, `n = ${num(e5?.people)} people, ${e5?.flawed_each ?? 4} flawed each`)} | \`pnpm eval:study\` |`,
     `| E5 | Median seconds per decision (legit / flawed) | ${num(e5?.median_seconds?.switch_card?.legit)} / ${num(e5?.median_seconds?.switch_card?.flawed)} | ${num(e5?.median_seconds?.clearance_card?.legit)} / ${num(e5?.median_seconds?.clearance_card?.flawed)} | same | same |`,
@@ -230,12 +294,20 @@ export interface LoadedInputs {
   files: string[];
   /** Files in the directory that aren't results, named so they can't vanish unnoticed. */
   ignored: string[];
+  /** Files left out on purpose, with why. */
+  leftOut: { name: string; why: string }[];
   hasFixture: boolean;
 }
 
 /** Reads every `*.json` directly in the directory. Subdirectories hold other tools' output. */
 export function loadInputs(outDir: string): LoadedInputs {
-  const loaded: LoadedInputs = { inputs: {}, files: [], ignored: [], hasFixture: false };
+  const loaded: LoadedInputs = {
+    inputs: {},
+    files: [],
+    ignored: [],
+    leftOut: [],
+    hasFixture: false,
+  };
   if (!existsSync(outDir)) return loaded;
   const files = readdirSync(outDir, { withFileTypes: true })
     .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
@@ -250,6 +322,24 @@ export function loadInputs(outDir: string): LoadedInputs {
       throw new Error(`${path} is not JSON: ${(error as Error).message}`);
     }
     const id = (raw as { experiment?: unknown } | null)?.experiment;
+    if (typeof id === "string" && id in NOT_FOR_THIS_TABLE) {
+      loaded.leftOut.push({ name, why: NOT_FOR_THIS_TABLE[id] as string });
+      continue;
+    }
+    if (id === "E5 human study") {
+      const study = Study.safeParse(raw);
+      if (!study.success) {
+        const issue = study.error.issues[0];
+        throw new Error(
+          `${path} has the wrong shape for E5: ${issue?.path.join(".")}: ${issue?.message}`,
+        );
+      }
+      if (loaded.inputs.E5)
+        throw new Error(`two result files for E5; keep one in ${outDir}. The second is ${name}`);
+      loaded.inputs.E5 = studyToE5(study.data);
+      loaded.files.push(name);
+      continue;
+    }
     if (typeof id !== "string" || !(id in SCHEMAS)) {
       loaded.ignored.push(name);
       continue;
@@ -306,13 +396,14 @@ function isRealResults(path: string): boolean {
 
 export function writeReport(options: ReportOptions): ReportOutcome {
   const print = options.print ?? (() => undefined);
-  const { inputs, files, ignored, hasFixture } = loadInputs(options.outDir);
+  const { inputs, files, ignored, leftOut, hasFixture } = loadInputs(options.outDir);
   if (hasFixture && isRealResults(options.resultsPath)) {
     throw new Error(
       `${options.outDir} holds fixture data and ${options.resultsPath} is the real RESULTS.md. Nothing was written.`,
     );
   }
   for (const name of ignored) print(`ignored ${name}: it names no known experiment`);
+  for (const { name, why } of leftOut) print(`left out ${name}: ${why}`);
   const results = renderResults(inputs);
   writeFileSync(options.resultsPath, results);
   print(

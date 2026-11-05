@@ -1,0 +1,4 @@
+{
+  "freeze_at": "2026-11-06T20:00:00+05:30",
+  "note": "PLAN 10.4: the policy freeze, Fri 20:00 IST. Calls before it tuned the policy, so only calls at or after it are scored. If the freeze moves, change this and say so."
+}

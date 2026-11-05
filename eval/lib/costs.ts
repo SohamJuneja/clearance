@@ -46,9 +46,9 @@ export function totalSpend(entries: CostEntry[]): number {
 }
 
 function readCap(options: CostOptions): number {
-  if (options.capUsd !== undefined) return options.capUsd;
-  const raw = setting(CAP_SETTING);
+  const raw = options.capUsd !== undefined ? String(options.capUsd) : setting(CAP_SETTING);
   const cap = Number(raw);
+  // NaN compares false with everything, so an unchecked one would let any spend through.
   if (raw === undefined || !Number.isFinite(cap) || cap < 0) {
     throw new SpendCapError(
       `${CAP_SETTING} is ${raw === undefined ? "not set" : "not a number"}, so no spend is allowed`,

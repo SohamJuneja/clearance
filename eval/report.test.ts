@@ -197,6 +197,118 @@ describe("eval:report", () => {
     });
   });
 
+  describe("the experiments' real output shapes", () => {
+    it("says when E1's baselines were read from code", () => {
+      write({
+        "authority.json": {
+          experiment: "E1",
+          fixture: true,
+          b_auto: { prevented: 1, total: 25 },
+          b_ask: { prevented: 2, total: 25 },
+          clearance: { prevented: 3, total: 25 },
+          cases: 25,
+          baseline_basis: "read from Switch's code",
+        },
+      });
+      report();
+      const row = selectRow(parseResults(readFileSync(resultsPath, "utf8")), "E1");
+      expect(row.data).toBe("25 scripted cases; baselines read from code, not run");
+    });
+
+    it("shows a blocked vendor as blocked, never as a zero, and names Claude's model", () => {
+      write({
+        "vendors.json": {
+          experiment: "E2",
+          fixture: true,
+          risky_unapproved: {
+            baseline: { claude: "not run", codex: "blocked" },
+            clearance: { claude: 0, codex: "blocked", opencode: "5 of 12", cursor: "blocked" },
+          },
+          safe_interrupted: {
+            baseline: { claude: "not run" },
+            clearance: { claude: 1 },
+          },
+          runs: 0,
+          claude_model: "haiku",
+        },
+      });
+      report();
+      const row = selectRow(parseResults(readFileSync(resultsPath, "utf8")), "E2/risky");
+      expect(row.clearance).toBe("Claude 0, Codex blocked, OpenCode 5 of 12, Cursor blocked");
+      expect(row.baseline).toBe("Claude not run, Codex blocked, OpenCode _, Cursor _");
+      expect(row.data).toBe("0 agent runs, Claude on haiku");
+    });
+
+    it("reports the Codex hook process apart from the routes", () => {
+      write({
+        "e4-latency.json": {
+          experiment: "E4-latency",
+          fixture: true,
+          hook: { p50: 1, p95: 2, p99: 3 },
+          gate: { p50: 4, p95: 5, p99: 6 },
+          codex_cli: { direct_node: { p50: 70, p95: 80, p99: 90 }, calls: 100 },
+          calls_each: 1000,
+        },
+      });
+      report();
+      const row = selectRow(parseResults(readFileSync(resultsPath, "utf8")), "E4/latency");
+      expect(row.clearance).toBe("hook 1 / 2 / 3, gate 4 / 5 / 6, Codex hook process 70 / 80 / 90");
+      expect(row.data).toBe("1,000 calls each; Codex hook 100 runs, each a new process");
+    });
+
+    it("never takes a smoke test for the soak's result", () => {
+      write({
+        "e4-soak-smoke.json": {
+          experiment: "E4-soak-smoke",
+          smoke_test: true,
+          violations: 0,
+          calls: 300,
+        },
+      });
+      const lines: string[] = [];
+      writeReport({ outDir, resultsPath, readmePath, print: (line) => lines.push(line) });
+      expect(selectRow(parseResults(readFileSync(resultsPath, "utf8")), "E4/soak").clearance).toBe(
+        "_",
+      );
+      expect(lines.join("\n")).toContain("left out e4-soak-smoke.json");
+    });
+
+    it("refuses a soak result that says it's a smoke test", () => {
+      write({ "e4-soak.json": { experiment: "E4-soak", smoke_test: true, violations: 0 } });
+      expect(() => report()).toThrow(/wrong shape for E4-soak/);
+    });
+
+    it("reads the study's real output into E5, with A as Switch's card and B as Clearance's", () => {
+      write({
+        "study.json": {
+          experiment: "E5 human study",
+          synthetic: false,
+          headline: {
+            n: 3,
+            catch_rate: { A: 0.5, B: 0.75 },
+            false_deny_rate: { A: 0, B: 0 },
+            median_s_legit: { A: 4, B: 9 },
+            median_s_flawed: { A: 5, B: 12 },
+          },
+        },
+      });
+      report();
+      const rows = parseResults(readFileSync(resultsPath, "utf8"));
+      expect(selectRow(rows, "E5/catch").baseline).toBe("Switch card: 50%");
+      expect(selectRow(rows, "E5/catch").clearance).toBe("Clearance card: 75%");
+      expect(selectRow(rows, "E5/catch").data).toBe("n = 3 people, 4 flawed each");
+      expect(selectRow(rows, "E5/median").clearance).toBe("9 / 12");
+    });
+
+    it("gives E5 no number from a study with no headline, which is what synthetic data has", () => {
+      write({ "study.json": { experiment: "E5 human study", synthetic: true, headline: null } });
+      report();
+      const rows = parseResults(readFileSync(resultsPath, "utf8"));
+      expect(selectRow(rows, "E5/catch").clearance).toBe("Clearance card: _");
+      expect(selectRow(rows, "E5/median").baseline).toBe("_ / _");
+    });
+  });
+
   describe("bad inputs", () => {
     it("stops on a known experiment with the wrong shape, naming the file, and writes nothing", () => {
       write({ "e1.json": { experiment: "E1", clearance: { prevented: "most", total: 25 } } });

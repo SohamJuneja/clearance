@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { measure, measureAdded, percentile, summarise } from "./latency.ts";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { REPO_ROOT } from "../lib/paths.ts";
+import { CODEX_HOOK_COMMAND, measure, measureAdded, percentile, summarise } from "./latency.ts";
+
+describe("the Codex hook measurement", () => {
+  it("runs the command the agents are really configured with", () => {
+    const hooks = readFileSync(join(REPO_ROOT, "acme-mini-app/.codex/hooks.json"), "utf8");
+    expect(hooks).toContain(JSON.stringify(CODEX_HOOK_COMMAND).slice(1, -1));
+  });
+});
 
 describe("percentile", () => {
   const hundred = Array.from({ length: 100 }, (_, index) => index + 1);

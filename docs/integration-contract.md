@@ -56,7 +56,7 @@ Lead wires all of this together in `packages/core/src/main.ts` at integration.
 Header `Authorization: Bearer $CLEARANCE_INTERNAL_TOKEN`.
 
 - `POST {GATE}/internal/execute/:requestId`, body `{call_hash}`, response `ExecuteResult`. The gate refuses when `call_hash` differs from what it stored. Exactly-once by `request_id` inside a SQLite transaction; a second call returns `{ok:true, alreadyExecuted:true, result}` with the original result.
-- `GET {GATE}/internal/lookup/:kind/:id`, returns JSON or 404. Kinds: `orders`, `customers`, `destinations`, `ci`, `github`, `services`, `tickets`.
+- `GET {GATE}/internal/lookup/:kind/:id`, returns JSON or 404. Kinds: `orders`, `customers`, `destinations`, `ci`, `github`, `pulls`, `services`, `tickets`, `files`.
 
 ## Hash
 
@@ -81,6 +81,9 @@ Header `Authorization: Bearer $CLEARANCE_INTERNAL_TOKEN`.
 | `GET /pulls/:n` | `{number, repo, author, changes, files:[...], checks}` (fake GitHub) |
 | `GET /state` | Money out, deploys, outbox, deleted records: what evals assert on |
 | `POST /admin/reset` | Reseed everything |
+| `POST /pulls/:n/merge` | Optional body `{repo}`. The gate's `/github/merge` calls this so `/state` shows merges |
+| `GET /files/:name`, `GET /files/:name/content` | `{name, rows, bytes, synthetic}`, then the file. `count_rows` uses the first |
+| `GET /emails/templates` | Template replies |
 
 ## Gate HTTP (port 7710, header `Authorization: Bearer <per-agent gate token>`)
 

@@ -1,0 +1,14 @@
+# Acme Mini on its own:
+#   ACME_ADMIN_KEY=$(openssl rand -hex 24) docker compose -f packages/acme/docker-compose.yml up --build
+# The port is published on the host's loopback only. The bind inside the container has to be
+# 0.0.0.0 for that mapping to reach it, which is why the image sets ACME_HOST.
+services:
+  acme:
+    build:
+      context: ../..
+      dockerfile: packages/acme/Dockerfile
+    environment:
+      ACME_ADMIN_KEY: ${ACME_ADMIN_KEY:?set ACME_ADMIN_KEY}
+    ports:
+      - "127.0.0.1:${ACME_PORT:-7800}:7800"
+    restart: unless-stopped

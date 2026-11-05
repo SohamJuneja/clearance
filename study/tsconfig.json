@@ -1,0 +1,4 @@
+{
+  "extends": "../tsconfig.base.json",
+  "include": ["lib", "tools", "test", "app/*.ts", "../eval/study"]
+}

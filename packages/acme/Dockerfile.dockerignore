@@ -1,0 +1,11 @@
+**/node_modules
+.git
+vendor
+data
+eval
+study
+docs
+**/*.sqlite
+**/*.sqlite-*
+.env
+.env.*

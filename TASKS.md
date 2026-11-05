@@ -13,7 +13,7 @@ Tick a box only when tests or a run prove it. Acceptance text is copied from PLA
 - [x] **S7** (variant) (switchboard) Clearance can create a DM room with one approver and post a card with buttons. Fallback: `#approvals` plus `send_targeted_message`.
 - [x] **S8** (create, update; list command broken upstream) (switchboard) Room documents for the ledger. Fallback: ledger in the Desk, daily summary message.
 - [ ] **S9** (brain, lead) Agents follow the HELD protocol, 5 of 5 runs per vendor. Fallback: execute-on-approval through the gate.
-- [ ] **S10** (world-ui) Study participants reach Mattermost through a tunnel. Fallback: Approval Lab.
+- [x] **S10** (reachability; phone login untested) (world-ui) Study participants reach Mattermost through a tunnel. Fallback: Approval Lab.
 - [x] **S11** (switchboard) A template can include Clearance as a member. Fallback: setup script.
 
 ## Features (PLAN 5)
@@ -116,7 +116,7 @@ Tick a box only when tests or a run prove it. Acceptance text is copied from PLA
 ## Deliverables
 
 - [x] **D1** (lead) Repo scaffold, CI, licence (CI runs once the repo is on GitHub).
-- [ ] **D2** (world-ui) Acme Mini services, CLI, seed data; `scripts/demo-reset.ts` under 10 s.
+- [x] **D2** (world-ui) Acme Mini services, CLI, seed data; `scripts/demo-reset.ts` under 10 s.
 - [x] **D3** (switchboard) `templates/` for clearance, acme-mini, acme-vanilla.
 - [ ] **D4** (proof) `pnpm demo:run SCn` for every scenario through the Mattermost API and Playwright. People scripted, agents never.
 - [ ] **D5** (proof) Video pipeline: Playwright capture at 1920x1080, ffmpeg split screens, captions, "clock 10x", numbers slide from RESULTS.md, offline TTS. Under 3:00.

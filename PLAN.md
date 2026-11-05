@@ -90,7 +90,7 @@ Main track: Track 01 Best Business Workflow. Side tracks: Code with Wispr, Best 
 - Repeated, varied practice works: KnowBe4's 2025 benchmark shows phish-prone rates falling from 33.1% to 4.1% after 12 months of simulated phishing ([KnowBe4, May 13 2025](https://knowbe4.com/press/knowbe4-report-reveals-security-training-reduces-global-phishing-click-rates-by-86)). That is the case for approval drills.
 
 **D. Switch's own card headlines the agent's story.**
-- For a shell tool, Switch builds the card `title` from the model's prose (the tool call's title/description) and puts the literal command, truncated to 160 characters, in `detail` (`agent-providers/src/claude/claude-mapping.ts`, `approvalContent`, `truncate`). The reader sees the agent's sentence first and a long `curl` line second.
+- For a shell tool, Switch builds the card `title` from the model's prose (the tool call's title/description) and puts the literal command, whole, in `detail` (`agent-providers/src/claude/claude-mapping.ts`, `approvalContent`). The reader sees the agent's sentence first and a long `curl` line second. (Corrected Nov 6: an earlier draft said the command is cut at 160 characters. `truncate` only serves `toolTitle`; see DECISIONS.md.)
 - Claude Code's own relay docs say the `description` field is *"Claude's description of the command… never the command itself"* ([channels reference](https://code.claude.com/docs/en/channels-reference)).
 
 **E. Separation of duties is a standard control, not our invention.**
@@ -358,7 +358,7 @@ Per class in the policy: `escalate: [{after: 3m, add: backup}, {after: 8m, post:
 
 ### F6. Evidence card (P0 card, P1 mismatch and context)
 
-The card is a native Switch approval card posted by Clearance, so it has buttons on Mattermost, Slack and Discord. `title` ≤ 500 characters, `detail` ≤ 4000 characters. Layout and copy are in Appendix D. Order of content is fixed and tested:
+The card is a native Switch approval card posted by Clearance, so it has buttons on Mattermost, Slack and Discord. `title` ≤ 500 characters, `detail` ≤ 4000 characters at the API, but on Mattermost a `detail` over about 1000 characters loses its buttons (measured Nov 6), so Clearance budgets 990. Layout and copy are in Appendix D. Order of content is fixed and tested:
 1. `CLR-0042 · REFUND · HIGH · irreversible after settlement` (class, tier, reversibility from policy).
 2. **The parsed call** in business terms: amount, currency, customer, destination, environment, files changed, recipients. Never the agent's sentence.
 3. **Context from systems of record** (via the gate): order total, refunds so far, destination age, service owner, failing checks, diff size.
@@ -1226,7 +1226,7 @@ Does Clearance's evidence card help people catch bad agent requests compared wit
 - **Within-subjects**, two conditions: **A = Switch default card** and **B = Clearance card**.
 - Two matched request sets, **X** and **Y**, built from the same 12 templates with different values (customers, amounts, services). Each block has 8 legitimate and 4 flawed requests, flawed ones never first.
 - Counterbalancing across four groups: A-X then B-Y; A-Y then B-X; B-X then A-Y; B-Y then A-X. Assign participants round-robin.
-- **Condition A** reproduces what Switch shows today: `title` = the agent's own description of the action, `detail` = the literal command cut at 160 characters, buttons Allow once / Allow for this session / Decline (from `claude-mapping.ts`, `approvalContent` and `truncate`). Use the real `curl`/`acme` command text, so the facts are present in raw form.
+- **Condition A** reproduces what Switch shows today: `title` = the agent's own description of the action, `detail` = the literal command, whole, buttons Allow once / Allow for this session / Decline (from `claude-mapping.ts`, `approvalContent` and `truncate`). Use the real `curl`/`acme` command text, so the facts are present in raw form.
 - **Condition B** is the Clearance card in Appendix D: parsed fields, context from Acme, flags, the agent's claim labelled unverified, type-to-confirm on critical items.
 - Be explicit in the README that B adds context fields (order total, destination age, check status) that A does not have; we are measuring the whole card, not layout alone.
 

@@ -1,0 +1,704 @@
+{
+ "generated_by": "study/tools/regen-golden.sh, real MattermostAdapter._draw",
+ "switch_commit": "1fe56227b6e330452ac80d7b7b2ca0a66aaeaeab",
+ "cases": {
+  "X01 A": {
+   "text": "@you\n**Permission needed** · request `A101`\nRefund order A-3101 in full; customer returned the item\n`acme refund --order A-3101 --amount 1800 --customer cus_4101 --dest anika.r@okfin`\nReply with `A101` and your choice, e.g. `A101 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "X01 B": {
+   "text": "@you\n**Permission needed** · request `A101`\nCLR-0101 · REFUND ₹1,800 · LOW · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹1,800 to customer Anika R. (cus_4101)\n  Destination: UPI anika.r@​okfin\n  Order A-3101 · total ₹1,800\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 212 days ago\n  refunds-agent refunds today: 2 (largest ₹2,400)\n\nFlags\n  None\n\nAgent's claim (unverified): \"Refunding ₹1,800 for order A-3101, item returned (T-201).\"\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Priya asked and owns the agent, so she can't approve this.\nPolicy: refunds need 1 finance approver · expires in 25 min\n\nReply A101 yes or A101 no · @​clearance why A101\nReply with `A101` and your choice, e.g. `A101 1`.",
+   "answerable": true,
+   "buttons": [
+    "Approve",
+    "Deny"
+   ]
+  },
+  "X02 A": {
+   "text": "@you\n**Permission needed** · request `A102`\nShip checkout v2.15.1 to prod\n`acme deploy checkout v2.15.1 --env prod`\nReply with `A102` and your choice, e.g. `A102 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "X02 B": {
+   "text": "@you\n**Permission needed** · request `A102`\nCLR-0102 · DEPLOY checkout v2.15.1 prod · HIGH · reversible\nThe call (parsed from what the agent ran, not from its words)\n  Deploy checkout v2.15.1 to prod\n\nContext\n  Live in prod now: v2.15.0\n  Checks: 14 passing, 0 failing\n  checkout owner: Dev\n\nFlags\n  None\n\nAgent's claim (unverified): \"Shipping checkout v2.15.1 to prod.\"\n\nAsked by Dev (engineering) through ops-agent (OpenCode, owned by Dev)\nWhy you: engineering lead on call. Dev asked and owns the agent, so he can't approve this.\nPolicy: prod deploys need the service owner or on-call · expires in 25 min\n\nReply A102 yes or A102 no · @​clearance why A102\nReply with `A102` and your choice, e.g. `A102 1`.",
+   "answerable": true,
+   "buttons": [
+    "Approve",
+    "Deny"
+   ]
+  },
+  "X03 A": {
+   "text": "@you\n**Permission needed** · request `A103`\nRefund order A-3113 in full as the customer requested in T-221\n`acme refund --order A-3113 --amount 7400 --customer cus_4113 --dest kabir.m7@okfin`\nReply with `A103` and your choice, e.g. `A103 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "X03 B": {
+   "text": "@you\n**Permission needed** · request `A103`\nCLR-0103 · REFUND ₹7,400 · MEDIUM · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹7,400 to customer Kabir M. (cus_4113)\n  Destination: UPI kabir.m7@​okfin\n  Order A-3113 · total ₹7,400\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 6 minutes ago\n  refunds-agent refunds today: 3 (largest ₹2,400)\n  T-221 asks for this UPI ID and the refund in one message\n\nFlags\n  ⚠ Destination added in the last 24 h\n\nAgent's claim (unverified): \"Refunding ₹7,400 for order A-3113 as requested in T-221.\"\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Priya asked and owns the agent, so she can't approve this.\nPolicy: refunds need 1 finance approver · expires in 25 min\n\nReply A103 yes or A103 no · @​clearance why A103\nReply with `A103` and your choice, e.g. `A103 1`.",
+   "answerable": true,
+   "buttons": [
+    "Approve",
+    "Deny"
+   ]
+  },
+  "X04 A": {
+   "text": "@you\n**Permission needed** · request `A104`\nSend the monthly refunds reconciliation to the finance team\n`acme email --to finance@acme.in --subject \"October refunds reconciliation\" --attach refunds-oct.csv`\nReply with `A104` and your choice, e.g. `A104 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "X04 B": {
+   "text": "@you\n**Permission needed** · request `A104`\nCLR-0104 · EMAIL refunds-oct.csv TO INTERNAL ADDRESS · HIGH · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Send refunds-oct.csv to finance@​acme.in\n  Subject: October refunds reconciliation\n\nContext\n  Attachment: 1,240 rows\n  Recipient domain: acme.in (internal)\n\nFlags\n  ⚠ Attachment has 1,240 rows\n\nAgent's claim (unverified): \"Sending the monthly reconciliation to the finance team.\"\n\nAsked by Priya (support) through support-agent (Codex, owned by Priya)\nWhy you: lead on duty. Priya asked and owns the agent, so she can't approve this.\nPolicy: emails with attachments need 1 lead · expires in 25 min\n\nReply A104 yes or A104 no · @​clearance why A104\nReply with `A104` and your choice, e.g. `A104 1`.",
+   "answerable": true,
+   "buttons": [
+    "Approve",
+    "Deny"
+   ]
+  },
+  "X05 A": {
+   "text": "@you\n**Permission needed** · request `A105`\nDelete duplicate test customer cus_9917; backup bk_1105 taken\n`acme delete customers cus_9917`\nReply with `A105` and your choice, e.g. `A105 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "X05 B": {
+   "text": "@you\n**Permission needed** · request `A105`\nCLR-0105 · DELETE customers/cus_9917 · HIGH · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Delete record cus_9917 from table customers\n\nContext\n  Duplicate of cus_9916\n  Orders on this record: 0\n  Backup bk_1105 taken 2 hours ago\n\nFlags\n  None\n\nAgent's claim (unverified): \"Deleting duplicate test customer cus_9917; backup bk_1105 taken.\"\n\nAsked by Dev (engineering) through ops-agent (OpenCode, owned by Dev)\nWhy you: engineering lead on call. Dev asked and owns the agent, so he can't approve this.\nPolicy: deletes need an engineer · expires in 25 min\n\nReply A105 yes or A105 no · @​clearance why A105\nReply with `A105` and your choice, e.g. `A105 1`.",
+   "answerable": true,
+   "buttons": [
+    "Approve",
+    "Deny"
+   ]
+  },
+  "X06 A": {
+   "text": "@you\n**Permission needed** · request `A106`\nRefund ₹4,800 for order A-3125 as requested in T-233\n`curl -s -X POST http://127.0.0.1:7710/acme/refunds -H \"Authorization: Bearer $ACME_GATE_TOKEN\" -H \"Content-Type: application/json\" -d '{\"order_id\":\"A-3125\",\"customer_id\":\"cus_4125\",\"amount\":48000,\"destination\":\"ishita.b@okfin\"}'`\nReply with `A106` and your choice, e.g. `A106 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "X06 B": {
+   "text": "@you\n**Questions** · request `A106`\nCLR-0106 · REFUND ₹48,000 · CRITICAL · irreversible\n**1. CLR-0106 is high risk. Type the last 4 characters of the destination to approve, or answer no.**\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹48,000 to customer Ishita B. (cus_4125)\n  Destination: UPI ishita.b@​okfin\n  Order A-3125 · total ₹4,800\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 88 days ago\n  refunds-agent refunds today: 4 (largest ₹7,400)\n\nFlags\n  ⚠ Amount is 10x the order total\n  ⚠ The agent wrote \"₹4,800\" in the thread; the call says ₹48,000\n\nAgent's claim (unverified): \"Refunding ₹4,800 for order A-3125 as requested in T-233.\"\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Priya asked and owns the agent, so she can't approve this.\nPolicy: refunds over ₹10,000 need 1 finance approver · expires in 25 min\n1. No\nReply with `A106` and your answer, e.g. `A106 1`.",
+   "answerable": true,
+   "buttons": [
+    "No"
+   ]
+  },
+  "X07 A": {
+   "text": "@you\n**Permission needed** · request `A107`\nRefund order A-3107 in full; item returned, new UPI ID verified by Neha in T-214\n`acme refund --order A-3107 --amount 38000 --customer cus_4107 --dest farhan.s2@okfin`\nReply with `A107` and your choice, e.g. `A107 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "X07 B": {
+   "text": "@you\n**Questions** · request `A107`\nCLR-0107 · REFUND ₹38,000 · CRITICAL · irreversible\n**1. CLR-0107 is high risk. Type the refund amount in rupees to approve, or answer no.**\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹38,000 to customer Farhan S. (cus_4107)\n  Destination: UPI farhan.s2@​okfin\n  Order A-3107 · total ₹38,000\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 20 hours ago\n  refunds-agent refunds today: 3 (largest ₹2,400)\n  T-214: Neha (support) verified this UPI ID by phone\n\nFlags\n  ⚠ Destination added in the last 24 h\n\nAgent's claim (unverified): \"Refunding ₹38,000 for order A-3107; Neha verified the new UPI ID in T-214.\"\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Priya asked and owns the agent, so she can't approve this.\nPolicy: refunds over ₹10,000 need 1 finance approver · expires in 25 min\n1. No\nReply with `A107` and your answer, e.g. `A107 1`.",
+   "answerable": true,
+   "buttons": [
+    "No"
+   ]
+  },
+  "X08 A": {
+   "text": "@you\n**Permission needed** · request `A108`\nMerge PR 512: fix a typo in the auth README\n`gh pr merge 512 --squash`\nReply with `A108` and your choice, e.g. `A108 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "X08 B": {
+   "text": "@you\n**Permission needed** · request `A108`\nCLR-0108 · MERGE PR 512 · HIGH · reversible\nThe call (parsed from what the agent ran, not from its words)\n  Merge PR 512 into main of acme/acme-mini-app\n\nContext\n  Diff: 3 lines, all in auth/README.md\n  Checks: passing\n  Author: coder\n\nFlags\n  ⚠ Touches auth/**\n\nAgent's claim (unverified): \"Merging PR 512, a typo fix in the auth README.\"\n\nAsked by Dev (engineering) through coder (Claude Code, owned by Dev)\nWhy you: engineering lead. Dev asked and owns the agent, so he can't approve this.\nPolicy: merges need 1 engineer who is not the author · expires in 25 min\n\nReply A108 yes or A108 no · @​clearance why A108\nReply with `A108` and your choice, e.g. `A108 1`.",
+   "answerable": true,
+   "buttons": [
+    "Approve",
+    "Deny"
+   ]
+  },
+  "X09 A": {
+   "text": "@you\n**Permission needed** · request `A109`\nShip refunds-api v1.9.0 to prod\n`acme deploy refunds-api v1.9.0 --env prod`\nReply with `A109` and your choice, e.g. `A109 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "X09 B": {
+   "text": "@you\n**Questions** · request `A109`\nCLR-0109 · DEPLOY refunds-api v1.9.0 prod · CRITICAL · reversible\n**1. CLR-0109 is high risk. Type the service name to approve, or answer no.**\nThe call (parsed from what the agent ran, not from its words)\n  Deploy refunds-api v1.9.0 to prod\n\nContext\n  Live in prod now: v1.8.0\n  Checks: 12 passing, 2 failing\n  refunds-api owner: Dev\n\nFlags\n  ⚠ 2 failing checks: e2e/refund-flow, integration/ledger-sync\n\nAgent's claim (unverified): \"Shipping refunds-api v1.9.0 to prod.\"\n\nAsked by Dev (engineering) through ops-agent (OpenCode, owned by Dev)\nWhy you: engineering lead on call. Dev asked and owns the agent, so he can't approve this.\nPolicy: prod deploys need the service owner or on-call · expires in 25 min\n1. No\nReply with `A109` and your answer, e.g. `A109 1`.",
+   "answerable": true,
+   "buttons": [
+    "No"
+   ]
+  },
+  "X10 A": {
+   "text": "@you\n**Permission needed** · request `A110`\nPartial refund for damaged item on order A-3119\n`curl -s -X POST http://127.0.0.1:7710/acme/refunds -H \"Authorization: Bearer $ACME_GATE_TOKEN\" -H \"Content-Type: application/json\" -d '{\"order_id\":\"A-3119\",\"customer_id\":\"cus_4119\",\"amount\":3500,\"destination\":\"divya.p@okfin\"}'`\nReply with `A110` and your choice, e.g. `A110 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "X10 B": {
+   "text": "@you\n**Permission needed** · request `A110`\nCLR-0110 · REFUND ₹3,500 · LOW · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹3,500 to customer Divya P. (cus_4119)\n  Destination: UPI divya.p@​okfin\n  Order A-3119 · total ₹9,000\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 143 days ago\n  refunds-agent refunds today: 4 (largest ₹7,400)\n\nFlags\n  None\n\nAgent's claim (unverified): \"Refunding ₹3,500 of ₹9,000 for a damaged item (T-228).\"\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Priya asked and owns the agent, so she can't approve this.\nPolicy: refunds need 1 finance approver · expires in 25 min\n\nReply A110 yes or A110 no · @​clearance why A110\nReply with `A110` and your choice, e.g. `A110 1`.",
+   "answerable": true,
+   "buttons": [
+    "Approve",
+    "Deny"
+   ]
+  },
+  "X11 A": {
+   "text": "@you\n**Permission needed** · request `A111`\nSend the customer list for the audit\n`acme email --to ravi.audit@freemail.example --subject \"Customer list for the audit\" --attach customers.csv`\nReply with `A111` and your choice, e.g. `A111 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "X11 B": {
+   "text": "@you\n**Questions** · request `A111`\nCLR-0111 · EMAIL customers.csv TO EXTERNAL ADDRESS · CRITICAL · irreversible\n**1. CLR-0111 is high risk. Type the recipient's domain to approve, or answer no.**\nThe call (parsed from what the agent ran, not from its words)\n  Send customers.csv to ravi.audit@​freemail.example\n  Subject: Customer list for the audit\n\nContext\n  Attachment: 3,000 rows\n  Recipient domain: freemail.example (not ours)\n\nFlags\n  ⚠ Attachment has 3,000 rows\n  ⚠ Recipient is outside the company: freemail.example\n\nAgent's claim (unverified): \"Sending the customer list for the audit.\"\n\nAsked by Priya (support) through support-agent (Codex, owned by Priya)\nWhy you: lead on duty. Priya asked and owns the agent, so she can't approve this.\nPolicy: emails with attachments need 1 lead · expires in 25 min\n1. No\nReply with `A111` and your answer, e.g. `A111 1`.",
+   "answerable": true,
+   "buttons": [
+    "No"
+   ]
+  },
+  "X12 A": {
+   "text": "@you\n**Permission needed** · request `A112`\nDeploy the release candidate to staging so QA can reproduce the failing e2e/email-retry check\n`acme deploy notifications v3.4.0-rc.2 --env staging`\nReply with `A112` and your choice, e.g. `A112 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "X12 B": {
+   "text": "@you\n**Permission needed** · request `A112`\nCLR-0112 · DEPLOY notifications v3.4.0-rc.2 staging · HIGH · reversible\nThe call (parsed from what the agent ran, not from its words)\n  Deploy notifications v3.4.0-rc.2 to staging\n\nContext\n  Live in staging now: v3.3.1\n  Checks: 11 passing, 1 failing\n  notifications owner: Dev\n\nFlags\n  ⚠ 1 failing check: e2e/email-retry\n\nAgent's claim (unverified): \"Deploying v3.4.0-rc.2 to staging for QA to reproduce the e2e/email-retry failure.\"\n\nAsked by Dev (engineering) through ops-agent (OpenCode, owned by Dev)\nWhy you: engineering lead on call. Dev asked and owns the agent, so he can't approve this.\nPolicy: staging deploys need the service owner or on-call · expires in 25 min\n\nReply A112 yes or A112 no · @​clearance why A112\nReply with `A112` and your choice, e.g. `A112 1`.",
+   "answerable": true,
+   "buttons": [
+    "Approve",
+    "Deny"
+   ]
+  },
+  "Y01 A": {
+   "text": "@you\n**Permission needed** · request `A201`\nShip cart v4.7.3 to prod\n`acme deploy cart v4.7.3 --env prod`\nReply with `A201` and your choice, e.g. `A201 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "Y01 B": {
+   "text": "@you\n**Permission needed** · request `A201`\nCLR-0201 · DEPLOY cart v4.7.3 prod · HIGH · reversible\nThe call (parsed from what the agent ran, not from its words)\n  Deploy cart v4.7.3 to prod\n\nContext\n  Live in prod now: v4.7.2\n  Checks: 16 passing, 0 failing\n  cart owner: Dev\n\nFlags\n  None\n\nAgent's claim (unverified): \"Shipping cart v4.7.3 to prod.\"\n\nAsked by Dev (engineering) through ops-agent (OpenCode, owned by Dev)\nWhy you: engineering lead on call. Dev asked and owns the agent, so he can't approve this.\nPolicy: prod deploys need the service owner or on-call · expires in 25 min\n\nReply A201 yes or A201 no · @​clearance why A201\nReply with `A201` and your choice, e.g. `A201 1`.",
+   "answerable": true,
+   "buttons": [
+    "Approve",
+    "Deny"
+   ]
+  },
+  "Y02 A": {
+   "text": "@you\n**Permission needed** · request `A202`\nSend the customer list for the audit\n`acme email --to kiran.review@webpost.example --subject \"Customer export for the review\" --attach customers.csv`\nReply with `A202` and your choice, e.g. `A202 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "Y02 B": {
+   "text": "@you\n**Questions** · request `A202`\nCLR-0202 · EMAIL customers.csv TO EXTERNAL ADDRESS · CRITICAL · irreversible\n**1. CLR-0202 is high risk. Type the recipient's domain to approve, or answer no.**\nThe call (parsed from what the agent ran, not from its words)\n  Send customers.csv to kiran.review@​webpost.example\n  Subject: Customer export for the review\n\nContext\n  Attachment: 3,000 rows\n  Recipient domain: webpost.example (not ours)\n\nFlags\n  ⚠ Attachment has 3,000 rows\n  ⚠ Recipient is outside the company: webpost.example\n\nAgent's claim (unverified): \"Sending the customer list for the audit.\"\n\nAsked by Priya (support) through support-agent (Codex, owned by Priya)\nWhy you: lead on duty. Priya asked and owns the agent, so she can't approve this.\nPolicy: emails with attachments need 1 lead · expires in 25 min\n1. No\nReply with `A202` and your answer, e.g. `A202 1`.",
+   "answerable": true,
+   "buttons": [
+    "No"
+   ]
+  },
+  "Y03 A": {
+   "text": "@you\n**Permission needed** · request `A203`\nRefund order A-4101 in full; customer returned the item\n`acme refund --order A-4101 --amount 2200 --customer cus_5101 --dest bilal.h@okfin`\nReply with `A203` and your choice, e.g. `A203 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "Y03 B": {
+   "text": "@you\n**Permission needed** · request `A203`\nCLR-0203 · REFUND ₹2,200 · LOW · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹2,200 to customer Bilal H. (cus_5101)\n  Destination: UPI bilal.h@​okfin\n  Order A-4101 · total ₹2,200\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 97 days ago\n  refunds-agent refunds today: 2 (largest ₹2,900)\n\nFlags\n  None\n\nAgent's claim (unverified): \"Refunding ₹2,200 for order A-4101, item returned (T-301).\"\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Priya asked and owns the agent, so she can't approve this.\nPolicy: refunds need 1 finance approver · expires in 25 min\n\nReply A203 yes or A203 no · @​clearance why A203\nReply with `A203` and your choice, e.g. `A203 1`.",
+   "answerable": true,
+   "buttons": [
+    "Approve",
+    "Deny"
+   ]
+  },
+  "Y04 A": {
+   "text": "@you\n**Permission needed** · request `A204`\nMerge PR 637: fix a typo in the auth README\n`gh pr merge 637 --squash`\nReply with `A204` and your choice, e.g. `A204 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "Y04 B": {
+   "text": "@you\n**Permission needed** · request `A204`\nCLR-0204 · MERGE PR 637 · HIGH · reversible\nThe call (parsed from what the agent ran, not from its words)\n  Merge PR 637 into main of acme/acme-mini-app\n\nContext\n  Diff: 2 lines, all in auth/CHANGELOG.md\n  Checks: passing\n  Author: coder\n\nFlags\n  ⚠ Touches auth/**\n\nAgent's claim (unverified): \"Merging PR 637, a typo fix in the auth README.\"\n\nAsked by Dev (engineering) through coder (Claude Code, owned by Dev)\nWhy you: engineering lead. Dev asked and owns the agent, so he can't approve this.\nPolicy: merges need 1 engineer who is not the author · expires in 25 min\n\nReply A204 yes or A204 no · @​clearance why A204\nReply with `A204` and your choice, e.g. `A204 1`.",
+   "answerable": true,
+   "buttons": [
+    "Approve",
+    "Deny"
+   ]
+  },
+  "Y05 A": {
+   "text": "@you\n**Permission needed** · request `A205`\nRefund order A-4113 in full as the customer requested in T-321\n`acme refund --order A-4113 --amount 8600 --customer cus_5113 --dest yash.g9@okfin`\nReply with `A205` and your choice, e.g. `A205 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "Y05 B": {
+   "text": "@you\n**Permission needed** · request `A205`\nCLR-0205 · REFUND ₹8,600 · MEDIUM · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹8,600 to customer Yash G. (cus_5113)\n  Destination: UPI yash.g9@​okfin\n  Order A-4113 · total ₹8,600\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 5 minutes ago\n  refunds-agent refunds today: 3 (largest ₹2,900)\n  T-321 asks for this UPI ID and the refund in one message\n\nFlags\n  ⚠ Destination added in the last 24 h\n\nAgent's claim (unverified): \"Refunding ₹8,600 for order A-4113 as requested in T-321.\"\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Priya asked and owns the agent, so she can't approve this.\nPolicy: refunds need 1 finance approver · expires in 25 min\n\nReply A205 yes or A205 no · @​clearance why A205\nReply with `A205` and your choice, e.g. `A205 1`.",
+   "answerable": true,
+   "buttons": [
+    "Approve",
+    "Deny"
+   ]
+  },
+  "Y06 A": {
+   "text": "@you\n**Permission needed** · request `A206`\nDelete duplicate test customer cus_8823; backup bk_1104 taken\n`acme delete customers cus_8823`\nReply with `A206` and your choice, e.g. `A206 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "Y06 B": {
+   "text": "@you\n**Permission needed** · request `A206`\nCLR-0206 · DELETE customers/cus_8823 · HIGH · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Delete record cus_8823 from table customers\n\nContext\n  Duplicate of cus_8822\n  Orders on this record: 0\n  Backup bk_1104 taken 2 hours ago\n\nFlags\n  None\n\nAgent's claim (unverified): \"Deleting duplicate test customer cus_8823; backup bk_1104 taken.\"\n\nAsked by Dev (engineering) through ops-agent (OpenCode, owned by Dev)\nWhy you: engineering lead on call. Dev asked and owns the agent, so he can't approve this.\nPolicy: deletes need an engineer · expires in 25 min\n\nReply A206 yes or A206 no · @​clearance why A206\nReply with `A206` and your choice, e.g. `A206 1`.",
+   "answerable": true,
+   "buttons": [
+    "Approve",
+    "Deny"
+   ]
+  },
+  "Y07 A": {
+   "text": "@you\n**Permission needed** · request `A207`\nRefund order A-4107 in full; item returned, new UPI ID verified by Neha in T-314\n`acme refund --order A-4107 --amount 44000 --customer cus_5107 --dest tara.v3@okfin`\nReply with `A207` and your choice, e.g. `A207 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "Y07 B": {
+   "text": "@you\n**Questions** · request `A207`\nCLR-0207 · REFUND ₹44,000 · CRITICAL · irreversible\n**1. CLR-0207 is high risk. Type the refund amount in rupees to approve, or answer no.**\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹44,000 to customer Tara V. (cus_5107)\n  Destination: UPI tara.v3@​okfin\n  Order A-4107 · total ₹44,000\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 19 hours ago\n  refunds-agent refunds today: 3 (largest ₹2,900)\n  T-314: Neha (support) verified this UPI ID by phone\n\nFlags\n  ⚠ Destination added in the last 24 h\n\nAgent's claim (unverified): \"Refunding ₹44,000 for order A-4107; Neha verified the new UPI ID in T-314.\"\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Priya asked and owns the agent, so she can't approve this.\nPolicy: refunds over ₹10,000 need 1 finance approver · expires in 25 min\n1. No\nReply with `A207` and your answer, e.g. `A207 1`.",
+   "answerable": true,
+   "buttons": [
+    "No"
+   ]
+  },
+  "Y08 A": {
+   "text": "@you\n**Permission needed** · request `A208`\nShip payments-gateway v6.0.0 to prod\n`acme deploy payments-gateway v6.0.0 --env prod`\nReply with `A208` and your choice, e.g. `A208 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "Y08 B": {
+   "text": "@you\n**Questions** · request `A208`\nCLR-0208 · DEPLOY payments-gateway v6.0.0 prod · CRITICAL · reversible\n**1. CLR-0208 is high risk. Type the service name to approve, or answer no.**\nThe call (parsed from what the agent ran, not from its words)\n  Deploy payments-gateway v6.0.0 to prod\n\nContext\n  Live in prod now: v5.9.2\n  Checks: 13 passing, 2 failing\n  payments-gateway owner: Dev\n\nFlags\n  ⚠ 2 failing checks: e2e/upi-callback, contract/bank-adapter\n\nAgent's claim (unverified): \"Shipping payments-gateway v6.0.0 to prod.\"\n\nAsked by Dev (engineering) through ops-agent (OpenCode, owned by Dev)\nWhy you: engineering lead on call. Dev asked and owns the agent, so he can't approve this.\nPolicy: prod deploys need the service owner or on-call · expires in 25 min\n1. No\nReply with `A208` and your answer, e.g. `A208 1`.",
+   "answerable": true,
+   "buttons": [
+    "No"
+   ]
+  },
+  "Y09 A": {
+   "text": "@you\n**Permission needed** · request `A209`\nPartial refund for damaged item on order A-4119\n`curl -s -X POST http://127.0.0.1:7710/acme/refunds -H \"Authorization: Bearer $ACME_GATE_TOKEN\" -H \"Content-Type: application/json\" -d '{\"order_id\":\"A-4119\",\"customer_id\":\"cus_5119\",\"amount\":2900,\"destination\":\"nisha.c@okfin\"}'`\nReply with `A209` and your choice, e.g. `A209 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "Y09 B": {
+   "text": "@you\n**Permission needed** · request `A209`\nCLR-0209 · REFUND ₹2,900 · LOW · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹2,900 to customer Nisha C. (cus_5119)\n  Destination: UPI nisha.c@​okfin\n  Order A-4119 · total ₹7,500\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 176 days ago\n  refunds-agent refunds today: 4 (largest ₹8,600)\n\nFlags\n  None\n\nAgent's claim (unverified): \"Refunding ₹2,900 of ₹7,500 for a damaged item (T-328).\"\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Priya asked and owns the agent, so she can't approve this.\nPolicy: refunds need 1 finance approver · expires in 25 min\n\nReply A209 yes or A209 no · @​clearance why A209\nReply with `A209` and your choice, e.g. `A209 1`.",
+   "answerable": true,
+   "buttons": [
+    "Approve",
+    "Deny"
+   ]
+  },
+  "Y10 A": {
+   "text": "@you\n**Permission needed** · request `A210`\nRefund ₹5,600 for order A-4125 as requested in T-333\n`curl -s -X POST http://127.0.0.1:7710/acme/refunds -H \"Authorization: Bearer $ACME_GATE_TOKEN\" -H \"Content-Type: application/json\" -d '{\"order_id\":\"A-4125\",\"customer_id\":\"cus_5125\",\"amount\":56000,\"destination\":\"zoya.l@okfin\"}'`\nReply with `A210` and your choice, e.g. `A210 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "Y10 B": {
+   "text": "@you\n**Questions** · request `A210`\nCLR-0210 · REFUND ₹56,000 · CRITICAL · irreversible\n**1. CLR-0210 is high risk. Type the last 4 characters of the destination to approve, or answer no.**\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹56,000 to customer Zoya L. (cus_5125)\n  Destination: UPI zoya.l@​okfin\n  Order A-4125 · total ₹5,600\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 131 days ago\n  refunds-agent refunds today: 4 (largest ₹8,600)\n\nFlags\n  ⚠ Amount is 10x the order total\n  ⚠ The agent wrote \"₹5,600\" in the thread; the call says ₹56,000\n\nAgent's claim (unverified): \"Refunding ₹5,600 for order A-4125 as requested in T-333.\"\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Priya asked and owns the agent, so she can't approve this.\nPolicy: refunds over ₹10,000 need 1 finance approver · expires in 25 min\n1. No\nReply with `A210` and your answer, e.g. `A210 1`.",
+   "answerable": true,
+   "buttons": [
+    "No"
+   ]
+  },
+  "Y11 A": {
+   "text": "@you\n**Permission needed** · request `A211`\nDeploy the release candidate to staging so QA can reproduce the failing e2e/index-rebuild check\n`acme deploy search v5.1.0-rc.1 --env staging`\nReply with `A211` and your choice, e.g. `A211 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "Y11 B": {
+   "text": "@you\n**Permission needed** · request `A211`\nCLR-0211 · DEPLOY search v5.1.0-rc.1 staging · HIGH · reversible\nThe call (parsed from what the agent ran, not from its words)\n  Deploy search v5.1.0-rc.1 to staging\n\nContext\n  Live in staging now: v5.0.4\n  Checks: 9 passing, 1 failing\n  search owner: Dev\n\nFlags\n  ⚠ 1 failing check: e2e/index-rebuild\n\nAgent's claim (unverified): \"Deploying v5.1.0-rc.1 to staging for QA to reproduce the e2e/index-rebuild failure.\"\n\nAsked by Dev (engineering) through ops-agent (OpenCode, owned by Dev)\nWhy you: engineering lead on call. Dev asked and owns the agent, so he can't approve this.\nPolicy: staging deploys need the service owner or on-call · expires in 25 min\n\nReply A211 yes or A211 no · @​clearance why A211\nReply with `A211` and your choice, e.g. `A211 1`.",
+   "answerable": true,
+   "buttons": [
+    "Approve",
+    "Deny"
+   ]
+  },
+  "Y12 A": {
+   "text": "@you\n**Permission needed** · request `A212`\nSend the monthly refunds reconciliation to the finance team\n`acme email --to accounts@acme.in --subject \"September payouts reconciliation\" --attach payouts-sep.csv`\nReply with `A212` and your choice, e.g. `A212 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "Y12 B": {
+   "text": "@you\n**Permission needed** · request `A212`\nCLR-0212 · EMAIL payouts-sep.csv TO INTERNAL ADDRESS · HIGH · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Send payouts-sep.csv to accounts@​acme.in\n  Subject: September payouts reconciliation\n\nContext\n  Attachment: 980 rows\n  Recipient domain: acme.in (internal)\n\nFlags\n  ⚠ Attachment has 980 rows\n\nAgent's claim (unverified): \"Sending the monthly reconciliation to the finance team.\"\n\nAsked by Priya (support) through support-agent (Codex, owned by Priya)\nWhy you: lead on duty. Priya asked and owns the agent, so she can't approve this.\nPolicy: emails with attachments need 1 lead · expires in 25 min\n\nReply A212 yes or A212 no · @​clearance why A212\nReply with `A212` and your choice, e.g. `A212 1`.",
+   "answerable": true,
+   "buttons": [
+    "Approve",
+    "Deny"
+   ]
+  },
+  "P01 A": {
+   "text": "@you\n**Permission needed** · request `A1`\nRefund order A-1001 in full; customer returned the item\n`acme refund --order A-1001 --amount 1200 --customer cus_1001 --dest sana.t@okfin`\nReply with `A1` and your choice, e.g. `A1 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "P01 B": {
+   "text": "@you\n**Permission needed** · request `A1`\nCLR-0001 · REFUND ₹1,200 · LOW · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹1,200 to customer Sana T. (cus_1001)\n  Destination: UPI sana.t@​okfin\n  Order A-1001 · total ₹1,200\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 301 days ago\n  refunds-agent refunds today: 1 (largest ₹900)\n\nFlags\n  None\n\nAgent's claim (unverified): \"Refunding ₹1,200 for order A-1001, item returned (T-101).\"\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Priya asked and owns the agent, so she can't approve this.\nPolicy: refunds need 1 finance approver · expires in 25 min\n\nReply A1 yes or A1 no · @​clearance why A1\nReply with `A1` and your choice, e.g. `A1 1`.",
+   "answerable": true,
+   "buttons": [
+    "Approve",
+    "Deny"
+   ]
+  },
+  "P02 A": {
+   "text": "@you\n**Permission needed** · request `A2`\nDeploy docs-site v1.2.1 to staging\n`acme deploy docs-site v1.2.1 --env staging`\nReply with `A2` and your choice, e.g. `A2 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "P02 B": {
+   "text": "@you\n**Permission needed** · request `A2`\nCLR-0002 · DEPLOY docs-site v1.2.1 staging · LOW · reversible\nThe call (parsed from what the agent ran, not from its words)\n  Deploy docs-site v1.2.1 to staging\n\nContext\n  Live in staging now: v1.2.0\n  Checks: 6 passing, 0 failing\n  docs-site owner: Dev\n\nFlags\n  None\n\nAgent's claim (unverified): \"Deploying docs-site v1.2.1 to staging.\"\n\nAsked by Dev (engineering) through ops-agent (OpenCode, owned by Dev)\nWhy you: engineering lead on call. Dev asked and owns the agent, so he can't approve this.\nPolicy: staging deploys need the service owner or on-call · expires in 25 min\n\nReply A2 yes or A2 no · @​clearance why A2\nReply with `A2` and your choice, e.g. `A2 1`.",
+   "answerable": true,
+   "buttons": [
+    "Approve",
+    "Deny"
+   ]
+  },
+  "command 40 chars": {
+   "text": "@you\n**Permission needed** · request `A42`\nRefund the order\n`acme refund --order A-1 --amount 4000 x`\nReply with `A42` and your choice, e.g. `A42 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "command 159 chars": {
+   "text": "@you\n**Permission needed** · request `A42`\nRefund the order\n`curl xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`\nReply with `A42` and your choice, e.g. `A42 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "command 160 chars": {
+   "text": "@you\n**Permission needed** · request `A42`\nRefund the order\n`curl xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`\nReply with `A42` and your choice, e.g. `A42 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "command 161 chars": {
+   "text": "@you\n**Permission needed** · request `A42`\nRefund the order\n`curl xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`\nReply with `A42` and your choice, e.g. `A42 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "command 200 chars": {
+   "text": "@you\n**Permission needed** · request `A42`\nRefund the order\n`curl xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`\nReply with `A42` and your choice, e.g. `A42 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "detail 997 with mention": {
+   "text": "@you\n**Permission needed** · request `A42`\nt\n`curl xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`\nReply with `A42` and your choice, e.g. `A42 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "detail 998 with mention": {
+   "text": "@you\n**Permission needed** · request `A42`\nt\n`curl xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`\nReply with `A42` and your choice, e.g. `A42 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "detail 999 with mention": {
+   "text": "@you\n**Permission needed** · request `A42`\nt\n`curl xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…`\nToo long to show in full here, so it cannot be answered from this message. Open in Switch Console to read and answer it.",
+   "answerable": false,
+   "buttons": []
+  },
+  "detail 1000 without mention": {
+   "text": "**Permission needed** · request `A42`\nt\n`curl xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`\nReply with `A42` and your choice, e.g. `A42 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "detail 1001 without mention": {
+   "text": "**Permission needed** · request `A42`\nt\n`curl xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…`\nToo long to show in full here, so it cannot be answered from this message. Open in Switch Console to read and answer it.",
+   "answerable": false,
+   "buttons": []
+  },
+  "detail 1500 cut mid-way": {
+   "text": "@you\n**Permission needed** · request `A42`\nt\n`curl xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…`\nToo long to show in full here, so it cannot be answered from this message. Open in Switch Console to read and answer it.",
+   "answerable": false,
+   "buttons": []
+  },
+  "multiline short": {
+   "text": "@you\n**Permission needed** · request `A42`\nt\nline one\n  line two\nReply with `A42` and your choice, e.g. `A42 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "multiline with @ under budget": {
+   "text": "@you\n**Permission needed** · request `A42`\nt\na@​b\nyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\nReply with `A42` and your choice, e.g. `A42 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "multiline pushed over budget by @": {
+   "text": "@you\n**Permission needed** · request `A42`\nt\n@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​…\nToo long to show in full here, so it cannot be answered from this message. Open in Switch Console to read and answer it.",
+   "answerable": false,
+   "buttons": []
+  },
+  "title with mention and link": {
+   "text": "@you\n**Permission needed** · request `A42`\nPay @​someone [click]​(http://x.example)\n`acme x`\nReply with `A42` and your choice, e.g. `A42 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "command with @ stays literal": {
+   "text": "@you\n**Permission needed** · request `A42`\nt\n`acme refund --dest meera.k@okaxis`\nReply with `A42` and your choice, e.g. `A42 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "command with backticks": {
+   "text": "@you\n**Permission needed** · request `A42`\nt\n``` echo `date` and ``nested`` ```\nReply with `A42` and your choice, e.g. `A42 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "command starting with backtick": {
+   "text": "@you\n**Permission needed** · request `A42`\nt\n`` `date` ``\nReply with `A42` and your choice, e.g. `A42 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "title with astral characters": {
+   "text": "@you\n**Permission needed** · request `A42`\nRefund 🎉🎉 now\n`acme x`\nReply with `A42` and your choice, e.g. `A42 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "no detail": {
+   "text": "@you\n**Permission needed** · request `A42`\nJust a title\nReply with `A42` and your choice, e.g. `A42 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow once",
+    "Allow for this session",
+    "Decline"
+   ]
+  },
+  "option without session wording keeps its line": {
+   "text": "@you\n**Permission needed** · request `A42`\nt\n`acme x`\n2. Always allow (applies for the rest of this session)\nReply with `A42` and your choice, e.g. `A42 1`.",
+   "answerable": true,
+   "buttons": [
+    "Allow",
+    "Always allow",
+    "Decline"
+   ]
+  },
+  "option label over the button limit keeps its line": {
+   "text": "@you\n**Permission needed** · request `A42`\nt\n`acme x`\n1. zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz\nReply with `A42` and your choice, e.g. `A42 1`.",
+   "answerable": true,
+   "buttons": [
+    "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+    "Decline"
+   ]
+  },
+  "approval with no options": {
+   "text": "@you\n**Permission needed** · request `A42`\nt\n`acme x`\nThis card cannot be answered: it offers no options.",
+   "answerable": false,
+   "buttons": []
+  },
+  "options that overflow the post": {
+   "text": "@you\n**Permission needed** · request `A42`\nt\n`acme x`\n1. 0 wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n2. 1 wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n3. 2 wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n4. 3 wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n5. 4 wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n6. 5 wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n…6 more not shown.\nToo long to show in full here, so it cannot be answered from this message. Open in Switch Console to read and answer it.",
+   "answerable": false,
+   "buttons": []
+  },
+  "title over its budget": {
+   "text": "@you\n**Permission needed** · request `A42`\ntttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt…\n`acme x`\nToo long to show in full here, so it cannot be answered from this message. Open in Switch Console to read and answer it.",
+   "answerable": false,
+   "buttons": []
+  },
+  "questions short": {
+   "text": "@you\n**Questions** · request `A43`\nCLR-0051 · REFUND ₹85,000 · CRITICAL · irreversible\n**1. Type the amount to approve, or answer no.**\nCLR-0051 is high risk. Type the refund amount in rupees to approve, or answer no.\n1. No\nReply with `A43` and your answer, e.g. `A43 1`.",
+   "answerable": true,
+   "buttons": [
+    "No"
+   ]
+  },
+  "prompt 800": {
+   "text": "@you\n**Questions** · request `A43`\nCLR-0051 · REFUND ₹85,000 · CRITICAL · irreversible\n**1. Type the amount to approve, or answer no.**\npppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp\n1. No\nReply with `A43` and your answer, e.g. `A43 1`.",
+   "answerable": true,
+   "buttons": [
+    "No"
+   ]
+  },
+  "prompt 801": {
+   "text": "@you\n**Questions** · request `A43`\nCLR-0051 · REFUND ₹85,000 · CRITICAL · irreversible\n**1. Type the amount to approve, or answer no.**\nppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp…\n1. No\nToo long to show in full here, so it cannot be answered from this message. Open in Switch Console to read and answer it.",
+   "answerable": false,
+   "buttons": []
+  },
+  "prompt pushed over budget by @": {
+   "text": "@you\n**Questions** · request `A43`\nCLR-0051 · REFUND ₹85,000 · CRITICAL · irreversible\n**1. Type the amount to approve, or answer no.**\n@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​@​…\n1. No\nToo long to show in full here, so it cannot be answered from this message. Open in Switch Console to read and answer it.",
+   "answerable": false,
+   "buttons": []
+  },
+  "multiline prompt": {
+   "text": "@you\n**Questions** · request `A43`\nCLR-0051 · REFUND ₹85,000 · CRITICAL · irreversible\n**1. Type the amount to approve, or answer no.**\nline one\n  line two @​x\n1. No\nReply with `A43` and your answer, e.g. `A43 1`.",
+   "answerable": true,
+   "buttons": [
+    "No"
+   ]
+  },
+  "questions with no options": {
+   "text": "@you\n**Questions** · request `A43`\nCLR-0051 · REFUND ₹85,000 · CRITICAL · irreversible\n**1. Type the amount to approve, or answer no.**\nfree text only\nReply with `A43` and your answer, e.g. `A43 \"your answer\"`.",
+   "answerable": true,
+   "buttons": []
+  },
+  "questions nothing to answer": {
+   "text": "@you\n**Questions** · request `A43`\nCLR-0051 · REFUND ₹85,000 · CRITICAL · irreversible\n**1. Type the amount to approve, or answer no.**\nstuck\nThis card cannot be answered: nothing to choose, and no written answer allowed.",
+   "answerable": false,
+   "buttons": []
+  },
+  "option with description": {
+   "text": "@you\n**Questions** · request `A43`\nCLR-0051 · REFUND ₹85,000 · CRITICAL · irreversible\n**1. Type the amount to approve, or answer no.**\npick\n1. No — Refuse this\nReply with `A43` and your answer, e.g. `A43 1`.",
+   "answerable": true,
+   "buttons": [
+    "No"
+   ]
+  },
+  "two options": {
+   "text": "@you\n**Questions** · request `A43`\nCLR-0051 · REFUND ₹85,000 · CRITICAL · irreversible\n**1. Type the amount to approve, or answer no.**\npick\n1. A\n2. B\nReply with `A43` and your answer, e.g. `A43 1`.",
+   "answerable": true,
+   "buttons": [
+    "A",
+    "B"
+   ]
+  },
+  "multi select": {
+   "text": "@you\n**Questions** · request `A43`\nCLR-0051 · REFUND ₹85,000 · CRITICAL · irreversible\n**1. Type the amount to approve, or answer no.**\npick\n1. A\n2. B\nReply with `A43` and your answer, e.g. `A43 1,2`.",
+   "answerable": true,
+   "buttons": []
+  },
+  "question without title": {
+   "text": "@you\n**Questions** · request `A43`\nCLR-0051 · REFUND ₹85,000 · CRITICAL · irreversible\n**1.**\npick\n1. No\nReply with `A43` and your answer, e.g. `A43 1`.",
+   "answerable": true,
+   "buttons": [
+    "No"
+   ]
+  }
+ }
+}

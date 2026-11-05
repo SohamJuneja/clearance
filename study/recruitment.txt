@@ -1,0 +1,1 @@
+Hi! We're building Clearance for the Flip the Switch hackathon: it decides who should approve what an AI agent wants to do. We need 15 minutes of your time on Fri Nov 6 (21:00–23:30 IST) or Sat Nov 7 (09:30–12:30 IST). You'll approve or deny 24 short requests in a chat window in your browser. No install, no personal data, no real money. Pick a slot here: <form link>. Thank you!

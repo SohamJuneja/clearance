@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# The `acme` CLI agents run. Talks only to the gate, using ACME_GATE_TOKEN. See src/cli.ts.
+set -euo pipefail
+here="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+exec "$here/../node_modules/.bin/tsx" "$here/../src/cli.ts" "$@"

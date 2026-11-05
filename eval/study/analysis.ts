@@ -1,6 +1,8 @@
 /**
- * E5 analysis (PLAN 11.7): turns the Approval Lab's event logs into per-person metrics, per-condition
- * summaries and paired differences. Pure, so it can be tested on synthetic events.
+ * E5 analysis (PLAN 11.7): turns the event logs from either platform (the Approval Lab, or real Switch
+ * cards) into per-person metrics, per-condition summaries and paired differences. Pure, so it can be
+ * tested on synthetic events. Differences are within a person, so people from both platforms can be
+ * pooled; `participants.by_platform` and each person's `platform` say who used which (PLAN 11.5).
  *
  * Paired differences are always Clearance minus Switch (B minus A), and only people who finished both
  * blocks are in them. Everyone who started is still counted, and incomplete sessions are listed

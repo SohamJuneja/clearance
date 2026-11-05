@@ -1,0 +1,14 @@
+# Closes Mattermost's signup before it goes on a public tunnel for the study (PLAN 11.5, S10).
+#
+# Layered on Switch's compose, which stays untouched. scripts/study-expose.sh applies it, then proves
+# signup is off through the API before it will start a tunnel. Accounts an admin creates still work,
+# so setup-identities.ts and setup-study-accounts.ts keep working, and Switch can still make bots.
+#
+# Environment wins over Mattermost's stored config, so nobody can turn these back on from the System
+# Console while this is applied. Bringing the stack up without this file turns signup back on.
+services:
+  mattermost:
+    environment:
+      MM_TEAMSETTINGS_ENABLEOPENSERVER: "false"
+      MM_TEAMSETTINGS_ENABLEUSERCREATION: "false"
+      MM_EMAILSETTINGS_ENABLESIGNUPWITHEMAIL: "false"

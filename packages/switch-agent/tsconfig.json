@@ -3,6 +3,8 @@
   "include": [
     "src",
     "test",
-    "../../scripts/setup-identities.ts"
+    "../../scripts/setup-identities.ts",
+    "../../scripts/setup-study-accounts.ts",
+    "../../scripts/lib-provisioning.ts"
   ]
 }

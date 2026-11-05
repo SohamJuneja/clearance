@@ -54,6 +54,11 @@ export type SwitchAgentConfig = {
   reconnectDelayMs?: { first: number; max: number };
   /** Reopen if nothing at all arrives for this long. Switch writes a keepalive every 15 s. */
   idleTimeoutMs?: number;
+  /**
+   * Where a previous run of this client got to, from `MessageMeta.position`. Without it the stream opens
+   * at the head, so anything said while the client was down is never delivered.
+   */
+  initialPosition?: Position;
   /** Overrides the 2 s heartbeat. For tests. */
   heartbeatMs?: number;
   /** Overrides the backoff between retries of an unsettled outcome. For tests. */
@@ -99,8 +104,11 @@ export type OpenApprovalBody = {
   expires_at: string | null;
 };
 
+/** Where a frame sits in the stream. Save it once the frame is handled, and a restart resumes after it. */
+export type FrameMeta = { position?: Position };
+
 export type SwitchAgentHandlers = {
-  message?: (event: ChatMessageEvent) => void | Promise<void>;
+  message?: (event: ChatMessageEvent, meta: FrameMeta) => void | Promise<void>;
   /** Acknowledged to Switch only once this resolves, so a throw means it is delivered again. */
   approvalOutcome?: (event: ApprovalOutcomeEvent) => void | Promise<void>;
   command?: (frame: CommandFrame) => void | Promise<void>;
@@ -128,6 +136,11 @@ export interface SwitchAgent {
   markDelivered(sessionId: string, requestId: string): Promise<ApprovalView>;
   /** Answers and expiries not yet acknowledged, oldest first. The stream also redelivers these on open. */
   undeliveredOutcomes(): Promise<ApprovalView[]>;
+  /**
+   * Records that a turn answers `messageId`, which is how Switch knows who to name on the turn's cards.
+   * It carries no room, so Switch does not draw a status post for it. Repeating it changes nothing.
+   */
+  reportTurn(sessionId: string, turn: { turnId: string; messageId: string; occurredAt: Date }): Promise<void>;
 }
 
 const CLIENT_NAME = "clearance-switch-agent";
@@ -186,7 +199,7 @@ export function createSwitchAgent(config: SwitchAgentConfig): SwitchAgent {
   const stopController = new AbortController();
   let streamController: AbortController | null = null;
   let generation: number | null = null;
-  let position: Position | null = null;
+  let position: Position | null = config.initialPosition ? { ...config.initialPosition } : null;
   let beatTimer: ReturnType<typeof setInterval> | null = null;
   let loop: Promise<void> | null = null;
   let dispatchQueue: Promise<unknown> = Promise.resolve();
@@ -375,7 +388,7 @@ export function createSwitchAgent(config: SwitchAgentConfig): SwitchAgent {
         const frame = parseFrame(name, MessageFrameSchema, data);
         if (!frame) return;
         mergePosition(frame.position);
-        enqueue(() => handlers.message?.(toChatMessageEvent(frame)));
+        enqueue(() => handlers.message?.(toChatMessageEvent(frame), { position: frame.position }));
         return;
       }
       case "command": {
@@ -619,6 +632,26 @@ export function createSwitchAgent(config: SwitchAgentConfig): SwitchAgent {
     async undeliveredOutcomes() {
       const views = await expectOk("GET", "/agent-sessions/approvals/outcomes");
       return ApprovalViewSchema.array().parse(views);
+    },
+
+    async reportTurn(sessionId, turn) {
+      await expectOk("POST", `/agent-sessions/${encodeURIComponent(sessionId)}/activity`, {
+        json: {
+          turn_id: turn.turnId,
+          item_id: "turn",
+          kind: "turn",
+          revision: 0,
+          status: "completed",
+          title: "",
+          text: "",
+          command_id: null,
+          room_id: null,
+          thread_id: null,
+          message_id: turn.messageId,
+          occurred_at: turn.occurredAt.toISOString(),
+          usage: [],
+        },
+      });
     },
   };
 }

@@ -39,3 +39,29 @@ export const DEBRIEF_ACKNOWLEDGE =
 export const DEBRIEF_DATA = "Raw results are deleted after the hackathon is judged; only totals are published.";
 
 export const STOPPED_MESSAGE = "You've stopped the study. Nothing else will be recorded. Thank you for your time.";
+
+// In Switch (study/bot): the same study, as real cards in a private room.
+
+export const SWITCH_WELCOME =
+  "Welcome. This room is yours for the study. The cards here are real Switch approval cards, but they are examples: no agent is waiting and nothing you choose will run. Type anything here to begin, for example hello. You can type stop at any time to end the study.";
+
+export const CONSENT_DECLINE = "I do not agree";
+export const CONSENT_QUESTION = "Do you agree to take part?";
+export const ROLE_QUESTION = "Which describes you best?";
+export const BRIEFING_START = "Start";
+
+export const SWITCH_PRACTICE_INTRO =
+  "Two practice cards first. They aren't scored. Answer each one by pressing a button under it, or by typing what the card tells you to.";
+export const switchBlockIntro = (block: number, total: number) => `Block ${block} of 2: ${total} requests. Approve what is right and deny what is wrong.`;
+export const switchBreakNotice = (seconds: number) => `Take a ${seconds}-second break. The next block starts by itself.`;
+
+/** Switch's own footer shows `A19 1`, which picks the first option. Typing a value takes quotes. */
+export const TYPE_TO_CONFIRM_HOW = 'type your answer in quotes after this card\'s code, like A19 "your answer". To decline, press No.';
+export const TYPE_TO_CONFIRM_HINT = 'That wasn\'t read as an answer. Put it in quotes after the card\'s code, like A19 "your answer", or press No.';
+
+export const COMMENT_HOW = "Type your answer as a normal message here, or press the button if you'd rather not say.";
+export const NO_COMMENT = "No comment";
+
+export const SWITCH_REPOSTED = "Someone else answered that card, so it doesn't count. Here it is again for you.";
+export const CONFIRM_REASK = "That doesn't match the card. Try once more, or press No.";
+export const CONFIRM_FAILED = "That didn't match either, so this request was not approved.";

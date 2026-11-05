@@ -9,13 +9,12 @@
  * process until the debrief. Links are signed so a curious participant cannot edit p07 to p08 and
  * write into someone else's results.
  */
-import { chmodSync, existsSync, mkdirSync, appendFileSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
-import { StudyEventSchema, type StudyEvent } from "../lib/events";
 import {
   BREAK_SECONDS,
   BRIEFING,
@@ -34,14 +33,14 @@ import {
   ROLE_OPTIONS,
   STOPPED_MESSAGE,
 } from "../lib/materials";
-import { assignGroup, deriveStep, practiceAt, requestAt, resolveAnswer, type Sets, type Step } from "../lib/protocol";
+import { answerRecord, assignGroup, deriveStep, locate, resolveAnswer, type Sets, type Step } from "../lib/protocol";
+import { DEFAULT_RESULTS_DIR, createResultsLog } from "../lib/results";
 import { loadSet } from "../lib/sets";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = resolve(here, "public");
 
-/** The real results directory. Dry runs must go somewhere else. */
-export const DEFAULT_RESULTS_DIR = resolve(here, "../results");
+export { DEFAULT_RESULTS_DIR };
 
 const STATIC_FILES: Record<string, string> = {
   "/static/app.js": "text/javascript; charset=utf-8",
@@ -173,33 +172,10 @@ const COPY = {
 };
 
 export function createLabServer(options: LabOptions): Server {
-  if (options.synthetic && resolve(options.resultsDir) === DEFAULT_RESULTS_DIR) {
-    throw new Error("refusing to write synthetic events into study/results: use a different STUDY_RESULTS_DIR");
-  }
   if (!options.secret) throw new Error("STUDY_LINK_SECRET must be set");
   const sets = loadSets();
-  const now = options.now ?? (() => new Date());
   const breakSeconds = options.breakSeconds ?? BREAK_SECONDS;
-
-  const fileFor = (participant: string) => resolve(options.resultsDir, `${participant}.jsonl`);
-
-  const readEvents = (participant: string): StudyEvent[] => {
-    const file = fileFor(participant);
-    if (!existsSync(file)) return [];
-    return readFileSync(file, "utf8")
-      .split("\n")
-      .filter(Boolean)
-      .map((line) => StudyEventSchema.parse(JSON.parse(line)));
-  };
-
-  const record = (participant: string, event: Record<string, unknown>) => {
-    const line = StudyEventSchema.parse({ ...event, participant, at: now().toISOString(), ...(options.synthetic ? { synthetic: true } : {}) });
-    mkdirSync(options.resultsDir, { recursive: true });
-    const file = fileFor(participant);
-    const isNew = !existsSync(file);
-    appendFileSync(file, `${JSON.stringify(line)}\n`);
-    if (isNew) chmodSync(file, 0o600);
-  };
+  const { read: readEvents, record } = createResultsLog({ resultsDir: options.resultsDir, platform: "approval-lab", synthetic: options.synthetic, now: options.now });
 
   const stateFor = (participant: string): Step => deriveStep(readEvents(participant), participant, sets, breakSeconds);
 
@@ -211,13 +187,7 @@ export function createLabServer(options: LabOptions): Server {
     if ((step.step !== "card" && step.step !== "practice") || step.request_id !== body.request_id) return { step };
 
     const group = assignGroup(participant);
-    const located =
-      step.step === "practice"
-        ? { ...practiceAt(sets, group, step.index - 1), block: null }
-        : (() => {
-            const found = requestAt(sets, group, step.block - 1, step.position - 1);
-            return { request: found.request, condition: found.block.condition, block: found.block };
-          })();
+    const located = locate(sets, group, step);
 
     const outcome = resolveAnswer(located.request, located.condition, step.attempts, { label: body.label, typed: body.typed });
     if (outcome.kind === "invalid") throw new HttpError(400, outcome.reason);
@@ -226,31 +196,7 @@ export function createLabServer(options: LabOptions): Server {
       return { step: stateFor(participant), notice: "That doesn't match the card. Try once more, or answer no." };
     }
 
-    const answer = {
-      condition: located.condition,
-      request_id: located.request.id,
-      decision: outcome.decision,
-      option: outcome.option,
-      ms: body.ms,
-      interrupted: body.interrupted,
-      confirm_attempts: step.attempts + (body.typed !== undefined ? 1 : 0),
-    };
-    if (step.step === "practice") {
-      record(participant, { type: "practice", ...answer });
-    } else {
-      record(participant, {
-        type: "decision",
-        ...answer,
-        group: group.group,
-        block: step.block,
-        set: located.block!.set,
-        position: step.position,
-        template: located.request.template,
-        kind: located.request.kind,
-        flaw_type: located.request.flaw?.type ?? null,
-        evidence_in_a: located.request.flaw?.evidence_in_a ?? null,
-      });
-    }
+    record(participant, answerRecord(group, step, located, outcome, { ms: body.ms, interrupted: body.interrupted }, body.typed !== undefined));
     const notice = outcome.decision === "confirm_failed" ? "That didn't match either, so this request was not approved." : undefined;
     return { step: stateFor(participant), notice };
   };

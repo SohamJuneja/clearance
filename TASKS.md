@@ -125,6 +125,6 @@ Tick a box only when tests or a run prove it. Acceptance text is copied from PLA
 - [ ] **D8** (lead) Blog draft, 1,000 to 1,500 words, in HUMAN.md.
 - [ ] **D9** (lead) Three #HowISwitch posts with clips, in HUMAN.md.
 - [ ] **D10** (switchboard) Track 03 #803: design comment text, PR code in a fork, in HUMAN.md.
-- [ ] **D11** (world-ui) Study: recruitment text, consent, sets X and Y, Approval Lab, in-Switch study bot, analysis.
+- [x] **D11** (world-ui, switchboard) Study: recruitment text, consent, sets X and Y, Approval Lab, in-Switch study bot, analysis. Built and rehearsed; no real participant yet.
 - [ ] **D12** (proof; first scan done, docs/competition-scan.md) Competition re-scan Fri 12:00 and Sat 12:00; update README Related work.
 - [ ] **D13** (lead) `SUBMISSION.md` with every form field. Tag `v1.0.0`. CI green. Fresh-clone `just demo` verified in a clean temp directory.

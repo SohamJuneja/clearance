@@ -99,6 +99,7 @@ export function createChatPort(agent: SwitchAgent, options: ChatPortOptions = {}
   const warn = options.warn ?? ((message: string) => process.stderr.write(`[switch-agent] ${message}\n`));
   const directRooms = new Map<string, string>();
   const documents = new Map<string, string>();
+  const reportedTurns = new Set<string>();
 
   async function roomNamed(name: string): Promise<ListedRoom | undefined> {
     const rooms = await agent.op<ListedRoom[]>("list_rooms", { include_archived: true });
@@ -144,11 +145,21 @@ export function createChatPort(agent: SwitchAgent, options: ChatPortOptions = {}
     async openCard(input: OpenCardInput): Promise<OpenCardResult> {
       checkLimits(input);
       const sessionId = roomSessionId(input.roomId);
-      const switchRequestId = `card-${randomUUID()}`;
+      const switchRequestId = input.requestId ?? `card-${randomUUID()}`;
+      let turnId = switchRequestId;
+      if (input.mentionMessageId) {
+        turnId = `turn-${input.mentionMessageId}`;
+        // Before the card, and not optional: drawn without its mention a card has a smaller budget for
+        // `detail`, and a card over budget loses its buttons.
+        if (!reportedTurns.has(turnId)) {
+          await agent.reportTurn(sessionId, { turnId, messageId: input.mentionMessageId, occurredAt: new Date() });
+          reportedTurns.add(turnId);
+        }
+      }
       await agent.openApproval({
         session_id: sessionId,
         request_id: switchRequestId,
-        turn_id: switchRequestId,
+        turn_id: turnId,
         kind: input.kind,
         title: input.title,
         detail: input.detail ? input.detail : null,

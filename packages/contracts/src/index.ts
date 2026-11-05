@@ -179,11 +179,27 @@ export type OpenCardInput = {
   kind: "approval" | "questions";
   /** At most 500 characters. */
   title: string;
-  /** At most 4000 characters. */
+  /**
+   * Switch accepts 4000 characters, but on Mattermost a card over budget loses its buttons and can't be
+   * answered from chat. Measured live, counting the zero-width space Switch adds after each @ and ]: up
+   * to 998 with `mentionMessageId` (or an owner in the room), and only up to 966 without, because then
+   * the card also carries a "notified no one" sentence.
+   */
   detail: string;
   options: CardOption[];
   questions: CardQuestion[];
   expiresAtMs?: number;
+  /**
+   * Makes opening idempotent: the same id with the same content returns the card that exists, rather
+   * than posting another. Without it each call opens a new card.
+   */
+  requestId?: string;
+  /**
+   * A message someone sent in this room. Switch names its sender at the top of the card, which is what
+   * notifies them. Without it, it names the agent's owner if they are in the room; otherwise the card
+   * says it notified no one, and that sentence takes budget from `detail` (see OpenCardInput.detail).
+   */
+  mentionMessageId?: string;
 };
 
 export type OpenCardResult = {

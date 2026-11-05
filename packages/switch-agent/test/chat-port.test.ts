@@ -19,6 +19,7 @@ function fakeAgent(ops: Record<string, (args: Record<string, unknown>) => unknow
   const opened: OpenApprovalBody[] = [];
   const closed: [string, string][] = [];
   const sent: [string, string][] = [];
+  const turns: { sessionId: string; turnId: string; messageId: string }[] = [];
   const agent = {
     connectionId: "conn",
     agentId: "agent-1",
@@ -44,8 +45,11 @@ function fakeAgent(ops: Record<string, (args: Record<string, unknown>) => unknow
     },
     markDelivered: vi.fn(),
     undeliveredOutcomes: vi.fn(),
+    async reportTurn(sessionId: string, turn: { turnId: string; messageId: string }) {
+      turns.push({ sessionId, turnId: turn.turnId, messageId: turn.messageId });
+    },
   } as unknown as SwitchAgent;
-  return { agent, opCalls, opened, closed, sent };
+  return { agent, opCalls, opened, closed, sent, turns };
 }
 
 function port(ops: Parameters<typeof fakeAgent>[0] = {}, options: ChatPortOptions = {}) {
@@ -108,6 +112,33 @@ describe("openCard", () => {
     expect(body.expires_at).toBe(new Date(1_800_000_000_000).toISOString());
     expect(result.sessionId).toBe(roomSessionId("room-a"));
     expect(result.handle).toBeUndefined();
+  });
+
+  it("uses a caller's request id, so opening again finds the same card", async () => {
+    const { chat, opened } = port();
+    const first = await chat.openCard({ ...approvalCard, requestId: "study-p01-X03" });
+    const second = await chat.openCard({ ...approvalCard, requestId: "study-p01-X03" });
+    expect(first.switchRequestId).toBe("study-p01-X03");
+    expect(second.switchRequestId).toBe("study-p01-X03");
+    expect(opened.map((body) => body.request_id)).toEqual(["study-p01-X03", "study-p01-X03"]);
+    expect(opened[0]!.turn_id).toBe(opened[1]!.turn_id);
+  });
+
+  it("records a turn once for the message whose sender a card should name, before the card", async () => {
+    const { chat, opened, turns } = port();
+    await chat.openCard({ ...approvalCard, mentionMessageId: "sw_hello" });
+    await chat.openCard({ ...approvalCard, mentionMessageId: "sw_hello" });
+    expect(turns).toEqual([{ sessionId: roomSessionId("room-a"), turnId: "turn-sw_hello", messageId: "sw_hello" }]);
+    expect(opened.map((body) => body.turn_id)).toEqual(["turn-sw_hello", "turn-sw_hello"]);
+  });
+
+  it("does not open a card whose mention could not be recorded", async () => {
+    const { agent, opened } = fakeAgent();
+    (agent as unknown as { reportTurn: () => Promise<void> }).reportTurn = async () => {
+      throw new Error("Switch is down");
+    };
+    await expect(createChatPort(agent).openCard({ ...approvalCard, mentionMessageId: "sw_hello" })).rejects.toThrow("Switch is down");
+    expect(opened).toHaveLength(0);
   });
 
   it("gives two cards two request ids", async () => {

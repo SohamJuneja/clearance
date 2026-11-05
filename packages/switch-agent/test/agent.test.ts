@@ -98,6 +98,23 @@ describe("the stream", () => {
   });
 });
 
+describe("resuming from an earlier run", () => {
+  it("opens at the saved position, so what was said while it was down is delivered", async () => {
+    const saved = { s: 12, "r:room-a": 40 };
+    const { stream } = await started({ initialPosition: saved });
+    expect(JSON.parse(stream.query.get("start_at")!)).toEqual(saved);
+    expect(stream.query.get("expected_generation")).toBeNull();
+  });
+
+  it("hands each message its own position, to save once it is handled", async () => {
+    const seen: unknown[] = [];
+    const { stream } = await started({}, { message: (_event, meta) => void seen.push(meta.position) });
+    stream.send("message", { ...frame("message_in_thread"), position: { "r:room-a": 21 } });
+    await until("the message", () => seen.length === 1);
+    expect(seen).toEqual([{ "r:room-a": 21 }]);
+  });
+});
+
 describe("the heartbeat", () => {
   it("beats with the connection id and the incarnation", async () => {
     const { server, agent } = await started();
@@ -424,6 +441,29 @@ describe("approvals", () => {
     stream.send("approval_outcome", fixture("approval_outcome_answered"));
     await until("the second ack", () => acks === 2);
     expect(calls).toBe(1);
+  });
+
+  it("reports a turn with no room, so Switch names its sender and draws no status post", async () => {
+    const { server, agent } = await started();
+    const occurredAt = new Date("2026-11-06T16:00:00.000Z");
+    await agent.reportTurn("s 1", { turnId: "turn-1", messageId: "sw_hello", occurredAt });
+    const call = server.paths("/activity")[0]!;
+    expect(call.path).toBe("/agent-sessions/s%201/activity");
+    expect(call.json).toEqual({
+      turn_id: "turn-1",
+      item_id: "turn",
+      kind: "turn",
+      revision: 0,
+      status: "completed",
+      title: "",
+      text: "",
+      command_id: null,
+      room_id: null,
+      thread_id: null,
+      message_id: "sw_hello",
+      occurred_at: "2026-11-06T16:00:00.000Z",
+      usage: [],
+    });
   });
 
   it("marks an outcome delivered and reads the undelivered list", async () => {

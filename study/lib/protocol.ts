@@ -112,6 +112,53 @@ export function deriveStep(events: StudyEvent[], participant: string, sets: Sets
   return { step: "debrief", missed };
 }
 
+export type CardStep = Extract<Step, { step: "practice" | "card" }>;
+
+export type Located = { request: StudyRequest; condition: Condition; block: Block | null };
+
+/** Which request and style the current step shows. */
+export function locate(sets: Sets, group: Group, step: CardStep): Located {
+  if (step.step === "practice") return { ...practiceAt(sets, group, step.index - 1), block: null };
+  const found = requestAt(sets, group, step.block - 1, step.position - 1);
+  return { request: found.request, condition: found.block.condition, block: found.block };
+}
+
+/**
+ * The event a final answer becomes, on either platform. `typed` counts a type-to-confirm attempt. The
+ * caller adds who and when.
+ */
+export function answerRecord(
+  group: Group,
+  step: CardStep,
+  located: Located,
+  outcome: Extract<AnswerOutcome, { kind: "final" }>,
+  timing: { ms: number; interrupted: boolean },
+  typed: boolean,
+): Record<string, unknown> {
+  const answer = {
+    condition: located.condition,
+    request_id: located.request.id,
+    decision: outcome.decision,
+    option: outcome.option,
+    ms: timing.ms,
+    interrupted: timing.interrupted,
+    confirm_attempts: step.attempts + (typed ? 1 : 0),
+  };
+  if (step.step === "practice") return { type: "practice", ...answer };
+  return {
+    type: "decision",
+    ...answer,
+    group: group.group,
+    block: step.block,
+    set: located.block!.set,
+    position: step.position,
+    template: located.request.template,
+    kind: located.request.kind,
+    flaw_type: located.request.flaw?.type ?? null,
+    evidence_in_a: located.request.flaw?.evidence_in_a ?? null,
+  };
+}
+
 export type AnswerInput = { label?: string; typed?: string };
 
 export type AnswerOutcome =

@@ -95,3 +95,62 @@ Linking to the hook call within a turn is core's part. This spike confirms the d
 A rerun of `s11-templates.ts` after a crash found its stand-in agents still present, so a "rooms only, agents absent" check succeeded and created real rooms named `support`, `finance`, `eng` and `approvals` under Alex, in a group `Acme Mini`. They were removed with the spike's other rooms: Switch rooms through `spikes/cleanup.ts`, Mattermost channels with `mmctl --local channel delete`, because deleting a Switch room leaves its channel behind and Switch then auto-bridges it again. The names are free, confirmed by `mmctl channel list`. Other subagents' `spike-*` rooms were not touched: the room log shows each of those deleted by its owner outside these runs, or created after them. The check now runs under spike names and `cleanup.ts` only deletes ids named on its command line.
 
 A run of any spike here leaves channels in Mattermost. Clean up with `pnpm exec tsx spikes/cleanup.ts`, then pass it the ids it lists after `--delete`, and delete the channels with `mmctl`.
+
+---
+
+# The in-Switch study (D11)
+
+Run against the live stack with `study-bot`. Probes: `s-study-card-probe.ts`, `s-after-override.ts`, `s10-cookie-check.ts`, `s10-tunnel-check.ts`, `s-card-lengths.ts`. Rehearsal: `study/tools/rehearsal.ts`. Nothing here is a study result, and no rate or time from a rehearsal may be reported.
+
+## How much detail a card can hold
+
+Measured live with a multi-line `detail`, the shape Clearance cards have:
+
+| | keeps its buttons up to | loses them from |
+|---|---|---|
+| Card that names someone | 998 characters | 999 |
+| Card that names nobody | 966 characters | 967 |
+
+The card that names nobody also carries "Nobody here is linked to this agent's owner, so this notified no one...", and that sentence is charged to the budget. **The 990 in DECISIONS.md is only safe on a card that names someone.** Characters are code points, counted after Switch adds a zero-width space following each `@` and `]`. The prompt on a questions card holds to 800 either way.
+
+## Naming the person on a card
+
+A card names the sender of the message its turn answers. `POST /agent-sessions/{sid}/activity` with `kind:"turn"`, `room_id:null` and `message_id` set to something the person said makes Switch name them on every card of that turn, which also removes the "notified no one" sentence. With no room, Switch draws no status post for the turn. Available as `OpenCardInput.mentionMessageId`. It needs a message from that person in that room, which is why the study starts when the participant says hello.
+
+## What real cards do that the Lab does not
+
+- **Typing a value takes quotes.** `A20 38000` is silently not an answer; `A20 "38,000"` is. A questions card's own footer says `A19 1`, which picks the first option, so on a type-to-confirm card it means No. The study's card says how, and the bot explains once if someone gets it wrong.
+- **`A19 no` is refused on a questions card**: "a word answers a permission request, and that card asks questions". The Appendix D sentence says "or answer no", so the study's card says to press No. F6's real type-to-confirm has both of these problems.
+- **A press on a questions card** sends `answers:[{question_id, selected_option_ids:["no"], custom_text:null}]` and `answer:null`.
+- **The same request id opened again** posts nothing, whether the card is open or answered, as long as the content is the same.
+- **A typed answer also arrives as a message**, and can be stamped just after the next card went up, because the bridge handles the answer before it relays the message. So a message's time can't by itself say which card it was about.
+- **An open card loses its buttons if the agent is gone past Switch's 30 s window.** It shows "Host offline. Answers are unavailable until the session reconnects", and gets its buttons back when the agent returns. A restart shorter than that goes unnoticed. This applies to Clearance's own cards too. The bot marks the time on such a card `interrupted`.
+
+## Exposure
+
+- **Signup.** With the override, all three settings read `false`, and a real attempt is refused with HTTP 501 `api.user.create_user.signup_email_disabled.app_error`, both anonymously and through the team invite link, which any participant could read. With signup open, the checker refuses from the config alone and creates no account.
+- **Admin-created accounts still work**: `p03` was created with signup off. Persona tokens, `setup-identities.ts`, a card and a press all still work after Mattermost restarted.
+- **SITEURL matters, for one thing.** This Mattermost only upgrades a websocket whose Origin is SiteURL or is listed in AllowCorsFrom. Through a tunnel it answered 403, so a browser would get no live updates and never see a new card. `study-expose.sh` puts the tunnel's origin in AllowCorsFrom, which takes effect at once with no restart and keeps local browsers working, requires a 101 through the tunnel before it gives out the URL, and clears the setting on exit. Other origins stay refused.
+- **Nothing else needed SiteURL**: session cookies carry no Domain, and cards hold no links. Through the tunnel: login with a one-time password, a post, a card with its buttons and a press all worked. Tunnel up for about a minute at a time, stopped each time.
+- **Not tested:** a real browser or a phone. These checks are what a browser does, made over the API. S10's phone login is still open.
+
+## Team size
+
+Mattermost refuses new team members past `TeamSettings.MaxUsersPerTeam`, 50 by default, and every agent's bot counts, including bots of deleted agents. Provisioning stopped at `p11` when the team reached 50: 32 bots, many left by spikes, and 18 people. New agents could not have joined the team either. `setup-study-accounts.ts` raises the limit to 200 through the admin API, which takes effect at once and needs no override.
+
+## Rehearsal (synthetic)
+
+A script played p01 through Mattermost's REST API with its one-time password, in a scratch results folder, on the final code.
+
+- **Cards:** 34 posted, 34 expected, none doubled. Every card had its buttons when first seen, named the participant, and had no "notified no one" line.
+- **Evidence:** every card comes from `cardInput` in `study/lib/cards.ts`, the same function the Lab draws from, so it is the card the product posts. Longest condition A detail 230 of 990, longest condition B detail 745 of 990, longest prompt 749 of 790 (`s-card-lengths.ts`). The four critical cards the prompt can't hold whole (X06, X07, Y07, Y10) give up the agent's claim, as core's rule says, on both platforms.
+- **Someone else** (the bridge's default member, who is in the room) pressed and typed: Switch refused both and the card stayed open.
+- **Killed with a card open,** answered while down: recorded once, on restart. **Killed and restarted:** one copy of the card, with its buttons.
+- **Down for 40 s:** the open card showed "Host offline" with no buttons, and got them back on restart. It is the one decision marked `interrupted`.
+- **Records:** every one says `platform:"switch"` and `synthetic:true`. The analysis labels it synthetic with a null headline. `study/results` was untouched.
+
+Four earlier rehearsals found the hint firing on a message about the previous card, which this one confirms fixed. Those runs also logged `UNKNOWN: unknown error, write` five times once, from the bot's own file writes, on the third process of the first rehearsal. It did not recur in the next four, 560k writes to that disk in a stress loop did not reproduce it, and every record was intact, because a failed write is retried and nothing is acknowledged until it is saved. Cause unknown. The log now shows the syscall and call site if it comes back.
+
+**Not rehearsed:** more than one participant live at a time (the fake ChatPort covers routing), or a real person.
+
+**One line on the card does nothing in the study.** Condition B's approval card ends with the product's `@clearance why CLR-...`, on both platforms, and no Clearance is listening. Typing it is not an answer, the card stays open, and the clock keeps running.

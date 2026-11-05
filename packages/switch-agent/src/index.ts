@@ -4,6 +4,7 @@ export {
   SwitchApiError,
   type ApprovalOption,
   type ApprovalQuestion,
+  type FrameMeta,
   type Logger,
   type OpenApprovalBody,
   type SwitchAgent,

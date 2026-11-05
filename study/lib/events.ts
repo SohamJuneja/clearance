@@ -3,14 +3,21 @@
  *
  * IDs only. There is no name field anywhere, and the free-text comment is the only text a person
  * types. PLAN 11.8.
+ *
+ * Two platforms write this format and one analysis reads it (PLAN 11.5). Every record says which
+ * platform it came from. Records from before that have no field, and their session_start still says.
  */
 import { z } from "zod";
 
 export const PARTICIPANT_ID = /^p\d{2}$/;
 
+export const PlatformSchema = z.enum(["approval-lab", "switch"]);
+export type Platform = z.infer<typeof PlatformSchema>;
+
 const base = {
   participant: z.string().regex(PARTICIPANT_ID),
   at: z.string(),
+  platform: PlatformSchema.optional(),
   /** Set only on dry runs and test data. eval/study refuses to treat these as results. */
   synthetic: z.literal(true).optional(),
 };
@@ -22,13 +29,16 @@ const Answer = {
   /** The button pressed, or "typed" for a correct type-to-confirm answer. */
   option: z.string(),
   ms: z.number().positive(),
-  /** True if the page was hidden while this card was up, so `ms` includes time away. */
+  /**
+   * True if `ms` includes something other than deciding. In the Lab: the page was hidden while the card
+   * was up. In Switch: someone else's answer used up the card and it had to be posted again.
+   */
   interrupted: z.boolean(),
   confirm_attempts: z.number().int().min(0),
 };
 
 export const StudyEventSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("session_start"), ...base, group: z.number().int().min(1).max(4), platform: z.literal("approval-lab"), schema: z.literal(1) }),
+  z.object({ type: z.literal("session_start"), ...base, group: z.number().int().min(1).max(4), platform: PlatformSchema, schema: z.literal(1) }),
   z.object({ type: z.literal("consent"), ...base, agreed: z.literal(true), role: z.string(), familiarity: z.number().int().min(1).max(5) }),
   z.object({ type: z.literal("briefing_read"), ...base }),
   z.object({ type: z.literal("practice"), ...base, ...Answer }),

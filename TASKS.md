@@ -67,8 +67,8 @@ Tick a box only when tests or a run prove it. Acceptance text is copied from PLA
   - [ ] Replay numbers come from `pnpm eval:autonomy`.
   - [ ] One incident demotes and the next refund in the bucket is held again.
 - **F12 Clearance Desk** (world-ui)
-  - [ ] Loads in under 1 s locally.
-  - [ ] Every number on the Desk matches the API.
+  - [x] Loads in under 1 s locally.
+  - [x] Every number on the Desk matches the API.
 - **F13 Why me / why held** (brain)
   - [x] Trace is generated from the same function the router uses (no second implementation).
 - **F14 Anti-evasion** (gate-hooks + brain)

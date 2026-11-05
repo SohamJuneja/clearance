@@ -70,6 +70,7 @@ function destinationView(row: Row, nowMs: number) {
 
 function pullView(db: AcmeDb, row: Row) {
   const merged = db.prepare("SELECT 1 FROM merges WHERE number = ?").get(row.number);
+  const checks = JSON.parse(String(row.checks)) as { status: string; failing: string[] };
   return {
     number: row.number,
     repo: row.repo,
@@ -77,7 +78,9 @@ function pullView(db: AcmeDb, row: Row) {
     author: row.author,
     changes: row.changes,
     files: JSON.parse(String(row.files)) as string[],
-    checks: JSON.parse(String(row.checks)) as unknown,
+    // A string, because core prints it on the card as "Checks: passing".
+    checks: checks.status,
+    failing_checks: checks.failing,
     diff: row.diff,
     merged: Boolean(merged),
   };

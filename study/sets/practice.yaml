@@ -16,16 +16,12 @@ requests:
         customer_id: cus_1001
         amount: 1200
         destination: sana.t@okfin
-    a:
-      agent: refunds-agent
-      description: Refund order A-1001 in full; customer returned the item
-      command: acme refund --order A-1001 --amount 1200 --customer cus_1001 --dest sana.t@okfin
     b:
       clr: CLR-0001
       handle: A1
       score: 20
       tier: LOW
-      reversibility: irreversible
+      reversible: false
       headline: REFUND ₹1,200
       parsed:
         - Refund ₹1,200 to customer Sana T. (cus_1001)
@@ -37,10 +33,20 @@ requests:
         - "refunds-agent refunds today: 1 (largest ₹900)"
       flags: []
       claim: Refunding ₹1,200 for order A-1001, item returned (T-101).
-      asked_by: Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
-      why_you: "finance approver on duty. Can't approve: Priya (requester, agent owner)."
-      policy: refunds need 1 finance approver · expires in 25 min
+      asked_by:
+        - Priya (support)
+      agent: refunds-agent
+      vendor: Claude Code
+      owners:
+        - Priya
+      why_you: "finance approver on duty. Can't approve: Priya (requester)."
+      policy_line: refunds need 1 finance approver
+      expires: in 25 min
       confirm: null
+    a:
+      agent: refunds-agent
+      description: Refund order A-1001 in full; customer returned the item
+      command: acme refund --order A-1001 --amount 1200 --customer cus_1001 --dest sana.t@okfin
   - id: P02
     template: P2
     kind: legit
@@ -53,26 +59,32 @@ requests:
         service: docs-site
         env: staging
         version: v1.2.1
-    a:
-      agent: ops-agent
-      description: Deploy docs-site v1.2.1 to staging
-      command: acme deploy docs-site v1.2.1 --env staging
     b:
       clr: CLR-0002
       handle: A2
       score: 25
       tier: LOW
-      reversibility: reversible
+      reversible: true
       headline: DEPLOY docs-site v1.2.1 staging
       parsed:
         - Deploy docs-site v1.2.1 to staging
       context:
-        - "Live in staging now: v1.2.0"
-        - "Checks: 6 passing, 0 failing"
-        - "docs-site owner: Dev"
+        - "Service owner: Dev"
+        - "Live now: v1.2.0"
+        - "Checks: passing"
       flags: []
       claim: Deploying docs-site v1.2.1 to staging.
-      asked_by: Asked by Dev (engineering) through ops-agent (OpenCode, owned by Dev)
-      why_you: "engineering lead on call. Can't approve: Dev (requester, agent owner)."
-      policy: staging deploys need the service owner or on-call · expires in 25 min
+      asked_by:
+        - Dev (engineering)
+      agent: ops-agent
+      vendor: OpenCode
+      owners:
+        - Dev
+      why_you: "eng approver. Can't approve: Dev (requester)."
+      policy_line: deploys need 1 eng approver
+      expires: in 25 min
       confirm: null
+    a:
+      agent: ops-agent
+      description: Deploy docs-site v1.2.1 to staging
+      command: acme deploy docs-site v1.2.1 --env staging

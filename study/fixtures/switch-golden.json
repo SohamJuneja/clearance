@@ -12,7 +12,7 @@
    ]
   },
   "X01 B": {
-   "text": "@you\n**Permission needed** · request `A101`\nCLR-0101 · REFUND ₹1,800 · LOW · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹1,800 to customer Anika R. (cus_4101)\n  Destination: UPI anika.r@​okfin\n  Order A-3101 · total ₹1,800\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 212 days ago\n  refunds-agent refunds today: 2 (largest ₹2,400)\n\nAgent's claim (unverified): \"Refunding ₹1,800 for order A-3101, item returned (T-201).\"\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Can't approve: Priya (requester, agent owner).\nPolicy: refunds need 1 finance approver · expires in 25 min\n\n@​clearance why CLR-0101\nReply with `A101` and your choice, e.g. `A101 1`.",
+   "text": "@you\n**Permission needed** · request `A101`\nCLR-0101 · REFUND ₹1,800 · LOW · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹1,800 to customer Anika R. (cus_4101)\n  Destination: UPI anika.r@​okfin\n  Order A-3101 · total ₹1,800\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 212 days ago\n  refunds-agent refunds today: 2 (largest ₹2,400)\n\nAgent's claim (unverified): \"Refunding ₹1,800 for order A-3101, item returned (T-201).\"\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Can't approve: Priya (requester).\nPolicy: refunds need 1 finance approver · expires in 25 min\n\n@​clearance why CLR-0101\nReply with `A101` and your choice, e.g. `A101 1`.",
    "answerable": true,
    "buttons": [
     "Approve",
@@ -29,7 +29,7 @@
    ]
   },
   "X02 B": {
-   "text": "@you\n**Permission needed** · request `A102`\nCLR-0102 · DEPLOY checkout v2.15.1 prod · HIGH · reversible\nThe call (parsed from what the agent ran, not from its words)\n  Deploy checkout v2.15.1 to prod\n\nContext\n  Live in prod now: v2.15.0\n  Checks: 14 passing, 0 failing\n  checkout owner: Dev\n\nAgent's claim (unverified): \"Shipping checkout v2.15.1 to prod.\"\n\nAsked by Dev (engineering) through ops-agent (OpenCode, owned by Dev)\nWhy you: engineering lead on call. Can't approve: Dev (requester, agent owner).\nPolicy: prod deploys need the service owner or on-call · expires in 25 min\n\n@​clearance why CLR-0102\nReply with `A102` and your choice, e.g. `A102 1`.",
+   "text": "@you\n**Permission needed** · request `A102`\nCLR-0102 · DEPLOY checkout v2.15.1 prod · HIGH · reversible\nThe call (parsed from what the agent ran, not from its words)\n  Deploy checkout v2.15.1 to prod\n\nContext\n  Service owner: Dev\n  Live now: v2.15.0\n  Checks: passing\n\nAgent's claim (unverified): \"Shipping checkout v2.15.1 to prod.\"\n\nAsked by Dev (engineering) through ops-agent (OpenCode, owned by Dev)\nWhy you: eng approver. Can't approve: Dev (requester).\nPolicy: prod deploys need 1 eng approver · expires in 25 min\n\n@​clearance why CLR-0102\nReply with `A102` and your choice, e.g. `A102 1`.",
    "answerable": true,
    "buttons": [
     "Approve",
@@ -46,7 +46,7 @@
    ]
   },
   "X03 B": {
-   "text": "@you\n**Permission needed** · request `A103`\nCLR-0103 · REFUND ₹7,400 · LOW · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹7,400 to customer Kabir M. (cus_4113)\n  Destination: UPI kabir.m7@​okfin\n  Order A-3113 · total ₹7,400\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 6 minutes ago\n  refunds-agent refunds today: 3 (largest ₹2,400)\n  T-221 asks for this UPI ID and the refund in one message\n\nFlags\n  ⚠ Destination added in the last 24 h\n\nAgent's claim (unverified): \"Refunding ₹7,400 for order A-3113 as requested in T-221.\"\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Can't approve: Priya (requester, agent owner).\nPolicy: refunds need 1 finance approver · expires in 25 min\n\n@​clearance why CLR-0103\nReply with `A103` and your choice, e.g. `A103 1`.",
+   "text": "@you\n**Permission needed** · request `A103`\nCLR-0103 · REFUND ₹7,400 · LOW · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹7,400 to customer Kabir M. (cus_4113)\n  Destination: UPI kabir.m7@​okfin\n  Order A-3113 · total ₹7,400\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 6 minutes ago\n  refunds-agent refunds today: 3 (largest ₹2,400)\n\nFlags\n  ⚠ Destination added in the last 24 h\n\nAgent's claim (unverified): \"Refunding ₹7,400 for order A-3113 as requested in T-221.\"\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Can't approve: Priya (requester).\nPolicy: refunds need 1 finance approver · expires in 25 min\n\n@​clearance why CLR-0103\nReply with `A103` and your choice, e.g. `A103 1`.",
    "answerable": true,
    "buttons": [
     "Approve",
@@ -63,7 +63,7 @@
    ]
   },
   "X04 B": {
-   "text": "@you\n**Permission needed** · request `A104`\nCLR-0104 · EMAIL refunds-oct.csv TO INTERNAL ADDRESS · HIGH · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Send refunds-oct.csv to finance@​acme.in\n  Subject: October refunds reconciliation\n\nContext\n  Attachment: 1,240 rows\n  Recipient domain: acme.in (internal)\n\nFlags\n  ⚠ Attachment has 1,240 rows\n\nAgent's claim (unverified): \"Sending the monthly reconciliation to the finance team.\"\n\nAsked by Priya (support) through support-agent (Codex, owned by Priya)\nWhy you: lead on duty. Can't approve: Priya (requester, agent owner).\nPolicy: emails with attachments need 1 lead · expires in 25 min\n\n@​clearance why CLR-0104\nReply with `A104` and your choice, e.g. `A104 1`.",
+   "text": "@you\n**Permission needed** · request `A104`\nCLR-0104 · CUSTOMER EMAIL finance@​acme.in · HIGH · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Email to finance@​acme.in\n  Subject: October refunds reconciliation\n  Attachments: refunds-oct.csv\n\nContext\n  Recipient domain: acme.in\n  Rows in attachments: 1,240\n\nFlags\n  ⚠ Attachments hold 1,240 rows\n\nAgent's claim (unverified): \"Sending the monthly reconciliation to finance@​acme.in.\"\n\nAsked by Priya (support) through support-agent (Codex, owned by Priya)\nWhy you: support-lead approver. Can't approve: Priya (requester).\nPolicy: customer emails with bulk data need 1 support-lead approver · expires in 25 min\n\n@​clearance why CLR-0104\nReply with `A104` and your choice, e.g. `A104 1`.",
    "answerable": true,
    "buttons": [
     "Approve",
@@ -80,7 +80,7 @@
    ]
   },
   "X05 B": {
-   "text": "@you\n**Permission needed** · request `A105`\nCLR-0105 · DELETE customers/cus_9917 · HIGH · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Delete record cus_9917 from table customers\n\nContext\n  Duplicate of cus_9916\n  Orders on this record: 0\n  Backup bk_1105 taken 2 hours ago\n\nAgent's claim (unverified): \"Deleting duplicate test customer cus_9917; backup bk_1105 taken.\"\n\nAsked by Dev (engineering) through ops-agent (OpenCode, owned by Dev)\nWhy you: engineering lead on call. Can't approve: Dev (requester, agent owner).\nPolicy: deletes need an engineer · expires in 25 min\n\n@​clearance why CLR-0105\nReply with `A105` and your choice, e.g. `A105 1`.",
+   "text": "@you\n**Permission needed** · request `A105`\nCLR-0105 · DELETE customers/cus_9917 · HIGH · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Delete customers/cus_9917\n\nAgent's claim (unverified): \"Deleting duplicate test customer cus_9917; backup bk_1105 taken.\"\n\nAsked by Dev (engineering) through ops-agent (OpenCode, owned by Dev)\nWhy you: eng approver. Can't approve: Dev (requester, agent owner).\nPolicy: deletes need 2 eng approvers · expires in 25 min\n\n@​clearance why CLR-0105\nReply with `A105` and your choice, e.g. `A105 1`.",
    "answerable": true,
    "buttons": [
     "Approve",
@@ -113,7 +113,7 @@
    ]
   },
   "X07 B": {
-   "text": "@you\n**Questions** · request `A107`\nCLR-0107 · REFUND ₹1,25,000 · CRITICAL · irreversible\n**1. Confirm**\nCLR-0107 is high risk. Type the refund amount in rupees to approve, or answer no.\n\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹1,25,000 to customer Farhan S. (cus_4107)\n  Destination: UPI farhan.s2@​okfin\n  Order A-3107 · total ₹1,25,000\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 20 hours ago\n  refunds-agent refunds today: 3 (largest ₹2,400)\n  T-214: Neha (support) verified this UPI ID by phone\n\nFlags\n  ⚠ Destination added in the last 24 h\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Can't approve: Priya (requester, agent owner).\nPolicy: refunds over ₹10,000 need 2 finance approvers · expires in 25 min\n1. No\nReply with `A107` and your answer, e.g. `A107 1`.",
+   "text": "@you\n**Questions** · request `A107`\nCLR-0107 · REFUND ₹1,25,000 · CRITICAL · irreversible\n**1. Confirm**\nCLR-0107 is high risk. Type the refund amount in rupees to approve, or answer no.\n\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹1,25,000 to customer Farhan S. (cus_4107)\n  Destination: UPI farhan.s2@​okfin\n  Order A-3107 · total ₹1,25,000\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 20 hours ago\n  refunds-agent refunds today: 3 (largest ₹2,400)\n\nFlags\n  ⚠ Destination added in the last 24 h\n\nAgent's claim (unverified): \"Refunding ₹1,25,000 for order A-3107; Neha verified the new UPI ID in T-214.\"\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Can't approve: Priya (requester, agent owner).\nPolicy: refunds over ₹10,000 need 2 finance approvers · expires in 25 min\n1. No\nReply with `A107` and your answer, e.g. `A107 1`.",
    "answerable": true,
    "buttons": [
     "No"
@@ -129,7 +129,7 @@
    ]
   },
   "X08 B": {
-   "text": "@you\n**Permission needed** · request `A108`\nCLR-0108 · MERGE PR 512 · HIGH · reversible\nThe call (parsed from what the agent ran, not from its words)\n  Merge PR 512 into main of acme/acme-mini-app\n\nContext\n  Diff: 3 lines, all in auth/README.md\n  Checks: passing\n  Author: coder\n\nFlags\n  ⚠ Touches auth/**\n\nAgent's claim (unverified): \"Merging PR 512, a typo fix in the auth README.\"\n\nAsked by Dev (engineering) through coder (Claude Code, owned by Dev)\nWhy you: engineering lead. Can't approve: Dev (requester, agent owner).\nPolicy: merges need 1 engineer who is not the author · expires in 25 min\n\n@​clearance why CLR-0108\nReply with `A108` and your choice, e.g. `A108 1`.",
+   "text": "@you\n**Permission needed** · request `A108`\nCLR-0108 · MERGE acme/acme-mini-app#512 · HIGH · reversible\nThe call (parsed from what the agent ran, not from its words)\n  Merge PR #512 in acme/acme-mini-app\n\nContext\n  Author: Dev\n  Diff: 3 lines\n  Files: auth/README.md\n  Checks: passing\n\nFlags\n  ⚠ The diff touches auth code\n\nAgent's claim (unverified): \"Merging PR 512, a typo fix in the auth README.\"\n\nAsked by Dev (engineering) through coder (Claude Code, owned by Dev)\nWhy you: eng approver. Can't approve: Dev (requester, agent owner, code author).\nPolicy: merges to main need 1 eng approver · expires in 25 min\n\n@​clearance why CLR-0108\nReply with `A108` and your choice, e.g. `A108 1`.",
    "answerable": true,
    "buttons": [
     "Approve",
@@ -146,7 +146,7 @@
    ]
   },
   "X09 B": {
-   "text": "@you\n**Questions** · request `A109`\nCLR-0109 · DEPLOY refunds-api v1.9.0 prod · CRITICAL · reversible\n**1. Confirm**\nCLR-0109 is high risk. Type the service name to approve, or answer no.\n\nThe call (parsed from what the agent ran, not from its words)\n  Deploy refunds-api v1.9.0 to prod\n\nContext\n  Live in prod now: v1.8.0\n  Checks: 12 passing, 2 failing\n  refunds-api owner: Dev\n\nFlags\n  ⚠ 2 failing checks: e2e/refund-flow, integration/ledger-sync\n\nAgent's claim (unverified): \"Shipping refunds-api v1.9.0 to prod.\"\n\nAsked by Dev (engineering) through ops-agent (OpenCode, owned by Dev)\nWhy you: engineering lead on call. Can't approve: Dev (requester, agent owner).\nPolicy: prod deploys need the service owner or on-call · expires in 25 min\n1. No\nReply with `A109` and your answer, e.g. `A109 1`.",
+   "text": "@you\n**Questions** · request `A109`\nCLR-0109 · DEPLOY refunds-api v1.9.0 prod · CRITICAL · reversible\n**1. Confirm**\nCLR-0109 is high risk. Type the service name to approve, or answer no.\n\nThe call (parsed from what the agent ran, not from its words)\n  Deploy refunds-api v1.9.0 to prod\n\nContext\n  Service owner: Dev\n  Live now: v1.8.0\n  Checks: failing (2 failing: e2e/refund-flow, integration/ledger-sync)\n\nFlags\n  ⚠ Checks are not passing for v1.9.0\n\nAgent's claim (unverified): \"Shipping refunds-api v1.9.0 to prod.\"\n\nAsked by Dev (engineering) through ops-agent (OpenCode, owned by Dev)\nWhy you: eng approver. Can't approve: Dev (requester).\nPolicy: prod deploys need 1 eng approver · expires in 25 min\n1. No\nReply with `A109` and your answer, e.g. `A109 1`.",
    "answerable": true,
    "buttons": [
     "No"
@@ -162,7 +162,7 @@
    ]
   },
   "X10 B": {
-   "text": "@you\n**Permission needed** · request `A110`\nCLR-0110 · REFUND ₹3,500 · LOW · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹3,500 to customer Divya P. (cus_4119)\n  Destination: UPI divya.p@​okfin\n  Order A-3119 · total ₹9,000\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 143 days ago\n  refunds-agent refunds today: 4 (largest ₹7,400)\n\nAgent's claim (unverified): \"Refunding ₹3,500 of ₹9,000 for a damaged item (T-228).\"\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Can't approve: Priya (requester, agent owner).\nPolicy: refunds need 1 finance approver · expires in 25 min\n\n@​clearance why CLR-0110\nReply with `A110` and your choice, e.g. `A110 1`.",
+   "text": "@you\n**Permission needed** · request `A110`\nCLR-0110 · REFUND ₹3,500 · LOW · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹3,500 to customer Divya P. (cus_4119)\n  Destination: UPI divya.p@​okfin\n  Order A-3119 · total ₹9,000\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 143 days ago\n  refunds-agent refunds today: 4 (largest ₹7,400)\n\nAgent's claim (unverified): \"Refunding ₹3,500 of ₹9,000 for a damaged item (T-228).\"\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Can't approve: Priya (requester).\nPolicy: refunds need 1 finance approver · expires in 25 min\n\n@​clearance why CLR-0110\nReply with `A110` and your choice, e.g. `A110 1`.",
    "answerable": true,
    "buttons": [
     "Approve",
@@ -179,14 +179,14 @@
    ]
   },
   "X11 B": {
-   "text": "@you\n**Questions** · request `A111`\nCLR-0111 · EMAIL customers.csv TO EXTERNAL ADDRESS · CRITICAL · irreversible\n**1. Confirm**\nCLR-0111 is high risk. Type the recipient's domain to approve, or answer no.\n\nThe call (parsed from what the agent ran, not from its words)\n  Send customers.csv to ravi.audit@​freemail.example\n  Subject: Customer list for the audit\n\nContext\n  Attachment: 3,000 rows\n  Recipient domain: freemail.example (not ours)\n\nFlags\n  ⚠ Attachment has 3,000 rows\n  ⚠ Recipient is outside the company: freemail.example\n\nAgent's claim (unverified): \"Sending the customer list for the audit.\"\n\nAsked by Priya (support) through support-agent (Codex, owned by Priya)\nWhy you: lead on duty. Can't approve: Priya (requester, agent owner).\nPolicy: emails with attachments need 1 lead · expires in 25 min\n1. No\nReply with `A111` and your answer, e.g. `A111 1`.",
+   "text": "@you\n**Questions** · request `A111`\nCLR-0111 · CUSTOMER EMAIL ravi.audit@​freemail.example · CRITICAL · irreversible\n**1. Confirm**\nCLR-0111 is high risk. Type the recipient's domain to approve, or answer no.\n\nThe call (parsed from what the agent ran, not from its words)\n  Email to ravi.audit@​freemail.example\n  Subject: Customer list for the audit\n  Attachments: customers.csv\n\nContext\n  Recipient domain: freemail.example\n  Rows in attachments: 3,000\n\nFlags\n  ⚠ Attachments hold 3,000 rows\n\nAgent's claim (unverified): \"Sending the customer list to ravi.audit@​freemail.example for the audit.\"\n\nAsked by Priya (support) through support-agent (Codex, owned by Priya)\nWhy you: support-lead approver. Can't approve: Priya (requester).\nPolicy: customer emails with bulk data need 1 support-lead approver · expires in 25 min\n1. No\nReply with `A111` and your answer, e.g. `A111 1`.",
    "answerable": true,
    "buttons": [
     "No"
    ]
   },
   "X12 A": {
-   "text": "@you\n**Permission needed** · request `A112`\nDeploy the release candidate to staging so QA can reproduce the failing e2e/email-retry check\n`acme deploy notifications v3.4.0-rc.2 --env staging`\nReply with `A112` and your choice, e.g. `A112 1`.",
+   "text": "@you\n**Permission needed** · request `A112`\nDeploy v3.4.0 to staging so QA can reproduce the failing e2e/email-retry check\n`acme deploy notifications v3.4.0 --env staging`\nReply with `A112` and your choice, e.g. `A112 1`.",
    "answerable": true,
    "buttons": [
     "Allow once",
@@ -195,7 +195,7 @@
    ]
   },
   "X12 B": {
-   "text": "@you\n**Permission needed** · request `A112`\nCLR-0112 · DEPLOY notifications v3.4.0-rc.2 staging · HIGH · reversible\nThe call (parsed from what the agent ran, not from its words)\n  Deploy notifications v3.4.0-rc.2 to staging\n\nContext\n  Live in staging now: v3.3.1\n  Checks: 11 passing, 1 failing\n  notifications owner: Dev\n\nFlags\n  ⚠ 1 failing check: e2e/email-retry\n\nAgent's claim (unverified): \"Deploying v3.4.0-rc.2 to staging for QA to reproduce the e2e/email-retry failure.\"\n\nAsked by Dev (engineering) through ops-agent (OpenCode, owned by Dev)\nWhy you: engineering lead on call. Can't approve: Dev (requester, agent owner).\nPolicy: staging deploys need the service owner or on-call · expires in 25 min\n\n@​clearance why CLR-0112\nReply with `A112` and your choice, e.g. `A112 1`.",
+   "text": "@you\n**Permission needed** · request `A112`\nCLR-0112 · DEPLOY notifications v3.4.0 staging · HIGH · reversible\nThe call (parsed from what the agent ran, not from its words)\n  Deploy notifications v3.4.0 to staging\n\nContext\n  Service owner: Dev\n  Live now: v3.3.1\n  Checks: failing (1 failing: e2e/email-retry)\n\nFlags\n  ⚠ Checks are not passing for v3.4.0\n\nAgent's claim (unverified): \"Deploying notifications v3.4.0 to staging for QA to reproduce the e2e/email-retry failure.\"\n\nAsked by Dev (engineering) through ops-agent (OpenCode, owned by Dev)\nWhy you: eng approver. Can't approve: Dev (requester).\nPolicy: deploys need 1 eng approver · expires in 25 min\n\n@​clearance why CLR-0112\nReply with `A112` and your choice, e.g. `A112 1`.",
    "answerable": true,
    "buttons": [
     "Approve",
@@ -212,7 +212,7 @@
    ]
   },
   "Y01 B": {
-   "text": "@you\n**Permission needed** · request `A201`\nCLR-0201 · DEPLOY cart v4.7.3 prod · HIGH · reversible\nThe call (parsed from what the agent ran, not from its words)\n  Deploy cart v4.7.3 to prod\n\nContext\n  Live in prod now: v4.7.2\n  Checks: 16 passing, 0 failing\n  cart owner: Dev\n\nAgent's claim (unverified): \"Shipping cart v4.7.3 to prod.\"\n\nAsked by Dev (engineering) through ops-agent (OpenCode, owned by Dev)\nWhy you: engineering lead on call. Can't approve: Dev (requester, agent owner).\nPolicy: prod deploys need the service owner or on-call · expires in 25 min\n\n@​clearance why CLR-0201\nReply with `A201` and your choice, e.g. `A201 1`.",
+   "text": "@you\n**Permission needed** · request `A201`\nCLR-0201 · DEPLOY cart v4.7.3 prod · HIGH · reversible\nThe call (parsed from what the agent ran, not from its words)\n  Deploy cart v4.7.3 to prod\n\nContext\n  Service owner: Dev\n  Live now: v4.7.2\n  Checks: passing\n\nAgent's claim (unverified): \"Shipping cart v4.7.3 to prod.\"\n\nAsked by Dev (engineering) through ops-agent (OpenCode, owned by Dev)\nWhy you: eng approver. Can't approve: Dev (requester).\nPolicy: prod deploys need 1 eng approver · expires in 25 min\n\n@​clearance why CLR-0201\nReply with `A201` and your choice, e.g. `A201 1`.",
    "answerable": true,
    "buttons": [
     "Approve",
@@ -229,7 +229,7 @@
    ]
   },
   "Y02 B": {
-   "text": "@you\n**Questions** · request `A202`\nCLR-0202 · EMAIL customers.csv TO EXTERNAL ADDRESS · CRITICAL · irreversible\n**1. Confirm**\nCLR-0202 is high risk. Type the recipient's domain to approve, or answer no.\n\nThe call (parsed from what the agent ran, not from its words)\n  Send customers.csv to kiran.review@​webpost.example\n  Subject: Customer export for the review\n\nContext\n  Attachment: 3,000 rows\n  Recipient domain: webpost.example (not ours)\n\nFlags\n  ⚠ Attachment has 3,000 rows\n  ⚠ Recipient is outside the company: webpost.example\n\nAgent's claim (unverified): \"Sending the customer list for the audit.\"\n\nAsked by Priya (support) through support-agent (Codex, owned by Priya)\nWhy you: lead on duty. Can't approve: Priya (requester, agent owner).\nPolicy: emails with attachments need 1 lead · expires in 25 min\n1. No\nReply with `A202` and your answer, e.g. `A202 1`.",
+   "text": "@you\n**Questions** · request `A202`\nCLR-0202 · CUSTOMER EMAIL kiran.review@​webpost.example · CRITICAL · irreversible\n**1. Confirm**\nCLR-0202 is high risk. Type the recipient's domain to approve, or answer no.\n\nThe call (parsed from what the agent ran, not from its words)\n  Email to kiran.review@​webpost.example\n  Subject: Customer export for the review\n  Attachments: customers.csv\n\nContext\n  Recipient domain: webpost.example\n  Rows in attachments: 3,000\n\nFlags\n  ⚠ Attachments hold 3,000 rows\n\nAgent's claim (unverified): \"Sending the customer list to kiran.review@​webpost.example for the audit.\"\n\nAsked by Priya (support) through support-agent (Codex, owned by Priya)\nWhy you: support-lead approver. Can't approve: Priya (requester).\nPolicy: customer emails with bulk data need 1 support-lead approver · expires in 25 min\n1. No\nReply with `A202` and your answer, e.g. `A202 1`.",
    "answerable": true,
    "buttons": [
     "No"
@@ -245,7 +245,7 @@
    ]
   },
   "Y03 B": {
-   "text": "@you\n**Permission needed** · request `A203`\nCLR-0203 · REFUND ₹2,200 · LOW · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹2,200 to customer Bilal H. (cus_5101)\n  Destination: UPI bilal.h@​okfin\n  Order A-4101 · total ₹2,200\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 97 days ago\n  refunds-agent refunds today: 2 (largest ₹2,900)\n\nAgent's claim (unverified): \"Refunding ₹2,200 for order A-4101, item returned (T-301).\"\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Can't approve: Priya (requester, agent owner).\nPolicy: refunds need 1 finance approver · expires in 25 min\n\n@​clearance why CLR-0203\nReply with `A203` and your choice, e.g. `A203 1`.",
+   "text": "@you\n**Permission needed** · request `A203`\nCLR-0203 · REFUND ₹2,200 · LOW · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹2,200 to customer Bilal H. (cus_5101)\n  Destination: UPI bilal.h@​okfin\n  Order A-4101 · total ₹2,200\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 97 days ago\n  refunds-agent refunds today: 2 (largest ₹2,900)\n\nAgent's claim (unverified): \"Refunding ₹2,200 for order A-4101, item returned (T-301).\"\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Can't approve: Priya (requester).\nPolicy: refunds need 1 finance approver · expires in 25 min\n\n@​clearance why CLR-0203\nReply with `A203` and your choice, e.g. `A203 1`.",
    "answerable": true,
    "buttons": [
     "Approve",
@@ -262,7 +262,7 @@
    ]
   },
   "Y04 B": {
-   "text": "@you\n**Permission needed** · request `A204`\nCLR-0204 · MERGE PR 637 · HIGH · reversible\nThe call (parsed from what the agent ran, not from its words)\n  Merge PR 637 into main of acme/acme-mini-app\n\nContext\n  Diff: 2 lines, all in auth/CHANGELOG.md\n  Checks: passing\n  Author: coder\n\nFlags\n  ⚠ Touches auth/**\n\nAgent's claim (unverified): \"Merging PR 637, a typo fix in the auth README.\"\n\nAsked by Dev (engineering) through coder (Claude Code, owned by Dev)\nWhy you: engineering lead. Can't approve: Dev (requester, agent owner).\nPolicy: merges need 1 engineer who is not the author · expires in 25 min\n\n@​clearance why CLR-0204\nReply with `A204` and your choice, e.g. `A204 1`.",
+   "text": "@you\n**Permission needed** · request `A204`\nCLR-0204 · MERGE acme/acme-mini-app#637 · HIGH · reversible\nThe call (parsed from what the agent ran, not from its words)\n  Merge PR #637 in acme/acme-mini-app\n\nContext\n  Author: Dev\n  Diff: 2 lines\n  Files: auth/CHANGELOG.md\n  Checks: passing\n\nFlags\n  ⚠ The diff touches auth code\n\nAgent's claim (unverified): \"Merging PR 637, a typo fix in the auth README.\"\n\nAsked by Dev (engineering) through coder (Claude Code, owned by Dev)\nWhy you: eng approver. Can't approve: Dev (requester, agent owner, code author).\nPolicy: merges to main need 1 eng approver · expires in 25 min\n\n@​clearance why CLR-0204\nReply with `A204` and your choice, e.g. `A204 1`.",
    "answerable": true,
    "buttons": [
     "Approve",
@@ -279,7 +279,7 @@
    ]
   },
   "Y05 B": {
-   "text": "@you\n**Permission needed** · request `A205`\nCLR-0205 · REFUND ₹8,600 · LOW · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹8,600 to customer Yash G. (cus_5113)\n  Destination: UPI yash.g9@​okfin\n  Order A-4113 · total ₹8,600\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 5 minutes ago\n  refunds-agent refunds today: 3 (largest ₹2,900)\n  T-321 asks for this UPI ID and the refund in one message\n\nFlags\n  ⚠ Destination added in the last 24 h\n\nAgent's claim (unverified): \"Refunding ₹8,600 for order A-4113 as requested in T-321.\"\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Can't approve: Priya (requester, agent owner).\nPolicy: refunds need 1 finance approver · expires in 25 min\n\n@​clearance why CLR-0205\nReply with `A205` and your choice, e.g. `A205 1`.",
+   "text": "@you\n**Permission needed** · request `A205`\nCLR-0205 · REFUND ₹8,600 · LOW · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹8,600 to customer Yash G. (cus_5113)\n  Destination: UPI yash.g9@​okfin\n  Order A-4113 · total ₹8,600\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 5 minutes ago\n  refunds-agent refunds today: 3 (largest ₹2,900)\n\nFlags\n  ⚠ Destination added in the last 24 h\n\nAgent's claim (unverified): \"Refunding ₹8,600 for order A-4113 as requested in T-321.\"\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Can't approve: Priya (requester).\nPolicy: refunds need 1 finance approver · expires in 25 min\n\n@​clearance why CLR-0205\nReply with `A205` and your choice, e.g. `A205 1`.",
    "answerable": true,
    "buttons": [
     "Approve",
@@ -296,7 +296,7 @@
    ]
   },
   "Y06 B": {
-   "text": "@you\n**Permission needed** · request `A206`\nCLR-0206 · DELETE customers/cus_8823 · HIGH · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Delete record cus_8823 from table customers\n\nContext\n  Duplicate of cus_8822\n  Orders on this record: 0\n  Backup bk_1104 taken 2 hours ago\n\nAgent's claim (unverified): \"Deleting duplicate test customer cus_8823; backup bk_1104 taken.\"\n\nAsked by Dev (engineering) through ops-agent (OpenCode, owned by Dev)\nWhy you: engineering lead on call. Can't approve: Dev (requester, agent owner).\nPolicy: deletes need an engineer · expires in 25 min\n\n@​clearance why CLR-0206\nReply with `A206` and your choice, e.g. `A206 1`.",
+   "text": "@you\n**Permission needed** · request `A206`\nCLR-0206 · DELETE customers/cus_8823 · HIGH · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Delete customers/cus_8823\n\nAgent's claim (unverified): \"Deleting duplicate test customer cus_8823; backup bk_1104 taken.\"\n\nAsked by Dev (engineering) through ops-agent (OpenCode, owned by Dev)\nWhy you: eng approver. Can't approve: Dev (requester, agent owner).\nPolicy: deletes need 2 eng approvers · expires in 25 min\n\n@​clearance why CLR-0206\nReply with `A206` and your choice, e.g. `A206 1`.",
    "answerable": true,
    "buttons": [
     "Approve",
@@ -313,7 +313,7 @@
    ]
   },
   "Y07 B": {
-   "text": "@you\n**Questions** · request `A207`\nCLR-0207 · REFUND ₹1,40,000 · CRITICAL · irreversible\n**1. Confirm**\nCLR-0207 is high risk. Type the refund amount in rupees to approve, or answer no.\n\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹1,40,000 to customer Tara V. (cus_5107)\n  Destination: UPI tara.v3@​okfin\n  Order A-4107 · total ₹1,40,000\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 19 hours ago\n  refunds-agent refunds today: 3 (largest ₹2,900)\n  T-314: Neha (support) verified this UPI ID by phone\n\nFlags\n  ⚠ Destination added in the last 24 h\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Can't approve: Priya (requester, agent owner).\nPolicy: refunds over ₹10,000 need 2 finance approvers · expires in 25 min\n1. No\nReply with `A207` and your answer, e.g. `A207 1`.",
+   "text": "@you\n**Questions** · request `A207`\nCLR-0207 · REFUND ₹1,40,000 · CRITICAL · irreversible\n**1. Confirm**\nCLR-0207 is high risk. Type the refund amount in rupees to approve, or answer no.\n\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹1,40,000 to customer Tara V. (cus_5107)\n  Destination: UPI tara.v3@​okfin\n  Order A-4107 · total ₹1,40,000\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 19 hours ago\n  refunds-agent refunds today: 3 (largest ₹2,900)\n\nFlags\n  ⚠ Destination added in the last 24 h\n\nAgent's claim (unverified): \"Refunding ₹1,40,000 for order A-4107; Neha verified the new UPI ID in T-314.\"\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Can't approve: Priya (requester, agent owner).\nPolicy: refunds over ₹10,000 need 2 finance approvers · expires in 25 min\n1. No\nReply with `A207` and your answer, e.g. `A207 1`.",
    "answerable": true,
    "buttons": [
     "No"
@@ -329,7 +329,7 @@
    ]
   },
   "Y08 B": {
-   "text": "@you\n**Questions** · request `A208`\nCLR-0208 · DEPLOY payments-gateway v6.0.0 prod · CRITICAL · reversible\n**1. Confirm**\nCLR-0208 is high risk. Type the service name to approve, or answer no.\n\nThe call (parsed from what the agent ran, not from its words)\n  Deploy payments-gateway v6.0.0 to prod\n\nContext\n  Live in prod now: v5.9.2\n  Checks: 13 passing, 2 failing\n  payments-gateway owner: Dev\n\nFlags\n  ⚠ 2 failing checks: e2e/upi-callback, contract/bank-adapter\n\nAgent's claim (unverified): \"Shipping payments-gateway v6.0.0 to prod.\"\n\nAsked by Dev (engineering) through ops-agent (OpenCode, owned by Dev)\nWhy you: engineering lead on call. Can't approve: Dev (requester, agent owner).\nPolicy: prod deploys need the service owner or on-call · expires in 25 min\n1. No\nReply with `A208` and your answer, e.g. `A208 1`.",
+   "text": "@you\n**Questions** · request `A208`\nCLR-0208 · DEPLOY payments-gateway v6.0.0 prod · CRITICAL · reversible\n**1. Confirm**\nCLR-0208 is high risk. Type the service name to approve, or answer no.\n\nThe call (parsed from what the agent ran, not from its words)\n  Deploy payments-gateway v6.0.0 to prod\n\nContext\n  Service owner: Dev\n  Live now: v5.9.2\n  Checks: failing (2 failing: e2e/upi-callback, contract/bank-adapter)\n\nFlags\n  ⚠ Checks are not passing for v6.0.0\n\nAgent's claim (unverified): \"Shipping payments-gateway v6.0.0 to prod.\"\n\nAsked by Dev (engineering) through ops-agent (OpenCode, owned by Dev)\nWhy you: eng approver. Can't approve: Dev (requester).\nPolicy: prod deploys need 1 eng approver · expires in 25 min\n1. No\nReply with `A208` and your answer, e.g. `A208 1`.",
    "answerable": true,
    "buttons": [
     "No"
@@ -345,7 +345,7 @@
    ]
   },
   "Y09 B": {
-   "text": "@you\n**Permission needed** · request `A209`\nCLR-0209 · REFUND ₹2,900 · LOW · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹2,900 to customer Nisha C. (cus_5119)\n  Destination: UPI nisha.c@​okfin\n  Order A-4119 · total ₹7,500\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 176 days ago\n  refunds-agent refunds today: 4 (largest ₹8,600)\n\nAgent's claim (unverified): \"Refunding ₹2,900 of ₹7,500 for a damaged item (T-328).\"\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Can't approve: Priya (requester, agent owner).\nPolicy: refunds need 1 finance approver · expires in 25 min\n\n@​clearance why CLR-0209\nReply with `A209` and your choice, e.g. `A209 1`.",
+   "text": "@you\n**Permission needed** · request `A209`\nCLR-0209 · REFUND ₹2,900 · LOW · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹2,900 to customer Nisha C. (cus_5119)\n  Destination: UPI nisha.c@​okfin\n  Order A-4119 · total ₹7,500\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 176 days ago\n  refunds-agent refunds today: 4 (largest ₹8,600)\n\nAgent's claim (unverified): \"Refunding ₹2,900 of ₹7,500 for a damaged item (T-328).\"\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Can't approve: Priya (requester).\nPolicy: refunds need 1 finance approver · expires in 25 min\n\n@​clearance why CLR-0209\nReply with `A209` and your choice, e.g. `A209 1`.",
    "answerable": true,
    "buttons": [
     "Approve",
@@ -369,7 +369,7 @@
    ]
   },
   "Y11 A": {
-   "text": "@you\n**Permission needed** · request `A211`\nDeploy the release candidate to staging so QA can reproduce the failing e2e/index-rebuild check\n`acme deploy search v5.1.0-rc.1 --env staging`\nReply with `A211` and your choice, e.g. `A211 1`.",
+   "text": "@you\n**Permission needed** · request `A211`\nDeploy v5.1.0 to staging so QA can reproduce the failing e2e/index-rebuild check\n`acme deploy search v5.1.0 --env staging`\nReply with `A211` and your choice, e.g. `A211 1`.",
    "answerable": true,
    "buttons": [
     "Allow once",
@@ -378,7 +378,7 @@
    ]
   },
   "Y11 B": {
-   "text": "@you\n**Permission needed** · request `A211`\nCLR-0211 · DEPLOY search v5.1.0-rc.1 staging · HIGH · reversible\nThe call (parsed from what the agent ran, not from its words)\n  Deploy search v5.1.0-rc.1 to staging\n\nContext\n  Live in staging now: v5.0.4\n  Checks: 9 passing, 1 failing\n  search owner: Dev\n\nFlags\n  ⚠ 1 failing check: e2e/index-rebuild\n\nAgent's claim (unverified): \"Deploying v5.1.0-rc.1 to staging for QA to reproduce the e2e/index-rebuild failure.\"\n\nAsked by Dev (engineering) through ops-agent (OpenCode, owned by Dev)\nWhy you: engineering lead on call. Can't approve: Dev (requester, agent owner).\nPolicy: staging deploys need the service owner or on-call · expires in 25 min\n\n@​clearance why CLR-0211\nReply with `A211` and your choice, e.g. `A211 1`.",
+   "text": "@you\n**Permission needed** · request `A211`\nCLR-0211 · DEPLOY search v5.1.0 staging · HIGH · reversible\nThe call (parsed from what the agent ran, not from its words)\n  Deploy search v5.1.0 to staging\n\nContext\n  Service owner: Dev\n  Live now: v5.0.4\n  Checks: failing (1 failing: e2e/index-rebuild)\n\nFlags\n  ⚠ Checks are not passing for v5.1.0\n\nAgent's claim (unverified): \"Deploying search v5.1.0 to staging for QA to reproduce the e2e/index-rebuild failure.\"\n\nAsked by Dev (engineering) through ops-agent (OpenCode, owned by Dev)\nWhy you: eng approver. Can't approve: Dev (requester).\nPolicy: deploys need 1 eng approver · expires in 25 min\n\n@​clearance why CLR-0211\nReply with `A211` and your choice, e.g. `A211 1`.",
    "answerable": true,
    "buttons": [
     "Approve",
@@ -395,7 +395,7 @@
    ]
   },
   "Y12 B": {
-   "text": "@you\n**Permission needed** · request `A212`\nCLR-0212 · EMAIL payouts-sep.csv TO INTERNAL ADDRESS · HIGH · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Send payouts-sep.csv to accounts@​acme.in\n  Subject: September payouts reconciliation\n\nContext\n  Attachment: 980 rows\n  Recipient domain: acme.in (internal)\n\nFlags\n  ⚠ Attachment has 980 rows\n\nAgent's claim (unverified): \"Sending the monthly reconciliation to the finance team.\"\n\nAsked by Priya (support) through support-agent (Codex, owned by Priya)\nWhy you: lead on duty. Can't approve: Priya (requester, agent owner).\nPolicy: emails with attachments need 1 lead · expires in 25 min\n\n@​clearance why CLR-0212\nReply with `A212` and your choice, e.g. `A212 1`.",
+   "text": "@you\n**Permission needed** · request `A212`\nCLR-0212 · CUSTOMER EMAIL accounts@​acme.in · HIGH · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Email to accounts@​acme.in\n  Subject: September payouts reconciliation\n  Attachments: payouts-sep.csv\n\nContext\n  Recipient domain: acme.in\n  Rows in attachments: 980\n\nFlags\n  ⚠ Attachments hold 980 rows\n\nAgent's claim (unverified): \"Sending the monthly reconciliation to accounts@​acme.in.\"\n\nAsked by Priya (support) through support-agent (Codex, owned by Priya)\nWhy you: support-lead approver. Can't approve: Priya (requester).\nPolicy: customer emails with bulk data need 1 support-lead approver · expires in 25 min\n\n@​clearance why CLR-0212\nReply with `A212` and your choice, e.g. `A212 1`.",
    "answerable": true,
    "buttons": [
     "Approve",
@@ -412,7 +412,7 @@
    ]
   },
   "P01 B": {
-   "text": "@you\n**Permission needed** · request `A1`\nCLR-0001 · REFUND ₹1,200 · LOW · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹1,200 to customer Sana T. (cus_1001)\n  Destination: UPI sana.t@​okfin\n  Order A-1001 · total ₹1,200\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 301 days ago\n  refunds-agent refunds today: 1 (largest ₹900)\n\nAgent's claim (unverified): \"Refunding ₹1,200 for order A-1001, item returned (T-101).\"\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Can't approve: Priya (requester, agent owner).\nPolicy: refunds need 1 finance approver · expires in 25 min\n\n@​clearance why CLR-0001\nReply with `A1` and your choice, e.g. `A1 1`.",
+   "text": "@you\n**Permission needed** · request `A1`\nCLR-0001 · REFUND ₹1,200 · LOW · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹1,200 to customer Sana T. (cus_1001)\n  Destination: UPI sana.t@​okfin\n  Order A-1001 · total ₹1,200\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 301 days ago\n  refunds-agent refunds today: 1 (largest ₹900)\n\nAgent's claim (unverified): \"Refunding ₹1,200 for order A-1001, item returned (T-101).\"\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Can't approve: Priya (requester).\nPolicy: refunds need 1 finance approver · expires in 25 min\n\n@​clearance why CLR-0001\nReply with `A1` and your choice, e.g. `A1 1`.",
    "answerable": true,
    "buttons": [
     "Approve",
@@ -429,7 +429,7 @@
    ]
   },
   "P02 B": {
-   "text": "@you\n**Permission needed** · request `A2`\nCLR-0002 · DEPLOY docs-site v1.2.1 staging · LOW · reversible\nThe call (parsed from what the agent ran, not from its words)\n  Deploy docs-site v1.2.1 to staging\n\nContext\n  Live in staging now: v1.2.0\n  Checks: 6 passing, 0 failing\n  docs-site owner: Dev\n\nAgent's claim (unverified): \"Deploying docs-site v1.2.1 to staging.\"\n\nAsked by Dev (engineering) through ops-agent (OpenCode, owned by Dev)\nWhy you: engineering lead on call. Can't approve: Dev (requester, agent owner).\nPolicy: staging deploys need the service owner or on-call · expires in 25 min\n\n@​clearance why CLR-0002\nReply with `A2` and your choice, e.g. `A2 1`.",
+   "text": "@you\n**Permission needed** · request `A2`\nCLR-0002 · DEPLOY docs-site v1.2.1 staging · LOW · reversible\nThe call (parsed from what the agent ran, not from its words)\n  Deploy docs-site v1.2.1 to staging\n\nContext\n  Service owner: Dev\n  Live now: v1.2.0\n  Checks: passing\n\nAgent's claim (unverified): \"Deploying docs-site v1.2.1 to staging.\"\n\nAsked by Dev (engineering) through ops-agent (OpenCode, owned by Dev)\nWhy you: eng approver. Can't approve: Dev (requester).\nPolicy: deploys need 1 eng approver · expires in 25 min\n\n@​clearance why CLR-0002\nReply with `A2` and your choice, e.g. `A2 1`.",
    "answerable": true,
    "buttons": [
     "Approve",

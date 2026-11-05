@@ -1,0 +1,117 @@
+/** What the Desk's server hands its page. Types only, so the browser bundle carries none of the server. */
+
+export type Tier = "low" | "medium" | "high" | "critical";
+
+export type Meta = { synthetic: boolean };
+
+export type Health = { ok: boolean; policy_hash: string; policy_error: string | null; open_requests: number };
+
+export type Flag = { code: string; text: string };
+
+export type QueueItem = {
+  id: string;
+  state: string;
+  class: string;
+  tier: Tier;
+  score: number;
+  headline: string;
+  agent: string;
+  vendor: string;
+  asked_by: string[];
+  flags: Flag[];
+  quorum_required: number;
+  approvals: number;
+  created_at: string;
+  expires_at: string;
+  /** The room the request came from, by name when core knows it. */
+  room: string | null;
+  /** Who holds an open card for it, from each person's inbox. */
+  waiting_on: { person: string; handle: string | null }[];
+  /** Set when nobody eligible could be chosen and it went to a group. */
+  fallback: { group: string; room: string; reason: string } | null;
+  /** Ladder steps fired so far, of how many the policy gives this class. */
+  escalation: { fired: number; of: number | null; last: string | null };
+};
+
+export type QueueView = {
+  open_count: number;
+  requests: QueueItem[];
+  /** Set when the number core reports and the requests the Desk could find do not agree. */
+  disagreement: string | null;
+};
+
+export type LedgerEntry = {
+  seq: number;
+  at: string;
+  type: string;
+  request_id: string | null;
+  payload: Record<string, unknown>;
+  prev_hash: string;
+  entry_hash: string;
+};
+
+export type LedgerView = {
+  entries: LedgerEntry[];
+  /** Person ids to names, because ledger payloads hold ids and the page names people. */
+  names: Record<string, string>;
+};
+
+export type LedgerVerification = { ok: boolean; count: number; head: string; firstBad?: { seq: number; reason: string } | undefined };
+
+export type CoverageRow = { vendor: string; source: string; calls: number; allowed: number; held: number; denied: number; last_at: string | null };
+
+export type CoverageView = { vendors: CoverageRow[] };
+
+export type AutonomyLevel = { agent: string; class: string; bucket: string; level: string; since: number };
+
+export type AutonomyView = { levels: AutonomyLevel[]; history: LedgerEntry[] };
+
+export type PersonStats = {
+  user: string;
+  answers: number;
+  approvals: number;
+  denials: number;
+  ineligible: number;
+  median_latency_ms: number | null;
+  open_cards: number;
+};
+
+export type InboxItem = { request_id: string; handle: string | null; class: string; tier: string; what: string; room: string | null; age_s: number; expires_at: string };
+
+export type PersonRow = { id: string; name: string; groups: string[]; roles: string[]; stats: PersonStats | null; inbox: InboxItem[] };
+
+export type PeopleView = { people: PersonRow[] };
+
+export type PolicyClass = {
+  name: string;
+  base: number | null;
+  rules: number;
+  approvers: string | null;
+  quorum: string;
+  reversible: boolean | null;
+  escalation_steps: number;
+  max_level: string | null;
+  decision: string | null;
+};
+
+export type PolicyView = {
+  core_hash: string;
+  file_hash: string;
+  /** False means the file on disk is not the policy core is enforcing. */
+  matches: boolean;
+  policy_error: string | null;
+  mode: string | null;
+  tiers: { name: string; from: number; to: number }[];
+  classes: PolicyClass[];
+  text: string;
+};
+
+export type SimulationResult = {
+  decision: string;
+  reason: string;
+  class?: string | null | undefined;
+  tier?: string | null | undefined;
+  score?: number | null | undefined;
+  flags?: Flag[] | undefined;
+  step?: string | null | undefined;
+};

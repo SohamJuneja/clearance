@@ -36,8 +36,17 @@ describe("every card in the study", () => {
   });
 
   it("refuses to start if any card would lose its buttons", () => {
-    const hopeless = bloated({ parsed: ["p".repeat(2000)] });
+    // Condition A shows the command whole, as Switch does, so a very long command still breaks a card.
+    const request = all.find((entry) => !entry.b.confirm)!;
+    const hopeless = { ...request, a: { ...request.a, command: `curl ${"x".repeat(2000)}` } };
     expect(() => preflight({ ...sets, X: [hopeless] })).toThrow("lose their buttons");
+  });
+
+  it("condition B keeps its buttons however long its values are, because core's renderer clips to budget", () => {
+    const long = bloated({ parsed: ["p".repeat(2000)], context: ["c".repeat(2000)], flags: ["f".repeat(2000)], claim: "a".repeat(2000) });
+    const card = decisionCard(long, "B");
+    expect(cardProblem(card)).toBeNull();
+    expect(card.kind === "approval" && budgetLength(card.detail)).toBeLessThanOrEqual(DETAIL_BUDGET);
   });
 });
 

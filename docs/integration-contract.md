@@ -9,7 +9,7 @@ How the Clearance packages talk to each other. Types live in `packages/contracts
 | clearance-core + clearance agent (one process) | 7700 | brain, switchboard | SQLite, policy, Switch API key |
 | clearance-gate | 7710 | gate-hooks | `ACME_ADMIN_KEY`, `GITHUB_GATE_TOKEN`, stored calls |
 | acme | 7800 | world-ui | Fake business data |
-| desk | 7900 | world-ui | Nothing; reads core's API |
+| desk | 7900 | world-ui | `CLEARANCE_INTERNAL_TOKEN` in its small server, behind a closed route list; the browser holds nothing |
 
 Env names are in `.env.example`. Add new ones there with placeholders. All TypeScript runs through `tsx`; there is no build step for services.
 

@@ -348,12 +348,13 @@ describe("tickets", () => {
 });
 
 describe("pulls (fake GitHub)", () => {
-  type Pull = { number: number; repo: string; author: string; changes: number; files: string[]; checks: { status: string }; diff: string; merged: boolean };
+  type Pull = { number: number; repo: string; author: string; changes: number; files: string[]; checks: string; failing_checks: string[]; diff: string; merged: boolean };
   const pull = async (n: number) => (await get(`/pulls/${n}`)).body as unknown as Pull;
 
   it("returns the contract shape, with files as paths the policy's touches() can match", async () => {
     const p = await pull(418);
-    expect(p).toMatchObject({ number: 418, checks: { status: "passing" } });
+    // `checks` is a string: core's describer prints it on the card, where an object reads "[object Object]".
+    expect(p).toMatchObject({ number: 418, checks: "passing", failing_checks: [] });
     expect(typeof p.repo).toBe("string");
     expect(typeof p.author).toBe("string");
     expect(typeof p.changes).toBe("number");

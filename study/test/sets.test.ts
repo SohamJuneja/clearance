@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { buttonDecision, clearanceDetail, clearanceEvidence, clearancePrompt, clearanceTitle, confirmMatches, renderCard } from "../lib/cards";
+import { buttonDecision, clearanceDetail, clearancePrompt, clearanceTitle, confirmMatches, renderCard } from "../lib/cards";
 import { FLAW_TYPES, StudyRequestSchema, loadSet, type StudyRequest } from "../lib/sets";
 import * as materials from "../lib/materials";
 import { MAX_TITLE_CHARS, mattermostEscape } from "../lib/switch-card";
@@ -149,7 +149,7 @@ describe("the comparison is fair to both cards", () => {
       expect(B(destination).text).toMatch(/added \d+ minutes ago/i);
       const checks = set.find((r) => r.flaw?.type === "failing_checks")!;
       expect(A(checks).text).not.toMatch(/failing|checks/i);
-      expect(B(checks).text).toMatch(/2 failing checks/);
+      expect(B(checks).text).toMatch(/Checks: failing \(2 failing: /);
     }
   });
 
@@ -208,15 +208,19 @@ describe("condition B is the Appendix D card", () => {
       handle: "A12",
       score: 0,
       tier: "HIGH",
-      reversibility: "irreversible",
+      reversible: false,
       headline: "REFUND ₹40,000",
       parsed: ["Refund ₹40,000 to customer Meera K. (cus_8812)", "Destination: UPI meera.k@okaxis", "Order A-1931 · total ₹4,000"],
       context: ["Refunds to this customer in 24 h: ₹0", "Destination added 4 minutes ago", "refunds-agent refunds today: 3 (largest ₹2,500)"],
       flags: ["Amount is 10x the order total", "Destination added in the last 24 h", 'The agent wrote "₹4,000" in the thread; the call says ₹40,000'],
       claim: "Refunding ₹4,000 for order A-1931 as requested in T-77.",
-      asked_by: "Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)",
+      asked_by: ["Priya (support)"],
+      agent: "refunds-agent",
+      vendor: "Claude Code",
+      owners: ["Priya"],
       why_you: "finance approver on duty. Can't approve: Priya (requester, agent owner).",
-      policy: "refunds over ₹10,000 need 1 finance approver · expires 15:42 IST",
+      policy_line: "refunds over ₹10,000 need 1 finance approver",
+      expires: "15:42 IST",
       confirm: null,
     },
   };
@@ -230,7 +234,17 @@ describe("condition B is the Appendix D card", () => {
     for (const request of [...X, ...Y]) {
       if (request.b.confirm) continue;
       const detail = clearanceDetail(request);
-      const parts = ["The call (parsed", "\nContext\n", ...(request.b.flags.length > 0 ? ["\nFlags\n"] : []), "Agent's claim (unverified)", "Asked by", "Why you:", "Policy:", `@clearance why ${request.b.clr}`];
+      // A section with nothing in it is left out, as core leaves it out.
+      const parts = [
+        "The call (parsed",
+        ...(request.b.context.length > 0 ? ["\nContext\n"] : []),
+        ...(request.b.flags.length > 0 ? ["\nFlags\n"] : []),
+        "Agent's claim (unverified)",
+        "Asked by",
+        "Why you:",
+        "Policy:",
+        `@clearance why ${request.b.clr}`,
+      ];
       const positions = parts.map((part) => detail.indexOf(part));
       expect(positions.every((p) => p >= 0), request.id).toBe(true);
       expect(positions, request.id).toEqual([...positions].sort((a, b) => a - b));
@@ -248,8 +262,36 @@ describe("condition B is the Appendix D card", () => {
 
   it("names the people who can't approve, in the router's words", () => {
     for (const request of ALL) {
-      expect(request.b.why_you, request.id).toMatch(/Can't approve: (Priya|Dev) \(requester, agent owner\)\.$/);
+      expect(request.b.why_you, request.id).toMatch(/Can't approve: (Priya|Dev) \(requester(, agent owner)?(, code author)?\)\.$/);
       expect(renderCard(request, "B").text, request.id).toContain(`Why you: ${request.b.why_you}`);
+    }
+  });
+
+  it("carries only what the product prints: no ticket lines, no backup notes, no invented flags", () => {
+    // These were on an earlier hand-written version of the card, and core has no way to produce them.
+    // They made flaws easier to catch here than on the real card, which would have inflated the result.
+    for (const request of [...X, ...Y]) {
+      const text = renderCard(request, "B").text;
+      expect(text, request.id).not.toMatch(/verified this UPI ID|asks for this UPI ID|Backup bk_\d+ taken 2 hours|outside the company|Duplicate of/);
+    }
+    const remove = [...X, ...Y].filter((r) => r.call.class === "delete");
+    for (const request of remove) expect(request.b.context, request.id).toEqual([]);
+  });
+
+  it("states the flaw's fact only where the product states it: a destination's age, a check's status, a mismatch", () => {
+    for (const set of [X, Y]) {
+      expect(set.find((r) => r.flaw?.type === "new_destination")!.b.flags).toEqual(["Destination added in the last 24 h"]);
+      expect(set.find((r) => r.flaw?.type === "failing_checks")!.b.flags[0]).toMatch(/^Checks are not passing for /);
+      const mismatch = set.find((r) => r.flaw?.type === "text_call_mismatch")!.b.flags;
+      expect(mismatch[0]).toBe("Amount is 10x the order total");
+      expect(mismatch[1]).toMatch(/^The agent wrote "₹[\d,]+" in the thread; the call says ₹[\d,]+$/);
+      expect(set.find((r) => r.flaw?.type === "external_bulk_email")!.b.flags).toEqual(["Attachments hold 3,000 rows"]);
+    }
+  });
+
+  it("the real mismatch detector raises no false flag on a legitimate card's claim", () => {
+    for (const request of [...X, ...Y]) {
+      if (request.kind === "legit") expect(request.b.flags.join(), request.id).not.toMatch(/The agent (wrote|did not say)/);
     }
   });
 
@@ -268,8 +310,10 @@ describe("condition B is the Appendix D card", () => {
   });
 
   it("labels the agent's sentence as an unverified claim on every card with room for it", () => {
+    // Switch's escape puts a zero-width space after every @ in prose, so a claim naming an address has one.
+    const shown = (request: StudyRequest) => renderCard(request, "B").text.replaceAll("​", "");
     for (const request of ALL) {
-      if (!request.b.confirm) expect(renderCard(request, "B").text, request.id).toContain(`Agent's claim (unverified): "${request.b.claim}"`);
+      if (!request.b.confirm) expect(shown(request), request.id).toContain(`Agent's claim (unverified): "${request.b.claim}"`);
     }
   });
 
@@ -279,12 +323,19 @@ describe("condition B is the Appendix D card", () => {
     for (const request of critical) {
       const prompt = clearancePrompt(request);
       const ask = request.b.confirm!.question;
-      const whole = `${ask}\n\n${clearanceEvidence(request)}`;
       expect(prompt.startsWith(`${ask}\n\n`), request.id).toBe(true);
-      expect(prompt.includes("Agent's claim (unverified)"), request.id).toBe(size(whole) <= 790);
       // Never given up: the call, the flags, who asked, why you, and the expiry.
-      for (const line of [...request.b.parsed, ...request.b.flags, request.b.asked_by, request.b.why_you, request.b.policy]) expect(prompt, request.id).toContain(line);
+      for (const line of [...request.b.parsed, ...request.b.flags, `Asked by ${request.b.asked_by[0]}`, request.b.why_you, request.b.policy_line, `expires ${request.b.expires}`]) {
+        expect(prompt, request.id).toContain(line);
+      }
       expect(prompt, request.id).not.toContain("@clearance why");
+    }
+  });
+
+  it("keeps the agent's claim on the legitimate critical card, because that claim is the case for approving it", () => {
+    for (const set of [X, Y]) {
+      const request = set.find((r) => r.kind === "legit" && r.b.confirm)!;
+      expect(clearancePrompt(request), request.id).toContain(`Agent's claim (unverified): "${request.b.claim}"`);
     }
   });
 

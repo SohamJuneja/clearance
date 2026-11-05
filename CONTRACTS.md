@@ -20,10 +20,18 @@ Server: http://127.0.0.1:8787
 
 POST /v1/requests
   body: {"agent": "refunds-bot", "tool_name": "mcp__acme__issue_refund", "tool_input": {...}, "session_id": "...", "cwd": "..."}
+        optional: "tool_use_id": "...", "agent_said": "..." (what the agent told the human it was doing)
   200:  {"request_id": "CLR-12", "decision": "allow" | "deny" | "hold", "reason": "..."}
 
 GET /v1/requests/{id}/wait?timeout=25
   200:  {"decision": "allow" | "deny" | "pending", "reason": "...", "decided_by": "Arjun"}
+
+GET /v1/requests/{id}  -> the full stored request as JSON (debugging); 404 if unknown
+
+DEV ONLY (exists only when CLEARANCE_DEV=1; otherwise 404), a stand-in until approvals come from Switch chat:
+POST /v1/requests/{id}/decision
+  body: {"decision": "allow" | "deny", "decided_by": "arjun", "reason": "..."}
+  200:  the full request; 404 unknown id; 409 already decided
 
 GET  /v1/health   -> {"ok": true}
 GET  /v1/ledger   -> last 100 ledger lines

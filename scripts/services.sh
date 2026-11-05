@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Start, stop and check Clearance's own services (Acme, gate, core). Switch has its own compose stack.
-#   scripts/services.sh up [acme|gate|core]    start, detached, one process group each
-#   scripts/services.sh down [acme|gate|core]  stop by process group
+#   scripts/services.sh up [acme|gate|core|desk]    start, detached, one process group each
+#   scripts/services.sh down [acme|gate|core|desk]  stop by process group
 #   scripts/services.sh status                 health of each
 # `node` on this host may be a Volta shim, so killing only the started pid would leave the real server
 # holding its port. Each service gets its own session, and stopping signals the whole group.
@@ -17,6 +17,7 @@ entry() {
     acme) echo "packages/acme/src/main.ts" ;;
     gate) echo "packages/gate/src/main.ts" ;;
     core) echo "packages/core/src/main.ts" ;;
+    desk) echo "packages/desk/src/server/main.ts" ;;
     *) echo "unknown service: $1" >&2; exit 2 ;;
   esac
 }
@@ -26,6 +27,7 @@ port() {
     acme) echo 7800 ;;
     gate) echo 7710 ;;
     core) echo 7700 ;;
+    desk) echo 7900 ;;
   esac
 }
 
@@ -76,6 +78,7 @@ status_one() {
   local code path=/health
   # Core's health route needs the internal token, so a 401 still proves it's listening.
   [ "$name" = core ] && path=/v1/health
+  [ "$name" = desk ] && path=/
   code="$(curl -s -m 2 -o /dev/null -w '%{http_code}' "http://127.0.0.1:$(port "$name")$path" || true)"
   case "$code" in
     200 | 401) echo "$name: up (http $code)" ;;
@@ -85,11 +88,11 @@ status_one() {
 
 command="${1:-status}"
 services=("${@:2}")
-[ "${#services[@]}" -gt 0 ] || services=(acme gate core)
+[ "${#services[@]}" -gt 0 ] || services=(acme gate core desk)
 
 case "$command" in
   up) for s in "${services[@]}"; do up_one "$s"; done ;;
   down) for s in "${services[@]}"; do down_one "$s"; done ;;
   status) for s in "${services[@]}"; do status_one "$s"; done ;;
-  *) echo "usage: $0 up|down|status [acme|gate|core]" >&2; exit 2 ;;
+  *) echo "usage: $0 up|down|status [acme|gate|core|desk]" >&2; exit 2 ;;
 esac

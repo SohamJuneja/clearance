@@ -297,7 +297,7 @@ function CoverageCell({ row, vendor, source, nowMs, rowSpan, note }: { row: Cove
         <span className="strong" data-testid={`${id}-calls`}>
           {formatCount(row.calls)}
         </span>{" "}
-        calls
+        {row.calls === 1 ? "call" : "calls"}
       </div>
       <div className="muted small">
         <span data-testid={`${id}-allowed`}>{formatCount(row.allowed)}</span> allowed · <span data-testid={`${id}-held`}>{formatCount(row.held)}</span> held · <span data-testid={`${id}-denied`}>{formatCount(row.denied)}</span> denied

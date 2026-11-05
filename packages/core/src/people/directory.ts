@@ -189,6 +189,12 @@ export class Directory {
     return best?.name ?? null;
   }
 
+  /** `@clearance install` made a room, or found one, that the policy has a name for. */
+  setRoom(name: string, id: string): void {
+    this.roomIds.set(name, id);
+    this.roomNames.set(id, name);
+  }
+
   /** The Switch room id for a policy room name. A name with no mapping is passed through as is. */
   roomId(nameOrId: string): string {
     return this.roomIds.get(nameOrId) ?? nameOrId;

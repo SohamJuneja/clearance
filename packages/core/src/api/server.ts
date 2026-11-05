@@ -10,11 +10,14 @@ import Fastify, { type FastifyInstance, type FastifyReply } from "fastify";
 import { z } from "zod";
 import type { Clearance } from "../core.js";
 import { PolicyLoadError } from "../policy/load.js";
+import type { LedgerMirror } from "../ledger/mirror.js";
 
 export type ServerOptions = {
   /** CLEARANCE_INTERNAL_TOKEN. Gate and Desk send it as `Authorization: Bearer ...`. */
   internalToken: string;
   logger?: boolean;
+  /** Without one, the mirror routes answer 404: the API still serves, and the ledger is still the ledger. */
+  mirror?: Pick<LedgerMirror, "flush" | "status">;
 };
 
 function sameToken(given: string, expected: string): boolean {
@@ -138,6 +141,14 @@ export function buildServer(core: Clearance, options: ServerOptions): FastifyIns
     });
 
     scope.get("/v1/ledger/verify", async () => core.verifyLedger());
+
+    scope.get("/v1/ledger/mirror", async (_request, reply) =>
+      options.mirror ? options.mirror.status() : reply.code(404).send({ error: "no ledger mirror is running" }),
+    );
+
+    scope.post("/v1/ledger/mirror", async (_request, reply) =>
+      options.mirror ? options.mirror.flush() : reply.code(404).send({ error: "no ledger mirror is running" }),
+    );
 
     scope.get<{ Querystring: { kind?: string } }>("/v1/export.csv", async (request, reply) => {
       const { kind } = request.query;

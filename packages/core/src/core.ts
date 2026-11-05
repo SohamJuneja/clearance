@@ -49,6 +49,7 @@ import { DrillStore, loadFlaws, rollsDrill, type Flaw } from "./drills/library.j
 import { TimerStore, type TimerRow } from "./escalation/timers.js";
 import { formatMoney, joinNames, oneLine, toNumber } from "./format.js";
 import { GrantStore } from "./grants/grants.js";
+import { inboxMessage, inboxText, listInbox, type InboxItem } from "./inbox/inbox.js";
 import { Ledger, verifyLedger, type LedgerVerification } from "./ledger/ledger.js";
 import { detectMismatch } from "./mismatch/detect.js";
 import { Directory, loadIdentities, type Person } from "./people/directory.js";
@@ -92,6 +93,8 @@ export type CoreDeps = {
   gate: GatePort;
   lookup: LookupPort;
   clock: Clock;
+  /** An `InboxKeeper` is running, so its post tells a person a card arrived and no separate line is needed. */
+  runningInbox?: boolean;
 };
 
 export interface ClearanceCore {
@@ -102,16 +105,7 @@ export interface ClearanceCore {
   close(): void;
 }
 
-export type InboxItem = {
-  request_id: string;
-  handle: string | null;
-  class: string;
-  tier: string;
-  what: string;
-  room: string | null;
-  age_s: number;
-  expires_at: string;
-};
+export type { InboxItem };
 
 /** What a request carries beyond its columns, fixed when it is held. */
 export type Evidence = {
@@ -269,6 +263,8 @@ export class Clearance implements ClearanceCore {
   private ticking = false;
   private readonly lastExecuteAttempt = new Map<string, number>();
   private readonly executing = new Set<string>();
+  /** Requests whose first cards are being opened right now. They are HELD meanwhile, which the tick's retry reads as failed. */
+  private readonly opening = new Set<string>();
 
   constructor(private readonly deps: CoreDeps) {
     this.team = loadTeam(deps.teamPath);
@@ -420,27 +416,13 @@ export class Clearance implements ClearanceCore {
   /** Open requests holding a card for one person, newest first. Null for someone unknown. */
   inbox(userId: string): { user: string; count: number; items: InboxItem[]; text: string } | null {
     if (!this.people.directory.person(userId)) return null;
-    const { requests, routes } = this.stores;
-    const { directory } = this.people;
-    const now = this.deps.clock.nowMs();
-    const seen = new Set<string>();
-    const items: InboxItem[] = [];
-    for (const row of routes.openFor(userId)) {
-      if (seen.has(row.request_id)) continue;
-      seen.add(row.request_id);
-      const request = requests.require(row.request_id);
-      items.push({
-        request_id: request.id,
-        handle: row.handle,
-        class: request.cls,
-        tier: request.tier,
-        what: inboxWhat(this.evidenceOf(request).description.headline),
-        room: request.originRoom ? directory.roomName(request.originRoom) : null,
-        age_s: Math.round((now - request.createdAtMs) / 1000),
-        expires_at: new Date(request.expiresAtMs).toISOString(),
-      });
-    }
+    const items = this.inboxItems(userId);
     return { user: userId, count: items.length, items, text: inboxText(items) };
+  }
+
+  inboxItems(userId: string): InboxItem[] {
+    const { db, routes, requests } = this.stores;
+    return listInbox({ db, routes, requests, traces: this.traces, directory: this.people.directory, nowMs: this.deps.clock.nowMs() }, userId);
   }
 
   personStats(userId: string): Record<string, unknown> | null {
@@ -972,7 +954,9 @@ export class Clearance implements ClearanceCore {
       for (const request of requests.listExpired(now)) await this.expire(request);
       grants.voidExpired();
       // A card that could not be opened (Switch down) is retried until the request expires.
-      for (const request of requests.listInState(["HELD"])) await this.routeAndOpen(request, "primary");
+      for (const request of requests.listInState(["HELD"])) {
+        if (!this.opening.has(request.id)) await this.routeAndOpen(request, "primary");
+      }
       for (const timer of timers.due(now)) await this.fireEscalation(timer);
       for (const request of requests.listInState(["APPROVED", "BREAK_GLASS"])) await this.retryExecution(request);
       for (const row of routes.staleReviews(now)) await this.closeOpenCards(requests.require(row.request_id));
@@ -1077,7 +1061,12 @@ export class Clearance implements ClearanceCore {
     });
     const { request, isNew } = write.immediate();
     if (isNew) {
-      await this.routeAndOpen(request, "primary");
+      this.opening.add(request.id);
+      try {
+        await this.routeAndOpen(request, "primary");
+      } finally {
+        this.opening.delete(request.id);
+      }
       await this.maybeRollDrill(request);
     }
     const response: CheckResponse = {
@@ -1356,7 +1345,8 @@ export class Clearance implements ClearanceCore {
     const request = write.immediate();
     const trace = route(this.routeContext(request), 1);
     const single: RouteTrace = { ...trace, chosen: [personId], fallback: null };
-    const opened = await this.dispatch(request, single, "primary", false);
+    this.opening.add(request.id);
+    const opened = await this.dispatch(request, single, "primary", false).finally(() => this.opening.delete(request.id));
     if (opened === 0) {
       // Nobody will ever see it, and the tick must not route it to someone else.
       const undo = this.stores.db.transaction(() => {
@@ -1939,7 +1929,7 @@ export class Clearance implements ClearanceCore {
       if (!place) continue;
       opened += 1;
       const body = personBody?.(person) ?? `${request.id} needs your decision: ${headline}. The card is just above.`;
-      await this.notifyCard(place, [person.userName], body);
+      if (personBody || !this.deps.runningInbox) await this.notifyCard(place, [person.userName], body);
     }
     const fallbackRoom = trace.fallback ? directory.roomId(trace.fallback.room) : null;
     const fallbackNames = userNames(trace.fallback?.eligible ?? []);
@@ -2654,11 +2644,11 @@ export class Clearance implements ClearanceCore {
     const after = others.join(" ") || undefined;
     switch (command.verb) {
       case "why":
-        return first ? this.whyReply(first, askerId) : null;
+        return first ? this.whyReply(first, askerId, evt.roomId) : null;
       case "status":
-        return first ? this.statusReply(first) : null;
+        return first ? this.statusReply(first, evt.roomId) : null;
       case "inbox":
-        return askerId ? (this.inbox(askerId)?.text ?? null) : null;
+        return askerId && this.people.directory.person(askerId) ? inboxMessage(this.inboxItems(askerId), { roomId: evt.roomId }) : null;
       case "autonomy":
         return this.autonomyReply(first);
       case "policy":
@@ -2970,17 +2960,17 @@ export class Clearance implements ClearanceCore {
     return room === this.approvalsRoom() ? null : demotion;
   }
 
-  /** A CLR id, or an answer handle like A12. */
-  private findRequest(reference: string): RequestRecord | null {
+  /** A CLR id, or an answer handle like A12, which means the card of that name in this room if there is one. */
+  private findRequest(reference: string, roomId?: string): RequestRecord | null {
     const { requests, routes } = this.stores;
     const direct = requests.get(reference.toUpperCase());
     if (direct) return direct;
-    const found = routes.byHandle(reference);
+    const found = routes.byHandle(reference, roomId);
     return found ? requests.get(found.request_id) : null;
   }
 
-  private whyReply(reference: string, askerId: string | null): string {
-    const request = this.findRequest(reference);
+  private whyReply(reference: string, askerId: string | null, roomId: string): string {
+    const request = this.findRequest(reference, roomId);
     const trace = request ? this.traces.latest(request.id) : null;
     if (!request || !trace) return `I can't find ${reference}.`;
     const evidence = this.evidenceOf(request);
@@ -3001,8 +2991,8 @@ export class Clearance implements ClearanceCore {
     return explained;
   }
 
-  private statusReply(reference: string): string {
-    const request = this.findRequest(reference);
+  private statusReply(reference: string, roomId: string): string {
+    const request = this.findRequest(reference, roomId);
     if (!request) return `I can't find ${reference}.`;
     const trace = this.traces.latest(request.id);
     const tz = this.currentPolicy.defaults.business_hours.tz;
@@ -3233,27 +3223,6 @@ export class Clearance implements ClearanceCore {
       this.policyError = (error as Error).message;
     }
   }
-}
-
-/** "REFUND ₹40,000" reads "refund ₹40,000" in a list. Only the class word is shouting; values keep their case. */
-function inboxWhat(headline: string): string {
-  return headline.replace(/^[A-Z]+(?: [A-Z]+)*(?= |$)/, (word) => word.toLowerCase());
-}
-
-function inboxAge(seconds: number): string {
-  if (seconds < 60) return `${seconds} s`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)} min`;
-  return `${Math.floor(seconds / 3600)} h`;
-}
-
-/** Appendix D's inbox line. The handle appears when Switch gave one; the CLR id always does. */
-function inboxText(items: InboxItem[]): string {
-  const lines = items.map((item) => {
-    const handle = item.handle ? `${item.handle} ` : "";
-    const room = item.room ? ` · ${item.room}` : "";
-    return `${handle}${item.request_id} ${item.what}${room} · ${inboxAge(item.age_s)}`;
-  });
-  return [`Needs your response (${items.length})`, ...lines].join(" · ");
 }
 
 export function createClearanceCore(deps: CoreDeps): Clearance {

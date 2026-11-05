@@ -41,3 +41,5 @@ export {
   type Position,
   type RoomJoinFrame,
 } from "./wire.js";
+export { createOwnPosts, type OwnPosts, type OwnPostsConfig } from "./own-posts.js";
+export { createTemplatePort } from "./template-port.js";

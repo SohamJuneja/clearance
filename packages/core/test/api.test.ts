@@ -240,7 +240,10 @@ describe("GET /v1/inbox", () => {
   it("answers @clearance inbox in the room", async () => {
     await check(gateRefund(REFUND_SC4));
     await h.core.onMessage(chatMessage(PARTICIPANTS.sam, "@clearance inbox", { roomId: "#finance", threadId: null, addressed: true }));
-    expect(h.chat.messages.at(-1)).toEqual({ roomId: "#finance", body: "Needs your response (1) · CLR-0001 refund ₹40,000 · #support · 0 s" });
+    expect(h.chat.messages.at(-1)).toEqual({
+      roomId: "#finance",
+      body: "**Needs your response (1)**\nCLR-0001 refund ₹40,000 · #support · 0 s\nAnswer in your direct room with Clearance.",
+    });
   });
 });
 

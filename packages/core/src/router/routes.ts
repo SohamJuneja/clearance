@@ -77,10 +77,14 @@ export class RouteStore {
     return row ?? null;
   }
 
-  byHandle(handle: string): RouteRow | null {
-    const row = this.db.prepare(`SELECT * FROM routes WHERE handle = ? ORDER BY id DESC LIMIT 1`).get(handle) as
-      | RouteRow
-      | undefined;
+  /**
+   * Switch counts handles per channel, so the same handle names different cards in different rooms. The
+   * card in `roomId` comes first when there is one.
+   */
+  byHandle(handle: string, roomId?: string): RouteRow | null {
+    const row = this.db
+      .prepare(`SELECT * FROM routes WHERE handle = ? ORDER BY card_room = ? DESC, id DESC LIMIT 1`)
+      .get(handle, roomId ?? null) as RouteRow | undefined;
     return row ?? null;
   }
 

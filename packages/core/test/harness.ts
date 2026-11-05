@@ -70,6 +70,7 @@ export type HarnessOptions = {
   rollDrills?: boolean;
   /** CLEARANCE_DRILL_RATE, as main passes it. */
   drillRate?: number;
+  runningInbox?: boolean;
 };
 
 export function makeHarness(options: HarnessOptions = {}): Harness {
@@ -94,6 +95,7 @@ export function makeHarness(options: HarnessOptions = {}): Harness {
       gate,
       lookup,
       clock,
+      ...(options.runningInbox ? { runningInbox: true } : {}),
     });
     return {
       core,

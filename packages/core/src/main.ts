@@ -5,16 +5,21 @@
  * Refuses to start on missing or placeholder secrets: a core that can't check tokens or reach Switch must not
  * look healthy to the gate.
  */
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { hookRoutes } from "@clearance/adapters";
 import { DEFAULT_PORTS } from "@clearance/contracts";
 import { createGateClient } from "@clearance/gate";
-import { createChatPort, createMattermostHandleResolver, createSwitchAgent } from "@clearance/switch-agent";
+import { createChatPort, createMattermostHandleResolver, createOwnPosts, createSwitchAgent, createTemplatePort } from "@clearance/switch-agent";
 import { buildServer } from "./api/server.js";
 import { systemClock } from "./clock.js";
+import { OperatorCommands } from "./commands/operator.js";
 import { createClearanceCore } from "./core.js";
 import { drillRateFromEnv } from "./drills/library.js";
+import { isInboxMessage } from "./inbox/inbox.js";
+import { createInboxKeeper, INBOX_SYNC_EVERY_MS } from "./inbox/keeper.js";
+import { Installer } from "./install/install.js";
+import { createLedgerMirror } from "./ledger/mirror.js";
 
 function secret(name: string): string {
   const value = process.env[name];
@@ -66,14 +71,18 @@ const agent = createSwitchAgent({
   agentId: clearance.switchAgentId,
   apiKey,
 });
-const handleToken = secrets.mattermostTokens.user;
+// Clearance's own Mattermost account can read its real direct rooms, which the reader account can't.
+const ownToken = secrets.mattermostTokens.clearance;
+const handleToken = ownToken ?? secrets.mattermostTokens.user;
+const mattermostUrl = process.env.MATTERMOST_URL ?? "http://127.0.0.1:8065";
 const chat = createChatPort(agent, {
+  agentName: process.env.CLEARANCE_AGENT_NAME ?? "clearance",
   participantNames,
   ...(handleToken
     ? {
         resolveHandle: createMattermostHandleResolver({
           agent,
-          mattermostUrl: process.env.MATTERMOST_URL ?? "http://127.0.0.1:8065",
+          mattermostUrl,
           token: handleToken,
         }),
       }
@@ -85,6 +94,9 @@ const gateClient = createGateClient({
   internalToken,
 });
 
+const clock = systemClock(Number(process.env.CLEARANCE_TIME_SCALE ?? 1));
+const logLine = (message: string) => console.error(message);
+
 const core = createClearanceCore({
   dbPath: resolve(process.env.CLEARANCE_DB_PATH ?? resolve(dataDir, "clearance.sqlite")),
   policyPath: resolve(process.env.CLEARANCE_POLICY_PATH ?? "policy/clearance.policy.yaml"),
@@ -93,11 +105,63 @@ const core = createClearanceCore({
   chat,
   gate: gateClient,
   lookup: gateClient,
-  clock: systemClock(Number(process.env.CLEARANCE_TIME_SCALE ?? 1)),
+  clock,
   drillRate: drillRateFromEnv(process.env.CLEARANCE_DRILL_RATE),
+  runningInbox: true,
 });
 
-const app = buildServer(core, { internalToken, logger: process.env.LOG_LEVEL === "debug" });
+const ownPosts = ownToken ? createOwnPosts({ agent, mattermostUrl, token: ownToken }) : null;
+const inboxes = createInboxKeeper(core, {
+  chat,
+  clock,
+  log: logLine,
+  ...(ownPosts
+    ? {
+        erase: async (roomId: string) => {
+          await ownPosts.remove(roomId, isInboxMessage);
+        },
+      }
+    : {}),
+});
+
+const APPROVALS_ROOM = "#approvals";
+const mirror = createLedgerMirror(core, { chat, clock, policyRoom: APPROVALS_ROOM, log: logLine });
+
+const templatePath = resolve(process.env.CLEARANCE_TEMPLATE_PATH ?? "templates/clearance.template.yaml");
+const gatewayUrl = process.env.CLEARANCE_GATEWAY_URL?.replace(/\/$/, "");
+if (!existsSync(templatePath)) console.error(`No template at ${templatePath}: @clearance install is off.`);
+const operator = new OperatorCommands({
+  directory: core.people.directory,
+  admins: core.team.admins ?? [],
+  chat,
+  // Optional, so a missing file costs the command and not the core.
+  ...(existsSync(templatePath)
+    ? {
+        installer: new Installer(createTemplatePort(agent), {
+          templateName: process.env.CLEARANCE_TEMPLATE_NAME ?? "clearance-install",
+          templateYaml: readFileSync(templatePath, "utf8"),
+          roomName: process.env.CLEARANCE_INSTALL_ROOM ?? "approvals",
+          policyRoom: APPROVALS_ROOM,
+        }),
+      }
+    : {}),
+  // Remembered across restarts in identities.json, with the other rooms the policy names.
+  onRoom: (policyRoom, roomId) => {
+    core.people.directory.setRoom(policyRoom, roomId);
+    const current = JSON.parse(readFileSync(identitiesPath, "utf8")) as Record<string, unknown>;
+    const rooms = (current.rooms ?? {}) as Record<string, string>;
+    if (rooms[policyRoom] === roomId) return;
+    const next = `${identitiesPath}.${process.pid}.tmp`;
+    writeFileSync(next, `${JSON.stringify({ ...current, rooms: { ...rooms, [policyRoom]: roomId } }, null, 2)}\n`, { mode: 0o600 });
+    renameSync(next, identitiesPath);
+  },
+  mirror,
+  mirrorRoom: APPROVALS_ROOM,
+  documentsPage: () => (gatewayUrl ? `${gatewayUrl}/rooms/${core.people.directory.roomId(APPROVALS_ROOM)}` : null),
+  log: logLine,
+});
+
+const app = buildServer(core, { internalToken, logger: process.env.LOG_LEVEL === "debug", mirror });
 await app.register(async (scope) => {
   hookRoutes(scope, {
     check: (action) => core.check(action),
@@ -108,10 +172,14 @@ await app.register(async (scope) => {
 
 const tick = setInterval(() => {
   core.tick().catch((error: unknown) => console.error("tick failed:", error));
+  // Started, not waited for: nothing that decides depends on the copy.
+  mirror.tick();
 }, 1000);
+const inboxTick = setInterval(() => void inboxes.sync(), INBOX_SYNC_EVERY_MS);
 
 const stop = async () => {
   clearInterval(tick);
+  clearInterval(inboxTick);
   await agent.stop();
   await app.close();
   core.close();
@@ -123,7 +191,10 @@ process.on("SIGINT", () => void stop());
 const port = Number(process.env.CLEARANCE_CORE_PORT ?? DEFAULT_PORTS.core);
 await app.listen({ port, host: "127.0.0.1" });
 await agent.start({
-  message: (event) => core.onMessage(event),
+  message: async (event) => {
+    await core.onMessage(event);
+    operator.start(event);
+  },
   approvalOutcome: (event) => core.onApprovalOutcome(event),
 });
 console.log(`clearance-core listening on 127.0.0.1:${port}, Switch agent connected`);

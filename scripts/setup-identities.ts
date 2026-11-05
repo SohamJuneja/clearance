@@ -72,11 +72,14 @@ export type Identities = {
   agents: Record<string, { switchAgentId: string; participantId: string; ownerUserId: string; ownerName: string }>;
   bridgeId: string;
   mattermostTeam: string;
+  /** Policy room names to Switch room ids. Not written here, but kept. */
+  rooms?: Record<string, string>;
 };
 export type Secrets = {
   /**
    * One per persona, plus `user`: the seeded account the bridge adds to every channel it creates, which
-   * can read the handle off a card in any of them. It is an ordinary account and not in real DMs.
+   * can read the handle off a card in any of them. It is an ordinary account and not in real DMs. Plus
+   * `clearance`: the agent's own account, the only one that can read a card's handle in a real DM.
    */
   mattermostTokens: Record<string, string>;
   switchAgentKeys: Record<string, string>;
@@ -399,7 +402,23 @@ async function main(): Promise<void> {
   }
   log(`switch: ${LINKED_PERSONAS.length} direct rooms ready`);
 
+  // Clearance's own Mattermost account, which exists once it has a room. Its token reads the handles in
+  // real direct rooms, which no other account can, and removes its own old inbox posts, which Switch has
+  // no operation for. It can't touch anyone else's post.
+  const bot = expectOk(
+    await call(MATTERMOST_URL, "GET", `/api/v4/users/username/${AGENT_NAME}`, { token: mmAdmin }),
+    "finding Clearance's Mattermost account",
+  );
+  mattermostTokens[AGENT_NAME] = await ensureAccessToken(mmAdmin, AGENT_NAME, String(bot.id), previousSecrets.mattermostTokens?.[AGENT_NAME]);
+  writePrivate(secretsPath, {
+    mattermostTokens,
+    switchAgentKeys: { ...previousSecrets.switchAgentKeys, [AGENT_NAME]: apiKey },
+    clearanceAdminPassword,
+  } satisfies Secrets);
+
+  // Spread first: other things keep facts here, like `rooms`, and a re-run must not lose them.
   const identities: Identities = {
+    ...previousIdentities,
     people: Object.fromEntries(
       LINKED_PERSONAS.map((name) => [
         name,
@@ -420,6 +439,7 @@ async function main(): Promise<void> {
       ]),
     ),
     agents: {
+      ...previousIdentities.agents,
       [AGENT_NAME]: { switchAgentId: agentId, participantId: agentParticipant, ownerUserId, ownerName: ADMIN_USER },
     },
     bridgeId,

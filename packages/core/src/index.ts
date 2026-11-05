@@ -7,3 +7,8 @@ export { runLedgerVerify } from "./cli/ledger-verify.js";
 export { verifyLedger, type LedgerEntry, type LedgerVerification } from "./ledger/ledger.js";
 export { loadPolicy, loadTeam, parsePolicy, parseTeam, PolicyLoadError, type CompiledPolicy } from "./policy/load.js";
 export { DETAIL_BUDGET, PROMPT_BUDGET, renderCard, renderedCost, renderPrompt, type CardView } from "./cards/render.js";
+export { inboxMessage, isInboxMessage, listInbox, type InboxItem } from "./inbox/inbox.js";
+export { createInboxKeeper, InboxKeeper, INBOX_SYNC_EVERY_MS, type InboxKeeperDeps } from "./inbox/keeper.js";
+export { createLedgerMirror, dayOf, drillTotals, ledgerDocuments, LedgerMirror, MIRROR_EVERY_MS, renderClearanceState, STATE_DOCUMENT, type MirrorReport, type MirrorStatus } from "./ledger/mirror.js";
+export { Installer, installReply, type InstallConfig, type InstallResult, type TemplatePort } from "./install/install.js";
+export { OperatorCommands, type OperatorDeps } from "./commands/operator.js";

@@ -154,3 +154,99 @@ Four earlier rehearsals found the hint firing on a message about the previous ca
 **Not rehearsed:** more than one participant live at a time (the fake ChatPort covers routing), or a real person.
 
 **One line on the card does nothing in the study.** Condition B's approval card ends with the product's `@clearance why CLR-...`, on both platforms, and no Clearance is listening. Typing it is not an answer, the card stays open, and the clock keeps running.
+
+---
+
+# Inbox, ledger mirror and install (F7, F8, F15)
+
+`s-inbox-live.ts` runs the real `packages/core/src/main.ts` as its own process: port 7791, a spare database, a stub gate on 7793, and a throwaway agent with its own bot, in throwaway rooms. Sam, Neha and Alex's real accounts talk to it. All 50 checks passed on the final code, on top of the merged drills. `s-inbox-cleanup.ts` removed everything by name afterwards. `clearance`, `support`, `eng` and the running core weren't touched.
+
+## What a person sees in their direct room
+
+Before: a long card, plus "@sam CLR-0001 needs your decision: REFUND ₹40,000. The card is just above." With an inbox line too, that is three posts per request, two of them saying the same thing. **Chosen:**
+
+- **The inbox replaces that line.** A request adds a card and changes the list, nothing else. A backup still gets their own line, because it says why they're suddenly involved.
+- **One live copy, at the bottom.** When the list changes, the old post goes and a new one follows. An empty list is no post at all.
+- **The card has the evidence and the list doesn't.** Each line is one short pointer, so they don't repeat each other.
+- **A mention only for new work.** A list that only shrank is posted without one.
+- **"Ages as of 04:49 IST."** The post stays up, so its ages stop being true. Editing it every minute wasn't worth it.
+
+Two open, as Sam saw it:
+
+```
+**Permission needed** · request `A15`   (2 buttons, about 20 lines of evidence)
+**Permission needed** · request `A16`   (2 buttons, about 20 lines of evidence)
+@sam **Needs your response (2)**
+A16 CLR-0016 refund ₹70,200 · #finance · 1 s
+A15 CLR-0015 refund ₹60,200 · #support · 2 s
+Ages as of 04:49 IST. Reply here with a code, like `A16 yes` or `A16 no`, or use the card's buttons.
+```
+
+## Why it needs a token for Clearance's own bot
+
+`s-inbox-posts.ts`. Switch has no operation for an agent to edit or delete a message. And the reader account the core used for handles gets **403 on a real DM**, so every inbox line there would have had no code to answer with.
+
+| With a token for the agent's bot | Result |
+|---|---|
+| Minted by the admin, as for the personas | HTTP 200 |
+| Reads its own real DM | HTTP 200 |
+| Edits, deletes its own post | HTTP 200, gone for Sam, and later messages still flow |
+| Deletes Sam's post | **HTTP 403** |
+
+`setup-identities.ts` now mints it as `mattermostTokens.clearance`. **Without it the inbox still works**, with CLR ids instead of codes, and old posts stay: the newest is the true one, and a list that empties says "(0)", since a stale "(1)" at the bottom would be a lie. Checked on a scratch copy of the data folder against the real `clearance` bot: `rooms` kept, agent key and persona tokens unchanged, Sam's real DM readable (reader still 403). That token was revoked afterwards.
+
+## The acceptance lines
+
+| | Measured (from just before `/v1/check`, to the list being readable by Sam) |
+|---|---|
+| Two requests from two rooms, together | 531, 653, 621, 630, 633 ms |
+| A second request with one open | 648, 596, 673 ms |
+| Typing `A15 yes` in the DM, to `EXECUTED` | 219 ms |
+
+Answering from the code also ran the gate once, took the buttons off the card in the origin room, counted as Sam's approval, and shrank the list. `A16 no` denied the other, nothing ran, and the post went.
+
+## What the live run and reading the code found
+
+- **Two identical cards for one request.** `hold` waits for the card while the request is `HELD`, and `tick` retries anything `HELD`, so a tick in that window opened a second card. It was there before, but the window was tiny while the handle lookup failed at once on a 403. With the bot's token the lookup takes about 250 ms, about a quarter of every tick. Seen on the first live run (`A17` and `A18`, both CLR-0016), fixed in `core.ts` with a test. **Fakes alone wouldn't have shown this.**
+- **`@clearance ledger` could have held up answers.** Frames go through one serial queue (`agent.ts:205`), so an awaited copy on a stuck Switch would delay every approval behind it by up to 30 s. Operator commands now run outside the queue.
+- **A handle shown in the wrong room can answer the wrong card.** `A12` is counted per channel. `@clearance inbox` was showing DM codes anywhere, and `@clearance why A12` took the newest match from any room. Now a code shows only in its card's room, and `why` and `status` prefer the card in the room they're asked in.
+- **Re-running `setup-identities` dropped `identities.rooms`,** which would have broken every room-based route. It now keeps what it doesn't write.
+- **A brand new bot:** a first message to it can open no room. Retrying worked. Only a fresh agent would see this; `clearance` is long-lived.
+
+## Ledger mirror
+
+- **Documents:** `clearance-ledger-YYYY-MM-DD`, the date in the team's zone, then `-2`, `-3` past 1,000,000 bytes. Live: Switch took 1,000,000 bytes and refused 1,048,577. An entry too big for any document keeps its place and hash, and says where its payload is.
+- **Never loses an entry:** `ledger_mirror_seq` moves only after Switch takes a document, and a retry rebuilds the same documents from SQLite. Live: all 54 entries in the document, hash for hash.
+- **Never blocks:** nothing waits on it. `tick` only starts a copy.
+- **Debounce:** at most every 5 real minutes, not scaled, and nothing at all if nothing changed or a drill is open. Every rewrite posts a notice, so yesterday's document and an unchanged `clearance-state` are left alone. **The 5 minutes were tested with a fake clock, not waited out live.** Live: a boot copy with no asking, and a second on-demand copy posting no notice.
+- **On demand:** `POST /v1/ledger/mirror`, or `@clearance ledger` from anyone.
+
+**How a judge sees it,** since `!list-documents` crashes at the pin:
+
+1. In `#approvals`: `📄 updated room document “clearance-ledger-2026-11-06”.`, seen live.
+2. On the room's Gateway page, `http://127.0.0.1:3000/rooms/<room id>`. `GET /gateway/rooms/{id}/documents` as Sam listed both documents and read them back, and the page itself answers 200. **Not opened in a real browser.**
+3. `@clearance ledger` replies with that link when `CLEARANCE_GATEWAY_URL` is set.
+
+## Drills, in the mirror and the inbox
+
+Approvers read `#approvals`, and a drill only works if it can't be told from a real request (PLAN F9). What is left out gives one away as surely as what is put in. Brain's drill writes `drill_sent` where a real request writes `held`, and no `routed`. So hiding `drill_*` alone would leave a gap in the entry numbers beside the card's arrival, a card missing from the open list, and a `clearance-state` notice with no ledger notice beside it, at the moment the card lands. **Chosen:**
+
+- **While any drill is open, the whole mirror stands still:** ledger and state, timed or on demand. A document's "as of" time comes before that drill and before every later request alike. Holds and answers are unaffected, and everything real is copied once it closes.
+- **A drill's entries are never copied, even after it closes.** That is every entry on its request, including `ineligible_answer`, since they say who answered what. Entry numbers skip there, and every document says numbers can skip.
+- **The team gets totals only, in `clearance-state`, and only in whole groups of 3.** "1 finished, 0 caught" is one person's result, and so is the difference between two totals. So they read 3, then 6, and never 4.
+- **`@clearance ledger` says where the copy has reached and never how far behind it is,** since that gap is what an open drill looks like.
+- **Inbox:** the same fields, the same line, the same mention. A drill from no room reads as coming from where real requests of its kind come from, because a line with no room would be the only one like it.
+
+**What remains:** a mirror standing still is a weak signal. Someone who knows there was other activity, and checks the documents more than 5 minutes after a card, could suspect a drill. It lasts until the drill closes, at most its 25-minute expiry. Silence is also normal, since nothing is written when nothing changed, and I found no way to avoid this without publishing something false in a tamper-evident copy. `drill-privacy.test.ts` and the live check run real drills, through `sendDrill` and `POST /v1/drills/send`.
+
+**Also found in the drills:** `openDrill` waits for its card with the request still `HELD`, so the tick's retry could route it to someone else, the same race as the doubled card. It now goes through the same guard.
+
+**For brain:** a drill can take a real room from `requesters.lastOrigin`, and `dispatch` then posts a copy of its card there, where everyone sees a request that later vanishes with no outcome. Not changed here.
+
+## `@clearance install`
+
+Live, with a spike template and room name: Sam refused, Alex installs, the reply says what was made, a second run says "already installed" with still one room, and `#approvals` is remembered in `identities.json`. It looks across every room the owner can see (`list_all_rooms`), so it won't make a second room beside one it isn't in or an archived one. Two at once make one. **Admin is `admins:` in `team.yaml`,** the list `@clearance drills` goes by, checked against `sender` only. **Not run under the real names,** per the brief.
+
+## Not tested
+
+A real browser or phone. Waiting out the 5 minutes. A document past 1 MB through a real rollover (fakes, plus the live limit above). The mirror with Switch really down, since the stack is shared (fakes).

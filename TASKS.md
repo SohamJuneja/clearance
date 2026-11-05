@@ -53,8 +53,8 @@ Tick a box only when tests or a run prove it. Acceptance text is copied from PLA
   - [ ] Expired requests never execute (test with the gate).
   - [x] Each escalation step is a ledger entry.
 - **F7 One inbox across rooms** (switchboard)
-  - [ ] Two requests from two rooms appear in one approver's inbox within 2 seconds of being held.
-  - [ ] Answering from the inbox handle settles the original request.
+  - [x] Two requests from two rooms appear in one approver's inbox within 2 seconds of being held.
+  - [x] Answering from the inbox handle settles the original request.
 - **F9 Approval drills** (brain)
   - [x] A drill and a real request render identically apart from content (snapshot diff only in values).
   - [x] Approving a drill calls nothing on the gate (test with a spy).
@@ -74,7 +74,7 @@ Tick a box only when tests or a run prove it. Acceptance text is copied from PLA
 - **F14 Anti-evasion** (gate-hooks + brain)
   - [ ] Authority suite cases 9, 10 and 11 pass.
 - **F15 One-command install** (switchboard)
-  - [ ] `@clearance install` runs the template through `run_template` and replies with what it created. No changes to Switch code or bundled templates.
+  - [x] `@clearance install` runs the template through `run_template` and replies with what it created. No changes to Switch code or bundled templates.
 
 ### P2: after P0 and P1 are green
 

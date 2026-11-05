@@ -1,1 +1,8 @@
-# Placeholder: filled in task B-5.
+people:
+  - {handle: riya,  name: Riya,  switch_id: TBD-riya,  roles: [support-lead]}
+  - {handle: arjun, name: Arjun, switch_id: TBD-arjun, roles: [finance-lead, policy-owner]}
+  - {handle: kabir, name: Kabir, switch_id: TBD-kabir, roles: [eng-lead]}
+agents:
+  - {name: support-bot, room: "#support", owner: riya}
+  - {name: refunds-bot, room: "#finance", owner: riya}
+  - {name: deploy-bot,  room: "#eng",     owner: kabir}

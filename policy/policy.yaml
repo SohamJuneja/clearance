@@ -1,1 +1,63 @@
-# Placeholder: schema filled in task A-4, demo values in task B-5.
+version: 1
+escalation_seconds: 90
+autonomy:
+  promote_after_clean: 5
+separation_of_duties:
+  requester_cannot_approve_at_or_above: medium   # requester may self-approve only "low"
+  owner_cannot_approve_at_or_above: critical     # an agent's owner can't approve critical actions
+risk_levels:            # ordered lowest to highest
+  none:     {min_decision_seconds: 0}
+  low:      {min_decision_seconds: 0}
+  medium:   {min_decision_seconds: 3}
+  high:     {min_decision_seconds: 6}
+  critical: {min_decision_seconds: 10}
+unmatched:              # a tool the hook sends that no class matches
+  risk: medium
+  approvers: [policy-owner]
+classes:                # first match wins
+  - name: read_only
+    tools: [mcp__acme__lookup_order]
+    risk: none
+    action: allow
+  - name: refund_small
+    tools: [mcp__acme__issue_refund]
+    when: [{field: amount_inr, op: le, value: 2000}]
+    risk: low
+    approvers: [support-lead]
+    undoable: false
+    autonomy_eligible: true
+  - name: refund_large
+    tools: [mcp__acme__issue_refund]
+    when: [{field: amount_inr, op: gt, value: 2000}]
+    risk: high
+    approvers: [finance-lead]
+    undoable: false
+  - name: customer_email
+    tools: [mcp__acme__send_customer_email]
+    risk: medium
+    approvers: [support-lead]
+    undoable: false
+    autonomy_eligible: true
+  - name: deploy_staging
+    tools: [mcp__acme__deploy]
+    when: [{field: environment, op: eq, value: staging}]
+    risk: low
+    action: allow
+    undoable: true
+  - name: deploy_production
+    tools: [mcp__acme__deploy]
+    when: [{field: environment, op: eq, value: production}]
+    risk: high
+    approvers: [eng-lead]
+    undoable: true
+  - name: delete_data
+    tools: [mcp__acme__delete_customer_data]
+    risk: critical
+    approvers: [finance-lead, eng-lead]
+    approvals_needed: 2      # two DIFFERENT people, together covering the listed roles
+    undoable: false
+  - name: shell
+    tools: [Bash]
+    risk: medium
+    approvers: [eng-lead]
+    undoable: false

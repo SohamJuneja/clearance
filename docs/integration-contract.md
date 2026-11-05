@@ -44,7 +44,7 @@ Lead wires all of this together in `packages/core/src/main.ts` at integration.
 
 ## Gate to core
 
-`POST {CORE}/v1/check`, header `Authorization: Bearer $CLEARANCE_HOOK_TOKEN`, body `CheckRequest`, response `CheckResponse`.
+`POST {CORE}/v1/check`, header `Authorization: Bearer $CLEARANCE_INTERNAL_TOKEN`, body `CheckRequest`, response `CheckResponse`. Not the hook token: agents can read that one.
 
 - The gate builds `Action{source:"gate", vendor:"gate", kind:"business", business:{endpoint:"POST /acme/refunds", args}, agent:{name}}`. `agent.name` comes from the agent's gate token, never from the request body.
 - Optional headers `X-Clearance-Room` and `X-Clearance-Thread` fill `session`. They are hints for where to post, not identity.

@@ -1,0 +1,21 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000000",
+  "transcript_path": "/home/agent-user/.claude/projects/-home-agent-user--local-share-clearance-tools-spike-work-s1/00000000-0000-4000-8000-000000000000.jsonl",
+  "cwd": "/home/agent-user/.local/share/clearance-tools/spike-work/s1",
+  "prompt_id": "00000000-0000-4000-8000-000000000000",
+  "permission_mode": "auto",
+  "agent_type": "spike-s1",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "PreToolUse",
+  "tool_name": "mcp__switch__post_message",
+  "tool_input": {
+    "body": "git status: on branch main, 1 commit ahead of origin/main. Nothing to commit; only untracked `.claude/` is present.\n\ngit push: blocked by the spike echo server's hook. Reason, verbatim: \"git push needs approval (spike reason code SPIKE-DENY-7731)\". Nothing was pushed. Someone with approval needs to allow the push before I can retry."
+  },
+  "tool_use_id": "toolu_013x7VNPynAFhYQetxg6GmrZ",
+  "mcp_server": {
+    "name": "switch",
+    "source": "dynamic"
+  }
+}

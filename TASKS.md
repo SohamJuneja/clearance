@@ -4,15 +4,15 @@ Tick a box only when tests or a run prove it. Acceptance text is copied from PLA
 
 ## Spikes (PLAN 4.7), all for G0
 
-- [ ] **S1** (gate-hooks, lead) Switch-managed Claude Code runs PreToolUse hooks from `.claude/settings.json` in its working directory in auto mode; `deny` blocks `git push` and the reason appears in the reply. Fallback: user-level settings, then managed settings, then gate-only.
+- [x] **S1** (gate-hooks, lead) Switch-managed Claude Code runs PreToolUse hooks from `.claude/settings.json` in its working directory in auto mode; `deny` blocks `git push` and the reason appears in the reply. Fallback: user-level settings, then managed settings, then gate-only.
 - [x] **S2** (switchboard) Protocol agent opens native approval cards; button press arrives as `approval_outcome` with `answered_by`. Fallback: text cards with our grammar.
 - [x] **S3** (switchboard) Addressing policy restricts who may answer Clearance's cards. Fallback: Clearance's own re-check.
 - [x] **S4** (switchboard, brain) Attribute each held action to the human who asked. Fallback: everyone who addressed that agent in the last 10 minutes counts as a requester.
-- [ ] **S5** (gate-hooks) Vendor hooks run under Switch: Codex, OpenCode, Cursor. Fallback: gate-only for that vendor, coverage table says so.
-- [ ] **S6** (gate-hooks) Agents load an MCP server from project config. Fallback: `acme` CLI through Bash.
+- [ ] **S5** (OpenCode passes; Codex and Cursor blocked on logins) (gate-hooks) Vendor hooks run under Switch: Codex, OpenCode, Cursor. Fallback: gate-only for that vendor, coverage table says so.
+- [x] **S6** (Claude, OpenCode; Codex mechanics; Cursor blocked) (gate-hooks) Agents load an MCP server from project config. Fallback: `acme` CLI through Bash.
 - [x] **S7** (variant) (switchboard) Clearance can create a DM room with one approver and post a card with buttons. Fallback: `#approvals` plus `send_targeted_message`.
 - [x] **S8** (create, update; list command broken upstream) (switchboard) Room documents for the ledger. Fallback: ledger in the Desk, daily summary message.
-- [ ] **S9** (brain, lead) Agents follow the HELD protocol, 5 of 5 runs per vendor. Fallback: execute-on-approval through the gate.
+- [x] **S9** (not met; fallback taken) (brain, lead) Agents follow the HELD protocol, 5 of 5 runs per vendor. Fallback: execute-on-approval through the gate.
 - [x] **S10** (reachability; phone login untested) (world-ui) Study participants reach Mattermost through a tunnel. Fallback: Approval Lab.
 - [x] **S11** (switchboard) A template can include Clearance as a member. Fallback: setup script.
 

@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "clearance_gate": {
+      "type": "http",
+      "url": "http://127.0.0.1:7791/mcp"
+    },
+    "spike_stdio": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/home/prashant/projects/Clearance/spikes/mcp-echo-server.mjs"]
+    }
+  }
+}

@@ -35,14 +35,14 @@ Everything else is being done without you. Tick a box when done (or just tell me
   ```
   Why: support-agent in SC5 runs on Codex. Deadline: before you sleep. If you'd rather use the API key from step 5, run `printenv OPENAI_API_KEY | codex login --with-api-key` after you've set it.
 
-- [ ] **5. Paste API keys into `.env`** at the repo root. I've prepared the exact lines, so just fill in the values:
+- [ ] **5. Paste API keys into `.env`** at the repo root, **the Anthropic one first**. This is now a safety item: without an Anthropic key, Switch's Claude agents run on your own Claude login, and that login carries your claude.ai connectors, including Gmail `send_message` and Drive `share_file`. The spikes never called them. I've added deny rules at two levels, but one sits in a file an agent can edit. An API key removes the connectors completely. Until you add one I keep agent runs small and Haiku-only. I've prepared the exact lines, so just fill in the values:
   ```bash
   code /home/prashant/projects/Clearance/.env
   ```
   ```
   ANTHROPIC_API_KEY=      # Claude agents in E2. Without it the agents use your Claude login.
   OPENAI_API_KEY=         # Codex agent, and OpenCode's provider if you have no other key
-  OPENCODE_PROVIDER_KEY=  # OpenCode has 0 credentials right now. Leave blank to reuse OPENAI_API_KEY.
+  OPENCODE_PROVIDER_KEY=  # Optional. Blank means the free hosted opencode/big-pickle model, which already passes S5. Only synthetic data goes to it. Fill this in if you'd rather not use a free hosted model.
   ```
   Why: agents can't run without a provider. `.env` is gitignored and I never print it. Deadline: before you sleep, because S5 and S9 need these keys.
 
@@ -77,5 +77,7 @@ Everything else is being done without you. Tick a box when done (or just tell me
 - [ ] **Make the repos public** (needs your OK; I run the command after you tick). Must happen before submission.
 - [ ] **Track 03 comment on #803 and the PR from a fork**, plus signing the CLA. Text will be here.
 - [ ] **Voice-over (optional, 15 minutes).** I'll make a TTS version; your voice is better if you have time. Script will be here.
+- [ ] **Optional, stronger anti-evasion:** needs sudo for `/etc/claude-code/managed-settings.json`, which agents can't edit. Not tested yet. I'd only use it if you want it for the demo host.
+- [ ] **Optional: report the `!list-documents` crash upstream** (`commands.py:1963`, no `_package_store`, at the pinned commit). It's public, so yours to post. I can draft the text.
 - [ ] **Blog and three #HowISwitch posts.** Ready to post here with clips.
 - [ ] **Submission form.** `SUBMISSION.md` will have every field filled in.

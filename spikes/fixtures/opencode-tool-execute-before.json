@@ -1,0 +1,28 @@
+{
+  "hook_event_name": "opencode.tool.execute.before",
+  "tool_name": "bash",
+  "tool_input": {
+    "command": "git push 2>&1"
+  },
+  "cwd": "/home/agent-user/.local/share/clearance-tools/spike-work/s5-opencode",
+  "raw_input": {
+    "tool": "bash",
+    "sessionID": "ses_e52579475ffeZeNczcRh2xVHnu",
+    "callID": "call_16bb72a4e40c43a9b7a74cdd"
+  },
+  "raw_output": {
+    "args": {
+      "command": "git push 2>&1"
+    }
+  },
+  "plugin_context_keys": [
+    "client",
+    "project",
+    "worktree",
+    "directory",
+    "experimental_workspace",
+    "serverUrl",
+    "$"
+  ],
+  "token_env_present": false
+}

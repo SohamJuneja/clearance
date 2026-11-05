@@ -18,7 +18,7 @@ interface State {
 
 export default defineScenario<State>({
   id: "SC9",
-  title: "Drill: Sam approves fast, nothing runs, the next card asks him to type",
+  title: "Drill: Sam approves fast, nothing runs, the next card asks for a typed value",
   inVideo: true,
   needs: ["mattermost", "acme", "core", "gate"],
   cast: ["priya", "sam"],
@@ -89,7 +89,7 @@ export default defineScenario<State>({
       },
     },
     {
-      name: "Sam's next card asks him to type a detail",
+      name: "Sam's next card asks for a typed detail",
       run: async (ctx, state) => {
         const card = await ctx.people.sam.waitForDm(textMatches(/type the/i), {
           sinceMs: state.held!.create_at - 1,

@@ -78,7 +78,7 @@ export default defineScenario<State>({
       },
     },
     {
-      name: "Sam tries to approve his own request",
+      name: "Sam tries to approve Sam's own request",
       run: async (ctx, state) => {
         await ctx.people.sam.reply(state.held!, `${handleOf(state.card!)} yes`);
       },

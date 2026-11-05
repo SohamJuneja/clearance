@@ -13,7 +13,7 @@ interface State {
 
 export default defineScenario<State>({
   id: "SC2",
-  title: "Baseline, auto mode off: Priya approves her own refund",
+  title: "Baseline, auto mode off: Priya approves Priya's own refund",
   inVideo: true,
   prompt: {
     by: "priya",

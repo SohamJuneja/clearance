@@ -99,7 +99,7 @@ export default defineScenario<State>({
       },
     },
     {
-      name: "Priya tries to approve her own request",
+      name: "Priya tries to approve Priya's own request",
       run: async (ctx, state) => {
         await ctx.people.priya.reply(state.held!, `${handleOf(state.card!)} yes`);
       },
@@ -111,7 +111,7 @@ export default defineScenario<State>({
           ctx,
           ctx.people.priya,
           ROOM,
-          new RegExp(`Priya can't approve ${state.clr}|Priya can't approve her own`),
+          new RegExp(`Priya can't approve ${state.clr}`),
           state.held!.create_at - 1,
           "Clearance to refuse Priya's approval",
         );

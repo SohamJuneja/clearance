@@ -19,7 +19,7 @@ scenes:
     kind: clip
     planned_s: 8
     source: { clip: takes/SC2/latest/priya.mp4 }
-    voiceover: "This is Switch today. Priya asks her agent for a ₹40,000 refund, and the approval card goes to Priya. She approves her own refund."
+    voiceover: "This is Switch today. Priya asks an agent for a ₹40,000 refund, and the approval card goes to Priya, who approves it."
 
   - id: sc14
     kind: clip
@@ -42,7 +42,7 @@ scenes:
     sources:
       - { clip: takes/SC3/latest/priya.mp4 }
       - { clip: takes/SC3/latest/sam.mp4 }
-    voiceover: "Clearance holds the refund, refuses Priya's own approval, and sends it to Sam in finance. Sam sees the real call, not the agent's story: ten times the order total, to a payment ID added four minutes ago. He denies it."
+    voiceover: "Clearance holds the refund, refuses Priya's own approval, and sends it to Sam in finance. Sam sees the real call, not the agent's story: ten times the order total, to a payment ID added four minutes ago. Sam denies it."
 
   - id: sc5-sc6
     kind: split

@@ -1,6 +1,6 @@
 # The baseline (PLAN 8.4, scenarios SC1, SC2 and SC14): the refunds agent the way most teams wire it
 # today, with the Acme admin key in its environment and no Clearance. Run it signed in as Priya, so the
-# agent is hers and Switch's own card names her.
+# agent is Priya's and Switch's own card names Priya.
 #
 #   SC1:  auto_mode=true   the refund runs, and nobody is asked
 #   SC2:  auto_mode=false  Switch's native card asks Priya, the person who asked and owns the agent

@@ -537,7 +537,7 @@ sequenceDiagram
   Room-->>Clr: approval_outcome answered_by=Priya
   Clr->>Core: answer(Priya)
   Core-->>Clr: INELIGIBLE (requester), re-route
-  Clr->>Room: "Priya can't approve her own request. Sent to Sam."
+  Clr->>Room: "Priya can't approve CLR-0042 (requester, agent owner). Sent to Sam."
   Sam->>Room: A12 no (amount is 10x the order)
   Room-->>Clr: approval_outcome answered_by=Sam, decline
   Clr->>Core: answer(Sam, deny)
@@ -1278,10 +1278,10 @@ Target **2:50** (keep under 3:00 unless the organisers confirm a different limit
 
 | Time | Scene | On screen | Voice-over (read as written) |
 |---|---|---|---|
-| 0:00–0:08 | SC2 | Priya asks `#support-vanilla` for a ₹40,000 refund; the Switch card mentions Priya; she presses Allow; Acme shows the refund | "This is Switch today. Priya asks her agent for a ₹40,000 refund, and the approval card goes to Priya. She approves her own refund." |
+| 0:00–0:08 | SC2 | Priya asks `#support-vanilla` for a ₹40,000 refund; the Switch card mentions Priya; she presses Allow; Acme shows the refund | "This is Switch today. Priya asks an agent for a ₹40,000 refund, and the approval card goes to Priya, who approves it." |
 | 0:08–0:17 | SC14 | Sam, the approver in the vanilla room, clears five cards in under ten seconds, including a ₹40,000 refund to a brand-new payment ID; caption "staged illustration, real clicks" | "And when someone else approves, people approve 93% of what they're shown. Approval gates are everywhere in this hackathon. They don't stay meaningful on their own." |
 | 0:17–0:26 | Title | "Clearance: the approval layer that keeps approvals meaningful, across every room and every agent. Built on Switch." | "Clearance is the approval layer for the whole team, for every room and every agent vendor, with no changes to Switch." |
-| 0:26–1:00 | SC3 | Same request in `#support`: agent replies "waiting for approval CLR-0042"; Priya types `A12 yes`; Clearance: "Priya can't approve her own request. Sent to Sam."; Sam's DM card: parsed amount ₹40,000, order total ₹4,000, destination added 4 minutes ago, agent's claim labelled; Sam denies; ledger line appears | "Clearance holds the refund, refuses Priya's own approval, and sends it to Sam in finance. Sam sees the real call, not the agent's story: ten times the order total, to a payment ID added four minutes ago. He denies it." |
+| 0:26–1:00 | SC3 | Same request in `#support`: agent replies "waiting for approval CLR-0042"; Priya types `A12 yes`; Clearance: "Priya can't approve CLR-0042 (requester, agent owner). Sent to Sam (finance, on duty)."; Sam's DM card: parsed amount ₹40,000, order total ₹4,000, destination added 4 minutes ago, agent's claim labelled; Sam denies; ledger line appears | "Clearance holds the refund, refuses Priya's own approval, and sends it to Sam in finance. Sam sees the real call, not the agent's story: ten times the order total, to a payment ID added four minutes ago. Sam denies it." |
 | 1:00–1:20 | SC5 + SC6 | Split screen: Codex support-agent's bulk email held and routed to Priya; OpenCode ops-agent's prod deploy held and routed to Alex with "2 failing checks" | "Same policy file, different vendors. A Codex agent's customer export and an OpenCode agent's production deploy are held the same way, even though OpenCode's auto mode would have asked no one." |
 | 1:20–1:35 | SC8 | Sam silent; after 18 s (clock 10x) Neha gets the card; both DMs show "Needs your response (2)" | "If nobody answers, Clearance escalates on a timer, and every approver has one inbox across rooms." |
 | 1:35–1:55 | SC9 | Sam approves a drill in 1.8 s; private message "That was a practice request…"; next card asks him to type the amount | "People rubber-stamp. Claude Code users approve 93% of prompts. So Clearance runs drills, like phishing tests, and adds friction when approvals get too fast." |
@@ -1594,15 +1594,15 @@ Flags
 Agent's claim (unverified): "Refunding ₹4,000 for order A-1931 as requested in T-77."
 
 Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
-Why you: finance approver on duty. Priya asked and owns the agent, so she can't approve this.
+Why you: finance approver on duty. Can't approve: Priya (requester, agent owner).
 Policy: refunds over ₹10,000 need 1 finance approver · expires 15:42 IST
 
-Reply A12 yes or A12 no · @clearance why A12
+@clearance why CLR-0042
 ```
 
 **Type-to-confirm question:** "CLR-0051 is high risk. Type the refund amount in rupees to approve, or answer no." (Rotate the asked field: amount, last 4 characters of the destination, service name.)
 
-**Refusal in the origin room:** "Priya can't approve CLR-0042: she asked for it and owns the agent. Sent to Sam (finance, on duty)."
+**Refusal in the origin room:** "Priya can't approve CLR-0042 (requester, agent owner). Sent to Sam (finance, on duty)."
 
 **Response to the agent (gate or hook):** "HELD CLR-0042: refunds over ₹10,000 need finance approval. Do not try another way. You will be told in this thread when it is decided."
 

@@ -1,0 +1,43 @@
+#!/bin/sh
+# Starts the Clearance hook CLI for Codex and Cursor. Fails closed: if it cannot start, the call is
+# denied in the vendor's own format, because a hook that merely errors can let the call through.
+# Agents run from clones outside the Clearance repo with no env of ours, so setup-agent records the
+# CLI's path in .clearance/hook-cli. Inside the repo the relative path works without any setup.
+# Uses shell built-ins only, so it still works with an empty PATH.
+case "$0" in
+  */*) here=${0%/*} ;;
+  *) here=. ;;
+esac
+cli=${CLEARANCE_HOOK_CLI:-}
+if [ -z "$cli" ] && [ -r "$here/../.clearance/hook-cli" ]; then
+  IFS= read -r cli <"$here/../.clearance/hook-cli"
+fi
+cli=${cli:-$here/../../packages/hook-cli/src/main.ts}
+
+if [ -f "$cli" ] && command -v node >/dev/null 2>&1; then
+  exec node --disable-warning=ExperimentalWarning "$cli" "$@"
+fi
+
+reason="Clearance denied this call and nothing ran: the hook CLI could not start."
+
+if [ "$1" = "cursor" ]; then
+  printf '%s\n' "$reason" >&2
+  printf '{"permission":"deny","user_message":"%s","agent_message":"%s"}\n' "$reason" "$reason"
+  exit 2
+fi
+
+# Codex reads a deny from JSON with exit 0, and .codex/hooks.json keeps exit 2 for real failures.
+stdin=
+while IFS= read -r line || [ -n "$line" ]; do
+  stdin="$stdin$line"
+done
+
+case "$stdin" in
+  *'"hook_event_name":"PermissionRequest"'* | *'"hook_event_name": "PermissionRequest"'*)
+    printf '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"%s"}}}\n' "$reason"
+    ;;
+  *)
+    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s"}}\n' "$reason"
+    ;;
+esac
+exit 0

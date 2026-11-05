@@ -911,6 +911,7 @@ Acme requires an admin key that only `clearance-gate` holds. Acme binds to 127.0
 | **Sam** | finance, finance-approver (on duty) | teammate 2 | none |
 | **Neha** | finance, finance-approver (backup) | teammate 3 or a friend | none |
 | **Alex** | eng, eng-leads, eng-oncall | teammate 4 or the lead | coder, ops-agent, reviewer |
+| **Dev** | eng | scripted | none. Added Nov 6 so merges and deletes have an approver who isn't Alex |
 
 Each persona is a separate Mattermost account linked to its own Switch user. Agents are created **by their owner's account** (run the template while signed in as that person), because Switch takes the agent owner from whoever creates it.
 
@@ -918,10 +919,10 @@ Each persona is a separate Mattermost account linked to its own Switch user. Age
 
 | Room | Members | Purpose |
 |---|---|---|
-| `#support` | Priya, Sam (SC5 has him asking here), refunds-agent, support-agent, clearance | Customer requests, refunds, customer email |
+| `#support` | Priya, Sam (SC5 has Sam asking here), refunds-agent, support-agent, clearance | Customer requests, refunds, customer email |
 | `#finance` | Sam, Neha, clearance | Finance chatter; escalation step 2 for refunds |
-| `#eng` | Alex, Priya (SC6 has her asking here), coder, ops-agent, reviewer, clearance | Code, merges, deploys |
-| `#approvals` | Sam, Neha, Alex, Priya, clearance | Inbox fallback, drills notice, ledger documents, daily digest |
+| `#eng` | Alex, Dev, Priya (SC6 has Priya asking here), coder, ops-agent, reviewer, clearance | Code, merges, deploys |
+| `#approvals` | Sam, Neha, Alex, Dev, Priya, clearance | Inbox fallback, drills notice, ledger documents, daily digest |
 | DM: clearance ↔ each approver | one person + clearance | Cards and "Needs your response (N)" |
 | `#support-vanilla` | Priya, refunds-agent-vanilla | Baseline: Switch default, no Clearance |
 

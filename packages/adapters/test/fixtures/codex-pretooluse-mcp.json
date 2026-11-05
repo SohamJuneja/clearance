@@ -1,0 +1,15 @@
+{
+  "_source": "docs",
+  "session_id": "019a-codex-session",
+  "cwd": "/home/agent/support-agent",
+  "hook_event_name": "PreToolUse",
+  "model": "gpt-5",
+  "turn_id": "turn-3",
+  "tool_name": "mcp__clearance_gate__send_customer_email",
+  "tool_use_id": "call_mcp",
+  "tool_input": {
+    "to": "meera@example.com",
+    "subject": "Refund",
+    "body": "Done"
+  }
+}

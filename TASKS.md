@@ -27,7 +27,7 @@ Tick a box only when tests or a run prove it. Acceptance text is copied from PLA
   - [x] Unknown tool calls default to `allow` only if they match the `safe` list; anything touching a protected resource with no rule defaults to `hold`.
 - **F2 Enforcement points** (gate-hooks; P0 gate + Claude hook, P1 others)
   - [ ] For each vendor in the coverage table, a scripted run shows a held refund and a held `git push --force origin main`, or the README marks that vendor "gate only".
-  - [ ] Hooks never use `ask`; they return `allow` or `deny` with a reason.
+  - [x] Hooks never use `ask`; they return `allow` or `deny` with a reason.
   - [ ] Hook round trip p95 under 50 ms for allowed calls on the demo host (E4).
 - **F3 Hold, grant, execute** (gate-hooks + brain)
   - [x] Replay of a consumed grant is held again (test).

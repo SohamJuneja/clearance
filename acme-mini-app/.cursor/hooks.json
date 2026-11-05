@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeShellExecution": [
+      {
+        "command": "./bin/clearance-hook cursor",
+        "timeout": 10,
+        "failClosed": true
+      }
+    ]
+  }
+}

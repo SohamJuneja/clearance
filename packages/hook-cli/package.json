@@ -20,6 +20,8 @@
     "typescript": "^5.6.0",
     "vitest": "^3.2.0",
     "tsx": "^4.19.0",
-    "@types/node": "^22.0.0"
+    "@types/node": "^22.0.0",
+    "@clearance/adapters": "workspace:*",
+    "fastify": "^5.2.0"
   }
 }

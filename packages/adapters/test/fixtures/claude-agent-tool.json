@@ -1,0 +1,14 @@
+{
+  "_source": "docs",
+  "session_id": "abc123",
+  "cwd": "/home/agent/coder",
+  "permission_mode": "default",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Agent",
+  "tool_input": {
+    "prompt": "Look through src for dead code",
+    "description": "Find dead code",
+    "subagent_type": "Explore"
+  },
+  "tool_use_id": "toolu_09"
+}

@@ -79,3 +79,10 @@ Append-only. Format: `time IST | decision | why`.
 - 04:05 | Aggregate flag shows only when prior spend is above 0, but any sum over the limit forces a hold | One big refund isn't structuring, and Appendix D's card shows no such flag.
 - 04:05 | Unreachable gate is retried every 5 s for 5 real minutes, then the request is `VOIDED`; gate `ok:false` voids at once | Execution is exactly-once by id, so retry is safe.
 - 04:05 | Unknown lookup adds the rule's points plus `missing_data` and blocks autonomy | Missing data must not lower risk.
+- 04:15 | Gate fills a refund's customer and default destination before `check` | Omitting them could dodge per-customer rules, and core must see where the money goes.
+- 04:15 | A crash or timeout mid-execute leaves the outcome unknown and is never re-sent; connection refused releases the call for retry; a hold without `call_hash` gives 503 | A duplicate refund is worse than one a person has to check. Refused means Acme never saw it. Without a hash nothing could be verified at execute.
+- 04:15 | Tools with no Action kind go to `kind:"mcp"`, server `builtin`; paths are normalised and made relative to cwd, one Action per file in a patch; commands pass through untouched | Nothing is dropped, `src/../.claude` can't pass as `src/`, no file hides in a patch. The parser lives in core.
+- 04:15 | Codex's second event reuses the first's allow, for 120 s, same session, turn and call; Codex deny is JSON at exit 0, as measured, not PLAN B7's exit 2. Cursor stays exit 2 | Otherwise one single-use grant is spent twice.
+- 04:15 | Codex CLI and OpenCode plugin skip Switch's own tools; seeding only trusts hooks under the agent's own directory | Parity with Claude's matcher, so an outage can't silence the agent. Other hooks stay for a person to review.
+- 04:15 | Test temp files go to gitignored `.tmp/` on disk, not `/tmp` | `/tmp` here is RAM-backed on a 14 GB machine.
+- 04:15 | Refused to run gate-hooks' `rm -rf /tmp/clearance-gate-*` sweep on its behalf; it's in HUMAN.md for him | The permission check refused it for the subagent, and doing it for the subagent would route around that.

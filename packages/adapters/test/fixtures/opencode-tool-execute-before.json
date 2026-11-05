@@ -1,0 +1,11 @@
+{
+  "_source": "real",
+  "_note": "Values captured from OpenCode 1.18.27 under Switch (raw_input and raw_output in spikes/fixtures), in the shape .opencode/plugins/clearance.ts posts.",
+  "tool": "bash",
+  "sessionID": "ses_e52579475ffeZeNczcRh2xVHnu",
+  "callID": "call_16bb72a4e40c43a9b7a74cdd",
+  "cwd": "/home/agent-user/.local/share/clearance-tools/spike-work/s5-opencode",
+  "args": {
+    "command": "git push 2>&1"
+  }
+}

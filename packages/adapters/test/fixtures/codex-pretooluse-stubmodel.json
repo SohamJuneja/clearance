@@ -1,0 +1,17 @@
+{
+  "_source": "real",
+  "_note": "Real Codex 0.160 CLI and hook engine under Switch, driven by a stub model. spike_vendor was added by the spike.",
+  "spike_vendor": "codex",
+  "session_id": "00000000-0000-4000-8000-000000000000",
+  "turn_id": "00000000-0000-4000-8000-000000000000",
+  "transcript_path": "/home/agent-user/.local/state/switch/sdk-sessions/66f1efede1360626056b2a3d3093758863216ce854406631cfa8f870da409ce3/provider-home/66f1efede1360626056b2a3d3093758863216ce854406631cfa8f870da409ce3/sessions/2026/11/06/rollout-2026-11-06T03-23-06-00000000-0000-4000-8000-000000000000.jsonl",
+  "cwd": "/home/agent-user/.local/share/clearance-tools/spike-work/s5-codex-switch",
+  "hook_event_name": "PreToolUse",
+  "model": "stub-model",
+  "permission_mode": "default",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "git push"
+  },
+  "tool_use_id": "call_stub_25"
+}

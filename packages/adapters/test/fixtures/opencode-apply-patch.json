@@ -1,0 +1,10 @@
+{
+  "_source": "docs",
+  "tool": "apply_patch",
+  "sessionID": "ses_1",
+  "callID": "call_4",
+  "cwd": "/home/agent/ops-agent",
+  "args": {
+    "patchText": "*** Begin Patch\n*** Add File: src/new-file.ts\n+export {};\n*** End Patch\n"
+  }
+}

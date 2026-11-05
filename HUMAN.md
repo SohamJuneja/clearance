@@ -79,5 +79,9 @@ Everything else is being done without you. Tick a box when done (or just tell me
 - [ ] **Voice-over (optional, 15 minutes).** The offline TTS (Piper) version works, but I can't hear audio, so please listen to it once when the first cut exists. Your voice is better if you have time: drop files at `scripts/video/voice/<scene>.wav` and they win over TTS. Script will be here.
 - [ ] **Optional, stronger anti-evasion:** needs sudo for `/etc/claude-code/managed-settings.json`, which agents can't edit. Not tested yet. I'd only use it if you want it for the demo host.
 - [ ] **Optional: report the `!list-documents` crash upstream** (`commands.py:1963`, no `_package_store`, at the pinned commit). It's public, so yours to post. I can draft the text.
+- [ ] **Optional, frees about 1 GB of RAM: clear leftover test temp directories.** A permission check refused this for my subagent, so it's yours. `/tmp` is RAM-backed here, and new test runs now use disk instead. They're only leftovers from our own test runs, safe to delete once tests aren't running:
+  ```bash
+  rm -rf /tmp/clearance-gate-* /tmp/acme-cli-* /tmp/acme-token-* /tmp/acme-e2e-* /tmp/hook-token-* /tmp/hook-no-token-* /tmp/plugin-token-* /tmp/setup-agent-* /tmp/mcp-headers-* /tmp/codex-wrapper-* /tmp/real-acme-*
+  ```
 - [ ] **Blog and three #HowISwitch posts.** Ready to post here with clips.
 - [ ] **Submission form.** `SUBMISSION.md` will have every field filled in.

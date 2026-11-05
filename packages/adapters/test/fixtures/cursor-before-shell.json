@@ -1,0 +1,14 @@
+{
+  "_source": "docs",
+  "conversation_id": "conv-1",
+  "generation_id": "gen-1",
+  "model": "gpt-5",
+  "hook_event_name": "beforeShellExecution",
+  "cursor_version": "1.7.0",
+  "workspace_roots": ["/home/agent/reviewer"],
+  "user_email": null,
+  "transcript_path": null,
+  "command": "git push --force origin main",
+  "cwd": "/home/agent/reviewer/src",
+  "sandbox": false
+}

@@ -209,7 +209,7 @@ resources:
     description: Code, merges and deploys.
     bridge: "{bridge}"
     agents: [coder, ops-agent, reviewer, clearance]
-    users: [alex, priya]
+    users: [alex, dev, priya]
     instructions: |
       Engineering work happens here. coder changes code, reviewer reviews it, ops-agent deploys it.
       Clearance is here to hold what the policy protects; it reads this room and says little.
@@ -221,7 +221,7 @@ resources:
     description: Requests waiting on a person, drill notices, and Clearance's ledger.
     bridge: "{bridge}"
     agents: [clearance]
-    users: [sam, neha, alex, priya]
+    users: [sam, neha, alex, dev, priya]
     instructions: |
       Clearance owns this room. It posts approval cards for requests no direct message reached, and
       mirrors its ledger here as one room document per day.

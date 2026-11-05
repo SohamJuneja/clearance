@@ -1,0 +1,10 @@
+{
+  "_source": "docs",
+  "tool": "read",
+  "sessionID": "ses_1",
+  "callID": "call_3",
+  "cwd": "/home/agent/ops-agent",
+  "args": {
+    "filePath": "/home/agent/ops-agent/.env"
+  }
+}

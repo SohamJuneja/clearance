@@ -55,8 +55,8 @@ describe("acme-mini", () => {
   it.each([
     ["support", ["clearance", "refunds-agent", "support-agent"], ["priya", "sam"]],
     ["finance", ["clearance"], ["neha", "sam"]],
-    ["eng", ["clearance", "coder", "ops-agent", "reviewer"], ["alex", "priya"]],
-    ["approvals", ["clearance"], ["alex", "neha", "priya", "sam"]],
+    ["eng", ["clearance", "coder", "ops-agent", "reviewer"], ["alex", "dev", "priya"]],
+    ["approvals", ["clearance"], ["alex", "dev", "neha", "priya", "sam"]],
   ])("has room %s with the agents and people PLAN 8.3 puts in it", (name, roomAgents, users) => {
     expect(sorted(rooms[name]?.agents)).toEqual(roomAgents);
     expect(sorted(rooms[name]?.users)).toEqual(users);

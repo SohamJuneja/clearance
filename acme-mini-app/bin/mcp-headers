@@ -1,0 +1,19 @@
+#!/bin/sh
+# Prints the Authorization header for the gate's MCP server, from .clearance/gate-token. Switch has no
+# per-agent env, and Claude Code hides variables named like tokens from a project's helper, so the
+# file is how each agent gets its own token. Without one it fails, and the gate answers 401.
+case "$0" in
+  */*) here=${0%/*} ;;
+  *) here=. ;;
+esac
+file=$here/../.clearance/gate-token
+
+token=
+if [ -r "$file" ]; then
+  IFS= read -r token <"$file"
+fi
+if [ -z "$token" ]; then
+  echo "mcp-headers: no gate token in .clearance/gate-token" >&2
+  exit 1
+fi
+printf '{"Authorization":"Bearer %s"}\n' "$token"

@@ -1,0 +1,12 @@
+{
+  "_source": "docs",
+  "session_id": "abc123",
+  "cwd": "/home/agent/coder",
+  "permission_mode": "default",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Glob",
+  "tool_input": {
+    "pattern": "**/.env*"
+  },
+  "tool_use_id": "toolu_06"
+}

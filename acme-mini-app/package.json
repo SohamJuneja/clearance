@@ -1,0 +1,13 @@
+{
+  "name": "acme-mini-app",
+  "version": "2.13.2",
+  "private": true,
+  "description": "Synthetic checkout service for the Clearance demo",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "test": "node --disable-warning=ExperimentalWarning --test \"tests/**/*.test.ts\"",
+    "start": "node --disable-warning=ExperimentalWarning src/server.ts"
+  }
+}

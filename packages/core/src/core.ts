@@ -180,8 +180,8 @@ export class Clearance implements ClearanceCore {
   }
 
   /** For `hookRoutes`: a hook's cwd to its agent. Null is an unknown agent, which is never an allow. */
-  resolveAgent(cwd: string | undefined): string | null {
-    return this.people.directory.resolveAgent(cwd);
+  resolveAgent(cwd: string | undefined, agentType?: string): string | null {
+    return this.people.directory.resolveAgent(cwd, agentType);
   }
 
   health(): { ok: true; policy_hash: string; policy_error: string | null; open_requests: number } {

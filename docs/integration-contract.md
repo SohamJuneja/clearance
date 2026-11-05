@@ -35,10 +35,10 @@ buildServer(core, opts): FastifyInstance              // PLAN 6.7 routes except 
 `/v1/hooks/*` routes come from `@clearance/adapters` as a Fastify plugin:
 
 ```ts
-hookRoutes(app, { check: (action: Action) => Promise<CheckResponse>, resolveAgent: (cwd?: string) => string | null, hookToken: string })
+hookRoutes(app, { check: (action: Action) => Promise<CheckResponse>, resolveAgent: (cwd?: string, agentType?: string) => string | null, hookToken: string })
 ```
 
-An unknown `cwd` is not an error to swallow: hold or deny, never allow. `resolveAgent` reads the `agents` map in `team.yaml`.
+An unknown `cwd` is not an error to swallow: hold or deny, never allow. `resolveAgent` reads the `agents` map in `team.yaml`. With `agentType` set, it answers for that name only and never falls back to `cwd`.
 
 Lead wires all of this together in `packages/core/src/main.ts` at integration.
 
@@ -105,5 +105,7 @@ Same paths with a prefix: `POST /acme/refunds` maps to Acme `POST /refunds`, `GE
 Core merges `team.yaml` with `identities.json`. An answer from a participant id that maps to no person is ineligible.
 
 ## Agent working directory
+
+Every agent directory needs `packages/hook-cli/src/setup-agent.ts` run on it (`CLEARANCE_HOOK_TOKEN=... ACME_GATE_TOKEN=<token> node packages/hook-cli/src/setup-agent.ts <dir> [--codex-home <dir>]`): OpenCode refuses to start without `.clearance/gate-token`, and hooks deny everything without `.clearance/hook-cli`.
 
 `acme-mini-app/` in this repo (later its own GitHub repo, cloned through a template's `repo:`) holds `.claude/settings.json`, `.codex/hooks.json`, `.opencode/plugins/clearance.ts`, `opencode.json`, `.cursor/hooks.json`, `.mcp.json`, `bin/acme`, and the fake checkout code.

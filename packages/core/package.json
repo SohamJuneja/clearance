@@ -8,7 +8,8 @@
   },
   "scripts": {
     "test": "vitest run --passWithNoTests",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "start": "tsx --env-file=../../.env src/main.ts"
   },
   "dependencies": {
     "@clearance/contracts": "workspace:*",
@@ -18,7 +19,9 @@
     "zod": "^3.25.0",
     "yaml": "^2.6.0",
     "ulid": "^2.3.0",
-    "jsep": "^1.4.0"
+    "jsep": "^1.4.0",
+    "@clearance/gate": "workspace:*",
+    "@clearance/switch-agent": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.6.0",

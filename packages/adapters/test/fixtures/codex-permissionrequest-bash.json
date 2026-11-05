@@ -1,0 +1,15 @@
+{
+  "_source": "docs",
+  "_note": "PermissionRequest was not exercised in the spikes. Ids and command match codex-pretooluse-stubmodel so the pair can be tested as one call.",
+  "session_id": "00000000-0000-4000-8000-000000000000",
+  "turn_id": "00000000-0000-4000-8000-000000000000",
+  "transcript_path": "/home/agent-user/.codex/sessions/rollout.jsonl",
+  "cwd": "/home/agent-user/.local/share/clearance-tools/spike-work/s5-codex-switch",
+  "hook_event_name": "PermissionRequest",
+  "model": "gpt-5",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "git push",
+    "description": "Needs network access to push"
+  }
+}

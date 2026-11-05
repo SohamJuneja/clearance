@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "clearance_gate": {
+      "type": "http",
+      "url": "http://127.0.0.1:7710/mcp",
+      "headers": { "Authorization": "Bearer ${ACME_GATE_TOKEN:-}" },
+      "headersHelper": "./bin/mcp-headers"
+    }
+  }
+}

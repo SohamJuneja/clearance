@@ -36,7 +36,7 @@ const BRIDGE_URL = (process.env.SWITCH_BRIDGE_URL ?? "http://127.0.0.1:8000").re
 const MATTERMOST_URL = (process.env.MATTERMOST_URL ?? "http://127.0.0.1:8065").replace(/\/$/, "");
 const EMAIL_DOMAIN = "clearance.example";
 
-const LINKED_PERSONAS = ["priya", "sam", "neha", "alex"] as const;
+const LINKED_PERSONAS = ["priya", "sam", "neha", "alex", "dev"] as const;
 const UNLINKED_PERSONAS = ["guest"] as const;
 const ALL_PERSONAS = [...LINKED_PERSONAS, ...UNLINKED_PERSONAS];
 const AGENT_NAME = "clearance";

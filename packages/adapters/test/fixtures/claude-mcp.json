@@ -1,0 +1,18 @@
+{
+  "_source": "docs",
+  "_note": "The tool name is the one seen in spike S6. The call itself is not a capture.",
+  "session_id": "abc123",
+  "cwd": "/home/agent/refunds-agent",
+  "permission_mode": "auto",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "mcp__clearance_gate__refund_customer",
+  "tool_input": {
+    "order_id": "A-1931",
+    "amount": 4000
+  },
+  "tool_use_id": "toolu_08",
+  "mcp_server": {
+    "name": "clearance_gate",
+    "source": "project"
+  }
+}

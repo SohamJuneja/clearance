@@ -171,7 +171,9 @@ export class Directory {
   }
 
   /** Maps a hook's cwd to its agent. `<host>` in team.yaml matches one path segment. Null is never an allow. */
-  resolveAgent(cwd: string | undefined): string | null {
+  resolveAgent(cwd: string | undefined, agentType?: string): string | null {
+    // The vendor named the agent: answer for that name only, and never fall back to the directory.
+    if (agentType !== undefined) return this.team.agents[agentType] ? agentType : null;
     if (!cwd) return null;
     let best: { name: string; length: number } | null = null;
     for (const [name, agent] of Object.entries(this.team.agents)) {

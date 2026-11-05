@@ -1,0 +1,19 @@
+{
+  "_source": "real",
+  "session_id": "00000000-0000-4000-8000-000000000000",
+  "transcript_path": "/home/agent-user/.claude/projects/-home-agent-user--local-share-clearance-tools-spike-work-s1/00000000-0000-4000-8000-000000000000.jsonl",
+  "cwd": "/home/agent-user/.local/share/clearance-tools/spike-work/s1",
+  "prompt_id": "00000000-0000-4000-8000-000000000000",
+  "permission_mode": "auto",
+  "agent_type": "spike-s1",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "git -C /home/agent-user/.local/share/clearance-tools/spike-work/s1 push",
+    "description": "Push local commits to origin"
+  },
+  "tool_use_id": "toolu_01MPBTEJF5Ubg1gZ4zWgYaNw"
+}

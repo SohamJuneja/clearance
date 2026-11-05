@@ -1,0 +1,15 @@
+{
+  "_source": "docs",
+  "session_id": "abc123",
+  "cwd": "/home/agent/coder",
+  "permission_mode": "default",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Grep",
+  "tool_input": {
+    "pattern": "API_KEY",
+    "path": ".",
+    "glob": ".env*",
+    "output_mode": "content"
+  },
+  "tool_use_id": "toolu_05"
+}

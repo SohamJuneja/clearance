@@ -1,0 +1,5 @@
+{
+  "mcpServers": {
+    "clearance_gate": { "url": "http://127.0.0.1:7710/mcp" }
+  }
+}

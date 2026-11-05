@@ -1,0 +1,12 @@
+{
+  "_source": "docs",
+  "tool": "edit",
+  "sessionID": "ses_1",
+  "callID": "call_2",
+  "cwd": "/home/agent/ops-agent",
+  "args": {
+    "filePath": "/home/agent/ops-agent/.opencode/plugins/clearance.ts",
+    "oldString": "throw",
+    "newString": "return"
+  }
+}

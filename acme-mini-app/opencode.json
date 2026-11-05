@@ -1,0 +1,34 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "clearance_gate": {
+      "type": "remote",
+      "url": "http://127.0.0.1:7710/mcp",
+      "enabled": true,
+      "headers": { "Authorization": "Bearer {file:.clearance/gate-token}" }
+    }
+  },
+  "permission": {
+    "bash": {
+      "*": "allow",
+      "docker *": "deny",
+      "curl *127.0.0.1:7800*": "deny",
+      "curl *localhost:7800*": "deny",
+      "wget *127.0.0.1:7800*": "deny",
+      "wget *localhost:7800*": "deny"
+    },
+    "edit": {
+      "*": "allow",
+      ".opencode/**": "deny",
+      ".claude/**": "deny",
+      ".codex/**": "deny",
+      ".cursor/**": "deny",
+      "opencode.json": "deny"
+    },
+    "read": {
+      "*": "allow",
+      ".env*": "deny",
+      "**/.env*": "deny"
+    }
+  }
+}

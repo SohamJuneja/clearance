@@ -1,0 +1,7 @@
+.clearance/
+.claude/settings.local.json
+.codex/config.toml
+node_modules/
+.opencode/node_modules/
+.opencode/package.json
+.opencode/bun.lock

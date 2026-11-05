@@ -1,0 +1,13 @@
+{
+  "_source": "docs",
+  "session_id": "019a-codex-session",
+  "cwd": "/home/agent/support-agent",
+  "hook_event_name": "PreToolUse",
+  "model": "gpt-5",
+  "turn_id": "turn-2",
+  "tool_name": "apply_patch",
+  "tool_use_id": "call_patch",
+  "tool_input": {
+    "command": "*** Begin Patch\n*** Update File: src/checkout.ts\n@@\n-old\n+new\n*** Add File: docs/note.md\n+hello\n*** Update File: .codex/hooks.json\n@@\n-a\n+b\n*** Move to: .codex/other.json\n*** Delete File: tests/old.test.ts\n*** End Patch\n"
+  }
+}

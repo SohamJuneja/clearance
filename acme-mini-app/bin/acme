@@ -1,0 +1,269 @@
+#!/usr/bin/env node
+"use strict";
+/**
+ * Thin CLI over clearance-gate. Holds no Acme credentials: it sends the agent's own gate token and
+ * prints what the gate answers, so the agent sees `HELD CLR-0042 ...` exactly as written.
+ *
+ * Exit codes: 0 done, 2 held for approval, 1 anything else, including a denial, an unavailable
+ * gate and bad usage. Scenarios and evals rely on this one rule.
+ */
+const fs = require("node:fs");
+const path = require("node:path");
+const { parseArgs } = require("node:util");
+
+const USAGE = `Usage:
+  acme refund --order A-1931 --amount 4000 [--customer cus_8812] [--destination upi@bank]
+  acme deploy checkout v2.14.0 --env prod
+  acme rollback checkout --env prod
+  acme email --to person@example.com [--subject text] [--body text] [--attach customers.csv]...
+  acme add-destination --customer cus_8812 --upi upi@bank
+  acme merge --repo owner/name --pr 42
+  acme delete customers cus_8812
+
+  acme order A-1931          acme customer cus_8812      acme customers --query text
+  acme ticket T-77           acme destination upi@bank   acme services
+  acme service checkout      acme ci v2.14.0             acme pull 42
+  acme file customers.csv    acme templates              acme pending CLR-0042
+
+Amounts are integer rupees. Token: ACME_GATE_TOKEN or the file .clearance/gate-token.
+Exit codes: 0 done, 2 held for approval, 1 anything else.`;
+
+class UsageError extends Error {}
+
+function parse(args, options, positionals) {
+  let parsed;
+  try {
+    parsed = parseArgs({ args, options, allowPositionals: true, strict: true });
+  } catch (err) {
+    throw new UsageError(err.message);
+  }
+  if (parsed.positionals.length !== positionals) {
+    throw new UsageError(`expected ${positionals} argument(s), got ${parsed.positionals.length}`);
+  }
+  return parsed;
+}
+
+function required(value, name) {
+  if (value === undefined || value === "") throw new UsageError(`missing ${name}`);
+  return value;
+}
+
+function integer(value, name) {
+  if (!/^[0-9]+$/.test(required(value, name))) {
+    throw new UsageError(`${name} must be a whole number, got ${value}`);
+  }
+  return Number(value);
+}
+
+const S = { type: "string" };
+const segment = encodeURIComponent;
+
+/** A read that takes one id. */
+const read = (prefix) => (args) => {
+  const { positionals } = parse(args, {}, 1);
+  return { method: "GET", path: `${prefix}/${segment(positionals[0])}` };
+};
+
+const COMMANDS = {
+  refund(args) {
+    const { values: v } = parse(
+      args,
+      { order: S, amount: S, customer: S, destination: S, dest: S },
+      0,
+    );
+    const destination = v.destination ?? v.dest;
+    return {
+      method: "POST",
+      path: "/acme/refunds",
+      body: {
+        order_id: required(v.order, "--order"),
+        amount: integer(v.amount, "--amount"),
+        ...(v.customer !== undefined ? { customer_id: v.customer } : {}),
+        ...(destination !== undefined ? { destination } : {}),
+      },
+    };
+  },
+  deploy(args) {
+    const { values, positionals } = parse(args, { env: S }, 2);
+    return {
+      method: "POST",
+      path: "/acme/deploys",
+      body: {
+        service: positionals[0],
+        env: required(values.env, "--env"),
+        version: positionals[1],
+      },
+    };
+  },
+  rollback(args) {
+    const { values, positionals } = parse(args, { env: S }, 1);
+    return {
+      method: "POST",
+      path: "/acme/rollbacks",
+      body: { service: positionals[0], env: required(values.env, "--env") },
+    };
+  },
+  email(args) {
+    const { values: v } = parse(
+      args,
+      { to: S, subject: S, body: S, attach: { type: "string", multiple: true } },
+      0,
+    );
+    return {
+      method: "POST",
+      path: "/acme/emails",
+      body: {
+        to: required(v.to, "--to"),
+        subject: v.subject ?? "",
+        body: v.body ?? "",
+        attachments: v.attach ?? [],
+      },
+    };
+  },
+  "add-destination"(args) {
+    const { values: v } = parse(args, { customer: S, upi: S }, 0);
+    return {
+      method: "POST",
+      path: "/acme/payouts/destinations",
+      body: { customer_id: required(v.customer, "--customer"), upi: required(v.upi, "--upi") },
+    };
+  },
+  merge(args) {
+    const { values: v } = parse(args, { repo: S, pr: S }, 0);
+    return {
+      method: "POST",
+      path: "/github/merge",
+      body: { repo: required(v.repo, "--repo"), pr: integer(v.pr, "--pr") },
+    };
+  },
+  delete(args) {
+    const { positionals } = parse(args, {}, 2);
+    return {
+      method: "DELETE",
+      path: `/acme/records/${segment(positionals[0])}/${segment(positionals[1])}`,
+    };
+  },
+  customers(args) {
+    const { values } = parse(args, { query: S }, 0);
+    return { method: "GET", path: `/acme/customers?query=${segment(required(values.query, "--query"))}` };
+  },
+  services(args) {
+    parse(args, {}, 0);
+    return { method: "GET", path: "/acme/services" };
+  },
+  templates(args) {
+    parse(args, {}, 0);
+    return { method: "GET", path: "/acme/emails/templates" };
+  },
+  order: read("/acme/orders"),
+  customer: read("/acme/customers"),
+  ticket: read("/acme/tickets"),
+  destination: read("/acme/destinations"),
+  service: read("/acme/services"),
+  ci: read("/acme/ci"),
+  pull: read("/acme/pulls"),
+  file: read("/acme/files"),
+  pending: read("/pending"),
+  status: read("/pending"),
+};
+
+/** Reads the first .clearance/gate-token walking up from `dir`. */
+function tokenFromFile(dir) {
+  let current = path.resolve(dir);
+  for (;;) {
+    try {
+      const token = fs.readFileSync(path.join(current, ".clearance", "gate-token"), "utf8").trim();
+      if (token) return token;
+    } catch {
+      // Not here. Keep walking.
+    }
+    const parent = path.dirname(current);
+    if (parent === current) return undefined;
+    current = parent;
+  }
+}
+
+function findToken() {
+  return (
+    process.env.ACME_GATE_TOKEN ||
+    tokenFromFile(process.cwd()) ||
+    tokenFromFile(path.join(__dirname, ".."))
+  );
+}
+
+function exitCodeFor(status) {
+  if (status === 202) return 2;
+  return status >= 200 && status < 300 ? 0 : 1;
+}
+
+/** For a hold or a refusal, the gate's message goes first so an agent cannot read past it. */
+function leadLine(status, text) {
+  if (status !== 202 && status !== 403 && status !== 503) return undefined;
+  try {
+    const message = JSON.parse(text).message;
+    return typeof message === "string" ? message : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function main(argv) {
+  const [name, ...rest] = argv;
+  if (name === "--help" || name === "-h" || name === "help") {
+    console.log(USAGE);
+    return 0;
+  }
+  const command = name !== undefined && Object.hasOwn(COMMANDS, name) ? COMMANDS[name] : undefined;
+  if (!command) throw new UsageError(name === undefined ? "no command" : `unknown command ${name}`);
+  const call = command(rest);
+
+  const token = findToken();
+  if (!token) {
+    console.error("acme: no gate token. Set ACME_GATE_TOKEN or create .clearance/gate-token.");
+    return 1;
+  }
+
+  const base = (
+    process.env.CLEARANCE_GATE_URL ||
+    process.env.ACME_GATE_URL ||
+    "http://127.0.0.1:7710"
+  ).replace(/\/+$/, "");
+  const headers = { authorization: `Bearer ${token}` };
+  if (call.body) headers["content-type"] = "application/json";
+  if (process.env.CLEARANCE_ROOM) headers["x-clearance-room"] = process.env.CLEARANCE_ROOM;
+  if (process.env.CLEARANCE_THREAD) headers["x-clearance-thread"] = process.env.CLEARANCE_THREAD;
+
+  let res;
+  let text;
+  try {
+    res = await fetch(`${base}${call.path}`, {
+      method: call.method,
+      headers,
+      body: call.body ? JSON.stringify(call.body) : undefined,
+      signal: AbortSignal.timeout(55_000),
+    });
+    text = await res.text();
+  } catch {
+    console.error("acme: could not reach the Clearance gate. Do not try another way.");
+    return 1;
+  }
+
+  const lead = leadLine(res.status, text);
+  if (lead !== undefined) console.log(lead);
+  console.log(text);
+  return exitCodeFor(res.status);
+}
+
+main(process.argv.slice(2))
+  .then((code) => {
+    process.exitCode = code;
+  })
+  .catch((err) => {
+    if (err instanceof UsageError) {
+      console.error(`acme: ${err.message}\n\n${USAGE}`);
+      process.exitCode = 1;
+      return;
+    }
+    console.error(`acme: ${err.message}`);
+    process.exitCode = 1;
+  });

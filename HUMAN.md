@@ -69,7 +69,11 @@ Everything else is being done without you. Tick a box when done (or just tell me
 
 ## LATER (not needed tonight; I'll mark these NOW when their time comes)
 
-- [ ] **Study recruitment** (send Friday morning; slots are Fri 21:00 to 23:30 and Sat 09:30 to 12:30 IST). Text and link will be here when the Approval Lab is ready.
+- [ ] **Study recruitment: send on Friday morning** to classmates, community groups and Discord servers. Target 20 sign-ups to land 12 to 16 people. Why: the human study is one of the things only we have, and I can't recruit people. Copy this:
+  > Hi! We're building Clearance for the Flip the Switch hackathon: it decides who should approve what an AI agent wants to do. We need 15 minutes of your time on Fri Nov 6 (21:00-23:30 IST) or Sat Nov 7 (09:30-12:30 IST). You'll approve or deny 24 short requests in a chat window in your browser. No install, no personal data, no real money. Reply to this message and I'll send you your link. Thank you!
+
+  Consent is inside the link, so there's no form to set up. Tell me how many people replied and I'll generate that many links. Each person gets their own, and participants must be 18 or older.
+- [ ] **Look at the study on your phone** before the first participant (2 minutes). No real browser has rendered it on a phone yet. I'll mark this NOW and send the link when it's up.
 - [ ] **Make the repos public** (needs your OK; I run the command after you tick). Must happen before submission.
 - [ ] **Track 03 comment on #803 and the PR from a fork**, plus signing the CLA. Text will be here.
 - [ ] **Voice-over (optional, 15 minutes).** I'll make a TTS version; your voice is better if you have time. Script will be here.

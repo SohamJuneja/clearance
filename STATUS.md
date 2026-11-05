@@ -1,6 +1,6 @@
 # STATUS
 
-Updated: Fri Nov 6, 02:40 IST. Freeze Sat 15:00 and submit Sat 20:00 do not move.
+Updated: Fri Nov 6, 03:25 IST. Freeze Sat 15:00 and submit Sat 20:00 do not move.
 
 ## Gates
 
@@ -22,7 +22,7 @@ Updated: Fri Nov 6, 02:40 IST. Freeze Sat 15:00 and submit Sat 20:00 do not move
 | lead | integration, merges, docs | Scaffold and Switch stack done. Waiting on wave 1, then SC3 integration |
 | brain | `packages/core` | Wave 1: F1, F3, F4, F6 card, F8, API, mismatch, F5 |
 | gate-hooks | `packages/gate`, `packages/adapters`, `packages/hook-cli`, `acme-mini-app/` | Wave 1: gate HTTP, adapters, hook CLI, vendor configs, MCP |
-| switchboard | `packages/switch-agent`, inbox, docs, templates, identities | Wave 1: personas, protocol client, S2, S3, S4, S7, S8, S11, templates |
+| switchboard | `packages/switch-agent`, inbox, docs, templates, identities | Wave 1 merged (S2, S3, S4, S7, S8, S11). Wave 2: in-Switch study bot, safe exposure |
 | vendor-spikes | `spikes/`, controller | Wave 1: controller, S1, S5, S6, S9 (Claude); others blocked on logins |
-| world-ui | `packages/acme`, `packages/desk`, `study/` | Wave 1: Acme, demo-reset, study sets, Approval Lab, S10 |
+| world-ui | `packages/acme`, `packages/desk`, `study/` | Wave 1 merged (Acme, reset, study sets, Approval Lab, S10). Desk starts when core lands |
 | proof | `eval/`, `scripts/`, demo automation, video pipeline | Starts when Acme and core land |

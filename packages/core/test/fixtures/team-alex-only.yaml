@@ -1,0 +1,19 @@
+# The team with no second engineer: Alex is the only person in eng. Tests of the nobody-eligible paths use this,
+# because the real policy/team.yaml has Dev too and always has someone left to route to.
+people:
+  - { id: priya, name: Priya, switch_user: "<id>", groups: [support], roles: [support-lead] }
+  - { id: sam,   name: Sam,   switch_user: "<id>", groups: [finance], roles: [finance-approver] }
+  - { id: neha,  name: Neha,  switch_user: "<id>", groups: [finance], roles: [finance-approver] }
+  - { id: alex,  name: Alex,  switch_user: "<id>", groups: [eng, eng-leads], roles: [eng-oncall] }
+rotas:
+  finance-approver:
+    - { person: sam,  days: Mon-Fri, hours: "09:00-19:00", tz: Asia/Kolkata }
+    - { person: neha, backup: true }
+owners:
+  services: { checkout: alex, refunds-api: alex }
+agents:
+  refunds-agent: { cwd: "~/.switch/agents/<host>/refunds-agent", owner: priya, vendor: claude }
+  support-agent: { cwd: "~/.switch/agents/<host>/support-agent", owner: priya, vendor: codex }
+  coder:         { cwd: "~/.switch/agents/<host>/coder", owner: alex, vendor: claude }
+  ops-agent:     { cwd: "~/.switch/agents/<host>/ops-agent", owner: alex, vendor: opencode }
+  reviewer:      { cwd: "~/.switch/agents/<host>/reviewer", owner: alex, vendor: cursor }

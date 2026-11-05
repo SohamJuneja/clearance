@@ -6,7 +6,9 @@ people:
   - { id: dev,   name: Dev,   switch_user: "<id>", groups: [eng] }
 rotas:
   finance-approver:
-    - { person: sam,  days: Mon-Fri, hours: "09:00-19:00", tz: Asia/Kolkata }
+    # No schedule means always on duty, so the demo routes the same at any hour for anyone who clones it.
+    # A real team would write: { person: sam, days: Mon-Fri, hours: "09:00-19:00", tz: Asia/Kolkata }
+    - { person: sam }
     - { person: neha, backup: true }
 owners:
   services: { checkout: alex, refunds-api: alex }

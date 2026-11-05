@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildAcmeServer } from "../src/server";
-import { DEMO_RESET_BUDGET_MS, resetClearanceState, runDemoReset } from "../../../scripts/demo-reset";
+import { DEMO_RESET_BUDGET_MS, runDemoReset } from "../../../scripts/demo-reset";
 
 const KEY = "demo-reset-test-key";
 
@@ -68,10 +68,14 @@ describe("demo reset", () => {
     expect(seen).toBe("./data/clearance.sqlite");
   });
 
-  it("the unfilled hook is reported loudly, so a partial reset cannot pass for a full one", async () => {
-    const hook = await resetClearanceState({ clearanceDbPath: "./data/clearance.sqlite" });
-    expect(hook.done).toBe(false);
-    const result = await runDemoReset({ acmeUrl, adminKey: KEY, log });
+  // The real hook stops services and clears their databases, so a test must never reach it.
+  it("a hook that didn't finish is reported loudly, so a partial reset cannot pass for a full one", async () => {
+    const result = await runDemoReset({
+      acmeUrl,
+      adminKey: KEY,
+      log,
+      clearance: async () => ({ done: false, note: "stub: nothing was reset" }),
+    });
     expect(result.clearance.done).toBe(false);
     expect(lines.join("\n")).toMatch(/WARNING.*Clearance state was NOT reset/);
     expect(lines.join("\n")).toContain("./data/clearance.sqlite");
@@ -115,7 +119,7 @@ describe("demo reset", () => {
   });
 
   it("never prints the admin key", async () => {
-    await runDemoReset({ acmeUrl, adminKey: KEY, log });
+    await runDemoReset({ acmeUrl, adminKey: KEY, log, clearance: filledHook });
     expect(lines.join("\n")).not.toContain(KEY);
   });
 });

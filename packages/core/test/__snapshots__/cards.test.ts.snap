@@ -217,11 +217,11 @@ Policy: deletes need 2 eng approvers · expires 14:25 IST
   Delete customers/cus_8812
 
 Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
-Why here: nobody else could take it, so it came to eng-leads. Can't approve: Priya (requester, agent owner).
+Why you: eng approver. Can't approve: Priya (requester, agent owner).
 Policy: deletes need 2 eng approvers · expires 14:25 IST
 
 @clearance why CLR-0001",
-    "roomId": "#approvals",
+    "roomId": "dm-dev",
     "title": "CLR-0001 · DELETE customers/cus_8812 · HIGH · irreversible",
   },
   {
@@ -229,7 +229,7 @@ Policy: deletes need 2 eng approvers · expires 14:25 IST
   Delete customers/cus_8812
 
 Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
-Why here: copy for this room; Alex (eng) decides. Can't approve: Priya (requester, agent owner).
+Why here: copy for this room; Alex (eng) and Dev (eng) decide. Can't approve: Priya (requester, agent owner).
 Policy: deletes need 2 eng approvers · expires 14:25 IST
 
 @clearance why CLR-0001",
@@ -253,11 +253,11 @@ Flags
   ⚠ Could not tell who the author is, so nobody was excluded for it
 
 Asked by Priya (support) through coder (Claude Code, owned by Alex)
-Why here: nobody else could take it, so it came to eng-leads. Can't approve: Alex (agent owner), Priya (requester).
+Why you: eng approver. Can't approve: Alex (agent owner), Priya (requester).
 Policy: merges to main need 1 eng approver · expires 14:25 IST
 
 @clearance why CLR-0001",
-    "roomId": "#approvals",
+    "roomId": "dm-dev",
     "title": "CLR-0001 · MERGE · HIGH · reversible",
   },
   {
@@ -272,7 +272,7 @@ Flags
   ⚠ Could not tell who the author is, so nobody was excluded for it
 
 Asked by Priya (support) through coder (Claude Code, owned by Alex)
-Why here: copy for this room; eng-leads in #approvals decides. Can't approve: Alex (agent owner), Priya (requester).
+Why here: copy for this room; Dev (eng) decides. Can't approve: Alex (agent owner), Priya (requester).
 Policy: merges to main need 1 eng approver · expires 14:25 IST
 
 @clearance why CLR-0001",
@@ -298,11 +298,11 @@ Flags
   ⚠ The diff touches auth code
 
 Asked by Priya (support) through coder (Claude Code, owned by Alex)
-Why here: nobody else could take it, so it came to eng-leads. Can't approve: Alex (agent owner, code author), Priya (requester).
+Why you: eng approver. Can't approve: Alex (agent owner, code author), Priya (requester).
 Policy: merges to main need 1 eng approver · expires 14:25 IST
 
 @clearance why CLR-0001",
-    "roomId": "#approvals",
+    "roomId": "dm-dev",
     "title": "CLR-0001 · MERGE acme-mini-app#77 · HIGH · reversible",
   },
   {
@@ -319,7 +319,7 @@ Flags
   ⚠ The diff touches auth code
 
 Asked by Priya (support) through coder (Claude Code, owned by Alex)
-Why here: copy for this room; eng-leads in #approvals decides. Can't approve: Alex (agent owner, code author), Priya (requester).
+Why here: copy for this room; Dev (eng) decides. Can't approve: Alex (agent owner, code author), Priya (requester).
 Policy: merges to main need 1 eng approver · expires 14:25 IST
 
 @clearance why CLR-0001",
@@ -544,6 +544,49 @@ Policy: deploys need 1 eng approver · expires 14:25 IST
 @clearance why CLR-0001",
     "roomId": "#support",
     "title": "CLR-0001 · DEPLOY checkout v2.13.2 staging · LOW · reversible",
+  },
+]
+`;
+
+exports[`cards from real calls: snapshots across fixture calls > writes the fallback room's card when nobody on the team can take it 1`] = `
+[
+  {
+    "detail": "The call (parsed from what the agent ran, not from its words)
+  Run: git push --force origin main
+
+Context
+  Not a tracked pull request: nothing to look up
+
+Flags
+  ⚠ Could not verify diff_lines, touches_auth from systems of record: treated as risky
+  ⚠ Could not tell who the author is, so nobody was excluded for it
+
+Asked by Priya (support) through coder (Claude Code, owned by Alex)
+Why here: nobody else could take it, so it came to eng-leads. Can't approve: Alex (agent owner), Priya (requester).
+Policy: merges to main need 1 eng approver · expires 14:25 IST
+
+@clearance why CLR-0001",
+    "roomId": "#approvals",
+    "title": "CLR-0001 · MERGE · HIGH · reversible",
+  },
+  {
+    "detail": "The call (parsed from what the agent ran, not from its words)
+  Run: git push --force origin main
+
+Context
+  Not a tracked pull request: nothing to look up
+
+Flags
+  ⚠ Could not verify diff_lines, touches_auth from systems of record: treated as risky
+  ⚠ Could not tell who the author is, so nobody was excluded for it
+
+Asked by Priya (support) through coder (Claude Code, owned by Alex)
+Why here: copy for this room; eng-leads in #approvals decides. Can't approve: Alex (agent owner), Priya (requester).
+Policy: merges to main need 1 eng approver · expires 14:25 IST
+
+@clearance why CLR-0001",
+    "roomId": "#eng",
+    "title": "CLR-0001 · MERGE · HIGH · reversible",
   },
 ]
 `;

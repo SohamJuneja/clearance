@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildServer } from "../src/api/server.js";
 import { runLedgerVerify } from "../src/cli/ledger-verify.js";
 import type { OpenedCard } from "./fakes.js";
-import { actionId, chatMessage, gateRefund, hookShell, makeHarness, NOW, PARTICIPANTS, REFUND_SC3, REFUND_SC4, type Harness } from "./harness.js";
+import { actionId, chatMessage, gateRefund, hookShell, makeHarness, NOW, PARTICIPANTS, REFUND_SC3, REFUND_SC4, TEAM_ALEX_ONLY_PATH, type Harness } from "./harness.js";
 
 const TOKEN = "test-internal-token";
 let h: Harness;
@@ -174,8 +174,26 @@ describe("SC5 and SC6: cross-vendor routing", () => {
   });
 });
 
-describe("SC7: force-push, nobody eligible", () => {
-  it("holds, goes to the fallback and says why, and Alex still cannot approve his own", async () => {
+describe("SC7: force-push", () => {
+  it("goes to Dev, since Alex asked and owns the agent, and Alex cannot approve his own", async () => {
+    await h.core.onMessage(chatMessage(PARTICIPANTS.alex, "@coder force-push my branch onto main", { roomId: "#eng", threadId: "t-7" }));
+    const held = await gateCheck(hookShell("git push --force origin main"));
+    const id = held.request_id as string;
+    expect(held.decision).toBe("hold");
+    expect(h.chat.cards.map((card) => card.roomId)).toEqual(["dm-dev", "#eng"]);
+    await press(h.chat.cardIn("#eng"), PARTICIPANTS.alex, "allow");
+    expect(h.chat.messages.at(-1)?.body).toBe(`Alex can't approve ${id} (requester, agent owner). Sent to Dev (eng).`);
+    await press(h.chat.cardIn("dm-dev"), PARTICIPANTS.dev, "allow");
+    expect(h.core.stores.requests.require(id).state).toBe("GRANTED");
+    expect((await gateCheck(hookShell("git push --force origin main"))).decision).toBe("allow");
+  });
+
+  it("with nobody else in eng, holds, goes to the fallback and says why, and Alex still cannot approve his own", async () => {
+    await app.close();
+    h.core.close();
+    h = makeHarness({ teamPath: TEAM_ALEX_ONLY_PATH });
+    app = buildServer(h.core, { internalToken: TOKEN });
+    await app.ready();
     await h.core.onMessage(chatMessage(PARTICIPANTS.alex, "@coder force-push my branch onto main", { roomId: "#eng", threadId: "t-7" }));
     const held = await gateCheck(hookShell("git push --force origin main"));
     const id = held.request_id as string;

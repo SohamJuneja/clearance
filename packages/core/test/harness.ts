@@ -11,6 +11,8 @@ import { FakeChat, FakeClock, FakeGate, FakeLookup, type World } from "./fakes.j
 const POLICY_DIR = new URL("../../../policy/", import.meta.url);
 export const POLICY_PATH = new URL("clearance.policy.yaml", POLICY_DIR).pathname;
 export const TEAM_PATH = new URL("team.yaml", POLICY_DIR).pathname;
+/** No second engineer: the only team where a merge or delete can run out of people. */
+export const TEAM_ALEX_ONLY_PATH = new URL("./fixtures/team-alex-only.yaml", import.meta.url).pathname;
 export const WORLD = parse(readFileSync(new URL("tests/world.yaml", POLICY_DIR), "utf8")) as World;
 
 /** A Wednesday, 14:00 IST: Sam is on duty. */
@@ -24,6 +26,7 @@ export const PARTICIPANTS = {
   samSecond: "@switch-user-sam-slack:localhost",
   neha: "@switch-user-neha:localhost",
   alex: "@switch-user-alex:localhost",
+  dev: "@switch-user-dev:localhost",
   guest: "@switch-user-guest:localhost",
   refundsAgent: "@switch-agent-refunds:localhost",
   supportAgent: "@switch-agent-support:localhost",
@@ -36,6 +39,7 @@ export const IDENTITIES = {
     sam: { switchUserId: "u-sam", participantIds: [PARTICIPANTS.sam, PARTICIPANTS.samSecond], mattermostUser: "sam" },
     neha: { switchUserId: "u-neha", participantIds: [PARTICIPANTS.neha], mattermostUser: "neha" },
     alex: { switchUserId: "u-alex", participantIds: [PARTICIPANTS.alex], mattermostUser: "alex" },
+    dev: { switchUserId: "u-dev", participantIds: [PARTICIPANTS.dev], mattermostUser: "dev" },
   },
   agents: {
     clearance: { switchAgentId: "ag-clearance", participantId: PARTICIPANTS.clearance },

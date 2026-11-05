@@ -4,12 +4,16 @@ import { describe, expect, it } from "vitest";
 import { Directory } from "../src/people/directory.js";
 import { parsePolicy, parseTeam } from "../src/policy/load.js";
 import { assessAnswer, route, type RouteContext, type RouteSignals } from "../src/router/router.js";
-import { exclusionWords, explainTrace, heldExplanation, whyFallback, whyYou } from "../src/router/why.js";
-import { IDENTITIES, MINUTE, NOW, POLICY_PATH, TEAM_PATH } from "./harness.js";
+import { exclusionWords, explainTrace, heldExplanation, whyCopy, whyFallback, whyYou } from "../src/router/why.js";
+import { IDENTITIES, MINUTE, NOW, POLICY_PATH, TEAM_ALEX_ONLY_PATH, TEAM_PATH } from "./harness.js";
 
 const policy = parsePolicy(readFileSync(POLICY_PATH, "utf8"), "p.yaml");
 const team = parseTeam(readFileSync(TEAM_PATH, "utf8"), "t.yaml");
 const directory = new Directory(team, IDENTITIES);
+
+/** Alex is the only engineer here, so a merge or delete can run out of people. */
+const alexOnlyTeam = parseTeam(readFileSync(TEAM_ALEX_ONLY_PATH, "utf8"), "team-alex-only.yaml");
+const alexOnly = { team: alexOnlyTeam, directory: new Directory(alexOnlyTeam, IDENTITIES) };
 
 function signals(overrides: Partial<RouteSignals> = {}): RouteSignals {
   return {
@@ -91,7 +95,7 @@ describe("candidates and exclusions", () => {
 
   it("excludes the merge author", () => {
     const trace = route(ctx("merge", { requesterIds: ["priya"], agentOwnerIds: ["priya"], authorIds: ["alex"] }), 1);
-    expect(trace.chosen).toEqual([]);
+    expect(trace.chosen).toEqual(["dev"]);
     expect(trace.excluded.find((e) => e.id === "alex")?.reasons).toEqual(["author"]);
   });
 
@@ -163,8 +167,18 @@ describe("ranking", () => {
   });
 
   it("falls to the backup when the rota holder is off duty", () => {
+    // The demo team keeps Sam always on duty, so the schedule is stated here to keep proving this path.
+    const scheduled = {
+      ...team,
+      rotas: {
+        "finance-approver": [
+          { person: "sam", days: "Mon-Fri", hours: "09:00-19:00", tz: "Asia/Kolkata" },
+          { person: "neha", backup: true },
+        ],
+      },
+    };
     const night = Date.parse("2026-11-04T23:00:00+05:30");
-    const trace = route(ctx("refund", { nowMs: night }), 1);
+    const trace = route(ctx("refund", { nowMs: night, team: scheduled }), 1);
     expect(trace.chosen).toEqual(["neha"]);
     expect(trace.ranked[0]?.backup).toBe(true);
   });
@@ -226,6 +240,8 @@ describe("ranking", () => {
   it("does not count activity older than 15 minutes", () => {
     const trace = route(
       ctx("refund", {
+        // No rota, so nothing but activity can raise Sam's rank.
+        team: { ...team, rotas: {} },
         nowMs: Date.parse("2026-11-04T23:00:00+05:30"),
         signals: signals({
           lastActive: () => ({ room: "#support", atMs: Date.parse("2026-11-04T22:44:00+05:30") }),
@@ -277,7 +293,7 @@ describe("quorum", () => {
   });
 
   it("goes to fallback for the part of a quorum it cannot fill", () => {
-    const trace = route(ctx("delete", { requesterIds: ["priya"], agentOwnerIds: ["priya"], quorumRequired: 2 }), 2);
+    const trace = route(ctx("delete", { ...alexOnly, requesterIds: ["priya"], agentOwnerIds: ["priya"], quorumRequired: 2 }), 2);
     expect(trace.chosen).toEqual(["alex"]);
     expect(trace.fallback?.group).toBe("eng-leads");
     expect(trace.fallback?.room).toBe("#approvals");
@@ -297,6 +313,19 @@ describe("nobody eligible", () => {
     expect(trace.fallback?.reason).toBe("Priya (requester, agent owner); Sam (away); Neha (away)");
   });
 
+  it("has someone left on the real team: Alex's own force-push goes to Dev", () => {
+    const trace = route(ctx("merge", { requesterIds: ["alex"], agentOwnerIds: ["alex"] }), 1);
+    expect(trace.chosen).toEqual(["dev"]);
+    expect(trace.fallback).toBeNull();
+    expect(trace.excluded.find((e) => e.id === "alex")?.reasons).toEqual(["requester", "agent_owner"]);
+  });
+
+  it("two engineers fill a delete's quorum of two on the real team", () => {
+    const trace = route(ctx("delete", { requesterIds: ["priya"], agentOwnerIds: ["priya"], quorumRequired: 2 }), 2);
+    expect(trace.chosen).toEqual(["alex", "dev"]);
+    expect(trace.fallback).toBeNull();
+  });
+
   it("uses the class's own fallback when it has one", () => {
     const text = readFileSync(POLICY_PATH, "utf8").replace(
       "      label: eng\n      any_of: [ { group: eng } ]\n      exclude: [ author ]",
@@ -305,6 +334,7 @@ describe("nobody eligible", () => {
     const custom = parsePolicy(text, "p.yaml");
     const trace = route(
       ctx("merge", {
+        ...alexOnly,
         policy: custom,
         cls: custom.classes.find((cls) => cls.name === "merge") ?? null,
         requesterIds: ["alex"],
@@ -316,7 +346,7 @@ describe("nobody eligible", () => {
   });
 
   it("still names a fallback room when even the fallback group has nobody, so the room hears why", () => {
-    const trace = route(ctx("merge", { requesterIds: ["alex"], agentOwnerIds: ["alex"] }), 1);
+    const trace = route(ctx("merge", { ...alexOnly, requesterIds: ["alex"], agentOwnerIds: ["alex"] }), 1);
     expect(trace.fallback).toMatchObject({ group: "eng-leads", eligible: [] });
   });
 
@@ -418,7 +448,7 @@ describe("why text comes from the trace", () => {
   });
 
   it("explains a fallback in the trace", () => {
-    const text = explainTrace(route(ctx("merge", { requesterIds: ["alex"], agentOwnerIds: ["alex"] }), 1), {
+    const text = explainTrace(route(ctx("merge", { ...alexOnly, requesterIds: ["alex"], agentOwnerIds: ["alex"] }), 1), {
       ...appendixContext,
       className: "merge",
     });
@@ -445,6 +475,15 @@ describe("why text comes from the trace", () => {
     );
   });
 
+  it("agrees the verb on the room's copy when two people decide", () => {
+    expect(whyCopy(route(ctx("refund", { quorumRequired: 2, tier: "critical" }), 2))).toBe(
+      "copy for this room; Sam (finance, on duty) and Neha (finance, backup) decide. Can't approve: Priya (requester, agent owner).",
+    );
+    expect(whyCopy(route(ctx("refund"), 1))).toBe(
+      "copy for this room; Sam (finance, on duty) decides. Can't approve: Priya (requester, agent owner).",
+    );
+  });
+
   it("drops the second sentence when nobody was excluded", () => {
     expect(whyYou(route(ctx("refund", { requesterIds: [], agentOwnerIds: [] }), 1), "sam")).toBe("finance approver on duty.");
   });
@@ -457,7 +496,7 @@ describe("why text comes from the trace", () => {
   });
 
   it("writes the fallback room's Why here line", () => {
-    const trace = route(ctx("merge", { requesterIds: ["priya"], agentOwnerIds: ["alex"] }), 1);
+    const trace = route(ctx("merge", { ...alexOnly, requesterIds: ["priya"], agentOwnerIds: ["alex"] }), 1);
     expect(whyFallback(trace)).toBe(
       "nobody else could take it, so it came to eng-leads. Can't approve: Alex (agent owner), Priya (requester).",
     );

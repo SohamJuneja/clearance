@@ -129,7 +129,7 @@ describe("policy loader", () => {
 describe("team loader", () => {
   it("loads the real team file with an owner for every agent", () => {
     const team = parseTeam(realTeam, "team.yaml");
-    expect(team.people.map((person) => person.id)).toEqual(["priya", "sam", "neha", "alex"]);
+    expect(team.people.map((person) => person.id)).toEqual(["priya", "sam", "neha", "alex", "dev"]);
     for (const agent of Object.values(team.agents)) expect(agent.owner).toMatch(/^(priya|alex)$/);
     expect(team.agents["refunds-agent"]?.owner).toBe("priya");
     expect(team.agents["ops-agent"]?.owner).toBe("alex");

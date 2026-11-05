@@ -16,6 +16,7 @@ import {
   REFUND_CRITICAL,
   REFUND_SC3,
   REFUND_SC4,
+  TEAM_ALEX_ONLY_PATH,
   type Harness,
 } from "./harness.js";
 
@@ -121,6 +122,8 @@ describe("on hold", () => {
   });
 
   it("sends no notification into a fallback room when nobody there can decide", async () => {
+    h.core.close();
+    h = makeHarness({ teamPath: TEAM_ALEX_ONLY_PATH });
     await h.core.onMessage(chatMessage(PARTICIPANTS.alex, "@coder force-push", { roomId: "#eng", threadId: "t-9" }));
     await h.core.check(hookShell("git push --force origin main"));
     expect(h.chat.cards.map((card) => card.roomId)).toContain("#approvals");
@@ -156,6 +159,8 @@ describe("on hold", () => {
   });
 
   it("sends nobody-eligible to the fallback group and says why in the room", async () => {
+    h.core.close();
+    h = makeHarness({ teamPath: TEAM_ALEX_ONLY_PATH });
     await h.core.onMessage(chatMessage(PARTICIPANTS.alex, "@coder force-push", { roomId: "#eng", threadId: "t-9" }));
     const held = await h.core.check(hookShell("git push --force origin main"));
     const id = held.request_id as string;
@@ -171,6 +176,7 @@ describe("on hold", () => {
   it("maps a policy room name to its Switch id", async () => {
     h.core.close();
     h = makeHarness({
+      teamPath: TEAM_ALEX_ONLY_PATH,
       identities: {
         people: {},
         agents: {},

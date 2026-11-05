@@ -12,6 +12,7 @@ import {
   PARTICIPANTS,
   REFUND_SC3,
   REFUND_SC4,
+  TEAM_ALEX_ONLY_PATH,
   type Harness,
 } from "./harness.js";
 
@@ -320,6 +321,14 @@ describe("cards from real calls: snapshots across fixture calls", () => {
       action: () => gateRefund(REFUND_SC4),
     },
   ];
+
+  it("writes the fallback room's card when nobody on the team can take it", async () => {
+    h.core.close();
+    h = makeHarness({ teamPath: TEAM_ALEX_ONLY_PATH });
+    await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@coder please do this"));
+    await h.core.check(hookShell("git push --force origin main", { session: { switchRoomId: "#eng", threadId: "t-2" } }));
+    expect(h.chat.cards.map(({ roomId, title, detail }) => ({ roomId, title, detail }))).toMatchSnapshot();
+  });
 
   it("has at least ten fixtures", () => {
     expect(fixtures.length).toBeGreaterThanOrEqual(10);

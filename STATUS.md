@@ -1,6 +1,6 @@
 # STATUS
 
-Updated: Fri Nov 6, 03:25 IST. Freeze Sat 15:00 and submit Sat 20:00 do not move.
+Updated: Fri Nov 6, 04:30 IST. Freeze Sat 15:00 and submit Sat 20:00 do not move.
 
 ## Gates
 
@@ -19,10 +19,10 @@ Updated: Fri Nov 6, 03:25 IST. Freeze Sat 15:00 and submit Sat 20:00 do not move
 
 | Subagent | Scope | Current task |
 |---|---|---|
-| lead | integration, merges, docs | Scaffold and Switch stack done. Waiting on wave 1, then SC3 integration |
-| brain | `packages/core` | Wave 1: F1, F3, F4, F6 card, F8, API, mismatch, F5 |
-| gate-hooks | `packages/gate`, `packages/adapters`, `packages/hook-cli`, `acme-mini-app/` | Wave 1: gate HTTP, adapters, hook CLI, vendor configs, MCP |
+| lead | integration, merges, docs | Core, gate and Switch client merged and wired. Live spine check passes with real cards. Next: real agent on SC3 |
+| brain | `packages/core` | Wave 1 merged. Wave 2: type-to-confirm, drills, friction, autonomy, shadow, commands, P2 |
+| gate-hooks | `packages/gate`, `packages/adapters`, `packages/hook-cli`, `acme-mini-app/` | Merged. Next when agents run: real payload checks per vendor |
 | switchboard | `packages/switch-agent`, inbox, docs, templates, identities | Wave 1 merged (S2, S3, S4, S7, S8, S11). Wave 2: in-Switch study bot, safe exposure |
-| vendor-spikes | `spikes/`, controller | Wave 1: controller, S1, S5, S6, S9 (Claude); others blocked on logins |
-| world-ui | `packages/acme`, `packages/desk`, `study/` | Wave 1 merged (Acme, reset, study sets, Approval Lab, S10). Desk starts when core lands |
-| proof | `eval/`, `scripts/`, demo automation, video pipeline | Starts when Acme and core land |
+| vendor-spikes | `spikes/`, controller | Wave 1 merged. Wave 2: connector containment, controllers per owner, SC1 and SC2, agent setup |
+| world-ui | `packages/acme`, `packages/desk`, `study/` | Wave 1 merged. Wave 2: Desk |
+| proof | `eval/`, `scripts/`, demo automation, video pipeline | Wave 1 merged (runner, video, TTS, scan). Evals brief follows once a real agent passes SC3 |

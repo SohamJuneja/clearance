@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
 import {
   ADMIN_KEY,
@@ -21,6 +21,9 @@ import {
   type FakeCore,
   type TempDb,
 } from "./helpers.js";
+
+// These spawn the real CLI through a Node shim, so a busy host can take longer than the default 5 s.
+vi.setConfig({ testTimeout: 30_000 });
 
 const ACME_BIN = join(import.meta.dirname, "..", "..", "..", "acme-mini-app", "bin", "acme");
 

@@ -2,7 +2,8 @@
  * `pnpm demo:reset`: put the demo world back to its starting state between takes (PLAN 8.7).
  * Prints the elapsed time and exits non-zero if anything failed or it took longer than 10 s.
  */
-import { existsSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { existsSync, rmSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -26,8 +27,20 @@ export type ClearanceResetResult = { done: boolean; note: string };
  * Until then this reports done: false, and the script warns on every run.
  * ──────────────────────────────────────────────────────────────────────────────────
  */
-export async function resetClearanceState(_ctx: ClearanceResetContext): Promise<ClearanceResetResult> {
-  return { done: false, note: "hook not filled in yet" };
+export async function resetClearanceState(ctx: ClearanceResetContext): Promise<ClearanceResetResult> {
+  // This stops live services and clears their databases. No test may ever reach it, whatever it calls.
+  if (process.env.VITEST) throw new Error("refusing to reset live Clearance services from a test");
+  const root = resolve(import.meta.dirname, "..");
+  const services = resolve(root, "scripts/services.sh");
+  const stop = spawnSync("bash", [services, "down", "core", "gate"], { encoding: "utf8" });
+  if (stop.status !== 0) throw new Error(`could not stop core and gate: ${stop.stderr}`);
+  const gateDb = process.env.CLEARANCE_GATE_DB_PATH ?? "./data/gate.sqlite";
+  for (const db of [ctx.clearanceDbPath, gateDb]) {
+    for (const suffix of ["", "-wal", "-shm"]) rmSync(resolve(root, `${db}${suffix}`), { force: true });
+  }
+  const start = spawnSync("bash", [services, "up", "gate", "core"], { encoding: "utf8" });
+  if (start.status !== 0) throw new Error(`could not restart gate and core: ${start.stderr}`);
+  return { done: true, note: "core and gate databases cleared and both restarted" };
 }
 
 export type DemoResetOptions = {

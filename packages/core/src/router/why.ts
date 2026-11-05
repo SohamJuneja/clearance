@@ -97,7 +97,8 @@ export function whyYou(trace: RouteTrace, id: string): string {
 export function whyCopy(trace: RouteTrace): string {
   const labels = chosenLabels(trace);
   const holder = labels.length > 0 ? joinNames(labels) : trace.fallback ? fallbackWords(trace) : "an eligible approver";
-  return `copy for this room; ${holder} decides.${cantApproveSentence(trace)}`;
+  const verb = labels.length > 1 ? "decide" : "decides";
+  return `copy for this room; ${holder} ${verb}.${cantApproveSentence(trace)}`;
 }
 
 /** A card's "Why here:" in the fallback room, where the group is being asked. */

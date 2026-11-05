@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { buttonDecision, clearanceDetail, clearanceTitle, confirmMatches, renderCard } from "../lib/cards";
+import { buttonDecision, clearanceDetail, clearanceEvidence, clearancePrompt, clearanceTitle, confirmMatches, renderCard } from "../lib/cards";
 import { FLAW_TYPES, StudyRequestSchema, loadSet, type StudyRequest } from "../lib/sets";
-import { MAX_TITLE_CHARS } from "../lib/switch-card";
+import * as materials from "../lib/materials";
+import { MAX_TITLE_CHARS, mattermostEscape } from "../lib/switch-card";
 import { SETS, renderYaml } from "../tools/build-sets";
 
 const X = loadSet("X").requests;
@@ -13,6 +14,9 @@ const ALL = [...X, ...Y, ...PRACTICE];
 const bySetAndTemplate = (set: StudyRequest[], template: string) => set.find((r) => r.template === template)!;
 
 const flawedPositions = (set: StudyRequest[]) => set.flatMap((r, i) => (r.kind === "flawed" ? [i + 1] : []));
+
+/** What a text costs against Switch's budget: the zero-width spaces its escape adds count. */
+const size = (text: string) => Array.from(mattermostEscape(text)).length;
 
 describe("committed sets match the generator", () => {
   it.each(["X", "Y", "practice"] as const)("%s.yaml", (name) => {
@@ -211,7 +215,7 @@ describe("condition B is the Appendix D card", () => {
       flags: ["Amount is 10x the order total", "Destination added in the last 24 h", 'The agent wrote "₹4,000" in the thread; the call says ₹40,000'],
       claim: "Refunding ₹4,000 for order A-1931 as requested in T-77.",
       asked_by: "Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)",
-      why_you: "finance approver on duty. Priya asked and owns the agent, so she can't approve this.",
+      why_you: "finance approver on duty. Can't approve: Priya (requester, agent owner).",
       policy: "refunds over ₹10,000 need 1 finance approver · expires 15:42 IST",
       confirm: null,
     },
@@ -226,16 +230,62 @@ describe("condition B is the Appendix D card", () => {
     for (const request of [...X, ...Y]) {
       if (request.b.confirm) continue;
       const detail = clearanceDetail(request);
-      const positions = ["The call (parsed", "\nContext\n", "\nFlags\n", "Agent's claim (unverified)", "Asked by", "Why you:", "Policy:", `Reply ${request.b.handle} yes`].map((part) =>
-        detail.indexOf(part),
-      );
+      const parts = ["The call (parsed", "\nContext\n", ...(request.b.flags.length > 0 ? ["\nFlags\n"] : []), "Agent's claim (unverified)", "Asked by", "Why you:", "Policy:", `@clearance why ${request.b.clr}`];
+      const positions = parts.map((part) => detail.indexOf(part));
       expect(positions.every((p) => p >= 0), request.id).toBe(true);
       expect(positions, request.id).toEqual([...positions].sort((a, b) => a - b));
     }
   });
 
-  it("labels the agent's sentence as an unverified claim", () => {
-    for (const request of ALL) expect(renderCard(request, "B").text).toContain(`Agent's claim (unverified): "${request.b.claim}"`);
+  it("posts what the product posts: no answer line of its own, because Switch's renderer adds one", () => {
+    for (const request of ALL) {
+      const card = renderCard(request, "B");
+      expect(card.text, request.id).not.toMatch(/yes or|Reply [A-Z]\d+/);
+      expect(card.text.match(/Reply with/g), request.id).toHaveLength(1);
+      if (!request.b.confirm) expect(clearanceDetail(request).endsWith(`\n\n@clearance why ${request.b.clr}`), request.id).toBe(true);
+    }
+  });
+
+  it("names the people who can't approve, in the router's words", () => {
+    for (const request of ALL) {
+      expect(request.b.why_you, request.id).toMatch(/Can't approve: (Priya|Dev) \(requester, agent owner\)\.$/);
+      expect(renderCard(request, "B").text, request.id).toContain(`Why you: ${request.b.why_you}`);
+    }
+  });
+
+  it("stays inside the logged card budget, counted as Mattermost counts it: detail 990, prompt 790", () => {
+    // DECISIONS 03:25. The real cliff is about 1000 and 800; the budget keeps a margin below it.
+    for (const request of ALL) {
+      if (request.b.confirm) expect(size(clearancePrompt(request)), request.id).toBeLessThanOrEqual(790);
+      else expect(size(clearanceDetail(request)), request.id).toBeLessThanOrEqual(990);
+    }
+  });
+
+  it("omits the Flags section when there are none, as the product does, rather than printing None", () => {
+    const unflagged = ALL.filter((r) => r.b.flags.length === 0);
+    expect(unflagged.length).toBeGreaterThan(0);
+    for (const request of unflagged) expect(renderCard(request, "B").text, request.id).not.toMatch(/Flags|None/);
+  });
+
+  it("labels the agent's sentence as an unverified claim on every card with room for it", () => {
+    for (const request of ALL) {
+      if (!request.b.confirm) expect(renderCard(request, "B").text, request.id).toContain(`Agent's claim (unverified): "${request.b.claim}"`);
+    }
+  });
+
+  it("builds a type-to-confirm prompt as the product does: the ask first, the claim given up first when over budget", () => {
+    const critical = ALL.filter((r) => r.b.confirm);
+    expect(critical.length).toBeGreaterThan(0);
+    for (const request of critical) {
+      const prompt = clearancePrompt(request);
+      const ask = request.b.confirm!.question;
+      const whole = `${ask}\n\n${clearanceEvidence(request)}`;
+      expect(prompt.startsWith(`${ask}\n\n`), request.id).toBe(true);
+      expect(prompt.includes("Agent's claim (unverified)"), request.id).toBe(size(whole) <= 790);
+      // Never given up: the call, the flags, who asked, why you, and the expiry.
+      for (const line of [...request.b.parsed, ...request.b.flags, request.b.asked_by, request.b.why_you, request.b.policy]) expect(prompt, request.id).toContain(line);
+      expect(prompt, request.id).not.toContain("@clearance why");
+    }
   });
 
   it("stays within Switch's title limit", () => {
@@ -273,6 +323,26 @@ describe("policy-derived values", () => {
   it("every tier agrees with its score under the policy's thresholds", () => {
     const expected = (score: number) => (score < 30 ? "LOW" : score < 55 ? "MEDIUM" : score < 80 ? "HIGH" : "CRITICAL");
     for (const request of ALL) expect(request.b.tier, request.id).toBe(expected(request.b.score));
+  });
+});
+
+describe("people are named, never given pronouns", () => {
+  const GENDERED = /\b(he|she|him|his|her|hers|himself|herself)\b/i;
+
+  it("in any card, in either condition", () => {
+    for (const request of ALL) {
+      for (const condition of ["A", "B"] as const) expect(renderCard(request, condition).text, `${request.id} ${condition}`).not.toMatch(GENDERED);
+    }
+  });
+
+  it("in the set files, including the debrief explanations", () => {
+    for (const name of ["X", "Y", "practice"]) expect(readFileSync(resolve(import.meta.dirname, `../sets/${name}.yaml`), "utf8"), name).not.toMatch(GENDERED);
+  });
+
+  it("in the participant-facing text", () => {
+    for (const [name, value] of Object.entries(materials)) {
+      if (typeof value === "string") expect(value, name).not.toMatch(GENDERED);
+    }
   });
 });
 

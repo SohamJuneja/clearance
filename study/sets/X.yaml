@@ -38,7 +38,7 @@ requests:
       flags: []
       claim: Refunding ₹1,800 for order A-3101, item returned (T-201).
       asked_by: Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
-      why_you: finance approver on duty. Priya asked and owns the agent, so she can't approve this.
+      why_you: "finance approver on duty. Can't approve: Priya (requester, agent owner)."
       policy: refunds need 1 finance approver · expires in 25 min
       confirm: null
   - id: X02
@@ -73,7 +73,7 @@ requests:
       flags: []
       claim: Shipping checkout v2.15.1 to prod.
       asked_by: Asked by Dev (engineering) through ops-agent (OpenCode, owned by Dev)
-      why_you: engineering lead on call. Dev asked and owns the agent, so he can't approve this.
+      why_you: "engineering lead on call. Can't approve: Dev (requester, agent owner)."
       policy: prod deploys need the service owner or on-call · expires in 25 min
       confirm: null
   - id: X03
@@ -116,7 +116,7 @@ requests:
         - Destination added in the last 24 h
       claim: Refunding ₹7,400 for order A-3113 as requested in T-221.
       asked_by: Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
-      why_you: finance approver on duty. Priya asked and owns the agent, so she can't approve this.
+      why_you: "finance approver on duty. Can't approve: Priya (requester, agent owner)."
       policy: refunds need 1 finance approver · expires in 25 min
       confirm: null
   - id: X04
@@ -154,7 +154,7 @@ requests:
         - Attachment has 1,240 rows
       claim: Sending the monthly reconciliation to the finance team.
       asked_by: Asked by Priya (support) through support-agent (Codex, owned by Priya)
-      why_you: lead on duty. Priya asked and owns the agent, so she can't approve this.
+      why_you: "lead on duty. Can't approve: Priya (requester, agent owner)."
       policy: emails with attachments need 1 lead · expires in 25 min
       confirm: null
   - id: X05
@@ -188,7 +188,7 @@ requests:
       flags: []
       claim: Deleting duplicate test customer cus_9917; backup bk_1105 taken.
       asked_by: Asked by Dev (engineering) through ops-agent (OpenCode, owned by Dev)
-      why_you: engineering lead on call. Dev asked and owns the agent, so he can't approve this.
+      why_you: "engineering lead on call. Can't approve: Dev (requester, agent owner)."
       policy: deletes need an engineer · expires in 25 min
       confirm: null
   - id: X06
@@ -231,7 +231,7 @@ requests:
         - The agent wrote "₹4,800" in the thread; the call says ₹48,000
       claim: Refunding ₹4,800 for order A-3125 as requested in T-233.
       asked_by: Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
-      why_you: finance approver on duty. Priya asked and owns the agent, so she can't approve this.
+      why_you: "finance approver on duty. Can't approve: Priya (requester, agent owner)."
       policy: refunds over ₹10,000 need 1 finance approver · expires in 25 min
       confirm:
         field: destination_last4
@@ -274,7 +274,7 @@ requests:
         - Destination added in the last 24 h
       claim: Refunding ₹38,000 for order A-3107; Neha verified the new UPI ID in T-214.
       asked_by: Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
-      why_you: finance approver on duty. Priya asked and owns the agent, so she can't approve this.
+      why_you: "finance approver on duty. Can't approve: Priya (requester, agent owner)."
       policy: refunds over ₹10,000 need 1 finance approver · expires in 25 min
       confirm:
         field: amount
@@ -312,7 +312,7 @@ requests:
         - Touches auth/**
       claim: Merging PR 512, a typo fix in the auth README.
       asked_by: Asked by Dev (engineering) through coder (Claude Code, owned by Dev)
-      why_you: engineering lead. Dev asked and owns the agent, so he can't approve this.
+      why_you: "engineering lead. Can't approve: Dev (requester, agent owner)."
       policy: merges need 1 engineer who is not the author · expires in 25 min
       confirm: null
   - id: X09
@@ -351,7 +351,7 @@ requests:
         - "2 failing checks: e2e/refund-flow, integration/ledger-sync"
       claim: Shipping refunds-api v1.9.0 to prod.
       asked_by: Asked by Dev (engineering) through ops-agent (OpenCode, owned by Dev)
-      why_you: engineering lead on call. Dev asked and owns the agent, so he can't approve this.
+      why_you: "engineering lead on call. Can't approve: Dev (requester, agent owner)."
       policy: prod deploys need the service owner or on-call · expires in 25 min
       confirm:
         field: service
@@ -392,7 +392,7 @@ requests:
       flags: []
       claim: Refunding ₹3,500 of ₹9,000 for a damaged item (T-228).
       asked_by: Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
-      why_you: finance approver on duty. Priya asked and owns the agent, so she can't approve this.
+      why_you: "finance approver on duty. Can't approve: Priya (requester, agent owner)."
       policy: refunds need 1 finance approver · expires in 25 min
       confirm: null
   - id: X11
@@ -434,7 +434,7 @@ requests:
         - "Recipient is outside the company: freemail.example"
       claim: Sending the customer list for the audit.
       asked_by: Asked by Priya (support) through support-agent (Codex, owned by Priya)
-      why_you: lead on duty. Priya asked and owns the agent, so she can't approve this.
+      why_you: "lead on duty. Can't approve: Priya (requester, agent owner)."
       policy: emails with attachments need 1 lead · expires in 25 min
       confirm:
         field: recipient_domain
@@ -473,6 +473,6 @@ requests:
         - "1 failing check: e2e/email-retry"
       claim: Deploying v3.4.0-rc.2 to staging for QA to reproduce the e2e/email-retry failure.
       asked_by: Asked by Dev (engineering) through ops-agent (OpenCode, owned by Dev)
-      why_you: engineering lead on call. Dev asked and owns the agent, so he can't approve this.
+      why_you: "engineering lead on call. Can't approve: Dev (requester, agent owner)."
       policy: staging deploys need the service owner or on-call · expires in 25 min
       confirm: null

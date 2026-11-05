@@ -96,7 +96,7 @@ describe("payments", () => {
     expect((await get(`/customers/${res.body!.customer_id}`)).status).toBe(200);
   });
 
-  it("GET /customers/:id returns Meera K. with enough to find her orders", async () => {
+  it("GET /customers/:id returns Meera K. with enough to find Meera's orders", async () => {
     const res = await get("/customers/cus_8812");
     expect(res.body).toMatchObject({ id: "cus_8812", name: "Meera K." });
     expect(typeof res.body!.email).toBe("string");
@@ -123,7 +123,7 @@ describe("payments", () => {
     expect((await get("/destinations/meera.k@okaxis")).body!.age_hours).toBeCloseTo(1, 3);
   });
 
-  it("Meera also has a long-standing destination so her small refunds are not flagged as new", async () => {
+  it("Meera also has a long-standing destination so small refunds to it are not flagged as new", async () => {
     const customer = (await get("/customers/cus_8812")).body!;
     const old = (await get(`/destinations/${customer.default_destination}`)).body!;
     expect(old.id).not.toBe("meera.k@okaxis");

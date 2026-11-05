@@ -75,10 +75,10 @@ const ASKED = {
   coder: "Asked by Dev (engineering) through coder (Claude Code, owned by Dev)",
 };
 const WHY = {
-  refunds: "finance approver on duty. Priya asked and owns the agent, so she can't approve this.",
-  ops: "engineering lead on call. Dev asked and owns the agent, so he can't approve this.",
-  support: "lead on duty. Priya asked and owns the agent, so she can't approve this.",
-  coder: "engineering lead. Dev asked and owns the agent, so he can't approve this.",
+  refunds: "finance approver on duty. Can't approve: Priya (requester, agent owner).",
+  ops: "engineering lead on call. Can't approve: Dev (requester, agent owner).",
+  support: "lead on duty. Can't approve: Priya (requester, agent owner).",
+  coder: "engineering lead. Can't approve: Dev (requester, agent owner).",
 };
 
 // ── Common request shapes ────────────────────────────────────────────────────

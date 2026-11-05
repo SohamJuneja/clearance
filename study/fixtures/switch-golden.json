@@ -46,7 +46,7 @@
    ]
   },
   "X03 B": {
-   "text": "@you\n**Permission needed** · request `A103`\nCLR-0103 · REFUND ₹7,400 · MEDIUM · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹7,400 to customer Kabir M. (cus_4113)\n  Destination: UPI kabir.m7@​okfin\n  Order A-3113 · total ₹7,400\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 6 minutes ago\n  refunds-agent refunds today: 3 (largest ₹2,400)\n  T-221 asks for this UPI ID and the refund in one message\n\nFlags\n  ⚠ Destination added in the last 24 h\n\nAgent's claim (unverified): \"Refunding ₹7,400 for order A-3113 as requested in T-221.\"\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Can't approve: Priya (requester, agent owner).\nPolicy: refunds need 1 finance approver · expires in 25 min\n\n@​clearance why CLR-0103\nReply with `A103` and your choice, e.g. `A103 1`.",
+   "text": "@you\n**Permission needed** · request `A103`\nCLR-0103 · REFUND ₹7,400 · LOW · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹7,400 to customer Kabir M. (cus_4113)\n  Destination: UPI kabir.m7@​okfin\n  Order A-3113 · total ₹7,400\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 6 minutes ago\n  refunds-agent refunds today: 3 (largest ₹2,400)\n  T-221 asks for this UPI ID and the refund in one message\n\nFlags\n  ⚠ Destination added in the last 24 h\n\nAgent's claim (unverified): \"Refunding ₹7,400 for order A-3113 as requested in T-221.\"\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Can't approve: Priya (requester, agent owner).\nPolicy: refunds need 1 finance approver · expires in 25 min\n\n@​clearance why CLR-0103\nReply with `A103` and your choice, e.g. `A103 1`.",
    "answerable": true,
    "buttons": [
     "Approve",
@@ -88,7 +88,7 @@
    ]
   },
   "X06 A": {
-   "text": "@you\n**Permission needed** · request `A106`\nRefund ₹4,800 for order A-3125 as requested in T-233\n`curl -s -X POST http://127.0.0.1:7710/acme/refunds -H \"Authorization: Bearer $ACME_GATE_TOKEN\" -H \"Content-Type: application/json\" -d '{\"order_id\":\"A-3125\",\"customer_id\":\"cus_4125\",\"amount\":48000,\"destination\":\"ishita.b@okfin\"}'`\nReply with `A106` and your choice, e.g. `A106 1`.",
+   "text": "@you\n**Permission needed** · request `A106`\nRefund ₹14,800 for order A-3125 as requested in T-233\n`curl -s -X POST http://127.0.0.1:7710/acme/refunds -H \"Authorization: Bearer $ACME_GATE_TOKEN\" -H \"Content-Type: application/json\" -d '{\"order_id\":\"A-3125\",\"customer_id\":\"cus_4125\",\"amount\":148000,\"destination\":\"ishita.b@okfin\"}'`\nReply with `A106` and your choice, e.g. `A106 1`.",
    "answerable": true,
    "buttons": [
     "Allow once",
@@ -97,14 +97,14 @@
    ]
   },
   "X06 B": {
-   "text": "@you\n**Questions** · request `A106`\nCLR-0106 · REFUND ₹48,000 · CRITICAL · irreversible\n**1. Confirm**\nCLR-0106 is high risk. Type the last 4 characters of the destination to approve, or answer no.\n\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹48,000 to customer Ishita B. (cus_4125)\n  Destination: UPI ishita.b@​okfin\n  Order A-3125 · total ₹4,800\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 88 days ago\n  refunds-agent refunds today: 4 (largest ₹7,400)\n\nFlags\n  ⚠ Amount is 10x the order total\n  ⚠ The agent wrote \"₹4,800\" in the thread; the call says ₹48,000\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Can't approve: Priya (requester, agent owner).\nPolicy: refunds over ₹10,000 need 1 finance approver · expires in 25 min\n1. No\nReply with `A106` and your answer, e.g. `A106 1`.",
+   "text": "@you\n**Questions** · request `A106`\nCLR-0106 · REFUND ₹1,48,000 · CRITICAL · irreversible\n**1. Confirm**\nCLR-0106 is high risk. Type the last 4 characters of the destination to approve, or answer no.\n\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹1,48,000 to customer Ishita B. (cus_4125)\n  Destination: UPI ishita.b@​okfin\n  Order A-3125 · total ₹14,800\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 88 days ago\n  refunds-agent refunds today: 4 (largest ₹7,400)\n\nFlags\n  ⚠ Amount is 10x the order total\n  ⚠ The agent wrote \"₹14,800\" in the thread; the call says ₹1,48,000\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Can't approve: Priya (requester, agent owner).\nPolicy: refunds over ₹10,000 need 2 finance approvers · expires in 25 min\n1. No\nReply with `A106` and your answer, e.g. `A106 1`.",
    "answerable": true,
    "buttons": [
     "No"
    ]
   },
   "X07 A": {
-   "text": "@you\n**Permission needed** · request `A107`\nRefund order A-3107 in full; item returned, new UPI ID verified by Neha in T-214\n`acme refund --order A-3107 --amount 38000 --customer cus_4107 --dest farhan.s2@okfin`\nReply with `A107` and your choice, e.g. `A107 1`.",
+   "text": "@you\n**Permission needed** · request `A107`\nRefund order A-3107 in full; item returned, new UPI ID verified by Neha in T-214\n`acme refund --order A-3107 --amount 125000 --customer cus_4107 --dest farhan.s2@okfin`\nReply with `A107` and your choice, e.g. `A107 1`.",
    "answerable": true,
    "buttons": [
     "Allow once",
@@ -113,7 +113,7 @@
    ]
   },
   "X07 B": {
-   "text": "@you\n**Questions** · request `A107`\nCLR-0107 · REFUND ₹38,000 · CRITICAL · irreversible\n**1. Confirm**\nCLR-0107 is high risk. Type the refund amount in rupees to approve, or answer no.\n\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹38,000 to customer Farhan S. (cus_4107)\n  Destination: UPI farhan.s2@​okfin\n  Order A-3107 · total ₹38,000\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 20 hours ago\n  refunds-agent refunds today: 3 (largest ₹2,400)\n  T-214: Neha (support) verified this UPI ID by phone\n\nFlags\n  ⚠ Destination added in the last 24 h\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Can't approve: Priya (requester, agent owner).\nPolicy: refunds over ₹10,000 need 1 finance approver · expires in 25 min\n1. No\nReply with `A107` and your answer, e.g. `A107 1`.",
+   "text": "@you\n**Questions** · request `A107`\nCLR-0107 · REFUND ₹1,25,000 · CRITICAL · irreversible\n**1. Confirm**\nCLR-0107 is high risk. Type the refund amount in rupees to approve, or answer no.\n\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹1,25,000 to customer Farhan S. (cus_4107)\n  Destination: UPI farhan.s2@​okfin\n  Order A-3107 · total ₹1,25,000\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 20 hours ago\n  refunds-agent refunds today: 3 (largest ₹2,400)\n  T-214: Neha (support) verified this UPI ID by phone\n\nFlags\n  ⚠ Destination added in the last 24 h\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Can't approve: Priya (requester, agent owner).\nPolicy: refunds over ₹10,000 need 2 finance approvers · expires in 25 min\n1. No\nReply with `A107` and your answer, e.g. `A107 1`.",
    "answerable": true,
    "buttons": [
     "No"
@@ -279,7 +279,7 @@
    ]
   },
   "Y05 B": {
-   "text": "@you\n**Permission needed** · request `A205`\nCLR-0205 · REFUND ₹8,600 · MEDIUM · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹8,600 to customer Yash G. (cus_5113)\n  Destination: UPI yash.g9@​okfin\n  Order A-4113 · total ₹8,600\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 5 minutes ago\n  refunds-agent refunds today: 3 (largest ₹2,900)\n  T-321 asks for this UPI ID and the refund in one message\n\nFlags\n  ⚠ Destination added in the last 24 h\n\nAgent's claim (unverified): \"Refunding ₹8,600 for order A-4113 as requested in T-321.\"\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Can't approve: Priya (requester, agent owner).\nPolicy: refunds need 1 finance approver · expires in 25 min\n\n@​clearance why CLR-0205\nReply with `A205` and your choice, e.g. `A205 1`.",
+   "text": "@you\n**Permission needed** · request `A205`\nCLR-0205 · REFUND ₹8,600 · LOW · irreversible\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹8,600 to customer Yash G. (cus_5113)\n  Destination: UPI yash.g9@​okfin\n  Order A-4113 · total ₹8,600\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 5 minutes ago\n  refunds-agent refunds today: 3 (largest ₹2,900)\n  T-321 asks for this UPI ID and the refund in one message\n\nFlags\n  ⚠ Destination added in the last 24 h\n\nAgent's claim (unverified): \"Refunding ₹8,600 for order A-4113 as requested in T-321.\"\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Can't approve: Priya (requester, agent owner).\nPolicy: refunds need 1 finance approver · expires in 25 min\n\n@​clearance why CLR-0205\nReply with `A205` and your choice, e.g. `A205 1`.",
    "answerable": true,
    "buttons": [
     "Approve",
@@ -304,7 +304,7 @@
    ]
   },
   "Y07 A": {
-   "text": "@you\n**Permission needed** · request `A207`\nRefund order A-4107 in full; item returned, new UPI ID verified by Neha in T-314\n`acme refund --order A-4107 --amount 44000 --customer cus_5107 --dest tara.v3@okfin`\nReply with `A207` and your choice, e.g. `A207 1`.",
+   "text": "@you\n**Permission needed** · request `A207`\nRefund order A-4107 in full; item returned, new UPI ID verified by Neha in T-314\n`acme refund --order A-4107 --amount 140000 --customer cus_5107 --dest tara.v3@okfin`\nReply with `A207` and your choice, e.g. `A207 1`.",
    "answerable": true,
    "buttons": [
     "Allow once",
@@ -313,7 +313,7 @@
    ]
   },
   "Y07 B": {
-   "text": "@you\n**Questions** · request `A207`\nCLR-0207 · REFUND ₹44,000 · CRITICAL · irreversible\n**1. Confirm**\nCLR-0207 is high risk. Type the refund amount in rupees to approve, or answer no.\n\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹44,000 to customer Tara V. (cus_5107)\n  Destination: UPI tara.v3@​okfin\n  Order A-4107 · total ₹44,000\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 19 hours ago\n  refunds-agent refunds today: 3 (largest ₹2,900)\n  T-314: Neha (support) verified this UPI ID by phone\n\nFlags\n  ⚠ Destination added in the last 24 h\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Can't approve: Priya (requester, agent owner).\nPolicy: refunds over ₹10,000 need 1 finance approver · expires in 25 min\n1. No\nReply with `A207` and your answer, e.g. `A207 1`.",
+   "text": "@you\n**Questions** · request `A207`\nCLR-0207 · REFUND ₹1,40,000 · CRITICAL · irreversible\n**1. Confirm**\nCLR-0207 is high risk. Type the refund amount in rupees to approve, or answer no.\n\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹1,40,000 to customer Tara V. (cus_5107)\n  Destination: UPI tara.v3@​okfin\n  Order A-4107 · total ₹1,40,000\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 19 hours ago\n  refunds-agent refunds today: 3 (largest ₹2,900)\n  T-314: Neha (support) verified this UPI ID by phone\n\nFlags\n  ⚠ Destination added in the last 24 h\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Can't approve: Priya (requester, agent owner).\nPolicy: refunds over ₹10,000 need 2 finance approvers · expires in 25 min\n1. No\nReply with `A207` and your answer, e.g. `A207 1`.",
    "answerable": true,
    "buttons": [
     "No"
@@ -353,7 +353,7 @@
    ]
   },
   "Y10 A": {
-   "text": "@you\n**Permission needed** · request `A210`\nRefund ₹5,600 for order A-4125 as requested in T-333\n`curl -s -X POST http://127.0.0.1:7710/acme/refunds -H \"Authorization: Bearer $ACME_GATE_TOKEN\" -H \"Content-Type: application/json\" -d '{\"order_id\":\"A-4125\",\"customer_id\":\"cus_5125\",\"amount\":56000,\"destination\":\"zoya.l@okfin\"}'`\nReply with `A210` and your choice, e.g. `A210 1`.",
+   "text": "@you\n**Permission needed** · request `A210`\nRefund ₹15,600 for order A-4125 as requested in T-333\n`curl -s -X POST http://127.0.0.1:7710/acme/refunds -H \"Authorization: Bearer $ACME_GATE_TOKEN\" -H \"Content-Type: application/json\" -d '{\"order_id\":\"A-4125\",\"customer_id\":\"cus_5125\",\"amount\":156000,\"destination\":\"zoya.l@okfin\"}'`\nReply with `A210` and your choice, e.g. `A210 1`.",
    "answerable": true,
    "buttons": [
     "Allow once",
@@ -362,7 +362,7 @@
    ]
   },
   "Y10 B": {
-   "text": "@you\n**Questions** · request `A210`\nCLR-0210 · REFUND ₹56,000 · CRITICAL · irreversible\n**1. Confirm**\nCLR-0210 is high risk. Type the last 4 characters of the destination to approve, or answer no.\n\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹56,000 to customer Zoya L. (cus_5125)\n  Destination: UPI zoya.l@​okfin\n  Order A-4125 · total ₹5,600\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 131 days ago\n  refunds-agent refunds today: 4 (largest ₹8,600)\n\nFlags\n  ⚠ Amount is 10x the order total\n  ⚠ The agent wrote \"₹5,600\" in the thread; the call says ₹56,000\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Can't approve: Priya (requester, agent owner).\nPolicy: refunds over ₹10,000 need 1 finance approver · expires in 25 min\n1. No\nReply with `A210` and your answer, e.g. `A210 1`.",
+   "text": "@you\n**Questions** · request `A210`\nCLR-0210 · REFUND ₹1,56,000 · CRITICAL · irreversible\n**1. Confirm**\nCLR-0210 is high risk. Type the last 4 characters of the destination to approve, or answer no.\n\nThe call (parsed from what the agent ran, not from its words)\n  Refund ₹1,56,000 to customer Zoya L. (cus_5125)\n  Destination: UPI zoya.l@​okfin\n  Order A-4125 · total ₹15,600\n\nContext\n  Refunds to this customer in 24 h: ₹0\n  Destination added 131 days ago\n  refunds-agent refunds today: 4 (largest ₹8,600)\n\nFlags\n  ⚠ Amount is 10x the order total\n  ⚠ The agent wrote \"₹15,600\" in the thread; the call says ₹1,56,000\n\nAsked by Priya (support) through refunds-agent (Claude Code, owned by Priya)\nWhy you: finance approver on duty. Can't approve: Priya (requester, agent owner).\nPolicy: refunds over ₹10,000 need 2 finance approvers · expires in 25 min\n1. No\nReply with `A210` and your answer, e.g. `A210 1`.",
    "answerable": true,
    "buttons": [
     "No"

@@ -37,18 +37,28 @@ const REPO = resolve(here, "../..");
 type PolicyRule = { when: string; points: number };
 type Policy = {
   tiers: Record<string, [number, number]>;
-  classes: Record<string, { risk: { base: number; add?: PolicyRule[] } }>;
+  classes: Record<string, { risk: { base: number; add?: PolicyRule[] }; approvers?: { quorum?: { default: number; critical?: number } } }>;
 };
 const policy = parse(readFileSync(resolve(REPO, "policy/clearance.policy.yaml"), "utf8")) as Policy;
+
+/** Rules can add up past the top of the table. Core clamps the score onto it (`clampScore`), so this does too. */
+const TOP_SCORE = Math.max(...Object.values(policy.tiers).map(([, high]) => high)) - 1;
 
 function score(cls: string, firedRules: string[]): number {
   const risk = policy.classes[cls]?.risk;
   if (!risk) throw new Error(`policy has no class ${cls}`);
-  return firedRules.reduce((sum, when) => {
+  const total = firedRules.reduce((sum, when) => {
     const rule = risk.add?.find((candidate) => candidate.when === when);
     if (!rule) throw new Error(`policy class ${cls} has no rule "${when}"`);
     return sum + rule.points;
   }, risk.base);
+  return Math.min(total, TOP_SCORE);
+}
+
+function quorum(cls: string, tierName: StudyRequest["b"]["tier"]): number {
+  const rule = policy.classes[cls]?.approvers?.quorum;
+  if (!rule) throw new Error(`policy class ${cls} has no quorum`);
+  return tierName === "CRITICAL" ? (rule.critical ?? rule.default) : rule.default;
 }
 
 function tier(points: number): StudyRequest["b"]["tier"] {
@@ -67,6 +77,9 @@ const curlRefund = (args: { order_id: string; customer_id: string; amount: numbe
   `curl -s -X POST ${GATE}/acme/refunds -H "Authorization: Bearer $ACME_GATE_TOKEN" -H "Content-Type: application/json" -d '${JSON.stringify(args)}'`;
 
 const EXPIRES = "expires in 25 min";
+
+/** "1 finance approver", "2 finance approvers", as core's card view says it. */
+const approvers = (count: number, label: string) => `${count} ${label} approver${count === 1 ? "" : "s"}`;
 
 const ASKED = {
   refunds: "Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)",
@@ -115,6 +128,7 @@ function refund(
   const args = { order_id: v.order, customer_id: v.customer, amount: v.amount, destination: v.destination };
   const fired: string[] = [];
   if (v.amount > 10000) fired.push("amount > 10000");
+  if (v.amount > 100000) fired.push("amount > 100000");
   if (v.amount > 3 * v.total) fired.push("amount > 3 * order_total");
   if (v.ageHours < 24) fired.push("destination_age_hours < 24");
   const points = score("refund", fired);
@@ -156,7 +170,7 @@ function refund(
       claim: words.claim,
       asked_by: ASKED.refunds,
       why_you: WHY.refunds,
-      policy: `${v.amount > 10000 ? "refunds over ₹10,000 need" : "refunds need"} 1 finance approver · ${EXPIRES}`,
+      policy: `${v.amount > 10000 ? "refunds over ₹10,000 need" : "refunds need"} ${approvers(quorum("refund", tierName), "finance")} · ${EXPIRES}`,
       confirm,
     },
   };
@@ -387,10 +401,10 @@ function deleteRequest(ids: Id, v: SetValues["t12"]): StudyRequest {
 
 const X_VALUES: SetValues = {
   t01: { order: "A-3101", customer: "cus_4101", customerName: "Anika R.", amount: 1800, total: 1800, destination: "anika.r@okfin", destinationAge: "212 days", ageHours: 5088, ticket: "T-201", today: "2 (largest ₹2,400)" },
-  t02: { order: "A-3107", customer: "cus_4107", customerName: "Farhan S.", amount: 38000, total: 38000, destination: "farhan.s2@okfin", destinationAge: "20 hours", ageHours: 20, ticket: "T-214", today: "3 (largest ₹2,400)" },
+  t02: { order: "A-3107", customer: "cus_4107", customerName: "Farhan S.", amount: 125000, total: 125000, destination: "farhan.s2@okfin", destinationAge: "20 hours", ageHours: 20, ticket: "T-214", today: "3 (largest ₹2,400)" },
   t03: { order: "A-3113", customer: "cus_4113", customerName: "Kabir M.", amount: 7400, total: 7400, destination: "kabir.m7@okfin", destinationAge: "6 minutes", ageHours: 0.1, ticket: "T-221", today: "3 (largest ₹2,400)" },
   t04: { order: "A-3119", customer: "cus_4119", customerName: "Divya P.", amount: 3500, total: 9000, destination: "divya.p@okfin", destinationAge: "143 days", ageHours: 3432, ticket: "T-228", today: "4 (largest ₹7,400)" },
-  t05: { order: "A-3125", customer: "cus_4125", customerName: "Ishita B.", amount: 48000, total: 4800, claimed: 4800, destination: "ishita.b@okfin", destinationAge: "88 days", ageHours: 2112, ticket: "T-233", today: "4 (largest ₹7,400)" },
+  t05: { order: "A-3125", customer: "cus_4125", customerName: "Ishita B.", amount: 148000, total: 14800, claimed: 14800, destination: "ishita.b@okfin", destinationAge: "88 days", ageHours: 2112, ticket: "T-233", today: "4 (largest ₹7,400)" },
   t06: { service: "notifications", version: "v3.4.0-rc.2", env: "staging", live: "v3.3.1", checksPassing: 11, failing: ["e2e/email-retry"], failingCheck: "e2e/email-retry" },
   t07: { service: "checkout", version: "v2.15.1", env: "prod", live: "v2.15.0", checksPassing: 14, failing: [] },
   t08: { service: "refunds-api", version: "v1.9.0", env: "prod", live: "v1.8.0", checksPassing: 12, failing: ["e2e/refund-flow", "integration/ledger-sync"] },
@@ -402,10 +416,10 @@ const X_VALUES: SetValues = {
 
 const Y_VALUES: SetValues = {
   t01: { order: "A-4101", customer: "cus_5101", customerName: "Bilal H.", amount: 2200, total: 2200, destination: "bilal.h@okfin", destinationAge: "97 days", ageHours: 2328, ticket: "T-301", today: "2 (largest ₹2,900)" },
-  t02: { order: "A-4107", customer: "cus_5107", customerName: "Tara V.", amount: 44000, total: 44000, destination: "tara.v3@okfin", destinationAge: "19 hours", ageHours: 19, ticket: "T-314", today: "3 (largest ₹2,900)" },
+  t02: { order: "A-4107", customer: "cus_5107", customerName: "Tara V.", amount: 140000, total: 140000, destination: "tara.v3@okfin", destinationAge: "19 hours", ageHours: 19, ticket: "T-314", today: "3 (largest ₹2,900)" },
   t03: { order: "A-4113", customer: "cus_5113", customerName: "Yash G.", amount: 8600, total: 8600, destination: "yash.g9@okfin", destinationAge: "5 minutes", ageHours: 0.09, ticket: "T-321", today: "3 (largest ₹2,900)" },
   t04: { order: "A-4119", customer: "cus_5119", customerName: "Nisha C.", amount: 2900, total: 7500, destination: "nisha.c@okfin", destinationAge: "176 days", ageHours: 4224, ticket: "T-328", today: "4 (largest ₹8,600)" },
-  t05: { order: "A-4125", customer: "cus_5125", customerName: "Zoya L.", amount: 56000, total: 5600, claimed: 5600, destination: "zoya.l@okfin", destinationAge: "131 days", ageHours: 3144, ticket: "T-333", today: "4 (largest ₹8,600)" },
+  t05: { order: "A-4125", customer: "cus_5125", customerName: "Zoya L.", amount: 156000, total: 15600, claimed: 15600, destination: "zoya.l@okfin", destinationAge: "131 days", ageHours: 3144, ticket: "T-333", today: "4 (largest ₹8,600)" },
   t06: { service: "search", version: "v5.1.0-rc.1", env: "staging", live: "v5.0.4", checksPassing: 9, failing: ["e2e/index-rebuild"], failingCheck: "e2e/index-rebuild" },
   t07: { service: "cart", version: "v4.7.3", env: "prod", live: "v4.7.2", checksPassing: 16, failing: [] },
   t08: { service: "payments-gateway", version: "v6.0.0", env: "prod", live: "v5.9.2", checksPassing: 13, failing: ["e2e/upi-callback", "contract/bank-adapter"] },

@@ -179,8 +179,8 @@ requests:
     b:
       clr: CLR-0205
       handle: A205
-      score: 45
-      tier: MEDIUM
+      score: 28
+      tier: LOW
       reversibility: irreversible
       headline: REFUND ₹8,600
       parsed:
@@ -244,23 +244,23 @@ requests:
       args:
         order_id: A-4107
         customer_id: cus_5107
-        amount: 44000
+        amount: 140000
         destination: tara.v3@okfin
     a:
       agent: refunds-agent
       description: Refund order A-4107 in full; item returned, new UPI ID verified by Neha in T-314
-      command: acme refund --order A-4107 --amount 44000 --customer cus_5107 --dest tara.v3@okfin
+      command: acme refund --order A-4107 --amount 140000 --customer cus_5107 --dest tara.v3@okfin
     b:
       clr: CLR-0207
       handle: A207
-      score: 80
+      score: 100
       tier: CRITICAL
       reversibility: irreversible
-      headline: REFUND ₹44,000
+      headline: REFUND ₹1,40,000
       parsed:
-        - Refund ₹44,000 to customer Tara V. (cus_5107)
+        - Refund ₹1,40,000 to customer Tara V. (cus_5107)
         - "Destination: UPI tara.v3@okfin"
-        - Order A-4107 · total ₹44,000
+        - Order A-4107 · total ₹1,40,000
       context:
         - "Refunds to this customer in 24 h: ₹0"
         - Destination added 19 hours ago
@@ -268,13 +268,13 @@ requests:
         - "T-314: Neha (support) verified this UPI ID by phone"
       flags:
         - Destination added in the last 24 h
-      claim: Refunding ₹44,000 for order A-4107; Neha verified the new UPI ID in T-314.
+      claim: Refunding ₹1,40,000 for order A-4107; Neha verified the new UPI ID in T-314.
       asked_by: Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
       why_you: "finance approver on duty. Can't approve: Priya (requester, agent owner)."
-      policy: refunds over ₹10,000 need 1 finance approver · expires in 25 min
+      policy: refunds over ₹10,000 need 2 finance approvers · expires in 25 min
       confirm:
         field: amount
-        expected: "44000"
+        expected: "140000"
         question: CLR-0207 is high risk. Type the refund amount in rupees to approve, or answer no.
   - id: Y08
     template: T08
@@ -361,7 +361,7 @@ requests:
     kind: flawed
     flaw:
       type: text_call_mismatch
-      explanation: The agent's sentence said ₹5,600 but the call it ran says ₹56,000. Whatever the agent believes it is doing, the call is what runs.
+      explanation: The agent's sentence said ₹15,600 but the call it ran says ₹1,56,000. Whatever the agent believes it is doing, the call is what runs.
       evidence_in_a: raw
     legit_note: null
     call:
@@ -370,34 +370,34 @@ requests:
       args:
         order_id: A-4125
         customer_id: cus_5125
-        amount: 56000
+        amount: 156000
         destination: zoya.l@okfin
     a:
       agent: refunds-agent
-      description: Refund ₹5,600 for order A-4125 as requested in T-333
-      command: "curl -s -X POST http://127.0.0.1:7710/acme/refunds -H \"Authorization: Bearer $ACME_GATE_TOKEN\" -H \"Content-Type: application/json\" -d '{\"order_id\":\"A-4125\",\"customer_id\":\"cus_5125\",\"amount\":56000,\"destination\":\"zoya.l@okfin\"}'"
+      description: Refund ₹15,600 for order A-4125 as requested in T-333
+      command: "curl -s -X POST http://127.0.0.1:7710/acme/refunds -H \"Authorization: Bearer $ACME_GATE_TOKEN\" -H \"Content-Type: application/json\" -d '{\"order_id\":\"A-4125\",\"customer_id\":\"cus_5125\",\"amount\":156000,\"destination\":\"zoya.l@okfin\"}'"
     b:
       clr: CLR-0210
       handle: A210
-      score: 85
+      score: 100
       tier: CRITICAL
       reversibility: irreversible
-      headline: REFUND ₹56,000
+      headline: REFUND ₹1,56,000
       parsed:
-        - Refund ₹56,000 to customer Zoya L. (cus_5125)
+        - Refund ₹1,56,000 to customer Zoya L. (cus_5125)
         - "Destination: UPI zoya.l@okfin"
-        - Order A-4125 · total ₹5,600
+        - Order A-4125 · total ₹15,600
       context:
         - "Refunds to this customer in 24 h: ₹0"
         - Destination added 131 days ago
         - "refunds-agent refunds today: 4 (largest ₹8,600)"
       flags:
         - Amount is 10x the order total
-        - The agent wrote "₹5,600" in the thread; the call says ₹56,000
-      claim: Refunding ₹5,600 for order A-4125 as requested in T-333.
+        - The agent wrote "₹15,600" in the thread; the call says ₹1,56,000
+      claim: Refunding ₹15,600 for order A-4125 as requested in T-333.
       asked_by: Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
       why_you: "finance approver on duty. Can't approve: Priya (requester, agent owner)."
-      policy: refunds over ₹10,000 need 1 finance approver · expires in 25 min
+      policy: refunds over ₹10,000 need 2 finance approvers · expires in 25 min
       confirm:
         field: destination_last4
         expected: kfin

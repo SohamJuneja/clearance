@@ -1,6 +1,7 @@
 /** F6: card text is a pure function, content order is fixed, and copy matches Appendix D. */
-import type { Action } from "@clearance/contracts";
+import type { Action, OpenCardInput } from "@clearance/contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { oneLine } from "../src/format.js";
 import { DETAIL_BUDGET, PROMPT_BUDGET, renderCard, renderedCost, renderPrompt, type CardView } from "../src/cards/render.js";
 import {
   actionId,
@@ -42,6 +43,16 @@ const APPENDIX_VIEW: CardView = {
   policyLine: "refunds over ₹10,000 need 1 finance approver",
   expires: "15:42 IST",
 };
+
+describe("oneLine", () => {
+  it("never prints an object", () => {
+    expect(oneLine({ state: "passing" })).toBe("unknown");
+    expect(oneLine(["a"])).toBe("unknown");
+    expect(oneLine(null)).toBe("");
+    expect(oneLine(12)).toBe("12");
+    expect(oneLine("a\nb")).toBe("a b");
+  });
+});
 
 describe("renderCard", () => {
   it("renders the Appendix D card exactly", () => {
@@ -129,6 +140,21 @@ Policy: refunds over ₹10,000 need 1 finance approver · expires 15:42 IST
       return { ...APPENDIX_VIEW, claim: fill.repeat(target - base + 1) };
     };
 
+    it("is safe with or without a mention: Mattermost measured 998 with one, 966 without", () => {
+      expect(DETAIL_BUDGET).toBe(960);
+      const { detail } = renderCard(viewCosting(966));
+      expect(renderedCost(detail)).toBeLessThanOrEqual(966);
+      expect(detail).not.toContain("Agent's claim");
+    });
+
+    it("counts each ] twice as well: Switch adds a zero-width space after it", () => {
+      expect(renderedCost("a]b")).toBe(4);
+      expect(renderedCost("@]")).toBe(4);
+      const atBudget = viewCosting(DETAIL_BUDGET);
+      const claim = (atBudget.claim as string).replace("x", "]");
+      expect(renderCard({ ...atBudget, claim }).detail).not.toContain("Agent's claim");
+    });
+
     it("fits the Appendix D example whole", () => {
       const { detail } = renderCard(APPENDIX_VIEW);
       expect(renderedCost(detail)).toBeLessThanOrEqual(DETAIL_BUDGET);
@@ -205,7 +231,7 @@ Policy: refunds over ₹10,000 need 1 finance approver · expires 15:42 IST
   });
 
   describe("a question card's prompt", () => {
-    const ask = "CLR-0042 is high risk. Type the refund amount in rupees to approve, or answer no.";
+    const ask = 'CLR-0042 is high risk. Type the refund amount in rupees to approve: <handle> "40000". Or choose No.';
     const base = { ...APPENDIX_VIEW, claim: undefined };
     const costWithClaim = (length: number) =>
       renderedCost(renderPrompt({ ...base, context: [], claim: "x".repeat(length) }, ask));
@@ -237,6 +263,13 @@ Policy: refunds over ₹10,000 need 1 finance approver · expires 15:42 IST
       expect(prompt).toContain(ask);
     });
   });
+});
+
+/** A typed card carries its evidence in the question's prompt. */
+const snapshotOf = (card: OpenCardInput) => ({
+  roomId: card.roomId,
+  title: card.title,
+  ...(card.kind === "questions" ? { prompt: card.questions[0]?.prompt } : { detail: card.detail }),
 });
 
 describe("cards from real calls: snapshots across fixture calls", () => {
@@ -313,7 +346,18 @@ describe("cards from real calls: snapshots across fixture calls", () => {
     {
       name: "protected call with no rule",
       asker: PARTICIPANTS.priya,
+      action: () => gate("POST /acme/admin/flush", { everything: true }, "refunds-agent"),
+    },
+    {
+      name: "payout destination change",
+      asker: PARTICIPANTS.priya,
       action: () => gate("POST /acme/payouts/destinations", { customer_id: "cus_8812", upi: "new@oksbi" }, "refunds-agent"),
+    },
+    {
+      name: "prod rollback",
+      asker: PARTICIPANTS.priya,
+      agent: "ops-agent",
+      action: () => gate("POST /acme/rollbacks", { service: "checkout", env: "prod" }, "ops-agent"),
     },
     {
       name: "nobody known to have asked",
@@ -327,7 +371,7 @@ describe("cards from real calls: snapshots across fixture calls", () => {
     h = makeHarness({ teamPath: TEAM_ALEX_ONLY_PATH });
     await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@coder please do this"));
     await h.core.check(hookShell("git push --force origin main", { session: { switchRoomId: "#eng", threadId: "t-2" } }));
-    expect(h.chat.cards.map(({ roomId, title, detail }) => ({ roomId, title, detail }))).toMatchSnapshot();
+    expect(h.chat.cards.map(snapshotOf)).toMatchSnapshot();
   });
 
   it("has at least ten fixtures", () => {
@@ -348,6 +392,6 @@ describe("cards from real calls: snapshots across fixture calls", () => {
       expect(card.title.length).toBeLessThanOrEqual(500);
       expect(renderedCost(card.detail)).toBeLessThanOrEqual(DETAIL_BUDGET);
     }
-    expect(h.chat.cards.map(({ roomId, title, detail }) => ({ roomId, title, detail }))).toMatchSnapshot();
+    expect(h.chat.cards.map(snapshotOf)).toMatchSnapshot();
   });
 });

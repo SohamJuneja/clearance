@@ -138,6 +138,33 @@ function describeDelete(input: DescribeInput): CallDescription {
   return { headline: `DELETE ${record}`, call: [`Delete ${record}`], context: [] };
 }
 
+function describePayoutChange(input: DescribeInput): CallDescription {
+  const { extracted: fields } = input;
+  const shell = fromShell(input);
+  if (shell) return { headline: "PAYOUT CHANGE", call: shell, context: [] };
+  const customer = oneLine(fields.customer ?? "unknown");
+  const who = present(fields.customer_name) ? `${oneLine(fields.customer_name)} (${customer})` : customer;
+  const upi = oneLine(fields.upi ?? "unknown");
+  return {
+    headline: `PAYOUT CHANGE ${customer}`,
+    call: [`Change the payout destination of customer ${who}`, `New destination: UPI ${upi}`],
+    context: [],
+  };
+}
+
+function describeRollback(input: DescribeInput): CallDescription {
+  const { extracted: fields } = input;
+  if (!present(fields.service)) {
+    return { headline: "ROLLBACK", call: fromShell(input) ?? [`Call: ${oneLine(input.call.target)}`], context: [] };
+  }
+  const service = oneLine(fields.service);
+  const env = oneLine(fields.env ?? "unknown environment");
+  const context: string[] = [];
+  if (input.serviceOwner) context.push(`Service owner: ${input.serviceOwner}`);
+  if (present(fields.live_version)) context.push(`Live now: ${oneLine(fields.live_version)}`);
+  return { headline: `ROLLBACK ${service} ${env}`, call: [`Roll back ${service} in ${env}`], context };
+}
+
 function describeGeneric(input: DescribeInput): CallDescription {
   const headline =
     input.cls === "unknown_protected"
@@ -163,8 +190,12 @@ function describeByClass(input: DescribeInput): CallDescription {
   switch (input.cls) {
     case "refund":
       return describeRefund(input);
+    case "payout_change":
+      return describePayoutChange(input);
     case "deploy":
       return describeDeploy(input);
+    case "rollback":
+      return describeRollback(input);
     case "merge":
       return describeMerge(input);
     case "customer_email":

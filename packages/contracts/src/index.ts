@@ -68,6 +68,8 @@ export const CheckResponseSchema = z.object({
   flags: z.array(FlagSchema).optional(),
   /** True when a valid single-use grant was consumed by this allow. */
   grant_consumed: z.boolean().optional(),
+  /** Only under `mode: shadow`: what enforcement would have answered. `decision` is what actually applies. */
+  would_decide: DecisionSchema.optional(),
 });
 export type CheckResponse = z.infer<typeof CheckResponseSchema>;
 
@@ -85,6 +87,8 @@ export const RequestStateSchema = z.enum([
   "GRANTED",
   "CONSUMED",
   "VOIDED",
+  /** Ran under earned autonomy (L2, L3): nobody was asked first. The gate or the hook runs it on the allow. */
+  "AUTO",
 ]);
 export type RequestState = z.infer<typeof RequestStateSchema>;
 
@@ -103,7 +107,11 @@ export const LedgerEntryTypeSchema = z.enum([
   "drill_result",
   "promotion_proposed",
   "promotion_signed",
+  "promotion_rejected",
+  "policy_proposed",
+  "policy_rejected",
   "demoted",
+  "incident",
   "policy_loaded",
   "break_glass",
   "cancelled",

@@ -762,7 +762,7 @@ export const CASES: AuthorityCase[] = [
       const hashBefore = (await world.coreGet("/v1/health")).json.policy_hash;
       const proposal = await world.corePost("/v1/policy/propose", {
         proposed_by: "alex",
-        patch: { policy_change_quorum: 2 },
+        patch: { defaults: { request_ttl: "30m" } },
         reason: "E1 case 25",
       });
       if (
@@ -782,6 +782,12 @@ export const CASES: AuthorityCase[] = [
       await world.answer(cards[0] as NonNullable<(typeof cards)[0]>, "sam", "allow");
       const hashAfterOne = (await world.coreGet("/v1/health")).json.policy_hash;
       findings.bad("the policy changed on one approval", hashAfterOne !== hashBefore);
+      // Alex proposed it, so the second signature can't be Alex's. If two can't change it, there's no control here.
+      const second = cards.find((card) => card.roomId === "dm-neha");
+      findings.require("the second card went to someone other than the proposer", second !== undefined);
+      await world.answer(second as NonNullable<typeof second>, "neha", "allow");
+      const hashAfterTwo = (await world.coreGet("/v1/health")).json.policy_hash;
+      findings.control("two signatures really change the policy", hashAfterTwo !== hashBefore);
     },
   },
 ];

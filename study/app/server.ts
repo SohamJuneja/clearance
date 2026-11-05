@@ -193,7 +193,7 @@ export function createLabServer(options: LabOptions): Server {
     if (outcome.kind === "invalid") throw new HttpError(400, outcome.reason);
     if (outcome.kind === "reask") {
       record(participant, { type: "confirm_wrong", request_id: body.request_id });
-      return { step: stateFor(participant), notice: "That doesn't match the card. Try once more, or answer no." };
+      return { step: stateFor(participant), notice: "That doesn't match the card. Try once more, or choose No." };
     }
 
     record(participant, answerRecord(group, step, located, outcome, { ms: body.ms, interrupted: body.interrupted }, body.typed !== undefined));

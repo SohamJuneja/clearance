@@ -65,6 +65,14 @@ cases:
     cls: deploy
     extracted: { service: checkout, env: prod, version: v2.14.0 }
     said: ["Deploying checkout v2.14.0 to prod."]
+  - name: a release candidate read in full
+    cls: deploy
+    extracted: { service: checkout, env: prod, version: v3.4.0-rc.2 }
+    said: ["Deploying checkout v3.4.0-rc.2 to prod."]
+  - name: a version at the end of a sentence
+    cls: deploy
+    extracted: { service: checkout, env: prod, version: v3.4.0-rc.2 }
+    said: ["To prod, deploying checkout v3.4.0-rc.2."]
   - name: production is prod
     cls: deploy
     extracted: { service: checkout, env: prod, version: v2.14.0 }
@@ -93,6 +101,14 @@ cases:
     cls: customer_email
     extracted: { to: meera@example.in, domain: example.in }
     said: ["Sending the reply to MEERA@example.in."]
+  - name: the right payout address
+    cls: payout_change
+    extracted: { customer: cus_8812, upi: new@oksbi }
+    said: ["Changing the payout destination to new@oksbi."]
+  - name: the right rollback
+    cls: rollback
+    extracted: { service: checkout, env: prod }
+    said: ["Rolling back checkout in production."]
   - name: the right record
     cls: delete
     target: "DELETE /acme/records/customers/cus_8812"

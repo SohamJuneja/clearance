@@ -41,7 +41,7 @@ Tick a box only when tests or a run prove it. Acceptance text is copied from PLA
 - **F6 Evidence card** (switchboard + brain; P0 card, P1 mismatch and context)
   - [x] Snapshot tests for card text across 10 fixture calls.
   - [x] Mismatch detector fixtures: 20 positive, 20 negative, 0 false flags on the negatives.
-  - [ ] Type-to-confirm rejects a wrong value and re-asks once.
+  - [x] Type-to-confirm rejects a wrong value and re-asks once.
 - **F8 Ledger** (brain; P0 table, P1 mirror and verify)
   - [x] Tampering with one row makes verify fail at that row (test).
   - [ ] `!list-documents` in `#approvals` shows today's ledger document.
@@ -56,16 +56,16 @@ Tick a box only when tests or a run prove it. Acceptance text is copied from PLA
   - [ ] Two requests from two rooms appear in one approver's inbox within 2 seconds of being held.
   - [ ] Answering from the inbox handle settles the original request.
 - **F9 Approval drills** (brain)
-  - [ ] A drill and a real request render identically apart from content (snapshot diff only in values).
-  - [ ] Approving a drill calls nothing on the gate (test with a spy).
+  - [x] A drill and a real request render identically apart from content (snapshot diff only in values).
+  - [x] Approving a drill calls nothing on the gate (test with a spy).
   - [ ] Drill catch rate per approver in the Desk.
 - **F10 Rubber-stamp detection and friction** (brain)
-  - [ ] Unit tests for each signal.
+  - [x] Unit tests for each signal.
   - [ ] In the demo, a 1.8 s approval of a drill produces the private note and the next card asks for a typed amount.
 - **F11 Earned autonomy** (brain)
-  - [ ] Seeded 7-day history (clearly labelled synthetic) yields exactly one proposal.
-  - [ ] Replay numbers come from `pnpm eval:autonomy`.
-  - [ ] One incident demotes and the next refund in the bucket is held again.
+  - [x] Seeded 7-day history (clearly labelled synthetic) yields exactly one proposal.
+  - [x] Replay numbers come from `pnpm eval:autonomy`.
+  - [x] One incident demotes and the next refund in the bucket is held again.
 - **F12 Clearance Desk** (world-ui)
   - [x] Loads in under 1 s locally.
   - [x] Every number on the Desk matches the API.
@@ -78,13 +78,13 @@ Tick a box only when tests or a run prove it. Acceptance text is copied from PLA
 
 ### P2: after P0 and P1 are green
 
-- [ ] **F16** Shadow mode and policy simulator (brain)
-- [ ] **F17** Policy changes need two approvers (brain)
-- [ ] **F18** Break-glass with named emergency approvers (brain)
-- [ ] **F19** Delegation, away mode, quiet hours (brain)
+- [x] **F16** Shadow mode and policy simulator (brain)
+- [x] **F17** Policy changes need two approvers (brain)
+- [x] **F18** Break-glass with named emergency approvers (brain)
+- [x] **F19** Delegation, away mode, quiet hours (brain)
 - [ ] **F20** Approve with edits (gate-hooks + brain)
 - [ ] **F21** Switch Trust endpoint that flags pressure messages (switchboard)
-- [ ] **F22** Daily digest and audit export (brain)
+- [x] **F22** Daily digest and audit export (brain)
 
 ## Scenarios (PLAN 8.7): each must run on Mattermost via `pnpm demo:run SCn`
 
@@ -110,7 +110,7 @@ Tick a box only when tests or a run prove it. Acceptance text is copied from PLA
 - [ ] **E3** (proof, brain) Quiet on safe work and recall, held-out split at Fri 20:00. `pnpm eval:classifier`.
 - [ ] **E4** (proof) Latency 1,000 calls each; 2 h soak; three chaos restarts. `pnpm eval:latency`, `pnpm eval:soak`.
 - [ ] **E5** (world-ui, proof) Human study, Switch card vs Clearance card. `pnpm eval:study`.
-- [ ] **E6** (brain) Earned autonomy, labelled synthetic week. `pnpm eval:autonomy`.
+- [x] **E6** (brain) Earned autonomy, labelled synthetic week. `pnpm eval:autonomy`.
 - [ ] **Report** (proof) `pnpm eval:report` writes RESULTS.md, including a negative result.
 
 ## Deliverables

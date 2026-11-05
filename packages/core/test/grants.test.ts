@@ -413,19 +413,20 @@ describe("policy hot reload", () => {
   });
 
   describe("with a policy file that changes", () => {
-    const original = readFileSync(POLICY_PATH, "utf8");
+    const unsigned = readFileSync(POLICY_PATH, "utf8").replace("policy_change_quorum: 2\n", "");
     let copy: string;
 
     beforeEach(() => {
       h.core.close();
       copy = join(mkdtempSync(join(tmpdir(), "clearance-reload-")), "policy.yaml");
-      writeFileSync(copy, original);
+      // No quorum, so an edit applies at once. With one, an edit waits for two signatures: oversight.test.ts.
+      writeFileSync(copy, unsigned);
       h = makeHarness({ policyPath: copy });
     });
 
     it("reloads on tick and records the new hash", async () => {
       const before = h.core.policy().hash;
-      writeFileSync(copy, original.replace("base: 70", "base: 75"));
+      writeFileSync(copy, unsigned.replace("base: 70", "base: 75"));
       await h.core.tick();
       const after = h.core.policy().hash;
       expect(after).not.toBe(before);
@@ -435,19 +436,19 @@ describe("policy hot reload", () => {
 
     it("applies the new rules to the next call", async () => {
       expect((await h.core.check(hookShell("rm -rf /"))).score).toBe(70);
-      writeFileSync(copy, original.replace("base: 70", "base: 75"));
+      writeFileSync(copy, unsigned.replace("base: 70", "base: 75"));
       await h.core.tick();
       expect((await h.core.check(hookShell("rm -rf ~/x"))).score).toBe(75);
     });
 
     it("keeps the last good policy when the new file is bad", async () => {
       const before = h.core.policy().hash;
-      writeFileSync(copy, original.replace("base: 70", 'base: "lots"'));
+      writeFileSync(copy, unsigned.replace("base: 70", 'base: "lots"'));
       await h.core.tick();
       expect(h.core.policy().hash).toBe(before);
       expect(h.core.lastPolicyError()).toMatch(/risk\.base/);
       expect(h.core.stores.ledger.list().filter((row) => row.type === "policy_loaded")).toHaveLength(1);
-      writeFileSync(copy, original);
+      writeFileSync(copy, unsigned);
       await h.core.tick();
       expect(h.core.lastPolicyError()).toBeNull();
     });

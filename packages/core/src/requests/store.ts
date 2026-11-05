@@ -11,7 +11,7 @@ export const TRANSITIONS: Record<RequestState, RequestState[]> = {
   HELD: ["ROUTED", "EXPIRED", "CANCELLED"],
   ROUTED: ["APPROVED", "DENIED", "EXPIRED", "CANCELLED", "BREAK_GLASS"],
   APPROVED: ["EXECUTED", "GRANTED", "VOIDED"],
-  BREAK_GLASS: ["EXECUTED", "GRANTED"],
+  BREAK_GLASS: ["EXECUTED", "GRANTED", "VOIDED"],
   GRANTED: ["CONSUMED", "VOIDED"],
   DENIED: [],
   EXPIRED: [],
@@ -19,6 +19,7 @@ export const TRANSITIONS: Record<RequestState, RequestState[]> = {
   EXECUTED: [],
   CONSUMED: [],
   VOIDED: [],
+  AUTO: [],
 };
 
 const DECIDED: RequestState[] = ["APPROVED", "DENIED", "EXPIRED", "CANCELLED", "BREAK_GLASS"];
@@ -33,6 +34,8 @@ export class IllegalTransition extends Error {
 }
 
 export type NewRequest = {
+  /** Created decided: earned autonomy ran it, so it never was held. */
+  auto?: { level: string; bucket: string };
   actionId: string;
   source: Action["source"];
   vendor: Action["vendor"];
@@ -54,7 +57,7 @@ export type NewRequest = {
   isDrill?: boolean;
 };
 
-export type RequestRecord = Required<Omit<NewRequest, "isDrill">> & {
+export type RequestRecord = Required<Omit<NewRequest, "isDrill" | "auto">> & {
   id: string;
   state: RequestState;
   isDrill: boolean;
@@ -145,7 +148,7 @@ export class RequestStore {
         .prepare(
           `INSERT INTO requests (id, action_id, source, vendor, agent, call_hash, class, target, call, tier, score, state,
              requester_ids, agent_owner_id, origin_room, origin_thread, evidence, flags, quorum_required, created_at, expires_at, is_drill)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'HELD', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .run(
           id,
@@ -159,6 +162,7 @@ export class RequestStore {
           JSON.stringify(input.call),
           input.tier,
           input.score,
+          input.auto ? "AUTO" : "HELD",
           JSON.stringify(input.requesterIds),
           input.agentOwnerId,
           input.originRoom,
@@ -170,6 +174,30 @@ export class RequestStore {
           input.expiresAtMs,
           input.isDrill ? 1 : 0,
         );
+      if (input.isDrill) {
+        // A drill says nothing here that would tell a reader of the ledger what its flaw is.
+        this.ledger.append("drill_sent", id, { agent: input.agent, class: input.cls, tier: input.tier });
+        return this.require(id);
+      }
+      if (input.auto) {
+        this.db.prepare(`UPDATE requests SET decided_at = ? WHERE id = ?`).run(now, id);
+        this.ledger.append("approved", id, {
+          action_id: input.actionId,
+          agent: input.agent,
+          vendor: input.vendor,
+          class: input.cls,
+          target: input.target,
+          call_hash: input.callHash,
+          tier: input.tier,
+          score: input.score,
+          flags: input.flags.map((flag) => flag.code),
+          requesters: input.requesterIds,
+          approved_by: [`autonomy:${input.auto.level}`],
+          level: input.auto.level,
+          bucket: input.auto.bucket,
+        });
+        return this.require(id);
+      }
       this.ledger.append("held", id, {
         action_id: input.actionId,
         agent: input.agent,
@@ -217,6 +245,17 @@ export class RequestStore {
   listExpired(nowMs: number): RequestRecord[] {
     const rows = this.db
       .prepare(`SELECT * FROM requests WHERE state IN ('HELD', 'ROUTED') AND expires_at <= ? ORDER BY expires_at`)
+      .all(nowMs) as Row[];
+    return rows.map(fromRow);
+  }
+
+  /** L2 runs that have no review card yet: Switch was down when they ran, or a restart came between. */
+  awaitingReview(nowMs: number): RequestRecord[] {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM requests WHERE state = 'AUTO' AND expires_at > ? AND json_extract(evidence, '$.level') = 'L2'
+           AND id NOT IN (SELECT request_id FROM routes)`,
+      )
       .all(nowMs) as Row[];
     return rows.map(fromRow);
   }

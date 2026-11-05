@@ -8,6 +8,7 @@ import { z } from "zod";
 export const HealthSchema = z.object({
   ok: z.boolean(),
   policy_hash: z.string(),
+  mode: z.string().optional(),
   policy_error: z.string().nullable(),
   open_requests: z.number().int().min(0),
 });
@@ -94,6 +95,16 @@ export const PersonStatsSchema = z.object({
   ineligible: z.number().int(),
   median_latency_ms: z.number().nullable(),
   open_cards: z.number().int(),
+  by_tier: z.record(z.string(), z.object({ answers: z.number().int(), median_latency_ms: z.number().nullable() })).optional(),
+  fast_approvals: z.number().int().optional(),
+  flags_ignored: z.number().int().optional(),
+  batch_approvals: z.number().int().optional(),
+  streaks: z.number().int().optional(),
+  signals: z.record(z.string(), z.number().int()).optional(),
+  friction: z.string().nullable().optional(),
+  drills: z
+    .object({ sent: z.number().int(), caught: z.number().int(), missed: z.number().int(), expired: z.number().int(), catch_rate: z.number().nullable() })
+    .optional(),
 });
 
 export const SimulationSchema = z

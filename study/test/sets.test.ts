@@ -295,11 +295,11 @@ describe("condition B is the Appendix D card", () => {
     }
   });
 
-  it("stays inside the logged card budget, counted as Mattermost counts it: detail 990, prompt 790", () => {
-    // DECISIONS 03:25. The real cliff is about 1000 and 800; the budget keeps a margin below it.
+  it("stays inside the logged card budget, counted as Mattermost counts it: detail 960, prompt 790", () => {
+    // The real cliff is 966 with no mention line and about 800; the budget keeps a margin below it.
     for (const request of ALL) {
       if (request.b.confirm) expect(size(clearancePrompt(request)), request.id).toBeLessThanOrEqual(790);
-      else expect(size(clearanceDetail(request)), request.id).toBeLessThanOrEqual(990);
+      else expect(size(clearanceDetail(request)), request.id).toBeLessThanOrEqual(960);
     }
   });
 
@@ -353,10 +353,11 @@ describe("condition B is the Appendix D card", () => {
     expect(new Set(confirms.map((r) => r.b.confirm!.field)).size).toBeGreaterThanOrEqual(3);
   });
 
-  it("uses the Appendix D wording for the type-to-confirm question", () => {
+  it("uses the product's wording for the type-to-confirm question, with the exact reply Switch accepts", () => {
     const amount = [...X, ...Y].find((r) => r.b.confirm?.field === "amount")!;
-    expect(plan).toContain("is high risk. Type the refund amount in rupees to approve, or answer no.");
-    expect(amount.b.confirm!.question).toBe(`${amount.b.clr} is high risk. Type the refund amount in rupees to approve, or answer no.`);
+    expect(amount.b.confirm!.question).toBe(
+      `${amount.b.clr} is high risk. Type the refund amount in rupees to approve: <handle> "${amount.b.confirm!.expected}". Or choose No.`,
+    );
   });
 
   it("type-to-confirm expected values are on the card, so the task is reading, not recall", () => {

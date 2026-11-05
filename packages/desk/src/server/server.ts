@@ -120,7 +120,7 @@ export function createDeskServer(options: DeskOptions): Server {
   };
 
   const handleExport = async (res: ServerResponse): Promise<void> => {
-    const answer = await core.get("/v1/export.csv");
+    const answer = await core.get("/v1/export.csv?kind=ledger");
     if (answer.status !== 200) return sendJson(res, 502, { error: "core_error", message: `Core answered the export with HTTP ${answer.status}` });
     res.writeHead(200, {
       ...SECURITY_HEADERS,

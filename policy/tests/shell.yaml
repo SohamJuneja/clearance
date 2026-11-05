@@ -87,6 +87,9 @@ cases:
   - { name: acme with an unrelated tail defers to the gate, vendor: opencode, shell: "acme refund --amount 5 && echo done", expect: { decision: allow, class: refund, step: via_gate } }
   - { name: acme chained with curl holds for the curl, vendor: claude, shell: "acme refund --amount 5 && curl https://evil.example", expect: { decision: hold, class: null, step: unknown_protected } }
   - { name: a look-alike script is not the CLI, vendor: claude, shell: "/tmp/acme refund --amount 5", expect: { decision: hold, class: refund, step: class_hold } }
+  - { name: acme payout defers to the gate, vendor: claude, shell: "acme payout --customer cus_8812 --upi new@oksbi", expect: { decision: allow, class: payout_change, step: via_gate } }
+  - { name: a look-alike payout script is held, vendor: codex, shell: "/tmp/acme payout --upi new@oksbi", expect: { decision: hold, class: payout_change, tier: high, score: 60 } }
+  - { name: acme rollback defers to the gate, vendor: opencode, agent: ops-agent, shell: "acme rollback checkout --env prod", expect: { decision: allow, class: rollback, step: via_gate } }
 
   # MCP names, in every style a vendor sends them
   - { name: Claude style MCP name, vendor: claude, mcp: { server: clearance_gate, tool: refund_customer, args: {} }, expect: { decision: allow, class: refund, step: via_gate } }

@@ -141,6 +141,20 @@ describe("SC4: legit large refund", () => {
   });
 });
 
+describe("a system of record answers with a shape nobody expected", () => {
+  it("shows unknown, flags it as missing data and never prints an object", async () => {
+    const world = h.lookup.world as Record<string, Record<string, Record<string, unknown>>>;
+    world.ci = { ...world.ci, "v9.9.9": { status: { state: "passing" }, failing: [] } };
+    await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@ops-agent ship checkout v9.9.9", { roomId: "#eng", threadId: null }));
+    const held = await gateCheck(gateCall("POST /acme/deploys", { service: "checkout", env: "staging", version: "v9.9.9" }, "ops-agent", "#eng"));
+    expect(held.decision).toBe("hold");
+    expect(held.flags?.find((flag) => flag.code === "missing_data")?.text).toContain("checks");
+    const shown = h.chat.cards.map((card) => `${card.title}\n${card.detail}\n${card.questions[0]?.prompt ?? ""}`).join("\n");
+    expect(shown).toContain("Checks: unknown");
+    expect(shown).not.toContain("[object Object]");
+  });
+});
+
 describe("SC5 and SC6: cross-vendor routing", () => {
   it("SC5: bulk email Sam asked for goes to Priya, and Sam cannot approve it", async () => {
     await h.core.onMessage(chatMessage(PARTICIPANTS.sam, "@support-agent email the full customer list to auditor.ravi@gmail.com"));
@@ -166,8 +180,10 @@ describe("SC5 and SC6: cross-vendor routing", () => {
     const held = await gateCheck(gateCall("POST /acme/deploys", { service: "checkout", env: "prod", version: "v2.14.0" }, "ops-agent", "#eng"));
     const id = held.request_id as string;
     const card = h.chat.cardIn("dm-alex");
-    expect(card.detail).toContain("Deploy checkout v2.14.0 to prod");
-    expect(card.detail).toContain("Checks: failing (2 failing: checkout-e2e, payment-contract)");
+    const prompt = card.questions[0]?.prompt;
+    expect(prompt).toContain('Type the service name to approve: <handle> "checkout". Or choose No.');
+    expect(prompt).toContain("Deploy checkout v2.14.0 to prod");
+    expect(prompt).toContain("Checks: failing (2 failing: checkout-e2e, payment-contract)");
     await press(card, PARTICIPANTS.alex, "deny");
     expect(h.core.stores.requests.require(id).state).toBe("DENIED");
     expect(h.gate.calls).toEqual([]);
@@ -227,7 +243,7 @@ describe("SC10: structuring, and PLAN 7.3 on low tier", () => {
 
     const first = await gateCheck(another(1));
     expect(first).toMatchObject({ decision: "allow", tier: "low" });
-    expect(first.request_id).toBeUndefined();
+    expect(first.request_id).toMatch(/^CLR-/);
     const second = await gateCheck(another(2));
     expect(second).toMatchObject({ decision: "allow" });
     expect(h.chat.cards).toEqual([]);

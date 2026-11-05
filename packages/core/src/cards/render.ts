@@ -3,21 +3,22 @@
  * the parsed call, context, flags, the agent's claim, who and why, then the pointer to the routing trace.
  * Switch writes the answer handle into the post and adds its own answer line, so the card has none.
  *
- * Budgets are measured against Switch's real Mattermost renderer. A detail over 1000 characters (each @ costs
- * one more, for escaping) is not trimmed: the card loses its buttons and cannot be answered. So going over
- * budget is the failure this file exists to prevent, and it gives up the least important content first:
+ * Budgets are measured against Switch's real Mattermost renderer. A detail over the limit is not trimmed: the
+ * card loses its buttons and cannot be answered. The limit is 998 with a mention line and 966 without one, where
+ * the card also says it notified no one, and each @ and ] costs one more. Core opens cards without a mention, so
+ * going over 960 is the failure this file exists to prevent, and it gives up the least important content first:
  * the agent's claim, then context lines. The parsed call, the flags and the expiry always stay.
  */
 import type { Tier } from "@clearance/contracts";
 import { joinNames, oneLine } from "../format.js";
 
 export const TITLE_MAX = 500;
-export const DETAIL_BUDGET = 990;
+export const DETAIL_BUDGET = 960;
 export const PROMPT_BUDGET = 790;
 
-/** What a text costs against Switch's limit: each @ is escaped, so it counts twice. */
+/** What a text costs against Switch's limit: Switch adds a zero-width space after each @ and ], so they count twice. */
 export function renderedCost(text: string): number {
-  return text.length + (text.match(/@/g)?.length ?? 0);
+  return text.length + (text.match(/[@\]]/g)?.length ?? 0);
 }
 
 export type CardView = {
@@ -130,7 +131,7 @@ function keepTail(text: string, budget: number): string {
   let cost = 0;
   let start = text.length;
   while (start > 0) {
-    const next = text[start - 1] === "@" ? 2 : 1;
+    const next = renderedCost(text[start - 1] as string);
     if (cost + next > budget) break;
     cost += next;
     start -= 1;
@@ -142,9 +143,32 @@ export function renderCard(view: CardView): { title: string; detail: string } {
   return { title: renderTitle(view), detail: fit(view, DETAIL_BUDGET, (shrink) => assembleDetail(view, shrink)) };
 }
 
+/** For text this file doesn't lay out: cut from the end until it fits, since over budget the card can't be answered. */
+export function clipToBudget(text: string, budget = DETAIL_BUDGET): string {
+  let cost = 0;
+  let end = 0;
+  while (end < text.length) {
+    const next = renderedCost(text[end] as string);
+    if (cost + next > budget) break;
+    cost += next;
+    end += 1;
+  }
+  return text.slice(0, end);
+}
+
+/** The card after the fact: it ran already, so what it says first is what can still be done about it. */
+export function renderReviewCard(view: CardView, level: string, note: string): { title: string; detail: string } {
+  const tail = ` · ran on its own at ${level}`;
+  const head = `${view.id} · REVIEW · `;
+  return {
+    title: `${head}${clip(view.headline, TITLE_MAX - head.length - tail.length)}${tail}`,
+    detail: `${note}\n\n${fit(view, DETAIL_BUDGET - renderedCost(`${note}\n\n`), (shrink) => assembleDetail(view, shrink))}`,
+  };
+}
+
 /**
  * A questions card has no detail slot, so the question's prompt carries the evidence, with a smaller budget.
- * `ask` is the question itself ("Type the refund amount in rupees to approve, or answer no.") and always stays.
+ * `ask` is the question itself ("Type the refund amount in rupees to approve: ...") and always stays.
  */
 export function renderPrompt(view: CardView, ask: string): string {
   return fit(view, PROMPT_BUDGET, (shrink) => {

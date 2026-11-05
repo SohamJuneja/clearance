@@ -188,6 +188,50 @@ CREATE TABLE IF NOT EXISTS autonomy (
   PRIMARY KEY (agent, class, bucket)
 );
 
+CREATE TABLE IF NOT EXISTS bucket_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  agent TEXT NOT NULL,
+  class TEXT NOT NULL,
+  bucket TEXT,
+  request_id TEXT,
+  at INTEGER NOT NULL,
+  fields TEXT NOT NULL,
+  amount REAL,
+  outcome TEXT NOT NULL,
+  approvers TEXT NOT NULL,
+  fast INTEGER NOT NULL DEFAULT 0,
+  edited INTEGER NOT NULL DEFAULT 0,
+  incident INTEGER NOT NULL DEFAULT 0,
+  auto_eligible INTEGER NOT NULL DEFAULT 0,
+  synthetic INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS bucket_events_class ON bucket_events (class, agent, at);
+CREATE INDEX IF NOT EXISTS bucket_events_bucket ON bucket_events (agent, class, bucket, at);
+CREATE INDEX IF NOT EXISTS bucket_events_request ON bucket_events (request_id);
+
+CREATE TABLE IF NOT EXISTS proposals (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  state TEXT NOT NULL,
+  payload TEXT NOT NULL,
+  quorum INTEGER NOT NULL,
+  exclude TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL,
+  decided_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS proposals_subject ON proposals (subject, state);
+
+CREATE TABLE IF NOT EXISTS proposal_votes (
+  proposal_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  decision TEXT NOT NULL,
+  switch_request_id TEXT NOT NULL,
+  at INTEGER NOT NULL,
+  PRIMARY KEY (proposal_id, user_id)
+);
+
 CREATE TABLE IF NOT EXISTS timers (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   request_id TEXT NOT NULL,
@@ -207,6 +251,14 @@ CREATE TABLE IF NOT EXISTS drills (
   user_id TEXT NOT NULL,
   result TEXT,
   latency_ms INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS incidents (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  request_id TEXT NOT NULL,
+  reported_by TEXT NOT NULL,
+  note TEXT NOT NULL,
+  at INTEGER NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS policy_versions (

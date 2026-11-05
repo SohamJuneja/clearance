@@ -43,6 +43,18 @@ export function aggregateFlag(prior: number, value: number, over: number, window
   };
 }
 
+export function aboveNormalRangeFlag(amount: number, ceiling: number, currency: string): Flag {
+  return {
+    code: "above_normal_range",
+    text: `${formatMoney(amount, currency)} is above this agent's normal range for this bucket (95th percentile ${formatMoney(ceiling, currency)})`,
+  };
+}
+
+export function overCapFlag(spent: number, cap: number, money: boolean, currency: string): Flag {
+  const show = (value: number) => (money ? formatMoney(value, currency) : String(value));
+  return { code: "over_daily_cap", text: `Over today's budget for running alone: ${show(spent)} used of ${show(cap)}` };
+}
+
 export function missingDataFlag(fields: string[]): Flag {
   return {
     code: "missing_data",

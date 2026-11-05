@@ -2,6 +2,7 @@
 import type { FastifyInstance } from "fastify";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildServer } from "../src/api/server.js";
+import { HISTORY_SEED, seedSyntheticHistory } from "../src/autonomy/history.js";
 import { systemClock } from "../src/clock.js";
 import { chatMessage, gateRefund, hookShell, makeHarness, MINUTE, PARTICIPANTS, REFUND_SC3, REFUND_SC4, type Harness } from "./harness.js";
 
@@ -35,6 +36,12 @@ describe("bearer auth", () => {
     { method: "GET", url: "/v1/ledger/verify" },
     { method: "GET", url: "/v1/export.csv" },
     { method: "GET", url: "/v1/people/sam/stats" },
+    { method: "GET", url: "/v1/requests?state=open" },
+    { method: "GET", url: "/v1/people" },
+    { method: "GET", url: "/v1/policy" },
+    { method: "GET", url: "/v1/metrics/human-load" },
+    { method: "GET", url: "/v1/digest" },
+    { method: "GET", url: "/v1/shadow" },
     { method: "GET", url: "/v1/autonomy" },
     { method: "POST", url: "/v1/autonomy/simulate" },
     { method: "POST", url: "/v1/policy/simulate" },
@@ -254,9 +261,9 @@ describe("ledger routes", () => {
     expect(body.head).toMatch(/^[0-9a-f]{64}$/);
   });
 
-  it("GET /v1/export.csv is CSV with one quoted row per entry", async () => {
+  it("GET /v1/export.csv?kind=ledger is CSV with one quoted row per entry", async () => {
     await check(gateRefund(REFUND_SC4));
-    const response = await get("/v1/export.csv");
+    const response = await get("/v1/export.csv?kind=ledger");
     expect(response.headers["content-type"]).toContain("text/csv");
     const lines = response.body.trim().split("\n");
     expect(lines[0]).toBe("seq,at,type,request_id,payload,prev_hash,entry_hash");
@@ -290,15 +297,113 @@ describe("other reads", () => {
     expect((await get("/v1/people/nobody/stats")).statusCode).toBe(404);
   });
 
+  it("GET /v1/requests?state=open lists what is open, and no drills", async () => {
+    const held = (await check(gateRefund(REFUND_SC4))).json();
+    await h.core.sendDrill("sam");
+    const body = (await get("/v1/requests?state=open")).json();
+    expect(body.requests.map((request: { id: string }) => request.id)).toEqual([held.request_id]);
+    expect(body.requests[0]).toMatchObject({ state: "ROUTED", class: "refund", tier: "high" });
+  });
+
+  it("GET /v1/requests filters by exact state, and refuses one that doesn't exist", async () => {
+    await check(gateRefund(REFUND_SC4));
+    expect((await get("/v1/requests?state=EXECUTED")).json().requests).toEqual([]);
+    expect((await get("/v1/requests?state=ROUTED")).json().requests).toHaveLength(1);
+    expect((await get("/v1/requests")).json().requests).toHaveLength(1);
+    expect((await get("/v1/requests?state=SIDEWAYS")).statusCode).toBe(400);
+  });
+
+  it("GET /v1/people lists the team and who is away", async () => {
+    h.core.people.store.setAway("neha", h.clock.nowMs() + 60 * MINUTE, "sam");
+    const { people } = (await get("/v1/people")).json();
+    expect(people.map((person: { id: string }) => person.id)).toEqual(["priya", "sam", "neha", "alex", "dev"]);
+    expect(people.find((person: { id: string }) => person.id === "sam")).toMatchObject({ name: "Sam", groups: ["finance"], roles: ["finance-approver"], away: null });
+    expect(people.find((person: { id: string }) => person.id === "neha").away).toMatchObject({ delegate_to: "sam" });
+  });
+
+  it("GET /v1/policy gives the hash in force, the same one /v1/health gives, and its text", async () => {
+    const policy = (await get("/v1/policy")).json();
+    expect(policy.hash).toBe((await get("/v1/health")).json().policy_hash);
+    expect(policy).toMatchObject({ mode: "enforce", error: null, shadow_would_hold: 0 });
+    expect(policy.text).toContain("classes:");
+    expect(policy.classes).toEqual(expect.arrayContaining(["refund", "deploy"]));
+  });
+
+  describe("GET /v1/metrics/human-load", () => {
+    it("has nothing to divide before there is traffic", async () => {
+      expect((await get("/v1/metrics/human-load")).json()).toMatchObject({ agent_actions: 0, human_decisions: 0, per_100: null, by_class: [] });
+    });
+
+    it("counts people's real decisions per 100 agent actions, safe work included, and says the rate on governed work too", async () => {
+      await check(hookShell("ls a"));
+      await check(hookShell("ls b"));
+      await check(hookShell("ls c"));
+      const held = (await check(gateRefund(REFUND_SC4))).json();
+      await h.core.onApprovalOutcome({
+        sessionId: h.chat.cardIn("dm-sam").sessionId,
+        switchRequestId: h.chat.cardIn("dm-sam").switchRequestId,
+        kind: "approval",
+        state: "answered",
+        answer: "allow",
+        answeredBy: PARTICIPANTS.sam,
+        answeredAtMs: h.clock.nowMs(),
+      });
+      expect(held.decision).toBe("hold");
+      const body = (await get("/v1/metrics/human-load")).json();
+      expect(body).toMatchObject({ agent_actions: 4, governed_actions: 1, human_decisions: 1, per_100: 25, per_100_governed: 100 });
+      expect(body.by_class).toEqual([expect.objectContaining({ class: "refund", agent_actions: 1, human_decisions: 1, per_100: 100 })]);
+    });
+
+    it("leaves drills and refused answers out", async () => {
+      await h.core.sendDrill("sam");
+      const card = h.chat.cards.at(-1) as (typeof h.chat.cards)[number];
+      await h.core.onApprovalOutcome({
+        sessionId: card.sessionId,
+        switchRequestId: card.switchRequestId,
+        kind: "approval",
+        state: "answered",
+        answer: "deny",
+        answeredBy: PARTICIPANTS.sam,
+        answeredAtMs: h.clock.nowMs(),
+      });
+      expect((await get("/v1/metrics/human-load")).json()).toMatchObject({ human_decisions: 0 });
+    });
+  });
+
+  it("GET /v1/people/:id/stats shows the rubber-stamp signals and drills by name", async () => {
+    const body = (await get("/v1/people/sam/stats")).json();
+    expect(body).toMatchObject({ fast_approvals: 0, flags_ignored: 0, batch_approvals: 0, by_tier: {}, drills: { sent: 0, caught: 0, missed: 0 } });
+  });
+
   it("GET /v1/autonomy reports the ladder", async () => {
     h.core.stores.autonomy.setLevel("refunds-agent", "refund", "small", "L2", h.clock.nowMs());
     const body = (await get("/v1/autonomy")).json();
     expect(body.levels).toEqual([expect.objectContaining({ agent: "refunds-agent", class: "refund", bucket: "small", level: "L2" })]);
   });
 
-  it("POST /v1/autonomy/simulate says it is not built yet rather than pretending", async () => {
-    const response = await app.inject({ method: "POST", url: "/v1/autonomy/simulate", headers: auth, payload: {} });
-    expect(response.statusCode).toBe(501);
+  it("POST /v1/autonomy/simulate replays the rule over history, labelled, and writes nothing", async () => {
+    seedSyntheticHistory(h.core.stores.db, HISTORY_SEED, h.clock.nowMs());
+    const before = h.core.stores.ledger.list().length;
+    const response = await app.inject({ method: "POST", url: "/v1/autonomy/simulate", headers: auth, payload: { agent: "refunds-agent", class: "refund" } });
+    expect(response.statusCode).toBe(200);
+    const { replays } = response.json();
+    expect(replays).toHaveLength(1);
+    expect(replays[0]).toMatchObject({ agent: "refunds-agent", class: "refund", bucket: "small", meets_criteria: true, proposed_level: "L2", real_events: 0, would_auto_denied: 0 });
+    expect(replays[0].synthetic_events).toBeGreaterThan(90);
+    expect(h.core.stores.ledger.list()).toHaveLength(before);
+  });
+
+  it("POST /v1/autonomy/simulate refuses what it doesn't understand", async () => {
+    const response = await app.inject({ method: "POST", url: "/v1/autonomy/simulate", headers: auth, payload: { agnet: "x" } });
+    expect(response.statusCode).toBe(400);
+  });
+
+  it("GET /v1/autonomy says how much of the history is synthetic", async () => {
+    seedSyntheticHistory(h.core.stores.db, HISTORY_SEED, h.clock.nowMs());
+    const body = (await get("/v1/autonomy")).json();
+    expect(body.history.real).toBe(0);
+    expect(body.history.synthetic).toBeGreaterThan(120);
+    expect(body.buckets.map((row: { class: string }) => row.class)).toEqual(expect.arrayContaining(["refund", "deploy", "customer_email"]));
   });
 
   it("POST /v1/policy/simulate classifies a call and records nothing", async () => {

@@ -75,9 +75,31 @@ classes:
       - { after: 20m, notify: requester }
     autonomy:
       max_level: L3
-      buckets: [ { name: small, when: 'amount <= 5000' } ]
+      buckets: [ { name: small, when: 'amount <= 5000', label: 'refunds up to ₹5,000', daily_cap: 25000 } ]   # L3's cap: sum of amounts in a day
       promote_after: { approvals: 20, days: 7, min_distinct_approvers: 2 }
     drills: true
+
+  payout_change:
+    summary: payout destination changes
+    match:
+      - { gate: 'POST /acme/payouts/destinations' }
+      - { shell: '^(\./)?(bin/)?acme\s+payout\b', via_gate: true }
+      - { shell: '(^|/)acme\s+payout\b' }
+    extract:
+      customer: 'args.customer_id'
+      customer_name: 'lookup("customers", args.customer_id).name'
+      upi: 'args.upi'
+    risk: { base: 60 }
+    reversible: false
+    approvers:
+      label: finance
+      any_of: [ { role: finance-approver }, { group: finance } ]
+      quorum: { default: 1, critical: 2 }
+    escalate:
+      - { after: 3m,  add: backup }
+      - { after: 8m,  post: '#approvals', mention: '@finance-approvers' }
+      - { after: 20m, notify: requester }
+    autonomy: { max_level: L0 }
 
   deploy:
     summary: deploys
@@ -109,8 +131,33 @@ classes:
       - { after: 10m, post: '#eng' }
     autonomy:
       max_level: L2
-      buckets: [ { name: staging, when: 'env == "staging"' } ]
+      buckets: [ { name: staging, when: 'env == "staging"', label: 'staging deploys' } ]
     drills: true
+
+  rollback:
+    summary: rollbacks
+    match:
+      - { gate: 'POST /acme/rollbacks' }
+      - { shell: '^(\./)?(bin/)?acme\s+rollback\b', via_gate: true }
+      - { shell: '(^|/)acme\s+rollback\b' }
+    extract:
+      service: 'args.service'
+      env: 'args.env'
+      live_version: 'lookup("services", args.service).live_version'
+    risk:
+      base: 30
+      add:
+        - { when: 'env == "prod"', points: 25, why: 'prod rollbacks' }
+    reversible: true                   # it can be deployed forward again
+    approvers:
+      label: eng
+      any_of: [ { owner_of: service }, { role: eng-oncall } ]
+      exclude_agent_owner_from: never  # same reasoning as deploy
+      quorum: { default: 1 }
+    escalate:
+      - { after: 5m,  add: backup }
+      - { after: 10m, post: '#eng' }
+    autonomy: { max_level: L1 }
 
   merge:
     summary: merges to main
@@ -164,7 +211,7 @@ classes:
       exclude_agent_owner_from: never  # SC5: Priya owns support-agent and leads support; Sam asked, so Priya decides
     autonomy:
       max_level: L3
-      buckets: [ { name: plain_reply, when: 'attachments == 0' } ]
+      buckets: [ { name: plain_reply, when: 'attachments == 0', label: 'plain customer replies', daily_cap: 40 } ]   # no amount here, so a count
     drills: true
 
   delete:
@@ -209,8 +256,11 @@ drills:
 rubber_stamp:
   t_min: { base_s: 2, per_evidence_line_s: 0.25, tier_bonus_s: { high: 3, critical: 6 } }
   streak: { approvals: 5, max_denials: 0 }
+  batch: { approvals: 3, within_s: 20 }
+  concentration: { share: 0.6, min_answers: 5 }   # one answer is 100% of a class and means nothing
   friction: type_to_confirm
 
+digest: { at: "18:30" }   # daily in the fallback room, in business_hours.tz
 policy_owners: [ { role: finance-approver }, { group: eng-leads } ]
 policy_change_quorum: 2
 break_glass: { people: [alex], review_within: 24h }

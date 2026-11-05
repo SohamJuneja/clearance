@@ -44,6 +44,7 @@ const STATE_TO_STATUS: Record<string, string> = {
   GRANTED: "approved",
   EXECUTED: "executed",
   CONSUMED: "executed",
+  AUTO: "executed",
   DENIED: "denied",
   VOIDED: "denied",
   EXPIRED: "expired",

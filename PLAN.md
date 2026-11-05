@@ -416,9 +416,10 @@ Mirror: Clearance creates one room document per day in `#approvals` named `clear
 - **L1 Fast lane**: one eligible approver, no type-to-confirm.
 - **L2 Auto with review**: executes, then posts a review card that can reverse or demote within 24 h.
 - **L3 Auto within budget**: executes silently up to a daily cap; summary in the daily digest.
-Policy caps the ladder per class (`max_level`); irreversible or critical classes stop at L1.
+A class's `max_level` in the policy decides how far it can climb. Irreversible classes normally stop at L1. Refunds are a stated exception: `reversible: false`, yet allowed up to L3 inside a small-amount bucket. The critical tier never runs on its own.
 **Promotion.** Clearance proposes a promotion when, inside the scope bucket over the last 7 days: at least 20 approved requests, 0 denials, 0 incidents, 0 approved-with-edits, at least 2 different approvers, and none of the counted approvals were fast approvals (F10). Before proposing, it **replays** the proposed rule over the history (borrowed from OneDecision): "would have auto-approved 22; all 22 were approved by people; 0 would have auto-approved a denied request." The proposal is a card to the class's policy owners with `quorum: 2`; both must approve.
-**Demotion.** Instant, to L0, on any incident (`@clearance incident CLR-0042 <note>`), any denial inside the bucket, or an anomaly (amount above the bucket's 95th percentile). Demotion needs no approval; promotion always does.
+**Demotion.** Instant, to L0, on any incident (`@clearance incident CLR-0042 <note>`) or any denial inside the bucket. Demotion needs no approval; promotion always does.
+**Above the normal range.** An amount above the bucket's 95th percentile holds that one call for a person, flagged `above_normal_range` on the card, and does not demote. If the person approves, the level stays. If they deny, the denial rule above demotes at once. A call with missing data still can't run on its own. (This replaced "an anomaly demotes", which by definition fires on about 5% of normal traffic. It was changed after seeing the first E6 result on synthetic data, and E6 publishes both numbers.)
 **Metric.** Human decisions per 100 agent actions before and after promotion (borrowed from Doorstep, which reported 18 human decisions against 204 automated actions).
 **Acceptance.** [ ] Seeded 7-day history (clearly labelled synthetic) yields exactly one proposal. [ ] Replay numbers come from `pnpm eval:autonomy`. [ ] One incident demotes and the next refund in the bucket is held again.
 
@@ -1603,7 +1604,7 @@ Policy: refunds over ₹10,000 need 1 finance approver · expires 15:42 IST
 @clearance why CLR-0042
 ```
 
-**Type-to-confirm question:** "CLR-0051 is high risk. Type the refund amount in rupees to approve, or answer no." (Rotate the asked field: amount, last 4 characters of the destination, service name.)
+**Type-to-confirm question:** `CLR-0051 is high risk. Type the refund amount in rupees to approve: <handle> "38000". Or choose No.` (Switch refuses a word on a questions card and ignores a bare number, so the reply has to be exact. Rotate the asked field: amount, last 4 characters of the destination, service name.)
 
 **Refusal in the origin room:** "Priya can't approve CLR-0042 (requester, agent owner). Sent to Sam (finance, on duty)."
 

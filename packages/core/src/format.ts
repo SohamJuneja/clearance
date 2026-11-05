@@ -12,7 +12,9 @@ export function toNumber(value: unknown): number | null {
 }
 
 /** Agent-controlled text going onto a card: one line, bounded, so it cannot forge other card lines. */
+/** Never prints an object: a system of record answering with an unexpected shape shows as "unknown". */
 export function oneLine(value: unknown, max = 200): string {
+  if (typeof value === "object" && value !== null) return "unknown";
   const text = String(value ?? "")
     .replace(/\s+/g, " ")
     .trim();

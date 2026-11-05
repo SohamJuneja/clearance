@@ -4,6 +4,7 @@ people:
   - { id: neha,  name: Neha,  switch_user: "<id>", groups: [finance], roles: [finance-approver] }   # backup approver
   - { id: alex,  name: Alex,  switch_user: "<id>", groups: [eng, eng-leads], roles: [eng-oncall] }
   - { id: dev,   name: Dev,   switch_user: "<id>", groups: [eng] }
+admins: [alex]            # may run @clearance drills on/off
 rotas:
   finance-approver:
     # No schedule means always on duty, so the demo routes the same at any hour for anyone who clones it.

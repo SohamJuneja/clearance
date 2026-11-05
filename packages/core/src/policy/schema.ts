@@ -83,7 +83,20 @@ const EscalateStepSchema = z
 const AutonomySchema = z
   .object({
     max_level: LevelSchema,
-    buckets: z.array(z.object({ name: z.string(), when: z.string() }).strict()).optional(),
+    buckets: z
+      .array(
+        z
+          .object({
+            name: z.string(),
+            when: z.string(),
+            /** "refunds up to ₹5,000": how people read this bucket. */
+            label: z.string().optional(),
+            /** L3 runs silently up to this much a day: the sum of `amount`, or a count when the call has none. */
+            daily_cap: z.number().positive().optional(),
+          })
+          .strict(),
+      )
+      .optional(),
     promote_after: z
       .object({ approvals: z.number().int(), days: z.number().int(), min_distinct_approvers: z.number().int() })
       .partial()
@@ -182,12 +195,15 @@ export const PolicyFileSchema = z
           .object({ base_s: z.number(), per_evidence_line_s: z.number(), tier_bonus_s: z.record(z.number()) })
           .strict(),
         streak: z.object({ approvals: z.number().int(), max_denials: z.number().int() }).strict(),
+        batch: z.object({ approvals: z.number().int(), within_s: z.number() }).strict().optional(),
+        concentration: z.object({ share: z.number(), min_answers: z.number().int() }).strict().optional(),
         friction: z.string(),
       })
       .strict()
       .optional(),
     policy_owners: z.array(ApproverRefSchema).optional(),
     policy_change_quorum: z.number().int().optional(),
+    digest: z.object({ at: z.string().regex(/^\d{2}:\d{2}$/, 'expected a time like "18:30"') }).strict().optional(),
     break_glass: z.object({ people: z.array(z.string()), review_within: DurationSchema }).strict().optional(),
   })
   .strict();
@@ -195,6 +211,8 @@ export type PolicyFile = z.infer<typeof PolicyFileSchema>;
 
 export const TeamFileSchema = z
   .object({
+    /** People who may switch drills on and off. */
+    admins: z.array(z.string()).optional(),
     people: z.array(
       z
         .object({

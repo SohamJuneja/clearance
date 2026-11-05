@@ -100,6 +100,16 @@ describe("eval:report", () => {
   });
 
   describe("with results", () => {
+    it("shows E6 under the rule in force and says what the original rule gave, because the rule changed after a first result", () => {
+      const table = renderTable({
+        E6: { experiment: "E6", synthetic: true, human_decisions_per_100: { before: 100, after: 21.5 }, original_rule: { human_decisions_per_100: { after: 79.2 } } },
+      });
+      const row = table.split("\n").find((line) => line.startsWith("| E6 "));
+      expect(row).toContain("21.5 (after promotion)");
+      expect(row).toContain("the anomaly rule was changed after seeing the first result");
+      expect(row).toContain("79.2");
+    });
+
     it("fills what exists and leaves _ for the rest", () => {
       write({ "e1.json": fixtures["e1.json"] });
       report();

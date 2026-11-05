@@ -34,7 +34,9 @@ describe("policy loader", () => {
     const loaded = parsePolicy(realPolicy, "clearance.policy.yaml");
     expect(loaded.classes.map((cls) => cls.name)).toEqual([
       "refund",
+      "payout_change",
       "deploy",
+      "rollback",
       "merge",
       "customer_email",
       "delete",

@@ -14,6 +14,7 @@ import { createChatPort, createMattermostHandleResolver, createSwitchAgent } fro
 import { buildServer } from "./api/server.js";
 import { systemClock } from "./clock.js";
 import { createClearanceCore } from "./core.js";
+import { drillRateFromEnv } from "./drills/library.js";
 
 function secret(name: string): string {
   const value = process.env[name];
@@ -93,6 +94,7 @@ const core = createClearanceCore({
   gate: gateClient,
   lookup: gateClient,
   clock: systemClock(Number(process.env.CLEARANCE_TIME_SCALE ?? 1)),
+  drillRate: drillRateFromEnv(process.env.CLEARANCE_DRILL_RATE),
 });
 
 const app = buildServer(core, { internalToken, logger: process.env.LOG_LEVEL === "debug" });

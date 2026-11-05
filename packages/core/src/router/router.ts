@@ -13,7 +13,7 @@ import { exclusionWords } from "./why.js";
 export const ACTIVE_WINDOW_MS = 15 * 60_000;
 const TIERS: Tier[] = ["low", "medium", "high", "critical"];
 
-export type Exclusion = "requester" | "agent_owner" | "author" | "away" | "counted";
+export type Exclusion = "requester" | "agent_owner" | "author" | "away" | "counted" | "failed_confirm";
 export type Refusal = Exclusion | "not_approver";
 
 export type Rank = "rota_on_duty" | "resource_owner" | "active_in_room" | "active_anywhere" | "other";
@@ -24,6 +24,8 @@ export type RouteSignals = {
   lastActive(userId: string): { room: string; atMs: number } | null;
   lastActiveIn(userId: string, room: string): number | null;
   away(userId: string): { untilMs: number; delegateTo: string | null } | null;
+  /** Answering most of this class's requests today: a fatigue risk, so others are preferred (F10). */
+  concentrated?(userId: string): boolean;
 };
 
 export type RouteContext = {
@@ -45,6 +47,8 @@ export type RouteContext = {
   signals: RouteSignals;
   /** People whose approval already counts towards quorum. */
   counted: string[];
+  /** People who typed the wrong value twice on this request. */
+  failedConfirm?: string[];
   /** People who already hold an open card for this request. */
   alreadyRouted: string[];
   /** True once this request has gone to its fallback group. */
@@ -59,6 +63,7 @@ export type RankedPerson = {
   /** "finance", the words used in "Sam (finance, on duty)". */
   group: string;
   openCards: number;
+  concentrated: boolean;
   ownerOf?: string;
   delegateFor?: string;
   activeRoom?: string;
@@ -94,6 +99,7 @@ function exclusionsFor(ctx: RouteContext, id: string): Exclusion[] {
   if (ctx.authorIds.includes(id)) reasons.push("author");
   if (ctx.signals.away(id)) reasons.push("away");
   if (ctx.counted.includes(id)) reasons.push("counted");
+  if (ctx.failedConfirm?.includes(id)) reasons.push("failed_confirm");
   return reasons;
 }
 
@@ -166,6 +172,7 @@ function rankPerson(ctx: RouteContext, person: Person, matchedBy: string): Ranke
     backup,
     group,
     openCards: ctx.signals.openCards(person.id),
+    concentrated: ctx.signals.concentrated?.(person.id) ?? false,
   };
   if (matchedBy.startsWith("delegate:")) entry.delegateFor = matchedBy.slice("delegate:".length);
   const ownerField = (ctx.cls?.approvers?.anyOf ?? []).find(
@@ -257,7 +264,12 @@ export function route(ctx: RouteContext, need: number): RouteTrace {
     excluded.push({ id, name: person.name, reasons });
   }
 
-  ranked.sort((a, b) => RANK_ORDER.indexOf(a.rank) - RANK_ORDER.indexOf(b.rank) || a.openCards - b.openCards);
+  ranked.sort(
+    (a, b) =>
+      Number(a.concentrated) - Number(b.concentrated) ||
+      RANK_ORDER.indexOf(a.rank) - RANK_ORDER.indexOf(b.rank) ||
+      a.openCards - b.openCards,
+  );
 
   const chosen = ranked
     .filter((entry) => !ctx.alreadyRouted.includes(entry.id))

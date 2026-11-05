@@ -1,0 +1,22 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`a drill looks like a real request > uses the same card, line for line, apart from values 1`] = `
+"The call (parsed from what the agent ran, not from its words)
+  Refund ₹ to customer (cus)
+  Destination: UPI UPI
+  Order ORDER · total ₹
+
+Context
+  Refunds to this customer in 24 h: ₹
+  Destination added AGO
+  refunds-agent refunds today: N
+
+Flags
+  ⚠ Destination added in the last 24 h
+
+Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
+Why you: finance approver on duty. Can't approve: Priya (requester, agent owner).
+Policy: refunds over ₹ need 1 finance approver · expires 14:25 IST
+
+@clearance why CLR"
+`;

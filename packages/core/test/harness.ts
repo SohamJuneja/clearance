@@ -11,6 +11,7 @@ import { FakeChat, FakeClock, FakeGate, FakeLookup, type World } from "./fakes.j
 const POLICY_DIR = new URL("../../../policy/", import.meta.url);
 export const POLICY_PATH = new URL("clearance.policy.yaml", POLICY_DIR).pathname;
 export const TEAM_PATH = new URL("team.yaml", POLICY_DIR).pathname;
+export const DRILLS_PATH = new URL("../drills/flaws.yaml", POLICY_DIR).pathname;
 /** No second engineer: the only team where a merge or delete can run out of people. */
 export const TEAM_ALEX_ONLY_PATH = new URL("./fixtures/team-alex-only.yaml", import.meta.url).pathname;
 export const WORLD = parse(readFileSync(new URL("tests/world.yaml", POLICY_DIR), "utf8")) as World;
@@ -65,6 +66,10 @@ export type HarnessOptions = {
   policyPath?: string;
   teamPath?: string;
   identities?: unknown;
+  /** Off by default here, so a 5% roll on a request id cannot add a card to a test about something else. */
+  rollDrills?: boolean;
+  /** CLEARANCE_DRILL_RATE, as main passes it. */
+  drillRate?: number;
 };
 
 export function makeHarness(options: HarnessOptions = {}): Harness {
@@ -82,6 +87,9 @@ export function makeHarness(options: HarnessOptions = {}): Harness {
       policyPath: options.policyPath ?? POLICY_PATH,
       teamPath: options.teamPath ?? TEAM_PATH,
       identitiesPath,
+      drillsPath: DRILLS_PATH,
+      rollDrills: options.rollDrills ?? false,
+      ...(options.drillRate !== undefined ? { drillRate: options.drillRate } : {}),
       chat,
       gate,
       lookup,

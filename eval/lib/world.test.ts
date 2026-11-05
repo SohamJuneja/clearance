@@ -102,6 +102,35 @@ describe("CoreClient", () => {
     expect(await new CoreClient(closedPort, () => undefined).isHealthy()).toBe(false);
   });
 
+  it("uses the internal token by default, which is the one core's API takes, and never the hook token", async () => {
+    const saved = { internal: process.env.CLEARANCE_INTERNAL_TOKEN, hook: process.env.CLEARANCE_HOOK_TOKEN };
+    process.env.CLEARANCE_INTERNAL_TOKEN = "the-internal-token";
+    process.env.CLEARANCE_HOOK_TOKEN = "the-hook-token";
+    const seen: (string | undefined)[] = [];
+    // As packages/core/src/api/server.ts answers: 401 for anything but the internal token.
+    const server = createServer((req, res) => {
+      seen.push(req.headers.authorization);
+      const allowed = req.headers.authorization === "Bearer the-internal-token";
+      res.statusCode = allowed ? 200 : 401;
+      res.end(JSON.stringify(allowed ? { entries: [{ type: "held" }], request_id: "CLR-0001" } : { error: "unauthorized" }));
+    });
+    await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
+    const { port } = server.address() as AddressInfo;
+    try {
+      const client = new CoreClient(`http://127.0.0.1:${port}`);
+      expect(await client.isHealthy()).toBe(true);
+      expect(await client.ledger()).toEqual([{ type: "held" }]);
+      await client.sendDrill("sam");
+      expect(new Set(seen)).toEqual(new Set(["Bearer the-internal-token"]));
+    } finally {
+      await new Promise((done) => server.close(done));
+      process.env.CLEARANCE_INTERNAL_TOKEN = saved.internal;
+      process.env.CLEARANCE_HOOK_TOKEN = saved.hook;
+      if (saved.internal === undefined) delete process.env.CLEARANCE_INTERNAL_TOKEN;
+      if (saved.hook === undefined) delete process.env.CLEARANCE_HOOK_TOKEN;
+    }
+  });
+
   it("says so when core has no drill trigger", async () => {
     const url = await serve(() => ({ status: 404, body: {} }));
     await expect(new CoreClient(url, () => undefined).sendDrill("sam")).rejects.toThrow(/no POST/);

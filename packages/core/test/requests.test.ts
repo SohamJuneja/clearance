@@ -85,6 +85,7 @@ describe("request lifecycle", () => {
     ["APPROVED", "VOIDED"],
     ["BREAK_GLASS", "EXECUTED"],
     ["BREAK_GLASS", "GRANTED"],
+    ["BREAK_GLASS", "VOIDED"],
     ["GRANTED", "CONSUMED"],
     ["GRANTED", "VOIDED"],
   ];
@@ -120,7 +121,8 @@ describe("request lifecycle", () => {
   });
 
   it("refuses every other edge", () => {
-    const allStates = RequestStateSchema.options;
+    // AUTO has no way in: a request is created in it, or never in it. It has its own test below.
+    const allStates = RequestStateSchema.options.filter((state) => state !== "AUTO");
     const legalKeys = new Set(legal.map(([from, to]) => `${from}->${to}`));
     for (const from of allStates) {
       for (const to of allStates) {
@@ -130,6 +132,11 @@ describe("request lifecycle", () => {
         expect(store.get(id)?.state).toBe(from);
       }
     }
+  });
+
+  it("reaches AUTO only by being created there, and it goes nowhere from there", () => {
+    expect(TRANSITIONS.AUTO).toEqual([]);
+    for (const state of RequestStateSchema.options) expect(TRANSITIONS[state]).not.toContain("AUTO");
   });
 
   it("has no INELIGIBLE_ANSWER or REROUTED state: those are ledger events", () => {

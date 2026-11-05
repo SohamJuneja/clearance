@@ -17,6 +17,7 @@ const EXCLUSION_WORDS: Record<Exclusion, string> = {
   author: "code author",
   away: "away",
   counted: "already counted",
+  failed_confirm: "failed type-to-confirm",
 };
 
 /**

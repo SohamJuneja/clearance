@@ -27,7 +27,9 @@ import { toNumber } from "../format.js";
 import { callHash } from "../hash.js";
 import type { AggregateStore } from "../risk/aggregates.js";
 import {
+  aboveNormalRangeFlag,
   aggregateFlag,
+  overCapFlag,
   dynamicArgsFlag,
   MALFORMED_FLAG,
   missingDataFlag,
@@ -54,8 +56,8 @@ export type EngineDeps = {
   policy: CompiledPolicy;
   lookup: LookupPort;
   clock: Clock;
-  aggregates: AggregateStore;
-  autonomy: AutonomyStore;
+  aggregates: Pick<AggregateStore, "sum">;
+  autonomy: Pick<AutonomyStore, "levelFor"> & Partial<Pick<AutonomyStore, "ceiling" | "spentToday">>;
   grants?: GrantPort | undefined;
 };
 
@@ -107,6 +109,8 @@ export type Evaluation = {
   aggregates: AggregateHit[];
   bucket?: string;
   level?: Level;
+  /** Whether autonomy could have run this: no forced hold, no missing data, not critical. Replay reads it. */
+  autoEligible?: boolean;
   grantRequestId?: string;
 };
 
@@ -396,7 +400,8 @@ async function assessClass(
   const unknownFields = new Set<string>();
   for (const { name, expr } of cls.extract) {
     const value = await evaluateExpression(expr, scope);
-    if (value === UNKNOWN) {
+    // A whole object where a value belongs is a system of record answering with a shape we don't understand.
+    if (value === UNKNOWN || (typeof value === "object" && value !== null && !Array.isArray(value))) {
       unknownFields.add(name);
     } else {
       extracted[name] = value;
@@ -481,20 +486,44 @@ async function assessClass(
 
   // 5. Autonomy. Forced holds, missing data and the critical tier never run on their own.
   const bucket = await bucketFor(cls, scope);
-  if (cls.autonomy && bucket !== null && !forceHold && missing.size === 0 && tier !== "critical") {
-    const level = capLevel(deps.autonomy.levelFor(action.agent.name, cls.name, bucket), cls.autonomy.maxLevel);
-    if (levelAllowsWithoutHuman(level)) {
-      return { ...common, decision: "allow", step: "autonomy", reason: `Autonomy ${level}`, bucket, level };
+  const inBucket = cls.autonomy?.buckets.find((candidate) => candidate.name === bucket);
+  let level = cls.autonomy && bucket !== null ? capLevel(deps.autonomy.levelFor(action.agent.name, cls.name, bucket), cls.autonomy.maxLevel) : null;
+  // L3 gets to be silent because it has a budget. Without one, someone still looks: it asks for a review, as L2 does.
+  if (level === "L3" && inBucket?.dailyCap === undefined) level = "L2";
+  const autoEligible = !forceHold && missing.size === 0 && tier !== "critical";
+
+  const amount = toNumber(extracted.amount);
+  let overCap = false;
+  if (level && level !== "L0" && bucket !== null) {
+    const ceiling = amount === null ? null : (deps.autonomy.ceiling?.(action.agent.name, cls.name, bucket, clock.nowMs()) ?? null);
+    if (amount !== null && ceiling !== null && amount > ceiling) {
+      // Above what's normal here, so a person looks at this one call, as an ordinary hold. The bucket keeps its level.
+      flags.push(aboveNormalRangeFlag(amount, ceiling, policy.currency));
+      level = "L0";
+    }
+  }
+  if (level === "L3" && bucket !== null && inBucket?.dailyCap !== undefined) {
+    // Not knowing what has been spent is not the same as having budget left.
+    const spent = deps.autonomy.spentToday?.(action.agent.name, cls.name, bucket, clock.nowMs()) ?? Number.POSITIVE_INFINITY;
+    if (spent + (amount ?? 1) > inBucket.dailyCap) {
+      overCap = true;
+      flags.push(overCapFlag(spent, inBucket.dailyCap, amount !== null, policy.currency));
     }
   }
 
+  if (level && bucket !== null && levelAllowsWithoutHuman(level) && autoEligible && !overCap) {
+    return { ...common, decision: "allow", step: "autonomy", reason: `Autonomy ${level}`, bucket, level, autoEligible };
+  }
+
   // 7. Hold.
-  const result: Evaluation = { ...common, decision: "hold", step: "class_hold", reason: `HELD: ${common.holdSummary}` };
+  const result: Evaluation = { ...common, decision: "hold", step: "class_hold", reason: `HELD: ${common.holdSummary}`, autoEligible };
   if (bucket !== null) result.bucket = bucket;
+  if (level) result.level = level;
   return result;
 }
 
-async function bucketFor(cls: CompiledClass, scope: EvalScope): Promise<string | null> {
+/** The bucket a call falls in: the first whose rule is true. Unknown is not true, so a missing field is in no bucket. */
+export async function bucketFor(cls: CompiledClass, scope: EvalScope): Promise<string | null> {
   if (!cls.autonomy) return null;
   if (cls.autonomy.buckets.length === 0) return "default";
   for (const bucket of cls.autonomy.buckets) {

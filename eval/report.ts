@@ -116,6 +116,12 @@ const E6 = z.object({
   human_decisions_per_100: z
     .object({ before: z.number().optional(), after: z.number().optional() })
     .optional(),
+  /** The rule as first written, published beside the one in force because it changed after a first result. */
+  original_rule: z
+    .object({
+      human_decisions_per_100: z.object({ after: z.number().optional() }).optional(),
+    })
+    .optional(),
 });
 
 const Negative = z.object({
@@ -235,6 +241,12 @@ function synthetic(input: { synthetic?: boolean } | undefined, data: string): st
   return input?.synthetic && !/synthetic/i.test(data) ? `${data} (synthetic)` : data;
 }
 
+function e6Data(e6: Inputs["E6"]): string {
+  const original = e6?.original_rule?.human_decisions_per_100?.after;
+  if (original === undefined) return "synthetic week, labelled";
+  return `synthetic week, labelled; the anomaly rule was changed after seeing the first result, and the original rule gives ${num(original)}`;
+}
+
 const HEADER = "| ID | Metric | Baseline | Clearance | Data | Script |";
 
 /** The PLAN 10.8 table. With no inputs at all, every cell it doesn't know is `_`. */
@@ -261,7 +273,7 @@ export function renderTable(inputs: Inputs): string {
     `| E4 | Soak invariant violations | n/a | ${num(soak?.violations)} | ${synthetic(soak, `${soak?.hours ?? 2} h, ${num(soak?.calls)} calls, ${soak?.restarts ?? 3} restarts`)} | \`pnpm eval:soak\` |`,
     `| E5 | Catch rate on flawed requests | Switch card: ${pct(e5?.catch_rate?.switch_card)} | Clearance card: ${pct(e5?.catch_rate?.clearance_card)} | ${synthetic(e5, `n = ${num(e5?.people)} people, ${e5?.flawed_each ?? 4} flawed each`)} | \`pnpm eval:study\` |`,
     `| E5 | Median seconds per decision (legit / flawed) | ${num(e5?.median_seconds?.switch_card?.legit)} / ${num(e5?.median_seconds?.switch_card?.flawed)} | ${num(e5?.median_seconds?.clearance_card?.legit)} / ${num(e5?.median_seconds?.clearance_card?.flawed)} | same | same |`,
-    `| E6 | Human decisions per 100 agent actions | ${num(e6?.human_decisions_per_100?.before)} | ${num(e6?.human_decisions_per_100?.after)} (after promotion) | synthetic week, labelled | \`pnpm eval:autonomy\` |`,
+    `| E6 | Human decisions per 100 agent actions | ${num(e6?.human_decisions_per_100?.before)} | ${num(e6?.human_decisions_per_100?.after)} (after promotion) | ${e6Data(e6)} | \`pnpm eval:autonomy\` |`,
     negativeRow(neg),
   ];
   return rows.join("\n");

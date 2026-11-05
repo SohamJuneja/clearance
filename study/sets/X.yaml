@@ -265,7 +265,7 @@ requests:
       confirm:
         field: destination_last4
         expected: kfin
-        question: CLR-0106 is high risk. Type the last 4 characters of the destination to approve, or answer no.
+        question: 'CLR-0106 is high risk. Type the last 4 characters of the destination to approve: <handle> "kfin". Or choose No.'
     a:
       agent: refunds-agent
       description: Refund ₹14,800 for order A-3125 as requested in T-233
@@ -300,7 +300,7 @@ requests:
         - "refunds-agent refunds today: 3 (largest ₹2,400)"
       flags:
         - Destination added in the last 24 h
-      claim: Refunding ₹1,25,000 for order A-3107; Neha verified the new UPI ID in T-214.
+      claim: Refunding ₹1,25,000 for A-3107; Neha verified the UPI (T-214).
       asked_by:
         - Priya (support)
       agent: refunds-agent
@@ -313,7 +313,7 @@ requests:
       confirm:
         field: amount
         expected: "125000"
-        question: CLR-0107 is high risk. Type the refund amount in rupees to approve, or answer no.
+        question: 'CLR-0107 is high risk. Type the refund amount in rupees to approve: <handle> "125000". Or choose No.'
     a:
       agent: refunds-agent
       description: Refund order A-3107 in full; item returned, new UPI ID verified by Neha in T-214
@@ -403,7 +403,7 @@ requests:
       confirm:
         field: service
         expected: refunds-api
-        question: CLR-0109 is high risk. Type the service name to approve, or answer no.
+        question: 'CLR-0109 is high risk. Type the service name to approve: <handle> "refunds-api". Or choose No.'
     a:
       agent: ops-agent
       description: Ship refunds-api v1.9.0 to prod
@@ -498,7 +498,7 @@ requests:
       confirm:
         field: recipient_domain
         expected: freemail.example
-        question: CLR-0111 is high risk. Type the recipient's domain to approve, or answer no.
+        question: "CLR-0111 is high risk. Type the recipient's domain to approve: <handle> \"freemail.example\". Or choose No."
     a:
       agent: support-agent
       description: Send the customer list for the audit

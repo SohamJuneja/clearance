@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 import type { Tier } from "@clearance/contracts";
 import { isMap, isScalar, isSeq, LineCounter, parseDocument, type Document, type ParsedNode } from "yaml";
 import type { ZodError, ZodType, ZodTypeDef } from "zod";
+import { F11_CRITERIA, type Criteria } from "../autonomy/promotion.js";
 import type { Level } from "../autonomy/store.js";
 import { sha256Hex } from "../hash.js";
 import { compileExpression, ExpressionError, type CompiledExpression } from "./expr.js";
@@ -149,13 +150,19 @@ export type CompiledClass = {
   reversible?: boolean;
   approvers: CompiledApprovers | null;
   escalate: CompiledEscalateStep[];
-  autonomy: { maxLevel: Level; buckets: { name: string; when: CompiledExpression }[] } | null;
+  autonomy: {
+    maxLevel: Level;
+    buckets: { name: string; when: CompiledExpression; label?: string; dailyCap?: number }[];
+    promoteAfter: Criteria;
+  } | null;
   drills: boolean;
 };
 
 export type CompiledPolicy = {
   hash: string;
   source: string;
+  /** The file as it was read: what `hash` is the hash of. */
+  text: string;
   file: PolicyFile;
   currency: string;
   tiers: { name: Tier; min: number; max: number }[];
@@ -287,7 +294,14 @@ function compileClass(name: string, source: YamlSource, file: PolicyFile): Compi
         buckets: (raw.autonomy.buckets ?? []).map((bucket, index) => ({
           name: bucket.name,
           when: compileExpr(bucket.when, [...path, "autonomy", "buckets", index, "when"], source, known),
+          ...(bucket.label ? { label: bucket.label } : {}),
+          ...(bucket.daily_cap !== undefined ? { dailyCap: bucket.daily_cap } : {}),
         })),
+        promoteAfter: {
+          approvals: raw.autonomy.promote_after?.approvals ?? F11_CRITERIA.approvals,
+          days: raw.autonomy.promote_after?.days ?? F11_CRITERIA.days,
+          minDistinctApprovers: raw.autonomy.promote_after?.min_distinct_approvers ?? F11_CRITERIA.minDistinctApprovers,
+        },
       }
     : null;
 
@@ -337,6 +351,7 @@ export function parsePolicy(text: string, fileLabel: string): CompiledPolicy {
   return {
     hash: sha256Hex(text),
     source: fileLabel,
+    text,
     file,
     currency: file.currency,
     tiers: compileTiers(file, source),

@@ -82,7 +82,8 @@ function matchesOf(text: string, pattern: RegExp, normalise: (raw: string) => st
 const CUSTOMER_IDS = /\bcus_[A-Za-z0-9]+\b/g;
 const ORDER_IDS = /\bA-\d+\b/g;
 const ADDRESSES = /[\w.+-]+@[\w-]+(?:\.[\w-]+)*/g;
-const VERSIONS = /\bv\d+(?:\.\d+)+\b/g;
+/** The whole version, suffix and all: `v3.4.0-rc.2` is not `v3.4.0`. A sentence's full stop is not part of it. */
+const VERSIONS = /\bv\d+(?:\.\d+)+(?:[-+][0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?/g;
 const ENVIRONMENTS = /\b(?:prod|production|staging)\b/gi;
 const BRANCHES = /\b(?:(?:feature|fix|hotfix|bugfix|release)\/[\w./-]*\w|main|master|develop)\b/g;
 const PULLS = /(?:\bPR\s*#?|\bpull request\s*#?|#)(\d+)\b/gi;
@@ -121,7 +122,9 @@ const stringKey = (value: unknown): string => String(value).trim().toLowerCase()
 
 const SAYS_THE_ACTION: Record<string, RegExp> = {
   refund: /\brefund/i,
+  payout_change: /\b(?:payout|destination)/i,
   deploy: /\b(?:deploy|ship|release|roll)/i,
+  rollback: /\b(?:roll|revert)/i,
   merge: /\b(?:merg|push)/i,
   customer_email: /\b(?:e-?mail|send|sending|sent|mail)/i,
   delete: /\b(?:delet|remov|drop)/i,
@@ -150,6 +153,20 @@ function refundChecks(input: MismatchInput, text: string): Check[] {
   if (present(extracted.destination)) {
     const destination = oneLine(extracted.destination);
     checks.push({ found: matchesOf(text, ADDRESSES), key: stringKey(destination), display: destination, primary: false });
+  }
+  return checks;
+}
+
+function payoutChecks(input: MismatchInput, text: string): Check[] {
+  const { extracted } = input;
+  const checks: Check[] = [];
+  if (present(extracted.customer)) {
+    const customer = oneLine(extracted.customer);
+    checks.push({ found: matchesOf(text, CUSTOMER_IDS), key: stringKey(customer), display: customer, primary: false });
+  }
+  if (present(extracted.upi)) {
+    const upi = oneLine(extracted.upi);
+    checks.push({ found: matchesOf(text, ADDRESSES), key: stringKey(upi), display: upi, primary: true });
   }
   return checks;
 }
@@ -203,7 +220,10 @@ function checksFor(input: MismatchInput, text: string): Check[] {
   switch (input.cls) {
     case "refund":
       return refundChecks(input, text);
+    case "payout_change":
+      return payoutChecks(input, text);
     case "deploy":
+    case "rollback":
       return deployChecks(input, text);
     case "merge":
       return mergeChecks(input, text);

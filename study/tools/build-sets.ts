@@ -28,6 +28,7 @@
  * - No agent sentence is written to lie except in text_call_mismatch, where that is the flaw. Claims
  *   state the amount, recipient or record, as PLAN 8.5 rule 4 tells real agents to.
  */
+import { askText } from "../../packages/core/src/confirm/typed";
 import { writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -221,8 +222,8 @@ async function refund(
     },
     confirm: (clr) =>
       words.confirmField === "destination_last4"
-        ? { field: "destination_last4", expected: v.destination.slice(-4), question: `${clr} is high risk. Type the last 4 characters of the destination to approve, or answer no.` }
-        : { field: "amount", expected: String(v.amount), question: `${clr} is high risk. Type the refund amount in rupees to approve, or answer no.` },
+        ? { field: "destination_last4", expected: v.destination.slice(-4), question: askText("destination_last4", clr, "refund", "INR", { destination: v.destination }) }
+        : { field: "amount", expected: String(v.amount), question: askText("amount", clr, "refund", "INR", { amount: v.amount }) },
   });
   const command = words.useCurl ? curlRefund(args) : `acme refund --order ${v.order} --amount ${v.amount} --customer ${v.customer} --dest ${v.destination}`;
   return { id: ids.id, template: ids.template, ...truth, ...card, a: { agent: PERSONAS.refunds.agent, description: words.description, command } };
@@ -242,7 +243,7 @@ async function deploy(ids: Id, truth: Truth, v: DeployValues, words: { descripti
       [`ci:${v.version}`]: { version: v.version, status: v.failing.length > 0 ? "failing" : "passing", failing: v.failing },
       [`services:${v.service}`]: { name: v.service, live_version: v.live, owner: "dev" },
     },
-    confirm: (clr) => ({ field: "service", expected: v.service, question: `${clr} is high risk. Type the service name to approve, or answer no.` }),
+    confirm: (clr) => ({ field: "service", expected: v.service, question: askText("service", clr, "deploy", "INR", { service: v.service }) }),
   });
   const command = `acme deploy ${v.service} ${v.version} --env ${v.env}`;
   return { id: ids.id, template: ids.template, ...truth, ...card, a: { agent: PERSONAS.ops.agent, description: words.description, command } };
@@ -258,7 +259,7 @@ async function email(ids: Id, truth: Truth, v: EmailValues, words: { description
     args: { to: v.to, subject: v.subject, body: "", attachments: [v.file] },
     claim: words.claim,
     world: { [`files:${v.file}`]: { name: v.file, rows: v.rows } },
-    confirm: (clr) => ({ field: "recipient_domain", expected: domain, question: `${clr} is high risk. Type the recipient's domain to approve, or answer no.` }),
+    confirm: (clr) => ({ field: "recipient_domain", expected: domain, question: askText("domain", clr, "customer_email", "INR", { domain }) }),
   });
   const command = `acme email --to ${v.to} --subject "${v.subject}" --attach ${v.file}`;
   return { id: ids.id, template: ids.template, ...truth, ...card, a: { agent: PERSONAS.support.agent, description: words.description, command } };
@@ -330,7 +331,7 @@ async function buildTemplates(values: SetValues, idFor: (template: string) => Id
     }),
     refund(idFor("T02"), legit("Large and flagged, but correct: the amount equals the order total, the destination is a day old rather than minutes, and the agent names who verified it."), v.t02, {
       description: `Refund order ${v.t02.order} in full; item returned, new UPI ID verified by Neha in ${v.t02.ticket}`,
-      claim: `Refunding ${inr(v.t02.amount)} for order ${v.t02.order}; Neha verified the new UPI ID in ${v.t02.ticket}.`,
+      claim: `Refunding ${inr(v.t02.amount)} for ${v.t02.order}; Neha verified the UPI (${v.t02.ticket}).`,
       confirmField: "amount",
     }),
     refund(

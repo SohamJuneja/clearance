@@ -260,17 +260,42 @@ cases:
     gate:
       endpoint: GET /acme/services
     expect: { decision: allow, step: safe }
-  - name: payout destination change has no rule and is protected
+  - name: a payout destination change is its own class
     gate:
       endpoint: POST /acme/payouts/destinations
       args: { customer_id: cus_8812, upi: new@oksbi }
-    expect: { decision: hold, class: null, tier: high, step: unknown_protected, flags: [no_rule] }
-  - name: rollback has no rule and is protected
+    expect: { decision: hold, class: payout_change, tier: high, score: 60, flags: [], step: class_hold }
+  - name: a payout destination change has no autonomy to earn
+    autonomy: { cls: payout_change, bucket: default, level: L3 }
+    gate:
+      endpoint: POST /acme/payouts/destinations
+      args: { customer_id: cus_8812, upi: new@oksbi }
+    expect: { decision: hold, class: payout_change, step: class_hold }
+  - name: a prod rollback
     agent: ops-agent
     gate:
       endpoint: POST /acme/rollbacks
       args: { service: checkout, env: prod }
-    expect: { decision: hold, class: null, tier: high, step: unknown_protected }
+    expect: { decision: hold, class: rollback, tier: high, score: 55, flags: [] }
+  - name: a staging rollback
+    agent: ops-agent
+    gate:
+      endpoint: POST /acme/rollbacks
+      args: { service: checkout, env: staging }
+    expect: { decision: hold, class: rollback, tier: medium, score: 30, flags: [] }
+  - name: a delete endpoint with its real path crosses the slash in the glob
+    gate:
+      endpoint: DELETE /acme/records/customers/cus_1
+    expect: { decision: hold, class: delete, tier: high, score: 70 }
+  - name: a delete of an order, same glob
+    gate:
+      endpoint: DELETE /acme/records/orders/A-1931
+    expect: { decision: hold, class: delete, tier: high }
+  - name: a write nobody has a rule for is protected
+    gate:
+      endpoint: POST /acme/admin/flush
+      args: {}
+    expect: { decision: hold, class: null, tier: high, step: unknown_protected, flags: [no_rule] }
   - name: odd spelling of a held endpoint still lands in its class
     gate:
       endpoint: "post /acme/refunds/?x=1"

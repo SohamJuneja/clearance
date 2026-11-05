@@ -69,6 +69,22 @@ export class PeopleStore {
     return { untilMs: row.away_until, delegateTo: row.delegate_to };
   }
 
+  /** Set by a rubber-stamp signal: their next high-tier card asks for a typed value. Null when there is none. */
+  friction(userId: string): string | null {
+    const row = this.db.prepare(`SELECT friction FROM people WHERE user_id = ?`).get(userId) as
+      | { friction: string | null }
+      | undefined;
+    return row?.friction ?? null;
+  }
+
+  setFriction(userId: string, reason: string): void {
+    this.db.prepare(`UPDATE people SET friction = ? WHERE user_id = ?`).run(reason, userId);
+  }
+
+  clearFriction(userId: string): void {
+    this.db.prepare(`UPDATE people SET friction = NULL WHERE user_id = ?`).run(userId);
+  }
+
   setAway(userId: string, untilMs: number | null, delegateTo: string | null): void {
     this.db.prepare(`UPDATE people SET away_until = ?, delegate_to = ? WHERE user_id = ?`).run(untilMs, delegateTo, userId);
   }

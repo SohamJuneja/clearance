@@ -199,7 +199,7 @@ const LedgerSchema = z.union([
 export class CoreClient {
   constructor(
     private readonly baseUrl: string,
-    private readonly token: () => string | undefined = () => setting("CLEARANCE_HOOK_TOKEN"),
+    private readonly token: () => string | undefined = () => setting("CLEARANCE_INTERNAL_TOKEN"),
   ) {}
 
   private headers(): Record<string, string> {

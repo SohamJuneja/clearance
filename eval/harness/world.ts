@@ -29,7 +29,9 @@ import {
 } from "./identities.ts";
 
 export const SHARED_PORTS = [7700, 7710, 7800] as const;
-export const EVAL_PORTS = { core: 17700, gate: 17710, acme: 17800 } as const;
+// CLEARANCE_EVAL_PORT_OFFSET lets a long soak run beside other eval runs without a port clash.
+const PORT_OFFSET = Number(process.env.CLEARANCE_EVAL_PORT_OFFSET ?? 0);
+export const EVAL_PORTS = { core: 17700 + PORT_OFFSET, gate: 17710 + PORT_OFFSET, acme: 17800 + PORT_OFFSET } as const;
 
 export interface WorldPorts {
   core: number;
@@ -100,6 +102,8 @@ export interface ChatRecord {
   sessionId?: string;
   switchRequestId?: string;
   handle?: string;
+  /** Set on a type-to-confirm card. */
+  questions?: { id: string; prompt: string }[];
 }
 
 export interface LedgerRow {
@@ -338,22 +342,40 @@ export class IsolatedWorld {
       sender: PARTICIPANTS[sender],
       senderName,
       onBehalfOf: null,
-      addressed: false,
+      // What Switch's stream says: a message that mentions Clearance first is addressed to Clearance.
+      addressed: /^\s*@clearance\b/i.test(body),
       body,
       timestampMs: Date.now(),
     });
     if (res.status !== 200) throw new Error(`core refused a message: ${res.status}`);
   }
 
-  /** Someone answers a card: the event the Switch agent delivers to core's onApprovalOutcome. */
+  /**
+   * Someone answers a card: the event the Switch agent delivers to core's onApprovalOutcome. On a type-to-confirm
+   * card, "allow" types the value the card's how-to shows and "deny" chooses its No, as a person reading it would.
+   */
   async answer(card: ChatRecord, who: ParticipantName, answer: "allow" | "deny"): Promise<void> {
     this.answeredCards.add(card.switchRequestId ?? "");
+    const question = card.questions?.[0];
+    const typed = question ? /<handle> "([^"]*)"/.exec(question.prompt)?.[1] : undefined;
+    if (question && answer === "allow" && typed === undefined) {
+      throw new Error(`no value to type in this card's how-to: ${question.prompt.slice(0, 120)}`);
+    }
+    const reply = question
+      ? {
+          kind: "questions",
+          answers: [
+            answer === "deny"
+              ? { question_id: question.id, selected_option_ids: ["deny"], custom_text: null }
+              : { question_id: question.id, selected_option_ids: [], custom_text: typed },
+          ],
+        }
+      : { kind: "approval", answer };
     const res = await this.corePost("/eval/answer", {
       sessionId: card.sessionId,
       switchRequestId: card.switchRequestId,
-      kind: "approval",
+      ...reply,
       state: "answered",
-      answer,
       answeredBy: PARTICIPANTS[who],
       answeredAtMs: Date.now(),
     });

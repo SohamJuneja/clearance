@@ -27,6 +27,19 @@ beforeEach(() => {
 afterEach(() => h.core.close());
 
 function outcome(card: OpenedCard, answeredBy: string | null, answer: string, state = "answered"): ApprovalOutcomeEvent {
+  // A critical card asks for a typed value. These tests are about who counts, so they type the right one.
+  if (card.kind === "questions" && answer === "allow") {
+    return {
+      sessionId: card.sessionId,
+      switchRequestId: card.switchRequestId,
+      kind: "questions",
+      state,
+      answer: null,
+      answers: [{ question_id: card.questions[0]?.id, custom_text: String(REFUND_CRITICAL.amount), selected_option_ids: [] }],
+      answeredBy,
+      answeredAtMs: h.clock.nowMs(),
+    };
+  }
   return {
     sessionId: card.sessionId,
     switchRequestId: card.switchRequestId,

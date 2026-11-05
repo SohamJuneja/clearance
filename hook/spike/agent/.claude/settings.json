@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"E:/blockchain/clearance/hook/spike/spike_hook.py\" --agent spike-bot",
+            "timeout": 600
+          }
+        ]
+      }
+    ]
+  }
+}

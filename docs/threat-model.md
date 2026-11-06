@@ -24,11 +24,13 @@ A grant is for one run of one call. Its hash covers:
 
 - The command's words, with quoting kept wherever it changes what runs. `'$X'` and `$X` differ, and so do `$(echo a)` and `$(echo b)`. `"origin"` and `origin` run the same, so they hash the same.
 - The directory it runs in, including a vendor's own working-directory argument. A relative path means nothing without one.
-- Anything earlier on the line that changes where or how it runs: `cd`, `export`, a bare assignment, `alias`, `git remote`, and what a shell string runs under (`sudo bash -c '...'`).
+- Every earlier command on the line that isn't on a short list of ones known to leave things as they were (`echo`, `ls`, `cat`, `git status` and the like). There are too many ways to change what follows to list them, such as `read`, `printf -v` and a script of its own, and one missing from the short list only costs a new card if the agent rewords the line. Also what a shell string runs under (`sudo bash -c '...'`).
 - The whole line as written, when the command repeats, is fed from a pipe or heredoc, or gets arguments through `bash -c '...' _ x`.
 - What a file write would put in the file, and for an edit, what it replaces. A write through the shell is bound to its line, which is where its content is.
 
 The same command twice on a line needs two approvals, because a grant covers one run. A grant for a command alone doesn't cover it in a loop. Approving the loop as written does, once, and its card says it repeats. A patch touching several files spends no grant until every file can proceed.
+
+Paths are read from where the call really runs. That's the agent's own directory, moved by a `cd` on the line, a wrapper's `env -C` or `sudo -D`, a vendor's `workdir`, or wherever the session has moved to inside its directory, as a Claude session does after an earlier `cd`. So `cd .github/workflows && echo x > deploy.yml` is a write to `.github/workflows/deploy.yml`, whichever way it got there. A `workdir` is read as the `cd` it is, so one outside the agent's directory is held whatever the command does, as `cd` there is. A `done` with no loop this could read is held, because something repeats that it didn't see.
 
 What comes after a command on the line isn't bound. Agents really do change the tail on retry (spike S9), and whatever follows is classified in its own right. So `git push origin main; rm -rf ../x` needs a grant for each.
 
@@ -38,7 +40,14 @@ The requester comes from Switch's `sender` and `on_behalf_of` fields on message 
 
 The Clearance agent has its own Switch owner, `clearance-admin`. Two agents with the same owner can change each other's addressing policy, so no persona or Acme agent shares that owner.
 
-When we can't tell exactly who asked, we take the cautious reading: everyone who addressed that agent in the last 10 minutes counts as a requester and can't approve. So does anyone whose message was sent before the hold and arrived after it, and anyone past the 10 minutes who has had no reply from the agent since they asked, for up to an hour. All Clearance can see of an agent's turn is its messages, so an agent that posts progress as it goes ends that second rule early.
+When we can't tell exactly who asked, we take the cautious reading: everyone who addressed that agent in the last 10 minutes counts as a requester and can't approve, and so does anyone who spoke in a room the agent has been in within the hour. So does anyone whose message was sent before the hold and arrived after it, and anyone past the 10 minutes who has had no reply from the agent since they asked, for up to an hour. All Clearance can see of an agent's turn is its messages, so an agent that posts progress as it goes ends that second rule early.
+
+Speaking in a room and waiting on a reply are guesses, and an agent can bring about both. So a guess can't move a decision: if barring those people would leave too few to decide, they stay on it, two different people must agree, and the card says why.
+
+An alias counts as the agent's name, and Switch says what a room's aliases are, so a real one is an ask like any other. What's lost:
+
+- When Switch can't say, because it's down or slow, Clearance only recognises a name that could be the agent's own, like `@refunds` for refunds-agent. Those raise the request to two approvers. An alias that looks nothing like the name goes unread until Switch answers again, because letting any unknown `@name` raise a quorum lets ordinary chat stop approvals.
+- A role that addresses an agent isn't recognised as a name at all. Only the rule about speaking in a room the agent has been in covers it.
 
 That reading only covers rooms Clearance is in. Someone can ask the same agent somewhere it isn't, and leave no trace. If nobody at all is on record, two different people must approve, since only one of them can be the person who asked. If someone else is on record, the request looks attributed, so core also asks Switch, each time it holds a new request, whether the agent is in a room Clearance isn't in or has a live session in one. If it is, or if Switch can't say within 1.5 seconds, two people must approve and the card says why. A call that says which room it came from takes its requesters from that room, though anyone who asked elsewhere in the window still can't approve, because the room on a call is only the agent's word.
 
@@ -67,9 +76,9 @@ Each protected agent can only be addressed in its own rooms, and Switch enforces
 
 **A card shows a preview of a write or an email's body.** That's the first 160 characters, with the total alongside, because a longer card can't be answered at all. Everything past the preview is approved too, so a person seeing "first 160 of 5000 characters" should say no or ask.
 
-**Reading a shell line isn't running it.** The parser knows the wrappers it lists (`sudo`, `doas`, `busybox`, `flock`, `taskset` and others). One it doesn't list hides the command behind it, as with zsh's `repeat`, `npx` or `make`. A script hides everything in it, and an agent can write one and run it. Hooks catch mistakes and ordinary misbehaviour on the line in front of them, and the gate stays the boundary.
+**Reading a shell line isn't running it.** The parser knows the wrappers it lists (`sudo`, `doas`, `busybox`, `flock`, `taskset` and others). One it doesn't list hides the command behind it, as with `npx` or `make`. A script hides everything in it, and an agent can write one and run it. It follows a `cd` by its words, so it can't follow one to a directory only known at run time. A write after that is held, but a read isn't, because a read of `$FILE` isn't either. It doesn't follow symlinks, and a named Claude subagent that has wandered outside any agent's directory is judged from where it is, because nothing says where its directory is. Hooks catch mistakes and ordinary misbehaviour on the line in front of them, and the gate stays the boundary.
 
-**The scan of inline code can be evaded.** Agents parse JSON with `python3 -c` and `node -e` all the time, so holding every one would bury real calls in cards. Code given to `python`, `node`, `tsx`, `bun`, `deno eval`, `perl`, `ruby`, `php` or `awk` is held when its text writes files, starts a process or reaches the network, or is only known at run time, and plain computation passes. It's a scan of text that starts from an allowed list of imports where the language has them, and it isn't an analysis of a program, so enough ingenuity will get past it. It doesn't read `sed` scripts, whose `e` and `w` commands run things and write files. It doesn't hold reads either: `python3 -c "print(open('/etc/hostname').read())"` passes where `cat` of a path outside the agent's directory would be held. An approved inline line is bound to its exact bytes.
+**The scan of inline code can be evaded.** Agents parse JSON with `python3 -c` and `node -e` all the time, so holding every one would bury real calls in cards. Code given to `python`, `node`, `tsx`, `bun`, `deno eval`, `perl`, `ruby`, `php` or `awk` is held when its text writes files, starts a process or reaches the network, or is only known at run time, and plain computation passes. It's a scan of text that starts from an allowed list of imports where the language has them, and it isn't an analysis of a program, so enough ingenuity will get past it. An option a reader doesn't know means a hold, because it might be how the code is given, or might take the next word. It catches the obvious other names, like `o=open`, `process['getBuiltinModule']`, ruby's `File.new` and php's `array_map('system', ...)`. It doesn't catch a name built at run time, like `'sys'.'tem'` in php, or an interpreter told what to load through its environment, like `PYTHONPATH` or `NODE_OPTIONS`. It doesn't read `sed` scripts, whose `e` and `w` commands run things and write files. It doesn't hold reads either: `python3 -c "print(open('/etc/hostname').read())"` passes where `cat` of a path outside the agent's directory would be held. An approved inline line is bound to its exact bytes.
 
 **Switch's tools are checked by name.** Six chat tools skip Clearance, so an outage can't silence an agent. Everything else on Switch goes to core, where looking around stays quiet and anything that changes a room, an agent or a template gets a card. A tool Switch adds later gets a card until the policy names it.
 
@@ -108,3 +117,12 @@ To shut it, an agent's owner limits who can address it to named rooms. Switch en
 A room Clearance isn't in counts for good once someone has written there. Switch shows that an agent belongs to a room, not when it was last used, so one old direct message means two approvals for that agent until the room is archived. We accept that: it asks too much, not too little.
 
 A type-to-confirm prompt proves someone read one field. It doesn't prove they thought about it. Drills measure attention, and a drill catch rate from a small group is a pilot number, not a guarantee.
+
+## What a drill can't hide
+
+A drill answers commands the way a real request does, as far as it can: the same refusals and the same usage lines, for anyone. It has nothing behind it to run or edit, so two answers can still differ:
+
+- Someone named for break-glass who gives a reason on a drill gets "I can't find" it. Telling them glass was broken would be a false record.
+- An eligible approver who offers a valid lower amount on a drill with `@clearance counter` is told the card couldn't be opened, which is what a real request says when Switch won't open one. Nothing happens either way, but someone who tries this on every card, and retries, could work out which ones are drills.
+
+Both take an action that says the person is already looking hard at the card, which is what a drill is for.

@@ -117,6 +117,11 @@ export class RouteStore {
     return this.db.prepare(`SELECT * FROM routes WHERE request_id = ? AND ${NOT_FAILED} ORDER BY id`).all(requestId) as RouteRow[];
   }
 
+  /** Whether a fallback card was ever tried, even one Switch never confirmed: it may be live, and its answer still counts. */
+  fallbackTried(requestId: string): boolean {
+    return this.db.prepare(`SELECT 1 FROM routes WHERE request_id = ? AND step = 'fallback' LIMIT 1`).get(requestId) !== undefined;
+  }
+
   openForRequest(requestId: string): RouteRow[] {
     return this.db
       .prepare(`SELECT * FROM routes WHERE request_id = ? AND closed_at IS NULL ORDER BY id`)

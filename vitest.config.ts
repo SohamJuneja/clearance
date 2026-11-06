@@ -6,6 +6,6 @@ export default defineConfig({
   test: {
     // Core's tests make a folder each, so a run through this config needs the same cleanup as one from packages/core.
     globalSetup: [fileURLToPath(new URL("./packages/core/test/global-setup.ts", import.meta.url))],
-    exclude: ["**/node_modules/**", "**/dist/**", "**/.claude/**", "vendor/**", "spikes/**"],
+    exclude: ["**/node_modules/**", "**/dist/**", "**/.claude/**", "**/.tmp/**", "vendor/**", "spikes/**"],
   },
 });

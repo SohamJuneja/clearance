@@ -82,7 +82,7 @@ export const MUTATIONS: Mutation[] = [
     source: [
       {
         file: REQUESTERS,
-        find: "if (userId) this.recordVoice(evt, userId, named.some((name) => !this.directory.knowsMention(name)));",
+        find: "for (const userId of voices) this.recordVoice(evt, userId);",
         replace: "",
       },
     ],
@@ -199,8 +199,8 @@ export const MUTATIONS: Mutation[] = [
     source: [
       {
         file: CORE,
-        find: "quorumRequired: requesterIds.length === 0 || unlinked || lost || alias || authorLookupFailed ? unknownQuorum : asked,",
-        replace: "quorumRequired: unlinked || lost || alias || authorLookupFailed ? unknownQuorum : asked,",
+        find: "quorumRequired: requesterIds.length === 0 || unlinked || lost || alias || maybe || authorLookupFailed ? unknownQuorum : asked,",
+        replace: "quorumRequired: unlinked || lost || alias || maybe || authorLookupFailed ? unknownQuorum : asked,",
       },
     ],
   },
@@ -254,9 +254,11 @@ export const MUTATIONS: Mutation[] = [
         file: HOOK_ROUTES,
         find: `const refused = claimsRefused(adapter, payload, agent);
     if (refused) return deny(refused);
+    const tree = treeFrom(options.resolveAgent, adapter.cwd(payload), agent);
     const actions = adapter.toActions(payload, {
       agent,`,
-        replace: `const actions = adapter.toActions(payload, {
+        replace: `const tree = treeFrom(options.resolveAgent, adapter.cwd(payload), agent);
+    const actions = adapter.toActions(payload, {
       agent: adapter.agentType?.(payload) ?? agent,`,
       },
     ],

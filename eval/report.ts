@@ -51,6 +51,10 @@ const E1 = z.object({
   second_review: z
     .object({ passed: z.number().int().nonnegative(), total: z.number().int().positive() })
     .optional(),
+  /** The third's. */
+  third_review: z
+    .object({ passed: z.number().int().nonnegative(), total: z.number().int().positive() })
+    .optional(),
   /** So a case that isn't prevented can be named in the negative results. */
   per_case: z
     .array(
@@ -339,7 +343,9 @@ function e1Coverage(inputs: Inputs): string {
 
 function auditCell(e1: Inputs["E1"]): string {
   const first = `Audit: ${num(e1?.audit?.passed)} of ${e1?.audit?.total ?? 5}`;
-  return e1?.second_review ? `${first}; second review: ${num(e1.second_review.passed)} of ${e1.second_review.total}` : first;
+  const second = e1?.second_review ? `; second review: ${num(e1.second_review.passed)} of ${e1.second_review.total}` : "";
+  const third = e1?.third_review ? `; third review: ${num(e1.third_review.passed)} of ${e1.third_review.total}` : "";
+  return `${first}${second}${third}`;
 }
 
 function behaviourData(behaviour: Inputs["E2-behaviour"]): string {
@@ -477,8 +483,16 @@ export function negativeResults(inputs: Inputs): NegativeResult[] {
   if (e1?.second_review) {
     results.push({
       id: "second-review",
-      text: `A second independent review then reproduced ${num(e1.second_review.total)} more breaks, on code that passed all 25 cases and the first review's checks. Among them: a denial lost in the seconds its card was opening, a requester naming who approves, and one single-use grant running a command many times. They were fixed and are re-checked on their own line. A third review would probably find more.`,
+      text: `A second independent review then reproduced ${num(e1.second_review.total)} more breaks, on code that passed all 25 cases and the first review's checks. Among them: a denial lost in the seconds its card was opening, a requester naming who approves, and one single-use grant running a command many times. They were fixed and are re-checked on their own line.`,
       short: `a second independent review reproduced ${num(e1.second_review.total)} more breaks on code that passed everything before it`,
+      source: "`pnpm eval:authority`",
+    });
+  }
+  if (e1?.third_review) {
+    results.push({
+      id: "third-review",
+      text: `A third independent review reproduced ${num(e1.third_review.total)} more in what had been written since, and one came from fixing an earlier break: a stray @name raised a quorum, which could make a prod deploy impossible to approve. They're fixed and re-checked on their own line. Each review so far has found more, so a fourth probably would too.`,
+      short: `a third independent review reproduced ${num(e1.third_review.total)} more, one of them caused by fixing an earlier break`,
       source: "`pnpm eval:authority`",
     });
   }
@@ -505,7 +519,7 @@ export function renderTable(inputs: Inputs): string {
     HEADER,
     "|---|---|---|---|---|---|",
     `| E1 | Bad outcomes prevented (of ${e1?.clearance?.total ?? e1?.b_auto?.total ?? 25}) | B-auto: ${prevented(e1?.b_auto)} / B-ask: ${prevented(e1?.b_ask)} | ${prevented(e1?.clearance)} | ${synthetic(e1, `${e1?.cases ?? 25} scripted cases${e1?.baseline_basis ? "; baselines read from code, not run" : ""}; ${e1Coverage(inputs)}`)} | \`pnpm eval:authority\` |`,
-    `| AUDIT | Breaks independent reviews found, re-checked apart from the 25 | n/a | ${auditCell(e1)} | Two reviews, each break fixed after its review | \`pnpm eval:authority\` |`,
+    `| AUDIT | Breaks independent reviews found, re-checked apart from the 25 | n/a | ${auditCell(e1)} | Each break fixed after its review | \`pnpm eval:authority\` |`,
     `| E2 | Risky actions executed without an eligible human (of 20 per vendor) | ${vendors(e2?.risky_unapproved?.baseline)} | ${vendors(e2?.risky_unapproved?.clearance)} | ${synthetic(e2, `${num(e2?.runs ?? 360)} agent runs${e2?.claude_model ? `, Claude on ${e2.claude_model}` : ""}`)} | \`pnpm eval:vendors\` |`,
     `| E2 | Safe actions interrupted (of 20 per vendor) | ${vendorsOrBlank(e2?.safe_interrupted?.baseline)} | ${vendorsOrBlank(e2?.safe_interrupted?.clearance)} | same | same |`,
     `| E2 | Tried another route after a hold | n/a | ${num(behaviour?.tried_another_route)} of ${num(behaviour?.holds)} holds | ${behaviourData(behaviour)} | \`pnpm eval:behaviour\` |`,

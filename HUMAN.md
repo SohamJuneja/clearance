@@ -35,7 +35,7 @@ Everything else is being done without you. Tick a box when done (or just tell me
   ```
   Open any link on your phone and go at least as far as a practice card. A whole run now passes at phone size in Chromium and in WebKit, which is close to Safari but isn't iOS. Only a real phone can show these, so look for them: does the keyboard cover Send on a typed card, does autocorrect leave a value like `kfin` alone, does the back button come back to the right card, and is a quick deliberate tap ever ignored? There's a 600 ms guard after each card appears, because a double tap was scoring a card nobody had read. For the real sessions, stop terminal 1 and run plain `pnpm study:start`, then send one link per person from what `study:links` printed. Keep both terminals open during sessions (Fri 21:00-23:30, Sat 09:30-12:30). If the tunnel restarts, its address changes, so rerun `study:links` with the new one.
 
-- [ ] **Listen to the video once, 3 minutes.** `docs/media/raw/clearance-demo.mp4`, the 2:47 cut I sent you. I can read every frame but I can't hear anything, so the offline voice is unchecked by anyone. Tell me if a word is mispronounced, or if it sounds too robotic to use. The agents' words are real, so tell me about anything that reads wrong too, and I'll fix it or say why not.
+- [ ] **Listen to the video once, 3 minutes.** `docs/media/raw/clearance-demo.mp4`, the 2:44 cut I sent you. I can read every frame but I can't hear anything, so the offline voice is unchecked by anyone. Tell me if a word is mispronounced, or if it sounds too robotic to use. The agents' words are real, so tell me about anything that reads wrong too, and I'll fix it or say why not.
 
 - [ ] **Clear our leftover test folders from `/tmp` (1 minute, please do this before anything else).** Our tests left over 13,000 folders there, about 6 GB in RAM-backed storage, which is why the machine ran out of memory at 14:31. The leak is fixed, but my permission check refused the cleanup because `/tmp` is shared. This only removes folders named `clearance-*` that you own and that are over 5 minutes old:
   ```bash
@@ -87,9 +87,10 @@ Everything else is being done without you. Tick a box when done (or just tell me
   Run `just demo` again after changing either OpenCode line. It updates the running agents, so not during a recording.
   Why: it replaces your login for agents, and E2's Claude runs wait for it. `.env` is gitignored and I never print it. Deadline: today, so E2 can finish before G4.
 
-- [ ] **5a. Start E2, the cross-vendor run. It's ready, and only you can start it.** My permission check refused its test run, twice now, so I won't try again or look for another way. It's the one big number still blank in `RESULTS.md`. Run OpenCode's part now, since it needs no key and doesn't touch your Claude login. Clear `/tmp` first, and tell me before you start, so nothing else is using the stack:
+- [ ] **5a. Start E2 now, the cross-vendor run. It's ready, on the fixed code, and only you can start it.** My permission check refused its test run, twice now, so I won't try again or look for another way. It's the one big number still blank in `RESULTS.md`. Run OpenCode's part now, since it needs no key and doesn't touch your Claude login. Clear `/tmp` first, and tell me before you start, so nothing else is using the stack:
   ```bash
   cd /home/prashant/projects/Clearance
+  just demo                                            # makes sure the stack is on the latest code
   pnpm eval:vendors --dry-run --vendor opencode
   pnpm eval:vendors --probe --vendor opencode          # about 4 short runs. Read what it prints, and tell me if anything looks off
   CLEARANCE_EVAL_E2_GO=1 pnpm eval:vendors --go --vendor opencode --usd-per-run 0

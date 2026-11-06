@@ -16,6 +16,7 @@ import { join } from "node:path";
 import { findUpwards, REPO_ROOT } from "../lib/paths.ts";
 import { AUDIT_CHECKS, AUDIT_FOUND_BY } from "./audit.ts";
 import { SECOND_REVIEW_CHECKS, SECOND_REVIEW_FOUND_BY } from "./second-review.ts";
+import { THIRD_REVIEW_CHECKS, THIRD_REVIEW_FOUND_BY } from "./third-review.ts";
 import {
   BASELINE_BASIS,
   BASELINES,
@@ -79,6 +80,7 @@ async function main(): Promise<number> {
   const chosen = only ? CASES.filter((one) => only.has(String(one.id))) : CASES;
   const chosenAudit = only ? AUDIT_CHECKS.filter((one) => only.has(one.id)) : AUDIT_CHECKS;
   const chosenSecond = only ? SECOND_REVIEW_CHECKS.filter((one) => only.has(one.id)) : SECOND_REVIEW_CHECKS;
+  const chosenThird = only ? THIRD_REVIEW_CHECKS.filter((one) => only.has(one.id)) : THIRD_REVIEW_CHECKS;
 
   // Baselines that no longer match the pinned code would be worse than none, so check before printing them.
   const switchFile = findUpwards("vendor/switch/core/switch_core");
@@ -149,6 +151,25 @@ async function main(): Promise<number> {
     if (result.outcome !== "prevented") print(`        ${result.why}`);
   }
 
+  const thirdResults = [];
+  for (const one of chosenThird) {
+    const result = await runCheck(one);
+    thirdResults.push({
+      id: one.id,
+      title: one.title,
+      bad_outcome: one.badOutcome,
+      outcome: result.outcome,
+      why: result.why,
+      evidence: result.evidence,
+      duration_ms: result.durationMs,
+    });
+    const marker = result.outcome === "prevented" ? "ok  " : "FAIL";
+    print(
+      `${marker} ${one.id.padStart(3)}  ${result.outcome.padEnd(16)} ${one.title}  (${(result.durationMs / 1000).toFixed(1)} s)`,
+    );
+    if (result.outcome !== "prevented") print(`        ${result.why}`);
+  }
+
   print("");
   for (const line of table(results)) print(line);
   const prevented = (pick: (row: CaseOutcome) => Outcome): number =>
@@ -162,6 +183,10 @@ async function main(): Promise<number> {
     passed: countPrevented(secondResults.map((row) => row.outcome)),
     total: secondResults.length,
   };
+  const thirdReview = {
+    passed: countPrevented(thirdResults.map((row) => row.outcome)),
+    total: thirdResults.length,
+  };
   const summary = {
     b_auto: { prevented: prevented((row) => row.b_auto.outcome), total },
     b_ask: { prevented: prevented((row) => row.b_ask.outcome), total },
@@ -173,6 +198,7 @@ async function main(): Promise<number> {
   );
   print(`Audit: ${audit.passed} of ${audit.total}, apart from the ${total}. ${AUDIT_FOUND_BY}`);
   print(`Second review: ${secondReview.passed} of ${secondReview.total}, apart from the ${total}. ${SECOND_REVIEW_FOUND_BY}`);
+  print(`Third review: ${thirdReview.passed} of ${thirdReview.total}, apart from the ${total}. ${THIRD_REVIEW_FOUND_BY}`);
   print(BASELINE_BASIS);
   print(
     "C ran on isolated real processes with a fake ChatPort. Calls are scripted, so this proves the controls, not how an agent behaves.",
@@ -193,6 +219,7 @@ async function main(): Promise<number> {
         cases: total,
         audit: { ...audit, found_by: AUDIT_FOUND_BY, per_check: auditResults },
         second_review: { ...secondReview, found_by: SECOND_REVIEW_FOUND_BY, per_check: secondResults },
+        third_review: { ...thirdReview, found_by: THIRD_REVIEW_FOUND_BY, per_check: thirdResults },
         baseline_basis: BASELINE_BASIS,
         switch_pin: SWITCH_PIN,
         mode: "isolated processes, fake ChatPort",

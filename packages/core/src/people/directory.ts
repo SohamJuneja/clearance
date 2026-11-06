@@ -45,6 +45,9 @@ export function loadIdentities(path: string | undefined): Identities {
 
 const BROADCAST_MENTIONS = new Set(["all", "channel", "here"]);
 
+/** Shorter than this and a name is more likely to be something else that happens to start the same way. */
+const MIN_NAME_PREFIX = 4;
+
 export class Directory {
   private readonly people = new Map<string, Person>();
   private readonly byParticipant = new Map<string, Person>();
@@ -145,6 +148,19 @@ export class Directory {
     if (this.agentNames.has(mention)) return mention;
     const lower = mention.toLowerCase();
     return [...this.agentNames].find((name) => name.toLowerCase() === lower) ?? null;
+  }
+
+  /**
+   * For when Switch can't say what a room's aliases are: whether a name someone wrote could be this agent under another
+   * one. `@refunds`, `@Refunds-Bot` and `@refund` could be refunds-agent. An alias that looks nothing like the agent's name
+   * can't be told from anything else anyone types, and chat isn't allowed to raise a quorum on a guess: see the threat model.
+   */
+  couldBeNameOf(agent: string, mention: string): boolean {
+    if (this.knowsMention(mention)) return false;
+    const bare = (name: string) => name.toLowerCase().replace(/[-_.]?(agent|bot)$/, "").replace(/[-_.]/g, "");
+    const own = bare(agent);
+    const written = bare(mention);
+    return written === own || (written.length >= MIN_NAME_PREFIX && own.startsWith(written));
   }
 
   /** Whether a mention means anything we know of. One that doesn't could be an agent's alias, which only Switch knows. */

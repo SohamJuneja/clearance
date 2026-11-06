@@ -4,10 +4,14 @@
  * doesn't reach the event stream, so they're told apart by their exact words at the pinned commit: delivery/recipient.py,
  * delivery/addressing.py and bridges/agent/commands.py.
  *
- * They aren't the agent's claim. A card that quoted one would put Switch's words in the agent's mouth. Only whole
- * sentences match, so something of the agent's own that merely starts the same way is still the agent's.
+ * They aren't the agent's claim. A card that quoted one would put Switch's words in the agent's mouth. Only the exact
+ * sentences match, with only names in the places Switch puts names, so an agent can't hide what it says in the shape of one.
  */
 const NAME = String.raw`@[\w.-]+`;
+const BOLD = String.raw`\*\*[\w .-]+\*\*`;
+const SOMEONE = String.raw`(?:[Yy]ou|[Mm]y owner|${NAME})`;
+const SIGN_IN = String.raw`If Switch Console says I'm signed out, sign me in first with \`[\w .-]+\` on the machine I run on\.`;
+const OWNER = String.raw`(?:[Mm]y owner(?: \(${NAME}\))?)`;
 
 const NOTICES: RegExp[] = [
   /^Starting a session to handle this — one moment\.$/,
@@ -19,18 +23,27 @@ const NOTICES: RegExp[] = [
   new RegExp(
     String.raw`^(${NAME} — )?I'm not online in this room(, and ${NAME} needs me)?\. (Open Switch Console|\*\*My owner needs to open Switch Console\*\*) to bring me online here\.$`,
   ),
-  /^I have a session connected to this room, but it isn't reporting as live, so I'm not receiving messages\. .+ on the machine I run on\.$/,
-  /^I don't have a session (connected to this room|in this room right now).+ on the machine I run on\.$/,
   new RegExp(
-    String.raw`^(${NAME} — you've stopped me|I'm stopped), so I'm not running(, and ${NAME} needs me)?\. .+ to bring me back\.$`,
+    String.raw`^I have a session connected to this room, but it isn't reporting as live, so I'm not receiving messages\. ${SOMEONE} can restart it by opening ${BOLD} in Switch Console\. ${SIGN_IN}$`,
   ),
-  /^My machine, \*\*[^*]+\*\*, is offline or reconnecting to Switch, so I can't answer right now\. .+ needs to check it\.$/,
-  /^My machine, \*\*[^*]+\*\*, was asleep and is starting now\. I'll pick this up as soon as it's back, usually within a few minutes\.$/,
-  /^My machine, \*\*[^*]+\*\*, is stopped, so I can't answer\. .+ can start it again in Switch Console\.$/,
   new RegExp(
-    String.raw`^(${NAME} — )?[Mm]y machine, \*\*[^*]+\*\*, has been removed from Switch, so nothing runs me\. My owner has to move me to another machine to bring me back\.$`,
+    String.raw`^I don't have a session connected to this room\. ${SOMEONE} can start one connected to ${BOLD} by opening ${BOLD} in Switch Console\. ${SIGN_IN}$`,
   ),
-  /^I hold a role in this room, but the session that assumed it is active in .+ right now — I'll pick this up when it reconnects here\.$/,
+  new RegExp(
+    String.raw`^I don't have a session in this room right now, but I'm working in ${BOLD}(?:(?:, | and |, and )${BOLD})*, so you can ask me there\. Or ${SOMEONE} can start one connected to ${BOLD} by opening ${BOLD} in Switch Console\. ${SIGN_IN}$`,
+  ),
+  new RegExp(
+    String.raw`^(${NAME} — you've stopped me|I'm stopped), so I'm not running(, and ${NAME} needs me)?\. (Set me to running|\*\*My owner has to set me to running\*\*) in Switch to bring me back\.$`,
+  ),
+  new RegExp(
+    String.raw`^My machine, ${BOLD}, is offline or reconnecting to Switch, so I can't answer right now\. If I haven't answered once it's back, address me again\. If it stays offline, ${OWNER} needs to check it\.$`,
+  ),
+  new RegExp(String.raw`^My machine, ${BOLD}, was asleep and is starting now\. I'll pick this up as soon as it's back, usually within a few minutes\.$`),
+  new RegExp(String.raw`^My machine, ${BOLD}, is stopped, so I can't answer\. ${OWNER} can start it again in Switch Console\.$`),
+  new RegExp(
+    String.raw`^(${NAME} — )?[Mm]y machine, ${BOLD}, has been removed from Switch, so nothing runs me\. My owner has to move me to another machine to bring me back\.$`,
+  ),
+  new RegExp(String.raw`^I hold a role in this room, but the session that assumed it is active in ${BOLD}(?:, ${BOLD})* right now — I'll pick this up when it reconnects here\.$`),
   /^Hi! I'm [\w.-]+ — how can I help\?$/,
   new RegExp(
     String.raw`^(Hey there! Tag ${NAME} if you need me\.|Hi! Mention ${NAME} to get my attention\.|Hello! I'm ready — just tag ${NAME} when you need me\.|Hey! Ping ${NAME} and I'll jump in\.|Hi! I'm here to help — mention ${NAME} anytime\.|Hello! Tag ${NAME} to loop me in\.|Hey! I'm on standby — ${NAME} to get started\.|Hi there! Just ${NAME} me when you're ready\.)$`,

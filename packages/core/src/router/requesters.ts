@@ -12,13 +12,35 @@
  * Identity comes only from the event's sender and on_behalf_of. Whether a sender is an agent is looked up in identities
  * and the team file, never read from sender_kind, which Switch leaves null for people and agents alike.
  */
-import type { ChatMessageEvent, Clock } from "@clearance/contracts";
+import type { ChatMessageEvent, Clock, RoomAliases } from "@clearance/contracts";
 import type { Db } from "../db/index.js";
 import type { Directory } from "../people/directory.js";
 import { isSwitchNotice } from "./switch-notices.js";
 
-/** The agent reporting on an earlier request. That isn't what it claims about this call, and its amount isn't this call's. */
 const NAMES_A_REQUEST = /\bCLR-\d+\b/;
+
+/** Fewer words than this left over from a report on a request ("Done.") says nothing about this call. */
+const OWN_WORDS = 3;
+
+/**
+ * What's left once the parts about an earlier request are gone. "CLR-0001 approved: refund of ₹2,000." isn't what the agent
+ * claims about this call, and its amount isn't this call's. But naming a CLR mustn't hide a whole sentence, or an agent could
+ * leave its words out of the evidence by adding one: "Refunding ₹4,000, as in CLR-0001." still says ₹4,000. A comma inside
+ * an amount isn't followed by a space, so it doesn't split one.
+ */
+export function withoutRequestFragments(body: string): string {
+  if (!NAMES_A_REQUEST.test(body)) return body;
+  return body
+    .split(/(?<=[.,;!?])\s+|\n+/)
+    .filter((part) => !NAMES_A_REQUEST.test(part))
+    .join(" ")
+    .trim();
+}
+
+function isOnlyAReport(body: string): boolean {
+  if (!NAMES_A_REQUEST.test(body)) return false;
+  return withoutRequestFragments(body).split(/\s+/).filter(Boolean).length < OWN_WORDS;
+}
 
 /** More than Switch would post between two things an agent says. */
 const NOTICES_TO_READ_PAST = 20;
@@ -32,6 +54,12 @@ export const REQUESTER_WINDOW_MS = 10 * 60_000;
  * is what ends one: an agent that posts progress as it goes ends this early, and one that never answers lasts until this.
  */
 const TURN_MAX_MS = 60 * 60_000;
+
+/**
+ * How recently the agent has to have been in a room for what people say there to count as asking it. Without a limit, one
+ * thing it said once would make a room's chat count for ever. Spoken or addressed: it needn't have answered yet.
+ */
+const IN_ROOM_MS = 60 * 60_000;
 
 /** A voice is kept this long, past the window, so one delivered late can still bar its sender while a request is open. */
 const VOICE_KEEP_MS = 40 * 60_000;
@@ -55,18 +83,29 @@ export class RequesterTracker {
     private readonly clock: Clock,
   ) {}
 
-  observe(evt: ChatMessageEvent): void {
+  /**
+   * `aliases` are this room's, when Switch can say: then an alias is the agent, exactly as its name is. Null when it can't,
+   * and a name we can't place is noted for what it might be. It counts whatever else the message names.
+   */
+  observe(evt: ChatMessageEvent, aliases: RoomAliases | null = null): void {
     const senderAgent = this.directory.agentForSender(evt.sender, evt.senderName);
     if (senderAgent) this.recordAgentMessage(senderAgent, evt);
     const named = mentionedNames(evt.body);
-    const mentioned = [...new Set(named.flatMap((name) => this.directory.agentNamed(name) ?? []))];
+    const mentioned = [
+      ...new Set(named.flatMap((name) => this.directory.agentNamed(name) ?? aliases?.[name.toLowerCase()] ?? [])),
+    ];
     const senderPerson = this.directory.personByParticipant(evt.sender);
     const onBehalfOf = this.identifyDisplayName(evt.onBehalfOf);
+    const speaking = !senderAgent && !CARD_ANSWER.test(evt.body);
+    const voices = [...new Set([senderPerson?.id ?? (onBehalfOf ? null : evt.sender), onBehalfOf])].filter((id): id is string => id !== null);
+    if (speaking && !aliases) {
+      for (const name of named.filter((one) => !this.directory.knowsMention(one))) {
+        for (const userId of voices) this.recordPossibleAsk(evt, userId, name);
+      }
+    }
     if (mentioned.length === 0) {
-      if (!senderAgent && !this.namesClearance(evt.body) && !CARD_ANSWER.test(evt.body)) {
-        for (const userId of new Set([senderPerson?.id ?? (onBehalfOf ? null : evt.sender), onBehalfOf])) {
-          if (userId) this.recordVoice(evt, userId, named.some((name) => !this.directory.knowsMention(name)));
-        }
+      if (speaking && !this.namesClearance(evt.body)) {
+        for (const userId of voices) this.recordVoice(evt, userId);
       }
       return;
     }
@@ -93,12 +132,18 @@ export class RequesterTracker {
   }
 
   /** Who spoke where, for as long as that can matter and no longer. Only that: what they said isn't kept. */
-  private recordVoice(evt: ChatMessageEvent, userId: string, namedUnknown: boolean): void {
+  private recordVoice(evt: ChatMessageEvent, userId: string): void {
     const now = this.clock.nowMs();
     this.db.prepare(`DELETE FROM room_voices WHERE at <= ?`).run(now - VOICE_KEEP_MS);
     this.db
-      .prepare(`INSERT INTO room_voices (room, user_id, at, sent_at, named_unknown) VALUES (?, ?, ?, ?, ?)`)
-      .run(evt.roomId, userId, now, sentAt(evt), namedUnknown ? 1 : 0);
+      .prepare(`INSERT INTO room_voices (room, user_id, at, sent_at) VALUES (?, ?, ?, ?)`)
+      .run(evt.roomId, userId, now, sentAt(evt));
+  }
+
+  private recordPossibleAsk(evt: ChatMessageEvent, userId: string, name: string): void {
+    const now = this.clock.nowMs();
+    this.db.prepare(`DELETE FROM possible_asks WHERE at <= ?`).run(now - REQUESTER_WINDOW_MS);
+    this.db.prepare(`INSERT INTO possible_asks (room, user_id, name, at) VALUES (?, ?, ?, ?)`).run(evt.roomId, userId, name, now);
   }
 
   /** The person's id, or the name as given when it maps to nobody: that keeps them a requester and widens nothing. */
@@ -129,31 +174,40 @@ export class RequesterTracker {
            SELECT user_id, at FROM requesters WHERE agent = @agent AND at > @since AND (@room IS NULL OR room = @room)
            UNION ALL
            SELECT user_id, at FROM room_voices WHERE at > @since AND (@room IS NULL OR room = @room) AND room IN (
-             SELECT room FROM agent_messages WHERE agent = @agent
+             SELECT room FROM agent_messages WHERE agent = @agent AND at > @recent
              UNION
-             SELECT room FROM requesters WHERE agent = @agent
+             SELECT room FROM requesters WHERE agent = @agent AND at > @recent
            )
          ) GROUP BY user_id ORDER BY first`,
       )
-      .all({ agent, since, room: room ?? null }) as { user_id: string }[];
+      .all({ agent, since, room: room ?? null, recent: this.clock.nowMs() - IN_ROOM_MS }) as { user_id: string }[];
+    return rows.map((row) => row.user_id);
+  }
+
+  /** Those of `requestersOf` who only spoke in a room the agent is in, and never named it. */
+  voicesOf(agent: string): string[] {
+    const now = this.clock.nowMs();
+    const rows = this.db
+      .prepare(
+        `SELECT DISTINCT user_id FROM room_voices WHERE at > @since AND room IN (
+           SELECT room FROM agent_messages WHERE agent = @agent AND at > @recent
+           UNION
+           SELECT room FROM requesters WHERE agent = @agent AND at > @recent
+         ) AND user_id NOT IN (SELECT user_id FROM requesters WHERE agent = @agent AND at > @since)`,
+      )
+      .all({ agent, since: now - REQUESTER_WINDOW_MS, recent: now - IN_ROOM_MS }) as { user_id: string }[];
     return rows.map((row) => row.user_id);
   }
 
   /**
-   * People who, in the window, addressed a name we don't know in a room this agent isn't known to be in. That name could be
-   * this agent under an alias, which only Switch knows, so they may have asked and can't be counted as having asked.
+   * People who, in the window, wrote a name that could be this agent under an alias, when Switch couldn't say whether it
+   * is. They may have asked, and can't be counted as having asked.
    */
   possibleAskers(agent: string): string[] {
     const rows = this.db
-      .prepare(
-        `SELECT DISTINCT user_id FROM room_voices WHERE named_unknown = 1 AND at > @since AND room NOT IN (
-           SELECT room FROM agent_messages WHERE agent = @agent
-           UNION
-           SELECT room FROM requesters WHERE agent = @agent
-         )`,
-      )
-      .all({ agent, since: this.clock.nowMs() - REQUESTER_WINDOW_MS }) as { user_id: string }[];
-    return rows.map((row) => row.user_id);
+      .prepare(`SELECT user_id, name FROM possible_asks WHERE at > ?`)
+      .all(this.clock.nowMs() - REQUESTER_WINDOW_MS) as { user_id: string; name: string }[];
+    return [...new Set(rows.filter((row) => this.directory.couldBeNameOf(agent, row.name)).map((row) => row.user_id))];
   }
 
   /** People past the window who are still waiting on what they asked this agent for: see TURN_MAX_MS. */
@@ -182,13 +236,13 @@ export class RequesterTracker {
            SELECT user_id, at, sent_at FROM requesters WHERE agent = @agent
            UNION ALL
            SELECT user_id, at, sent_at FROM room_voices WHERE room IN (
-             SELECT room FROM agent_messages WHERE agent = @agent
+             SELECT room FROM agent_messages WHERE agent = @agent AND at > @recent
              UNION
-             SELECT room FROM requesters WHERE agent = @agent
+             SELECT room FROM requesters WHERE agent = @agent AND at > @recent
            )
          ) WHERE at >= @atMs AND sent_at <= @atMs AND sent_at > @since`,
       )
-      .all({ agent, atMs, since: atMs - REQUESTER_WINDOW_MS }) as { user_id: string }[];
+      .all({ agent, atMs, since: atMs - REQUESTER_WINDOW_MS, recent: atMs - IN_ROOM_MS }) as { user_id: string }[];
     return rows.map((row) => row.user_id);
   }
 
@@ -212,7 +266,7 @@ export class RequesterTracker {
     const read = (sql: string, ...params: unknown[]) =>
       (this.db.prepare(sql).all(...params) as { body: string }[])
         .map((row) => row.body)
-        .filter((body) => !isSwitchNotice(body) && !NAMES_A_REQUEST.test(body))
+        .filter((body) => !isSwitchNotice(body) && !isOnlyAReport(body))
         .slice(0, count);
     const limit = count + NOTICES_TO_READ_PAST;
     if (thread) {

@@ -59,6 +59,12 @@ CREATE TABLE IF NOT EXISTS held_calls (
 );
 `;
 
+/** The same call, whatever order its fields were written in: the agent's own copy has them in the order it sent them. */
+function sameFields(one: string | null, other: string): boolean {
+  const sorted = (text: string) => JSON.stringify(Object.entries(JSON.parse(text) as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b)));
+  return one !== null && sorted(one) === sorted(other);
+}
+
 export type EditOutcome = { kind: "edited" } | { kind: "unknown_request" } | { kind: "hash_mismatch" } | { kind: "refused"; error: string };
 
 /** What an edited call's row says instead of a result. Its presence is also what makes asking again safe. */
@@ -126,7 +132,7 @@ export class GateStore {
       const marker = editMarker(input.newRequestId);
       const built = input.build(row);
       if (row.error === marker) {
-        const same = copy?.call_hash === input.newCallHash && !("refused" in built) && copy.body === built.body;
+        const same = copy?.call_hash === input.newCallHash && !("refused" in built) && sameFields(copy.body, built.body);
         return same ? { kind: "edited" } : { kind: "refused", error: "this call has already been edited differently" };
       }
       if (row.error?.startsWith(EDIT_MARKER_START)) return { kind: "refused", error: "this call has already been edited differently" };
@@ -134,7 +140,7 @@ export class GateStore {
       if ("refused" in built) return { kind: "refused", error: built.refused };
       if (copy) {
         // The agent sent the edited call itself while the edit waited, and core gave it the same id. That's this call.
-        const same = copy.state === "held" && copy.call_hash === input.newCallHash && copy.agent === row.agent && copy.body === built.body;
+        const same = copy.state === "held" && copy.call_hash === input.newCallHash && copy.agent === row.agent && sameFields(copy.body, built.body);
         if (!same) return { kind: "refused", error: "that new request id is already in use" };
       } else {
         this.db

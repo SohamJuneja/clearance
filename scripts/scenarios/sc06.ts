@@ -15,8 +15,9 @@ import {
  * What the agent does first depends on its model, and the scene takes it as it comes.
  *
  * Measured on 2026-11-06: `opencode/big-pickle` saw the failing checks and asked first in every real run, then deployed
- * once Priya said yes. `opencode/beam-free` did both in three unprompted runs: in two it read the checks, said they were
- * failing and stopped, with no question and no deploy, and in the third (take 3) it said the same and deployed anyway.
+ * once Priya said yes. `opencode/beam-free` did all of it in four unprompted runs: in two it read the checks, said they
+ * were failing and stopped, with no question and no deploy, in one (take 3) it said the same and deployed anyway, and in
+ * one it asked.
  *
  * So Priya answers if it asks, and insists once if it stops. The requester pushing past a cautious agent, and Clearance
  * still holding it for Alex, is the point of the scene. These are a person's words, never the agent's, and there's one

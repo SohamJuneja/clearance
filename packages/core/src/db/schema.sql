@@ -160,6 +160,15 @@ CREATE TABLE IF NOT EXISTS room_voices (
 );
 CREATE INDEX IF NOT EXISTS room_voices_room ON room_voices (room, at);
 
+CREATE TABLE IF NOT EXISTS possible_asks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  room TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS possible_asks_at ON possible_asks (at);
+
 CREATE TABLE IF NOT EXISTS agent_messages (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   agent TEXT NOT NULL,

@@ -102,6 +102,10 @@ export function ranRecentlyFlag(requestId: string, when: string): Flag {
   return { code: "ran_recently", text: `An identical call ran as ${requestId} at ${when}` };
 }
 
+export function stillTryingFlag(requestId: string, when: string): Flag {
+  return { code: "may_have_run", text: `An identical call, ${requestId}, was approved at ${when} and is still being tried, so both could run` };
+}
+
 export function mayHaveRunFlag(requestId: string, when: string): Flag {
   return { code: "may_have_run", text: `An identical call, ${requestId}, may have run at ${when}: nobody could confirm it` };
 }
@@ -134,6 +138,13 @@ export function authorUnknownFlag(field: string, quorum?: number): Flag {
     return { code: `${field}_unknown`, text: `Could not tell who the ${field} is, so this needs ${COUNT_WORDS[quorum] ?? quorum} approvals from different people` };
   }
   return { code: `${field}_unknown`, text: `Could not tell who the ${field} is, so nobody was excluded for it` };
+}
+
+export function mayHaveAskedFlag(names: string, quorum: number): Flag {
+  return {
+    code: "may_have_asked",
+    text: `${names} spoke where this agent was, or asked it something it hasn't answered, so could be who asked. Rather than go around them, this needs ${COUNT_WORDS[quorum] ?? quorum} approvals from different people.`,
+  };
 }
 
 export function messagesLostFlag(quorum: number): Flag {

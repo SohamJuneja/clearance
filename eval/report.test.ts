@@ -329,6 +329,21 @@ describe("eval:report", () => {
       expect(text).toContain("reproduced 28 more breaks");
     });
 
+    it("adds a third review the same way", () => {
+      write({
+        "authority.json": {
+          ...authority,
+          audit: { passed: 5, total: 5 },
+          second_review: { passed: 28, total: 28 },
+          third_review: { passed: 19, total: 19 },
+        },
+      });
+      report();
+      const text = readFileSync(resultsPath, "utf8");
+      expect(selectRow(parseResults(text), "AUDIT").clearance).toBe("Audit: 5 of 5; second review: 28 of 28; third review: 19 of 19");
+      expect(text).toContain("reproduced 19 more");
+    });
+
     it("keeps the audit on its own line: it never changes E1's count", () => {
       write({ "authority.json": authority });
       report();

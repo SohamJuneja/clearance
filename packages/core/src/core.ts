@@ -28,6 +28,7 @@ import {
   type OpenCardInput,
   type OpenCardResult,
   type RequestState,
+  type RoomAliases,
 } from "@clearance/contracts";
 import { ulid } from "ulid";
 import { AnswerStore, normaliseAnswer, type AnswerDecision } from "./answers/store.js";
@@ -68,7 +69,7 @@ import { loadPolicy, loadTeam, parseDuration, parsePolicy, PolicyLoadError, type
 import type { TeamFile } from "./policy/schema.js";
 import { OPEN_STATES, RequestStore, type NewRequest, type RequestRecord } from "./requests/store.js";
 import { AggregateStore } from "./risk/aggregates.js";
-import { agentElsewhereFlag, agentReachUnknownFlag, authorUnknownFlag, messagesLostFlag, possibleAliasFlag, requesterUnknownFlag, requesterUnlinkedFlag, uniqueFlags } from "./risk/flags.js";
+import { agentElsewhereFlag, agentReachUnknownFlag, authorUnknownFlag, mayHaveAskedFlag, messagesLostFlag, possibleAliasFlag, requesterUnknownFlag, requesterUnlinkedFlag, uniqueFlags } from "./risk/flags.js";
 import {
   evidenceLines,
   ignoredFlags,
@@ -80,11 +81,11 @@ import {
 } from "./rubberstamp/signals.js";
 import { AgentReachCheck, type AgentReach } from "./router/reach.js";
 import { DRILL_RESULT_GROUP } from "./ledger/mirror.js";
-import { RequesterTracker, REQUESTER_WINDOW_MS } from "./router/requesters.js";
-import { assessAnswer, route, type Refusal, type RouteContext, type RouteTrace } from "./router/router.js";
+import { mentionedNames, RequesterTracker, REQUESTER_WINDOW_MS, withoutRequestFragments } from "./router/requesters.js";
+import { assessAnswer, barsThatMoveTheDecision, route, type Refusal, type RouteContext, type RouteTrace } from "./router/router.js";
 import { RouteStore, type RouteRow, type RouteStep } from "./router/routes.js";
 import { TraceStore } from "./router/traces.js";
-import { article, exclusionWords, explainTrace, heldExplanation, holderSentence, routeLabel } from "./router/why.js";
+import { article, cannotCompleteText, exclusionWords, explainTrace, heldExplanation, holderSentence, routeLabel } from "./router/why.js";
 import { formatClockWithZone, formatPolicyMinutes, zonedParts } from "./time.js";
 
 export type CoreDeps = {
@@ -220,6 +221,14 @@ function neverSent(error: unknown): boolean {
 
 const STREAM_GAP_AT = "stream_gap_at";
 
+/** How often to ask again what happened to a call nobody can say about, and for how long. */
+const LOOK_AGAIN_EVERY_MS = 60_000;
+const LOOK_AGAIN_FOR_MS = DAY_MS;
+
+/** A room's aliases rarely change, and asking holds up the stream. */
+const ALIAS_CACHE_MS = 60_000;
+const ALIAS_TIMEOUT_MS = 1_000;
+
 /** How long two people have to sign something. */
 const PROPOSAL_TTL_MS = 3 * DAY_MS;
 const POLICY_QUORUM_DEFAULT = 2;
@@ -303,7 +312,9 @@ export class Clearance implements ClearanceCore {
   private policyError: string | null = null;
   private ticking = false;
   private readonly lastExecuteAttempt = new Map<string, number>();
+  private readonly toldCannotComplete = new Set<string>();
   private readonly executing = new Set<string>();
+  private readonly aliasCache = new Map<string, { aliases: RoomAliases; atMs: number }>();
   private readonly reach: AgentReachCheck;
 
   constructor(private readonly deps: CoreDeps) {
@@ -935,6 +946,7 @@ export class Clearance implements ClearanceCore {
       aggregates: this.stores.aggregates,
       autonomy: this.stores.autonomy,
       lastRun: seen ? undefined : this.lastRunOf,
+      saidOtherwise: this.saidOtherwise,
       // Only a hook call retries under a grant. An approved gate call runs through gate.execute.
       grants:
         action.source === "hook"
@@ -966,7 +978,7 @@ export class Clearance implements ClearanceCore {
     if (directory.isSelf(evt.sender, evt.senderName)) return;
     const person = directory.personByParticipant(evt.sender);
     if (person) store.noteActive(person.id, evt.roomId, evt.messageId);
-    requesters.observe(evt);
+    requesters.observe(evt, await this.aliasesIn(evt));
     await this.handleCommand(evt, person?.id ?? null);
   }
 
@@ -1024,6 +1036,32 @@ export class Clearance implements ClearanceCore {
     await this.actOnVerdict(request.id, card, verdict);
   }
 
+  /**
+   * The room's aliases, when a message names something we can't place and Switch can say. Null means it can't, and the stream
+   * is read one frame at a time, so this doesn't wait long for an answer.
+   */
+  private async aliasesIn(evt: ChatMessageEvent): Promise<RoomAliases | null> {
+    const { chat } = this.deps;
+    const { directory } = this.people;
+    if (!chat.roomAliases || !mentionedNames(evt.body).some((name) => !directory.knowsMention(name))) return null;
+    const now = this.deps.clock.nowMs();
+    const cached = this.aliasCache.get(evt.roomId);
+    if (cached && now - cached.atMs < ALIAS_CACHE_MS) return cached.aliases;
+    let timer: NodeJS.Timeout | undefined;
+    const late = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error("no answer in time")), ALIAS_TIMEOUT_MS);
+    });
+    try {
+      const aliases = await Promise.race([chat.roomAliases(evt.roomId), late]);
+      this.aliasCache.set(evt.roomId, { aliases, atMs: now });
+      return aliases;
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   /** Timers and retries. main calls this every second, so a slow one must not overlap the next. */
   async tick(): Promise<void> {
     if (this.ticking) return;
@@ -1034,13 +1072,14 @@ export class Clearance implements ClearanceCore {
       const now = this.deps.clock.nowMs();
       for (const request of requests.listExpired(now)) await this.expire(request);
       grants.voidExpired();
-      // A card that could not be opened (Switch down) is retried until the request expires. A drill has one person, and
-      // going to someone else isn't a retry: it expires if that person's card never opened.
-      for (const request of requests.listInState(["HELD"])) {
-        if (!request.isDrill) await this.routeAndOpen(request, "primary");
+      // A card that could not be opened (Switch down) is retried until the request expires, and so is one moved to someone
+      // else. A drill has one person, and going to someone else isn't a retry: it expires if that person's card never opened.
+      for (const request of requests.listInState(["HELD", "ROUTED"])) {
+        if (!request.isDrill) await this.routeAndOpen(request, request.state === "HELD" ? "primary" : "reroute");
       }
       for (const timer of timers.due(now)) await this.fireEscalation(timer);
       for (const request of requests.listInState(["APPROVED", "BREAK_GLASS"])) await this.retryExecution(request);
+      for (const request of requests.listInState(["OUTCOME_UNKNOWN"])) await this.lookAgain(request);
       for (const row of routes.staleReviews(now)) await this.closeOpenCards(requests.require(row.request_id));
       for (const request of requests.awaitingReview(now)) await this.openReview(request);
       await this.expireProposals(now);
@@ -1057,6 +1096,28 @@ export class Clearance implements ClearanceCore {
   close(): void {
     this.stores.db.close();
   }
+
+  /** The same comparison a card's flag comes from, so a call the card would flag doesn't run with nobody to see it. */
+  private readonly saidOtherwise = (input: { action: Action; cls: string; extracted: Record<string, unknown>; call: { target: string; args: Record<string, unknown> } }): boolean => {
+    const { action, cls, extracted, call } = input;
+    const { requesters } = this.people;
+    const origin =
+      action.session?.switchRoomId !== undefined
+        ? { room: action.session.switchRoomId, thread: action.session.threadId ?? null }
+        : requesters.lastOrigin(action.agent.name);
+    const said = requesters.lastMessages(action.agent.name, origin?.room ?? null, origin?.thread ?? null, 2);
+    return (
+      detectMismatch({
+        cls,
+        extracted,
+        args: call.args,
+        target: call.target,
+        said: (action.agentClaim ? [...said, action.agentClaim] : said).map(withoutRequestFragments),
+        currency: this.currentPolicy.currency,
+        services: Object.keys(this.team.owners.services),
+      }).length > 0
+    );
+  };
 
   private readonly lastRunOf = (callHash: string, agent: string) =>
     this.stores.requests.lastRun(callHash, agent, this.deps.clock.nowMs() - this.deps.clock.scaledMs(REPEAT_WINDOW_MS));
@@ -1141,7 +1202,7 @@ export class Clearance implements ClearanceCore {
         this.recordAction(action, evaluation, open.id);
         return { request: open, isNew: false };
       }
-      const created = requests.create(this.newRequest(action, evaluation, now, undefined, reach));
+      const created = requests.create(this.newHold(action, evaluation, now, reach));
       this.recordAction(action, evaluation, created.id);
       this.recordAggregates(action, evaluation, created.id);
       this.startLadder(created);
@@ -1165,8 +1226,24 @@ export class Clearance implements ClearanceCore {
     return this.currentPolicy.classes.find((candidate) => candidate.name === name) ?? null;
   }
 
-  /** `edit` is the request this one replaces (F20): whoever asked for that asked for this, and where. */
-  private newRequest(action: Action, evaluation: Evaluation, now: number, drill?: Flaw & { askedBy: string }, reach: AgentReach = "all_seen", edit?: RequestRecord): NewRequest {
+  /** A new hold, unless guessing at who asked would hand the decision to someone else. Then those people stay, and two must agree. */
+  private newHold(action: Action, evaluation: Evaluation, now: number, reach: AgentReach): NewRequest {
+    const { requesters } = this.people;
+    const first = this.newRequest(action, evaluation, now, undefined, reach);
+    const onlyMaybe = [...requesters.voicesOf(action.agent.name), ...requesters.stillWaitingOn(action.agent.name)];
+    if (onlyMaybe.length === 0) return first;
+    const lifted = barsThatMoveTheDecision(
+      this.routeContext({ ...first, id: "", state: "HELD", isDrill: false, createdAtMs: now, decidedAtMs: null, execAttempts: 0 }),
+      onlyMaybe,
+    );
+    return lifted.length === 0 ? first : this.newRequest(action, evaluation, now, undefined, reach, undefined, lifted);
+  }
+
+  /**
+   * `edit` is the request this one replaces (F20): whoever asked for that asked for this, and where. `lifted` are people who
+   * may have asked and go on deciding anyway, because barring them would move the decision: see `newHold`.
+   */
+  private newRequest(action: Action, evaluation: Evaluation, now: number, drill?: Flaw & { askedBy: string }, reach: AgentReach = "all_seen", edit?: RequestRecord, lifted: string[] = []): NewRequest {
     const policy = this.currentPolicy;
     const { directory, requesters } = this.people;
     const { aggregates } = this.stores;
@@ -1176,14 +1253,16 @@ export class Clearance implements ClearanceCore {
     // A call that says which room it came from was asked for in that room: anyone on record elsewhere is someone
     // else's request. Nobody on record there is nobody known, even if the agent is busy in other rooms.
     const askedIn = drill ? undefined : action.session?.switchRoomId;
-    const everyoneAsking = edit
+    const notLifted = (id: string) => !lifted.includes(id);
+    const everyoneAsking = (edit
       ? this.routeContext(edit).requesterIds
       : drill
         ? [drill.askedBy]
-        : requesters.requestersOf(action.agent.name);
-    const requesterIds = edit ? edit.requesterIds : askedIn === undefined ? everyoneAsking : requesters.requestersOf(action.agent.name, directory.roomId(askedIn));
+        : requesters.requestersOf(action.agent.name)
+    ).filter(notLifted);
+    const requesterIds = (edit ? edit.requesterIds : askedIn === undefined ? everyoneAsking : requesters.requestersOf(action.agent.name, directory.roomId(askedIn))).filter(notLifted);
     // Not on record for this call, but still waiting on this agent's turn, so what comes out of it may be theirs.
-    const stillWaiting = drill || edit ? [] : requesters.stillWaitingOn(action.agent.name);
+    const stillWaiting = drill || edit ? [] : requesters.stillWaitingOn(action.agent.name).filter(notLifted);
     const agentOwnerIds = directory.agentOwners(action.agent.name, action.agent.ownerUserId);
     const origin = edit
       ? edit.originRoom
@@ -1208,12 +1287,15 @@ export class Clearance implements ClearanceCore {
       extracted: evaluation.extracted,
       args: evaluation.call.args,
       target: evaluation.call.target,
-      said: action.agentClaim ? [...said, action.agentClaim] : said,
+      said: (action.agentClaim ? [...said, action.agentClaim] : said).map(withoutRequestFragments),
       currency: policy.currency,
       services: Object.keys(this.team.owners.services),
     });
 
-    const flags: Flag[] = uniqueFlags([...evaluation.flags, ...mismatches, ...(drill?.extra_flags ?? [])]);
+    // An edit is a different call, so nothing finds these by its hash. Whoever decides it still has to know the same refund
+    // may already have gone out.
+    const warnings = edit?.flags.filter((flag) => flag.code === "may_have_run" || flag.code === "ran_recently") ?? [];
+    const flags: Flag[] = uniqueFlags([...evaluation.flags, ...warnings, ...mismatches, ...(drill?.extra_flags ?? [])]);
     // L1 is the fast lane: one eligible approver, whatever the tier would otherwise ask for.
     const stated = evaluation.level === "L1" ? 1 : (cls?.approvers?.quorum[tier] ?? cls?.approvers?.quorum.default ?? 1);
     // Nobody can tell who asked, so whoever it was could be the one approving. Of two different people, only one can be.
@@ -1226,8 +1308,14 @@ export class Clearance implements ClearanceCore {
     const carried = (code: string) => edit?.flags.some((flag) => flag.code === code) ?? false;
     const lost = !drill && (edit ? carried("messages_lost") : this.messagesLostRecently(now));
     if (lost) flags.push(messagesLostFlag(unknownQuorum));
-    const alias = !drill && (edit ? carried("possible_alias") : requesters.possibleAskers(action.agent.name).some((id) => !requesterIds.includes(id)));
+    // Someone already barred for having asked is accounted for, and needs no second person to cover for them.
+    const alias = !drill && (edit ? carried("possible_alias") : requesters.possibleAskers(action.agent.name).some((id) => !requesterIds.includes(id) && !everyoneAsking.includes(id)));
     if (alias) flags.push(possibleAliasFlag(unknownQuorum));
+    const maybe = !drill && (edit ? carried("may_have_asked") : lifted.length > 0);
+    if (maybe) {
+      const names = joinNames(lifted.map((id) => directory.person(id)?.name ?? id));
+      flags.push(edit?.flags.find((flag) => flag.code === "may_have_asked") ?? mayHaveAskedFlag(names, unknownQuorum));
+    }
     // The same reasoning when someone is on record but the record may not be everyone.
     if (reach === "elsewhere") flags.push(agentElsewhereFlag(unknownQuorum));
     if (reach === "unknown") flags.push(agentReachUnknownFlag(unknownQuorum));
@@ -1299,7 +1387,7 @@ export class Clearance implements ClearanceCore {
       originThread: origin?.thread ?? null,
       evidence: evidence as unknown as Record<string, unknown>,
       flags,
-      quorumRequired: requesterIds.length === 0 || unlinked || lost || alias || authorLookupFailed ? unknownQuorum : asked,
+      quorumRequired: requesterIds.length === 0 || unlinked || lost || alias || maybe || authorLookupFailed ? unknownQuorum : asked,
       expiresAtMs: now + this.deps.clock.scaledMs(policy.requestTtlMs),
       ...(drill ? { isDrill: true } : {}),
     };
@@ -1921,9 +2009,9 @@ export class Clearance implements ClearanceCore {
       this.executing.delete(request.id);
     }
     if (readExecuteResult(result) === "retry") {
-      // Asking again is safe, and it's what the gate has asked for.
+      // Asking again is safe. Only the gate itself saying nothing ran answers for the earlier attempts.
       this.lastExecuteError.set(request.id, result.error ?? "the gate asked to try again");
-      if (result.error !== GATE_WORDS.busy) requests.clearExecutionAttempts(request.id);
+      if (result.error === GATE_WORDS.unknownRequest || result.error === GATE_WORDS.nothingRan) requests.clearExecutionAttempts(request.id);
       // The gate stores a held call only once `check` has answered it, so this one is about to be there. Next tick.
       if (result.error === GATE_WORDS.unknownRequest) this.lastExecuteAttempt.delete(request.id);
       return;
@@ -2004,7 +2092,8 @@ export class Clearance implements ClearanceCore {
       ledger.append("outcome_unknown", request.id, { error: why, attempts: requests.require(request.id).execAttempts });
     });
     write.immediate();
-    this.lastExecuteAttempt.delete(request.id);
+    // The gate has only just said it can't say. `lookAgain` starts from here.
+    this.lastExecuteAttempt.set(request.id, this.deps.clock.nowMs());
     this.lastExecuteError.delete(request.id);
     const counted = answers.countedApprovers(request.id);
     const names = counted.length > 0 ? this.approverNames(counted) : `break-glass by ${this.breakGlassBy(request.id) ?? "someone"}`;
@@ -2024,6 +2113,30 @@ export class Clearance implements ClearanceCore {
     if (!entry) return null;
     const id = String(entry.payload.by);
     return this.people.directory.person(id)?.name ?? id;
+  }
+
+  /**
+   * Nobody could say whether this ran, but the gate may be able to by now. This only ever looks: it can't start anything. It
+   * stops after a day, by when a person has been told more than once and has their own way to say: `@clearance resolve`.
+   */
+  private async lookAgain(request: RequestRecord): Promise<void> {
+    if (request.source !== "gate" || this.executing.has(request.id)) return;
+    const now = this.deps.clock.nowMs();
+    if (now - (request.decidedAtMs ?? now) > LOOK_AGAIN_FOR_MS) return;
+    if (now - (this.lastExecuteAttempt.get(request.id) ?? 0) < LOOK_AGAIN_EVERY_MS) return;
+    this.lastExecuteAttempt.set(request.id, now);
+    this.executing.add(request.id);
+    let result: ExecuteResult;
+    try {
+      result = await this.deps.gate.execute(request.id, request.callHash, { lookOnly: true });
+    } catch {
+      return;
+    } finally {
+      this.executing.delete(request.id);
+    }
+    const reading = readExecuteResult(result);
+    if (reading !== "ran" && reading !== "refused") return;
+    if (this.stores.requests.require(request.id).state === "OUTCOME_UNKNOWN") await this.finishExecution(request, result);
   }
 
   /** An approved gate call whose execute did not get an answer. Hook calls are never left in APPROVED. */
@@ -2063,8 +2176,8 @@ export class Clearance implements ClearanceCore {
     }
     if (readExecuteResult(result) !== "retry") {
       await this.finishExecution(request, result);
-    } else if (result.error === GATE_WORDS.busy) {
-      await this.recordOutcomeUnknown(request, result.error);
+    } else if (result.error !== GATE_WORDS.unknownRequest && result.error !== GATE_WORDS.nothingRan) {
+      await this.recordOutcomeUnknown(request, result.error ?? "the gate never said");
     } else {
       // Nothing ran, and it's too late to start: a retry was safe until now.
       await this.finishExecution(request, { ok: false, alreadyExecuted: false, error: result.error ?? lastError });
@@ -2117,7 +2230,7 @@ export class Clearance implements ClearanceCore {
       counted: answers.countedApprovers(request.id),
       failedConfirm: answers.failedConfirmations(request.id, CONFIRM_TRIES),
       alreadyRouted: open.flatMap((row) => (row.user_id && row.step !== "counter" ? [row.user_id] : [])),
-      fallbackActive: routes.forRequest(request.id).some((row) => row.step === "fallback"),
+      fallbackActive: routes.fallbackTried(request.id),
     };
   }
 
@@ -2151,7 +2264,14 @@ export class Clearance implements ClearanceCore {
       if (requests.require(request.id).state === "HELD") requests.transition(request.id, "ROUTED");
     });
     write.immediate();
-    if (trace.fallback && !openFallback && OPEN_STATES.includes(requests.require(request.id).state)) {
+    const stuck = cannotCompleteText(trace, request.id);
+    if (stuck && !openFallback && OPEN_STATES.includes(requests.require(request.id).state)) {
+      // Routing can pass here more than once for a request, and a room needs telling once.
+      if (!this.toldCannotComplete.has(request.id)) {
+        this.toldCannotComplete.add(request.id);
+        await this.say(request, `${request.id}: ${stuck}`);
+      }
+    } else if (trace.fallback && !openFallback && OPEN_STATES.includes(requests.require(request.id).state)) {
       const fallback = trace.fallback;
       await this.say(request, `Nobody eligible for ${request.id}: ${fallback.reason}. Posted to ${fallback.room} for ${fallback.group}.`);
     }
@@ -2993,6 +3113,8 @@ export class Clearance implements ClearanceCore {
         return askerId ? this.breakGlassReply(first, after, askerId) : null;
       case "counter":
         return askerId ? this.counterReply(first, others, askerId, evt.roomId) : null;
+      case "resolve":
+        return askerId ? this.resolveReply(first, others, askerId, evt.roomId) : null;
       case "drills":
         return askerId ? this.drillsReply(first, askerId) : null;
       default:
@@ -3147,6 +3269,11 @@ export class Clearance implements ClearanceCore {
     return parsed.success ? parsed.data : null;
   }
 
+  private amountOn(request: RequestRecord): number | null {
+    const amount = request.call.args.amount;
+    return typeof amount === "number" && Number.isSafeInteger(amount) ? amount : null;
+  }
+
   private heldAmount(action: Action): number | null {
     const amount = action.business?.args.amount;
     return typeof amount === "number" && Number.isSafeInteger(amount) ? amount : null;
@@ -3186,6 +3313,42 @@ export class Clearance implements ClearanceCore {
     return this.reach.of(request.agent);
   }
 
+  /**
+   * A person who has looked says what happened to a call nobody could say about. Whoever could have approved it can, as can
+   * anyone who did: they're the ones who'd go and look. It only records. No money moves, and nothing asks the gate to do anything.
+   */
+  private async resolveReply(reference: string | undefined, words: string[], askerId: string, roomId: string): Promise<string> {
+    const { requests, ledger, aggregates } = this.stores;
+    const usage = (id: string) => `Say what you found: \`@clearance resolve ${id} ran|didnt what you checked\`.`;
+    if (!reference) return usage("CLR-0042");
+    const person = this.people.directory.person(askerId);
+    const found = this.findRequest(reference, roomId);
+    if (!found || !person) return `I can't find ${reference}.`;
+    const { id } = found;
+    if (found.state !== "OUTCOME_UNKNOWN") return `${id} is ${found.state}, so there's nothing to record.`;
+    const assessment = assessAnswer({ ...this.routeContext(found), counted: [] }, askerId);
+    if (!assessment.eligible) {
+      ledger.append("ineligible_answer", id, { answered_by: null, user_id: askerId, answer: null, reasons: assessment.reasons, resolve: true });
+      return `${person.name} can't record what happened to ${id} (${exclusionWords(assessment.reasons, this.traces.latest(id)?.label ?? "approver")}).`;
+    }
+    const [outcome, ...note] = words;
+    if ((outcome !== "ran" && outcome !== "didnt") || note.length === 0) return usage(id);
+    const text = note.join(" ");
+    const write = this.stores.db.transaction((): boolean => {
+      if (requests.require(id).state !== "OUTCOME_UNKNOWN") return false;
+      requests.transition(id, outcome === "ran" ? "EXECUTED" : "VOIDED");
+      ledger.append("outcome_resolved", id, { by: askerId, outcome, note: text });
+      // It moved no money, so it comes off the window, as a denied call does.
+      if (outcome === "didnt") aggregates.voidRequest(id);
+      return true;
+    });
+    if (!write.immediate()) return `${id} has been settled since. Nothing changed.`;
+    const said = outcome === "ran" ? "it ran" : "it did not run";
+    const next = outcome === "ran" ? "Do not run it again." : "Ask again if it's still needed.";
+    await this.notifyAgent(found, `${id}: ${person.name} checked, and ${said}: ${oneLine(text, 200)}. ${next}`);
+    return `${id} recorded: ${said}. Nothing else changed.`;
+  }
+
   private async counterReply(reference: string | undefined, words: string[], askerId: string, roomId: string): Promise<string> {
     const { requests, ledger, routes } = this.stores;
     const person = this.people.directory.person(askerId);
@@ -3204,17 +3367,15 @@ export class Clearance implements ClearanceCore {
       if (!request.isDrill) ledger.append("ineligible_answer", id, { answered_by: null, user_id: askerId, answer: null, reasons: assessment.reasons, counter: true });
       return `${person.name} can't counter ${id} (${exclusionWords(assessment.reasons, this.traces.latest(id)?.label ?? "approver")}). ${this.sentToSentence(request)}`;
     }
-    // Up to here a drill gets the answers a real request gets. Only the person it was sent to gets this far, and it has
-    // nothing behind it to edit.
-    if (request.isDrill) return `I can't find ${reference}.`;
     if (request.source !== "gate") {
       return `${id} can't be edited: the agent runs its own command, and nothing can make it re-run a different one. Approve or deny it, and ask for a new request if it should be different.`;
     }
     const editOf = this.evidenceOf(request).editOf;
     if (editOf) return `${id} is already an edit of ${editOf.requestId}. Approve or deny it, and ask the agent for a new request if the amount should change again.`;
-    const action = this.storedAction(request);
-    if (!action) return `The call behind ${id} can't be read any more, so it can't be edited. Approve or deny it.`;
-    const from = this.heldAmount(action);
+    // A drill has no stored call, and answers from the one on its card, so that anyone asking hears what a real one says.
+    const action = request.isDrill ? null : this.storedAction(request);
+    if (!request.isDrill && !action) return `The call behind ${id} can't be read any more, so it can't be edited. Approve or deny it.`;
+    const from = action ? this.heldAmount(action) : this.amountOn(request);
     if (from === null) return `${id} has no amount to edit. Approve or deny it.`;
     if (words.length === 0) return usage(id);
     const to = typedAmount(words.join(" "));
@@ -3225,6 +3386,9 @@ export class Clearance implements ClearanceCore {
     if (to > from) return `${this.money(to)} is more than the ${this.money(from)} in ${id}. An increase is a new request for the agent to make, not an edit.`;
     const mine = routes.openForRequest(id).find((row) => row.step === "counter" && row.user_id === askerId);
     if (mine) return `You already have an offer of ${this.money(mine.counter_amount as number)} open on ${id}. Answer that card first.`;
+    // Up to here a drill and a real card can't be told apart. It has nothing behind it to edit, so this is where they part,
+    // and the answer is the one a real card gets when its card won't open. The threat model says what that leaves.
+    if (request.isDrill) return `I couldn't open the card for that just now. Nothing changed; try again.`;
 
     const prepared = await this.prepareEdit(request, to);
     if (!prepared.ok) return `${id} can't go to ${this.money(to)}: ${prepared.why}. Nothing changed.`;

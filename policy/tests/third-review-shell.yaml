@@ -1,0 +1,119 @@
+# The third independent review: what must now be held, and what must not be. A false hold is a regression.
+cases:
+  # A loop behind `time`, and a `done` with nothing to close, which means a loop this didn't read.
+  - { name: time on a for loop, vendor: claude, agent: coder, shell: "time for i in 1 2; do git push origin main; done", expect: { decision: hold, class: merge } }
+  - { name: time with its flag on a while loop, vendor: claude, agent: coder, shell: "time -p while true; do git push origin main; done", expect: { decision: hold, class: merge } }
+  - { name: a done behind a wrapper's loop, vendor: claude, agent: coder, shell: "nohup for i in 1 2; do ls; done", expect: { decision: hold, step: unparsed } }
+  - { name: a done with no loop at all, vendor: claude, agent: coder, shell: "ls; done", expect: { decision: hold, step: unparsed } }
+  - { name: a done with more on it, vendor: claude, agent: coder, shell: "for i in 1; do ls; done git status", expect: { decision: hold, step: unparsed } }
+  - { name: a coprocess, vendor: claude, agent: coder, shell: "coproc git push origin main", expect: { decision: hold, step: unparsed } }
+  - { name: zsh's repeat, vendor: claude, agent: coder, shell: "repeat 5 git push origin main", expect: { decision: hold, step: unparsed } }
+  - { name: time on a command stays quiet, vendor: claude, agent: coder, shell: "time pnpm test", expect: { decision: allow } }
+  - { name: an ordinary loop stays quiet, vendor: claude, agent: coder, shell: "for f in a b; do cat $f; done", expect: { decision: allow } }
+  - { name: nested loops stay quiet, vendor: claude, agent: coder, shell: "for a in 1; do for b in 2; do echo $a$b; done; done", expect: { decision: allow } }
+  - { name: a command called done isn't the keyword, vendor: claude, agent: coder, shell: '"done"', expect: { decision: allow } }
+
+  # Paths after a cd on the same line, read from where the cd went.
+  - { name: a write after a cd into a protected directory, vendor: claude, agent: coder, shell: "cd .github/workflows && echo evil > deploy.yml", expect: { decision: hold } }
+  - { name: tee after a cd, vendor: claude, agent: coder, shell: "cd .github && tee x.yml < y", expect: { decision: hold } }
+  - { name: a read after a cd into secrets, vendor: claude, agent: coder, shell: "cd secrets && cat prod", expect: { decision: deny } }
+  - { name: a write after a cd into Claude's settings, vendor: claude, agent: coder, shell: "cd .claude && echo x > settings.json", expect: { decision: deny } }
+  - { name: climbing back out of a directory, vendor: claude, agent: coder, shell: "cd src; cd ..; echo x > .github/y", expect: { decision: hold } }
+  - { name: pushd counts as cd, vendor: claude, agent: coder, shell: "pushd .github; echo x > y", expect: { decision: hold } }
+  - { name: a write after popd can't be placed, vendor: claude, agent: coder, shell: "pushd src; popd; echo x > y", expect: { decision: hold, step: unparsed } }
+  - { name: a write after a cd only known at run time, vendor: claude, agent: coder, shell: 'cd "$X" && echo y > z', expect: { decision: hold, step: unparsed } }
+  - { name: a wrapper's own directory, vendor: claude, agent: coder, shell: "env -C .github/workflows sh -c 'echo x > deploy.yml'", expect: { decision: hold } }
+  - { name: the wrapper's long form, vendor: claude, agent: coder, shell: "env --chdir=/home/x/other cat y", expect: { decision: hold, step: outside_read } }
+  - { name: sudo's, vendor: claude, agent: coder, shell: "sudo -D /home/x/other ls", expect: { decision: hold } }
+  - { name: a delete after a cd outside the tree, vendor: claude, agent: coder, shell: "cd /tmp && rm -rf build", expect: { decision: hold, class: delete } }
+  - { name: cd with no directory goes home, vendor: claude, agent: coder, shell: "cd && cat notes.txt", expect: { decision: hold, step: outside_read } }
+
+  # And the same forms that stay quiet.
+  - { name: a cd in a subshell ends with it, vendor: claude, agent: coder, shell: "(cd .github && ls); echo x > ok.txt", expect: { decision: allow } }
+  - { name: a cd in a shell string ends with it, vendor: claude, agent: coder, shell: "bash -c 'cd .github && ls'; echo x > ok.txt", expect: { decision: allow } }
+  - { name: a wrapper's directory ends with it, vendor: claude, agent: coder, shell: "env -C .github ls; echo x > ok.txt", expect: { decision: allow } }
+  - { name: a cd into src and a write there, vendor: claude, agent: coder, shell: "cd src && echo x > a.ts", expect: { decision: allow } }
+  - { name: a cd only known at run time and no write, vendor: claude, agent: coder, shell: 'cd "$X" && ls', expect: { decision: allow } }
+  - { name: a read climbing back into the tree, vendor: claude, agent: coder, shell: "cd src && ls", expect: { decision: allow } }
+
+  # Inline code: options a reader knows, so its code is read.
+  - { name: python with -R in a cluster, vendor: claude, agent: coder, shell: "python3 -Rc \"import os; os.system('ls')\"", expect: { decision: hold, step: unparsed } }
+  - { name: perl with -0, vendor: claude, agent: coder, shell: "perl -0e 'system(\"ls\")'", expect: { decision: hold, step: unparsed } }
+  - { name: perl with -l and a number, vendor: claude, agent: coder, shell: "perl -l0e 'system(\"ls\")'", expect: { decision: hold, step: unparsed } }
+  - { name: node with -C, vendor: claude, agent: coder, shell: "node -C dev -e \"require('child_process').execSync('ls')\"", expect: { decision: hold, step: unparsed } }
+  - { name: php with -d, vendor: claude, agent: coder, shell: "php -d x=1 -r \"system('ls');\"", expect: { decision: hold, step: unparsed } }
+  - { name: php with -R per line, vendor: claude, agent: coder, shell: "php -R \"system('ls');\"", expect: { decision: hold, step: unparsed } }
+  - { name: ruby with -0, vendor: claude, agent: coder, shell: "ruby -0e 'system(\"ls\")'", expect: { decision: hold, step: unparsed } }
+
+  # Options a reader doesn't know mean it can't say what it read.
+  - { name: python with an unknown letter, vendor: claude, agent: coder, shell: "python3 -Z -c 'print(1)'", expect: { decision: hold, step: unparsed } }
+  - { name: python with an unknown long option, vendor: claude, agent: coder, shell: "python3 --frob -c 'print(1)'", expect: { decision: hold, step: unparsed } }
+  - { name: perl with an unknown letter, vendor: claude, agent: coder, shell: "perl -Z -e 'print 1'", expect: { decision: hold, step: unparsed } }
+  - { name: ruby with an unknown letter, vendor: claude, agent: coder, shell: "ruby -Z -e 'puts 1'", expect: { decision: hold, step: unparsed } }
+  - { name: php with an unknown option, vendor: claude, agent: coder, shell: "php -Z -r 'echo 1;'", expect: { decision: hold, step: unparsed } }
+  - { name: php loading something through a setting, vendor: claude, agent: coder, shell: "php -d auto_prepend_file=x.php -r 'echo 1;'", expect: { decision: hold, step: unparsed } }
+  - { name: node with an unknown option and code, vendor: claude, agent: coder, shell: "node --frob -e 'console.log(1)'", expect: { decision: hold, step: unparsed } }
+  - { name: node's unknown option might have taken a word, vendor: claude, agent: coder, shell: "node --frob dev -e 'console.log(1)'", expect: { decision: hold, step: unparsed } }
+  - { name: perl with an unknown long option, vendor: claude, agent: coder, shell: "perl --frob -e 'print 1'", expect: { decision: hold, step: unparsed } }
+  - { name: ruby with an unknown long option, vendor: claude, agent: coder, shell: "ruby --frob -e 'puts 1'", expect: { decision: hold, step: unparsed } }
+  - { name: gawk loading an extension, vendor: claude, agent: coder, shell: "gawk -l filefuncs '{print}' y", expect: { decision: hold, step: unparsed } }
+  - { name: gawk including a file, vendor: claude, agent: coder, shell: "gawk -i evil.awk '{print}' y", expect: { decision: hold, step: unparsed } }
+  - { name: gawk running a file as a script, vendor: claude, agent: coder, shell: "gawk -E evil.awk", expect: { decision: hold, step: unparsed } }
+  - { name: gawk writing a profile, vendor: claude, agent: coder, shell: "gawk -o out '{print}' y", expect: { decision: hold, step: unparsed } }
+  - { name: mawk's -W, vendor: claude, agent: coder, shell: "mawk -W exec evil.awk", expect: { decision: hold, step: unparsed } }
+
+  # Options known to be harmless, with plain code, stay quiet.
+  - { name: python -u, vendor: claude, agent: coder, shell: "python3 -u -c 'print(1)'", expect: { decision: allow } }
+  - { name: python -W, vendor: claude, agent: coder, shell: "python3 -W ignore -c 'print(1)'", expect: { decision: allow } }
+  - { name: python -X attached, vendor: claude, agent: coder, shell: "python3 -Xutf8 -c 'print(1)'", expect: { decision: allow } }
+  - { name: python -OO, vendor: claude, agent: coder, shell: "python3 -OO -c 'print(1)'", expect: { decision: allow } }
+  - { name: python -u and a script, vendor: claude, agent: coder, shell: "python3 -u tools/report.py", expect: { decision: allow } }
+  - { name: python's version, vendor: claude, agent: coder, shell: "python3 --version", expect: { decision: allow } }
+  - { name: python's short version, vendor: claude, agent: coder, shell: "python3 -V", expect: { decision: allow } }
+  - { name: node's version, vendor: claude, agent: coder, shell: "node --version", expect: { decision: allow } }
+  - { name: node -v, vendor: claude, agent: coder, shell: "node -v", expect: { decision: allow } }
+  - { name: node --no-warnings, vendor: claude, agent: coder, shell: "node --no-warnings -e 'console.log(1)'", expect: { decision: allow } }
+  - { name: node as a module, vendor: claude, agent: coder, shell: "node --input-type=module -e 'console.log(1)'", expect: { decision: allow } }
+  - { name: node with a heap limit, vendor: claude, agent: coder, shell: "node --max-old-space-size=100 -e 'console.log(1)'", expect: { decision: allow } }
+  - { name: node's -C with plain code, vendor: claude, agent: coder, shell: "node -C dev -e 'console.log(1)'", expect: { decision: allow } }
+  - { name: node's tests have no code to read, vendor: claude, agent: coder, shell: "node --test", expect: { decision: allow } }
+  - { name: an option node has and this doesn't, on a script, vendor: claude, agent: coder, shell: "node --frob scripts/build.js", expect: { decision: allow } }
+  - { name: perl's version, vendor: claude, agent: coder, shell: "perl -v", expect: { decision: allow } }
+  - { name: perl slurping a file, vendor: claude, agent: coder, shell: "perl -0777 -ne 'print if /x/' file", expect: { decision: allow } }
+  - { name: perl with -l and -n apart, vendor: claude, agent: coder, shell: "perl -l -ne 'print' file", expect: { decision: allow } }
+  - { name: perl with -w, vendor: claude, agent: coder, shell: "perl -w -e 'print 1'", expect: { decision: allow } }
+  - { name: perl with a separator, vendor: claude, agent: coder, shell: "perl -F: -lane 'print $F[0]' file", expect: { decision: allow } }
+  - { name: ruby's version, vendor: claude, agent: coder, shell: "ruby --version", expect: { decision: allow } }
+  - { name: ruby -w, vendor: claude, agent: coder, shell: "ruby -w -e 'puts 1'", expect: { decision: allow } }
+  - { name: ruby with -0 and plain code, vendor: claude, agent: coder, shell: "ruby -0e 'puts 1'", expect: { decision: allow } }
+  - { name: ruby with a long option it knows, vendor: claude, agent: coder, shell: "ruby --disable-gems -e 'puts 1'", expect: { decision: allow } }
+  - { name: php's version, vendor: claude, agent: coder, shell: "php -v", expect: { decision: allow } }
+  - { name: php's per-line code is read as code, vendor: claude, agent: coder, shell: "php -R 'echo 1;'", expect: { decision: allow } }
+  - { name: php -n, vendor: claude, agent: coder, shell: "php -n -r 'echo 1;'", expect: { decision: allow } }
+  - { name: php with an ordinary setting, vendor: claude, agent: coder, shell: "php -d display_errors=1 -r 'echo 1;'", expect: { decision: allow } }
+  - { name: a php file, vendor: claude, agent: coder, shell: "php -f tools/x.php", expect: { decision: allow } }
+  - { name: awk's version, vendor: claude, agent: coder, shell: "awk --version", expect: { decision: allow } }
+  - { name: awk with an attached separator, vendor: claude, agent: coder, shell: "awk -Fx '{print $1}' file", expect: { decision: allow } }
+  - { name: awk with a variable attached, vendor: claude, agent: coder, shell: "awk -va=1 '{print a}' file", expect: { decision: allow } }
+  - { name: gawk in posix mode, vendor: claude, agent: coder, shell: "gawk --posix '{print}' file", expect: { decision: allow } }
+  - { name: an awk file, vendor: claude, agent: coder, shell: "awk -f prog.awk file", expect: { decision: allow } }
+
+  # The obvious other names. A scan can be evaded: docs/threat-model.md says how far this goes.
+  - { name: node through a bracket, vendor: claude, agent: coder, shell: "node -e \"process['getBuiltinModule']('child_process')\"", expect: { decision: hold, step: unparsed } }
+  - { name: node destructuring the process, vendor: claude, agent: coder, shell: "node -e \"const {getBuiltinModule: g} = process; g('child_process')\"", expect: { decision: hold, step: unparsed } }
+  - { name: node with another name for process, vendor: claude, agent: coder, shell: "node -e \"const p = process; p.binding('spawn_sync')\"", expect: { decision: hold, step: unparsed } }
+  - { name: node with another name for eval, vendor: claude, agent: coder, shell: "node -e \"const e = eval; e('1')\"", expect: { decision: hold, step: unparsed } }
+  - { name: python with another name for open, vendor: claude, agent: coder, shell: "python3 -c \"o=open;print('y',file=o('x','w'))\"", expect: { decision: hold, step: unparsed } }
+  - { name: python with another name for exec, vendor: claude, agent: coder, shell: "python3 -c \"e=exec;e('print(1)')\"", expect: { decision: hold, step: unparsed } }
+  - { name: ruby with File.new, vendor: claude, agent: coder, shell: "ruby -e 'File.new(\"x\",\"w\").puts(\"y\")'", expect: { decision: hold, step: unparsed } }
+  - { name: ruby with a write flag, vendor: claude, agent: coder, shell: "ruby -e 'File.open(\"x\", File::WRONLY)'", expect: { decision: hold, step: unparsed } }
+  - { name: php with a function in a string, vendor: claude, agent: coder, shell: "php -r \"array_map('system',['ls']);\"", expect: { decision: hold, step: unparsed } }
+  - { name: perl through CORE, vendor: claude, agent: coder, shell: "perl -e 'my $f = \\&CORE::system; $f->(\"ls\")'", expect: { decision: hold, step: unparsed } }
+
+  # The ordinary forms of those stay quiet.
+  - { name: node reading the environment, vendor: claude, agent: coder, shell: "node -e \"const env = process.env; console.log(env.X, process.argv[1], process.platform)\"", expect: { decision: allow } }
+  - { name: python printing a word, vendor: claude, agent: coder, shell: "python3 -c \"print('open')\"", expect: { decision: allow } }
+  - { name: python with a method called compile, vendor: claude, agent: coder, shell: "python3 -c \"import re;print(re.compile('x'))\"", expect: { decision: allow } }
+  - { name: ruby reading through File.new, vendor: claude, agent: coder, shell: "ruby -e 'puts File.new(\"x\").read'", expect: { decision: allow } }
+  - { name: ruby opening to read, vendor: claude, agent: coder, shell: "ruby -e 'puts File.open(\"x\",\"r\").read'", expect: { decision: allow } }
+  - { name: php printing, vendor: claude, agent: coder, shell: "php -r \"echo 'hello';\"", expect: { decision: allow } }

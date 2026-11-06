@@ -2,7 +2,8 @@
  * Cursor beforeShellExecution, https://cursor.com/docs/agent/hooks
  *
  * `cwd` is where the command runs, which may be a subdirectory, so the agent is identified from
- * the workspace root when there is one.
+ * the workspace root when there is one. What the command does still depends on `cwd`, so that's
+ * what a grant binds to.
  */
 import type { Action } from "@clearance/contracts";
 import { z } from "zod";
@@ -32,6 +33,12 @@ function cursorCwd(payload: unknown): string | undefined {
   );
 }
 
+function runsIn(payload: unknown): { cwd?: string; tree?: string } {
+  const tree = cursorCwd(payload);
+  const cwd = optionalString(asRecord(payload)?.cwd) ?? tree;
+  return { ...(cwd ? { cwd } : {}), ...(tree ? { tree } : {}) };
+}
+
 export function cursorToActions(payload: unknown, ctx: AdapterContext): Action[] {
   const parsed = Payload.safeParse(payload);
   if (!parsed.success) throw new PayloadError("not a beforeShellExecution payload");
@@ -40,7 +47,7 @@ export function cursorToActions(payload: unknown, ctx: AdapterContext): Action[]
       vendor: "cursor",
       ctx,
       raw: payload,
-      cwd: cursorCwd(payload),
+      ...runsIn(payload),
       sessionId: parsed.data.conversation_id,
     },
     parsed.data.command,

@@ -6,7 +6,16 @@ import { posix } from "node:path";
 import { canonicalJson, type Action, type Vendor } from "@clearance/contracts";
 
 /** `agent` comes from the working directory, resolved by the caller; never from the payload. */
-export type AdapterContext = { agent: string; id: string; at: string };
+export type AdapterContext = {
+  agent: string;
+  id: string;
+  at: string;
+  /**
+   * The agent's own directory, when the caller knows it. A session moves about inside it, and its hook reports where it
+   * is now, which is what a relative path means. What's protected and what's outside are judged from this one.
+   */
+  tree?: string;
+};
 
 /** A hold is a deny here: hooks answer at once and the agent retries after approval. */
 export type HookOutcome = { decision: "allow" | "deny"; reason: string };
@@ -125,6 +134,15 @@ export function writtenByEdits(
   return { content: text, replaces: canonicalJson(input.edits ?? null) };
 }
 
+function alongside(before: Written | undefined, next: Written): Written {
+  if (!before) return next;
+  const content = [before.content, next.content].filter((text) => text !== undefined);
+  return {
+    ...(content.length > 0 ? { content: content.join("\n") } : {}),
+    replaces: `${before.replaces ?? ""}${next.replaces ?? ""}`,
+  };
+}
+
 /** Each file in a patch: what it adds is what gets shown, and its whole section is bound. */
 export function writtenByPatch(patch: unknown): (path: string) => Written {
   const text = requireString(patch, "patch text");
@@ -142,8 +160,10 @@ export function writtenByPatch(patch: unknown): (path: string) => Written {
       ...(added.length > 0 ? { content: added.join("\n") } : {}),
       replaces: section,
     };
+    // One file can have several sections, and an approval is for all of them.
     for (const match of section.matchAll(/^\*\*\* (?:Add File|Update File|Delete File|Move to): (.+)$/gm)) {
-      sections.set(match[1]!.trim(), written);
+      const path = match[1]!.trim();
+      sections.set(path, alongside(sections.get(path), written));
     }
   });
   return (path) => sections.get(path) ?? { content: text };
@@ -160,10 +180,23 @@ export type CallInfo = {
   vendor: Vendor;
   ctx: AdapterContext;
   raw: unknown;
+  /** Where the call really runs. */
   cwd?: string;
+  /** The agent's own directory, when the vendor's payload says it and the caller doesn't. */
+  tree?: string;
   sessionId?: string;
   claim?: string;
 };
+
+const cleanDirectory = (path: string): string => posix.normalize(path).replace(/(.)\/+$/, "$1");
+
+const treeOf = (info: CallInfo): string | undefined => info.ctx.tree ?? info.tree ?? info.cwd;
+
+/** True when the session has moved from the agent's directory, so where it is and what it's judged from differ. */
+function hasMoved(info: CallInfo): boolean {
+  const tree = treeOf(info);
+  return info.cwd !== undefined && tree !== undefined && cleanDirectory(info.cwd) !== cleanDirectory(tree);
+}
 
 function base(info: CallInfo, id: string) {
   return {
@@ -171,7 +204,7 @@ function base(info: CallInfo, id: string) {
     at: info.ctx.at,
     source: "hook" as const,
     vendor: info.vendor,
-    agent: { name: info.ctx.agent, ...(info.cwd ? { cwd: info.cwd } : {}) },
+    agent: { name: info.ctx.agent, ...(treeOf(info) ? { cwd: treeOf(info) as string } : {}) },
     ...(info.sessionId ? { session: { vendorSessionId: info.sessionId } } : {}),
     raw: info.raw,
     ...(info.claim ? { agentClaim: info.claim } : {}),
@@ -180,13 +213,26 @@ function base(info: CallInfo, id: string) {
 
 /** `workdir` is the vendor's own argument for where to run it, which changes what the line means. */
 export function shellAction(info: CallInfo, command: string, workdir?: string): Action[] {
+  const where = hasMoved(info) ? runsFrom(info.cwd as string, workdir) : workdir;
   return [
     {
       ...base(info, info.ctx.id),
       kind: "shell",
-      shell: { command, ...(workdir ? { workdir } : {}) },
+      shell: { command, ...(where ? { workdir: where } : {}) },
     },
   ];
+}
+
+function runsFrom(cwd: string, workdir: string | undefined): string {
+  if (!workdir) return cwd;
+  return workdir.startsWith("~") ? workdir : posix.resolve(cwd, workdir);
+}
+
+/** A path from where the session is, then as the rules read it, from the agent's directory. */
+function fromTree(info: CallInfo, path: string): string {
+  if (!hasMoved(info)) return normalizePath(path, info.cwd);
+  const absolute = /^(\/|~)/.test(path) ? path : posix.resolve(info.cwd as string, path);
+  return normalizePath(absolute, treeOf(info));
 }
 
 export function fileActions(
@@ -200,7 +246,7 @@ export function fileActions(
     return {
       ...base(info, index === 0 ? info.ctx.id : `${info.ctx.id}.${index}`),
       kind,
-      file: { path: normalizePath(path, info.cwd) },
+      file: { path: fromTree(info, path) },
       ...(Object.keys(what).length > 0 ? { written: what } : {}),
     };
   });

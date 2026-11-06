@@ -6,7 +6,8 @@
  *
  * This is a scan of text, not an analysis of a program, and it can be evaded: docs/threat-model.md says how far it goes.
  * The hooks are a guardrail, and the gate stays the boundary. Each reader starts from what's known to be harmless where
- * it can, and an answer of "not sure" is a reason to hold.
+ * it can, and an answer of "not sure" is a reason to hold. That goes for flags too: one a reader doesn't know might be how
+ * the code is given, or might take the next word, so it can't say what it read.
  */
 
 type CodeWord = { text: string; dynamic: boolean };
@@ -57,21 +58,37 @@ const REACHES_NETWORK = "can reach the network";
 const LOADS_CODE = "loads code that isn't on this line";
 const RUNS_BUILT_CODE = "builds code and runs it";
 
+const cantRead = (flag: string): Inline => ({ code: [], problem: `comes with an option this can't read: ${flag}` });
+
 // ── Python ───────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+const PYTHON_BARE_LETTERS = "bBdEhiIOPqRsSuvVx";
+const PYTHON_LONG_FLAGS = new Set(["--version", "--help", "--help-env", "--help-xoptions", "--help-all"]);
 
 function pythonInline(args: CodeWord[]): Inline {
   for (let index = 0; index < args.length; index += 1) {
     const word = args[index] as CodeWord;
-    if (!word.text.startsWith("-") || word.text === "-") return NOT_INLINE;
-    if (word.text === "-m") return NOT_INLINE;
-    const cluster = /^-[bBdEiIOPqsSuvx]*c(.*)$/.exec(word.text);
-    if (cluster) {
-      const attached = cluster[1] as string;
-      if (attached) return { code: [{ text: attached, dynamic: word.dynamic }] };
-      const next = args[index + 1];
-      return next ? { code: [next] } : NOT_INLINE;
+    const { text: flag } = word;
+    if (!flag.startsWith("-") || flag === "-" || flag === "--") return NOT_INLINE;
+    if (flag.startsWith("--")) {
+      if (PYTHON_LONG_FLAGS.has(flag)) continue;
+      return cantRead(flag);
     }
-    if (word.text === "-W" || word.text === "-X") index += 1;
+    for (let at = 1; at < flag.length; at += 1) {
+      const letter = flag[at] as string;
+      if (letter === "c") {
+        const attached = flag.slice(at + 1);
+        if (attached) return { code: [{ text: attached, dynamic: word.dynamic }] };
+        const next = args[index + 1];
+        return next ? { code: [next] } : NOT_INLINE;
+      }
+      if (letter === "m") return NOT_INLINE;
+      if (letter === "W" || letter === "X") {
+        if (at === flag.length - 1) index += 1;
+        break;
+      }
+      if (!PYTHON_BARE_LETTERS.includes(letter)) return cantRead(flag);
+    }
   }
   return NOT_INLINE;
 }
@@ -89,7 +106,9 @@ const PYTHON_OS_ATTRIBUTES = new Set([
 ]);
 const PYTHON_RULES = [
   [/__\w+__/, "reaches into Python's internals"],
-  [/(?<![\w.])(exec|eval|compile|getattr|setattr|delattr|globals|locals|vars|breakpoint)\s*\(/, RUNS_BUILT_CODE],
+  // By name, with or without a call, so `e=exec` doesn't get past it. A method like `re.compile` is something else.
+  [/(?<![\w.'"])(exec|eval|compile|getattr|setattr|delattr|globals|locals|vars|breakpoint)\b/, RUNS_BUILT_CODE],
+  [/(?<![\w.'"])open\b(?!\s*\()/, WRITES_FILES],
   [/\bmodules\b|\bmeta_path\b|\bpath_hooks\b|\bsettrace\b|\bsetprofile\b/, "reaches into Python's internals"],
   [/\byaml\s*\.\s*(unsafe_)?load(_all)?\s*\(/, RUNS_BUILT_CODE],
 ] as const;
@@ -183,38 +202,61 @@ function callArguments(code: string, start: number): string[] {
 
 // ── JavaScript: node, and bun and deno on top of it ──────────────────────────────────────────────────────────────────
 
+/** Options that take the next word as their value. Past one of these, the next word isn't a script. */
+const NODE_FLAGS_WITH_VALUE = new Set(["-C", "--conditions", "--input-type", "--title", "--disable-warning", "--stack-trace-limit", "--unhandled-rejections"]);
+const NODE_HARMLESS_FLAGS =
+  /^(-v|-h|--version|--help|--no-warnings|--no-deprecation|--trace-warnings|--trace-deprecation|--throw-deprecation|--pending-deprecation|--enable-source-maps|--use-strict|--harmony\S*|--no-experimental-\S*|--experimental-(?!loader)\S*|--(conditions|input-type|title|disable-warning|unhandled-rejections)=\S*|--(max-old-space-size|stack-size|stack-trace-limit)=\d+)$/;
+
+/**
+ * An option this doesn't know matters only with code on the line, since without any it's a script, which isn't read at
+ * all. With code, the option might change what it does, and might have taken a word that looks like something else.
+ */
 function nodeInline(args: CodeWord[]): Inline {
   const code: CodeWord[] = [];
+  let loads = false;
+  let unknown: string | undefined;
   for (let index = 0; index < args.length; index += 1) {
     const word = args[index] as CodeWord;
-    const { text } = word;
-    if (!text.startsWith("-") || text === "-" || text === "--") break;
-    if (["-e", "--eval", "-p", "--print", "-pe"].includes(text)) {
+    const { text: flag } = word;
+    if (flag === "-" || flag === "--") break;
+    if (!flag.startsWith("-")) {
+      if (unknown) continue;
+      break;
+    }
+    if (["-e", "--eval", "-p", "--print", "-pe"].includes(flag)) {
       const next = args[index + 1];
       if (next) code.push(next);
       index += 1;
-    } else if (/^--(eval|print)=/.test(text)) {
-      code.push({ text: text.slice(text.indexOf("=") + 1), dynamic: word.dynamic });
-    } else if (/^(-r|--require|--import|--loader|--experimental-loader)(=|$)/.test(text)) {
-      if (args.some((other) => /^(-e|-p|-pe|--eval|--print)(=|$)/.test(other.text))) return { code: [], problem: LOADS_CODE };
-      if (!text.includes("=")) index += 1;
+    } else if (/^(--eval|--print|-e|-p|-pe)=/.test(flag)) {
+      code.push({ text: flag.slice(flag.indexOf("=") + 1), dynamic: word.dynamic });
+    } else if (/^(-r|--require|--import|--loader|--experimental-loader)(=|$)/.test(flag)) {
+      loads = true;
+      if (!flag.includes("=")) index += 1;
+    } else if (NODE_FLAGS_WITH_VALUE.has(flag)) {
+      index += 1;
+    } else if (!NODE_HARMLESS_FLAGS.test(flag)) {
+      unknown ??= flag;
     }
   }
-  return { code };
+  if (code.length === 0) return { code };
+  if (loads) return { code: [], problem: LOADS_CODE };
+  return unknown ? cantRead(unknown) : { code };
 }
 
+/** Every word after `eval` is read, because one that isn't a flag might be a flag's value, and the code might be the next. */
 function denoInline(args: CodeWord[]): Inline {
   if (args[0]?.text !== "eval") return NOT_INLINE;
-  const code = args.slice(1).find((word) => !word.text.startsWith("-"));
-  return code ? { code: [code] } : NOT_INLINE;
+  return { code: args.slice(1).filter((word) => !word.text.startsWith("-")) };
 }
 
 const NODE_PURE_MODULES = /^(node:)?(fs|fs\/promises|path|util|os|url|assert|querystring|crypto|buffer|string_decoder|events|perf_hooks|timers)$/;
 const NODE_RULES = [
   [/\b(fetch|WebSocket|XMLHttpRequest|EventSource)\b/, REACHES_NETWORK],
-  [/(?<![\w.])(eval|Function|Worker|SharedWorker)\s*\(/, RUNS_BUILT_CODE],
+  [/(?<![\w.'"])(eval|Function)\b|(?<![\w.])(Worker|SharedWorker)\s*\(/, RUNS_BUILT_CODE],
   [/\bconstructor\b|__proto__|\bglobalThis\b|\bglobal\s*[[.]|\bReflect\b/, "reaches into JavaScript's internals"],
-  [/\bprocess\s*\.\s*(binding|_linkedBinding|dlopen|mainModule|kill|getBuiltinModule|chdir|setuid|setgid|execve|abort)\b/, "reaches into the process"],
+  [/\bprocess\s*\.\s*(binding|kill|chdir|setuid|setgid|execve|abort)\b/, "reaches into the process"],
+  // By name, and through a bracket or another name for `process`, since none of these has an ordinary use in a one-liner.
+  [/\b(getBuiltinModule|_linkedBinding|dlopen|mainModule)\b|\bprocess\s*\[|=\s*process\b(?!\s*\.)/, "reaches into the process"],
   // By name alone, so taking one out of `fs` with a destructure doesn't get past it.
   [
     /\b(writeFile|writeFileSync|appendFile|appendFileSync|createWriteStream|rmSync|rmdirSync|unlinkSync|renameSync|mkdirSync|mkdtemp|mkdtempSync|copyFile|copyFileSync|cpSync|symlinkSync|linkSync|chmodSync|chownSync|truncateSync|utimesSync|lutimes|openSync|writeSync|writev|writevSync)\b/,
@@ -258,46 +300,63 @@ function denoProblem(code: string): string | null {
 // ── Perl and Ruby, whose flags cluster ───────────────────────────────────────────────────────────────────────────────
 
 type Flags = {
-  /** Flags whose value is what follows them, so they aren't a cluster that could hold `e`. */
-  withValue: RegExp;
-  /** Those that can also take it as the next word. The others' value is only ever attached. */
-  nextWord: Set<string>;
+  /** Letters that stand alone in a cluster. */
+  bare: string;
+  /** Letters followed by an optional number, then more of the cluster: `-0e`, `-l012e`, `-0777`. */
+  numbered: string;
+  /** Letters whose value is the rest of the word. */
+  withValue: string;
+  /** Those that can also take it as the next word. */
+  nextWord: string;
   /** Those that name a module. */
-  loads: Set<string>;
+  loads: string;
+  /** Letters whose value is code. */
+  code: string;
+  longFlags: RegExp;
   allowed: (name: string) => boolean;
 };
 
-/** `-e code`, `-pe code`, `-lane code`, `-ecode`, and `-i`, which rewrites the files it's given. */
+/** Reads a cluster a letter at a time, as the interpreter does, so nothing can sit in front of the `e`. `-i` rewrites files. */
 function clusteredInline(args: CodeWord[], flags: Flags): Inline {
   const code: CodeWord[] = [];
   for (let index = 0; index < args.length; index += 1) {
     const word = args[index] as CodeWord;
-    const { text } = word;
-    if (!text.startsWith("-") || text === "-" || text === "--") break;
-    const value = flags.withValue.exec(text);
-    if (value) {
-      const flag = value[1] as string;
-      const attached = value[2] as string;
-      const fromNext = !attached && flags.nextWord.has(flag);
-      if (fromNext) index += 1;
-      if (flags.loads.has(flag)) {
-        const named = (fromNext ? args[index]?.text : attached) ?? "";
-        if (!flags.allowed(named.split("=")[0] as string)) return { code: [], problem: `loads ${named}` };
-      }
-      continue;
+    const { text: flag } = word;
+    if (!flag.startsWith("-") || flag === "-" || flag === "--") break;
+    if (flag.startsWith("--")) {
+      if (flags.longFlags.test(flag)) continue;
+      return cantRead(flag);
     }
-    const cluster = /^-([a-zA-Z]*?)[eE](.*)$/.exec(text);
-    const before = cluster ? (cluster[1] as string) : text.slice(1);
-    if (/^[a-zA-Z]*i/.test(before)) return { code: [], problem: WRITES_FILES };
-    if (cluster) {
-      const attached = cluster[2] as string;
-      const next = args[index + 1];
-      if (attached) {
-        code.push({ text: attached, dynamic: word.dynamic });
-      } else if (next) {
-        code.push(next);
-        index += 1;
+    for (let at = 1; at < flag.length; at += 1) {
+      const letter = flag[at] as string;
+      if (letter === "i") return { code: [], problem: WRITES_FILES };
+      if (flags.code.includes(letter)) {
+        const attached = flag.slice(at + 1);
+        const next = args[index + 1];
+        if (attached) {
+          code.push({ text: attached, dynamic: word.dynamic });
+        } else if (next) {
+          code.push(next);
+          index += 1;
+        }
+        break;
       }
+      if (flags.numbered.includes(letter)) {
+        const number = /^(x[0-9a-fA-F]*|[0-7]*)/.exec(flag.slice(at + 1)) as RegExpExecArray;
+        at += number[0].length;
+        continue;
+      }
+      if (flags.withValue.includes(letter)) {
+        const attached = flag.slice(at + 1);
+        const fromNext = !attached && flags.nextWord.includes(letter);
+        if (fromNext) index += 1;
+        if (flags.loads.includes(letter)) {
+          const named = (fromNext ? args[index]?.text : attached) ?? "";
+          if (!flags.allowed(named.split("=")[0] as string)) return { code: [], problem: `loads ${named}` };
+        }
+        break;
+      }
+      if (!flags.bare.includes(letter)) return cantRead(flag);
     }
   }
   return { code };
@@ -309,9 +368,13 @@ const PERL_PURE_MODULES = new Set([
 ]);
 const perlInline = (args: CodeWord[]): Inline =>
   clusteredInline(args, {
-    withValue: /^-([MmIFCx0D])(.*)$/,
-    nextWord: new Set(["M", "m", "I"]),
-    loads: new Set(["M", "m"]),
+    bare: "anpsStTuUvwWXcgfh",
+    numbered: "0l",
+    withValue: "MmIFCxDdV",
+    nextWord: "MmI",
+    loads: "Mm",
+    code: "eE",
+    longFlags: /^--(version|help)$/,
     allowed: (name) => PERL_PURE_MODULES.has(name.replace(/^-/, "")),
   });
 
@@ -319,7 +382,7 @@ const PERL_RULES = [
   [/`|\bqx\b|\bsystem\b(?=\s*[("'$@{\s])|\bexec\b(?=\s*[("'$@{\s])|\bfork\b/, STARTS_A_PROCESS],
   [/\b(socket|connect|IO::Socket|LWP|HTTP::Tiny|Net::)\b/, REACHES_NETWORK],
   [/\b(unlink|rename|mkdir|rmdir|chmod|chown|symlink|truncate|sysopen|utime|chroot)\b(?=\s*[("'$@{\s])|\$\^I/, WRITES_FILES],
-  [/\beval\b|\brequire\b|\bdo\s+['"$]|\bsyscall\b|\bdump\b|\bkill\b/, RUNS_BUILT_CODE],
+  [/\beval\b|\brequire\b|\bdo\s+['"$]|\bsyscall\b|\bdump\b|\bkill\b|\bCORE::/, RUNS_BUILT_CODE],
 ] as const;
 
 function perlProblem(code: string): string | null {
@@ -340,9 +403,13 @@ function perlProblem(code: string): string | null {
 const RUBY_PURE_MODULES = new Set(["json", "yaml", "time", "date", "set", "csv", "digest", "base64", "bigdecimal", "securerandom", "pp", "strscan", "ostruct"]);
 const rubyInline = (args: CodeWord[]): Inline =>
   clusteredInline(args, {
-    withValue: /^-([rIFCxK0])(.*)$/,
-    nextWord: new Set(["r", "I", "C"]),
-    loads: new Set(["r"]),
+    bare: "aclnpsSUvwyhd",
+    numbered: "0",
+    withValue: "CEFIKrTWxX",
+    nextWord: "CEIrX",
+    loads: "r",
+    code: "e",
+    longFlags: /^--(version|help|verbose|yydebug|disable\S*|enable\S*|encoding\S*|external-encoding\S*|internal-encoding\S*)$/,
     allowed: (name) => RUBY_PURE_MODULES.has(name),
   });
 
@@ -350,7 +417,8 @@ const RUBY_RULES = [
   [/`|%x\b|%x[^\w\s]|\b(system|exec|spawn|fork|syscall)\b|\bIO\s*\.\s*popen\b|\bOpen3\b|\bProcess\b|\bKernel\b/, STARTS_A_PROCESS],
   [/\b(Socket|TCPSocket|UDPSocket|UNIXSocket|TCPServer)\b|\bNet::|\bURI\s*\.\s*open\b|\bopen-uri\b/, REACHES_NETWORK],
   [/\bFileUtils\b|\b(File|IO)\s*\.\s*(write|binwrite|delete|unlink|rename|chmod|chown|symlink|link|truncate|mkfifo|utime)\b|\bDir\s*\.\s*(mkdir|rmdir|unlink|delete|chdir)\b/, WRITES_FILES],
-  [/\b(File\s*\.\s*)?open\s*\(?\s*[^,)]+,\s*['"][^'"]*[wa+]/, WRITES_FILES],
+  [/\b((File|IO)\s*\.\s*)?(open|new)\s*\(?\s*[^,)]+,\s*['"][^'"]*[wa+]/, WRITES_FILES],
+  [/\bFile::(WRONLY|RDWR|CREAT|APPEND|TRUNC)\b|\.\s*(sysopen|reopen)\b/, WRITES_FILES],
   [/\bopen\s*\(?\s*['"]\|/, STARTS_A_PROCESS],
   [/(?<![.\w])(eval|load|binding)\b|\b(instance_eval|class_eval|module_eval|send|__send__|public_send|require_relative|define_method|const_get)\b/, RUNS_BUILT_CODE],
 ] as const;
@@ -367,21 +435,36 @@ function rubyProblem(code: string): string | null {
 
 // ── PHP ──────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
+/** Settings that make php load or run something of their own. */
+const PHP_LOADING_SETTING = /^(auto_prepend_file|auto_append_file|extension|zend_extension|include_path|disable_functions|open_basedir)\b/;
+
 function phpInline(args: CodeWord[]): Inline {
+  const code: CodeWord[] = [];
   for (let index = 0; index < args.length; index += 1) {
     const word = args[index] as CodeWord;
-    if (word.text === "-r") {
+    const { text: flag } = word;
+    if (!flag.startsWith("-") || flag === "-" || flag === "--") break;
+    if (flag === "-f" || flag === "--file") return { code };
+    if (["-r", "--run", "-B", "--process-begin", "-R", "--process-code", "-E", "--process-end"].includes(flag)) {
       const next = args[index + 1];
-      return next ? { code: [next] } : NOT_INLINE;
+      if (next) code.push(next);
+      index += 1;
+    } else if (/^-[rBRE]./.test(flag)) {
+      code.push({ text: flag.slice(2), dynamic: word.dynamic });
+    } else if (flag === "-d" || flag === "--define" || /^-d./.test(flag)) {
+      const setting = flag.startsWith("-d") && flag.length > 2 ? flag.slice(2) : (args[index + 1]?.text ?? "");
+      if (flag.length <= 2 || flag === "--define") index += 1;
+      if (PHP_LOADING_SETTING.test(setting)) return cantRead(`${flag} ${setting}`);
+    } else if (!/^(-[nqvhimlsw]|--version|--help|--no-php-ini|--info|--modules|--syntax-check)$/.test(flag)) {
+      return cantRead(flag);
     }
-    if (word.text === "--run") {
-      const next = args[index + 1];
-      return next ? { code: [next] } : NOT_INLINE;
-    }
-    if (!word.text.startsWith("-")) return NOT_INLINE;
   }
-  return NOT_INLINE;
+  return { code };
 }
+
+/** A function named in a string: `array_map('system', ...)`. Enough to catch the obvious, and no more than that. */
+const PHP_NAMED_IN_A_STRING =
+  /['"](system|exec|shell_exec|passthru|popen|proc_open|eval|assert|file_put_contents|unlink|rename|mkdir|rmdir|chmod|chown|symlink|copy|touch|fopen|fsockopen|curl_exec|mail)['"]/;
 
 const PHP_RULES = [
   [/`|\b(system|exec|shell_exec|passthru|popen|proc_open|pcntl_\w+)\s*\(/, STARTS_A_PROCESS],
@@ -390,27 +473,38 @@ const PHP_RULES = [
   [/\b(eval|assert|create_function|dl|include|include_once|require|require_once|call_user_func|call_user_func_array)\b|\$\w+\s*\(/, RUNS_BUILT_CODE],
 ] as const;
 
-const phpProblem = (code: string): string | null => firstHit(code, PHP_RULES);
+const phpProblem = (code: string): string | null =>
+  firstHit(code, PHP_RULES) ?? (PHP_NAMED_IN_A_STRING.test(code) ? RUNS_BUILT_CODE : null);
 
 // ── awk ──────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
+const AWK_HARMLESS_FLAGS =
+  /^(-[bcCghIkLMnNOPrsStV]|--(version|help|posix|traditional|re-interval|non-decimal-data|sandbox|characters-as-bytes|csv|lint|lint-old|optimize|no-optimize|use-lc-numeric|bignum|copyright)|--lint=\S+)$/;
+
+/** The first word that isn't a flag is the program, unless a flag took it, so this has to know every flag it steps over. */
 function awkInline(args: CodeWord[]): Inline {
   const code: CodeWord[] = [];
   for (let index = 0; index < args.length; index += 1) {
     const word = args[index] as CodeWord;
-    const { text } = word;
-    if (text === "-f" || text === "--file") return { code };
-    if (text === "-e" || text === "--source") {
+    const { text: flag } = word;
+    if (flag === "--") {
+      const program = args[index + 1];
+      return program && code.length === 0 ? { code: [program] } : { code };
+    }
+    if (!flag.startsWith("-") || flag === "-") return code.length > 0 ? { code } : { code: [word] };
+    if (flag === "-f" || flag === "--file" || /^(-f.|--file=)/.test(flag)) return { code };
+    if (flag === "-e" || flag === "--source") {
       const next = args[index + 1];
       if (next) code.push(next);
       index += 1;
-    } else if (text === "-F" || text === "-v" || text === "--assign" || text === "--field-separator") {
+    } else if (/^--source=/.test(flag)) {
+      code.push({ text: flag.slice("--source=".length), dynamic: word.dynamic });
+    } else if (/^-e./.test(flag)) {
+      code.push({ text: flag.slice(2), dynamic: word.dynamic });
+    } else if (flag === "-F" || flag === "-v" || flag === "--assign" || flag === "--field-separator") {
       index += 1;
-    } else if (text === "--") {
-      const program = args[index + 1];
-      return program ? { code: [...code, program] } : { code };
-    } else if (!text.startsWith("-")) {
-      return code.length > 0 ? { code } : { code: [word] };
+    } else if (!/^(-F.|-v.|--assign=|--field-separator=)/.test(flag) && !AWK_HARMLESS_FLAGS.test(flag)) {
+      return cantRead(flag);
     }
   }
   return { code };

@@ -19,6 +19,9 @@ import sc14 from "./sc14.ts";
 import scco from "./scco.ts";
 import scfw from "./scfw.ts";
 import scou from "./scou.ts";
+import sccc from "./sccc.ts";
+import scri from "./scri.ts";
+import scst from "./scst.ts";
 
 /** Every scenario in PLAN 8.7, in order. */
 export const SCENARIOS: Scenario[] = [
@@ -39,7 +42,7 @@ export const SCENARIOS: Scenario[] = [
 ];
 
 /** Scenes that aren't numbered rows of PLAN 8.7. `pnpm demo:run all` leaves them out. */
-export const EXTRA_SCENARIOS: Scenario[] = [sc02t, scbg, scdg, scco, scfw, scou];
+export const EXTRA_SCENARIOS: Scenario[] = [sc02t, scbg, scdg, scco, scfw, scou, scst, sccc, scri];
 
 export function findScenario(id: string): Scenario | undefined {
   const wanted = id.toUpperCase();

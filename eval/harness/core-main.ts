@@ -48,12 +48,25 @@ function record(kind: string, data: Record<string, unknown>): void {
  */
 const whileOpening = new Map<string, { answeredBy: string; answer: string }>();
 const held = new Map<string, Promise<void>>();
+/** The next card for this room throws. `live` means Switch opened it anyway and its reply was lost. */
+const failing = new Map<string, { live: boolean }>();
+let failingFallback: { live: boolean } | null = null;
 const release = new Map<string, () => void>();
+
+/** The room the suite's calls come from, which holds the copy rather than the group's card. */
+const ORIGIN_ROOM = "room-support";
 
 let cardCounter = 0;
 const chat: ChatPort = {
   async openCard(input: OpenCardInput): Promise<OpenCardResult> {
     cardCounter += 1;
+    const isFallback = failingFallback !== null && !input.roomId.startsWith("dm-") && input.title.includes("CLR-") && input.roomId !== ORIGIN_ROOM;
+    const fails = failing.get(input.roomId) ?? (isFallback ? failingFallback : undefined);
+    if (fails) {
+      failing.delete(input.roomId);
+      if (isFallback) failingFallback = null;
+      if (!fails.live) throw new Error("the card did not open");
+    }
     // The pid keeps ids unique across a restart of this process, as Switch's are.
     const result: OpenCardResult = {
       sessionId: "eval-session",
@@ -61,6 +74,7 @@ const chat: ChatPort = {
       handle: `A${process.pid % 1000}${cardCounter}`,
     };
     record("card", { ...input, ...result });
+    if (fails) throw new Error("the card opened, and the reply was lost");
     const answer = whileOpening.get(input.roomId);
     if (answer) {
       whileOpening.delete(input.roomId);
@@ -162,6 +176,12 @@ await app.register(async (scope) => {
   scope.post("/eval/answer-while-opening", async (request) => {
     const { roomId, answeredBy, answer } = request.body as Record<string, string>;
     whileOpening.set(roomId as string, { answeredBy: answeredBy as string, answer: answer as string });
+    return { ok: true };
+  });
+  scope.post("/eval/fail-open", async (request) => {
+    const { roomId, fallback, live } = request.body as { roomId?: string; fallback?: boolean; live?: boolean };
+    if (fallback) failingFallback = { live: live === true };
+    if (roomId) failing.set(roomId, { live: live === true });
     return { ok: true };
   });
   scope.post("/eval/hold-open", async (request) => {

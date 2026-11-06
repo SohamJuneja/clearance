@@ -3,7 +3,7 @@ import type { Vendor } from "@clearance/contracts";
 import type { Directory } from "../people/directory.js";
 import type { RequestRecord } from "../requests/store.js";
 import type { RouteTrace } from "../router/router.js";
-import { whyCopy, whyFallback, whyYou } from "../router/why.js";
+import { cannotCompleteText, whyCopy, whyFallback, whyYou } from "../router/why.js";
 import { formatClockWithZone } from "../time.js";
 import type { CallDescription } from "./describe.js";
 import type { CardView } from "./render.js";
@@ -51,6 +51,7 @@ export function buildCardView(input: {
   const quorum = request.quorumRequired;
   const subject = evidence.policySubject ?? "protected calls with no rule";
   const approvers = trace.label === "approver" ? "approver" : `${trace.label} approver`;
+  const stuck = cannotCompleteText(trace, request.id);
   return {
     id: request.id,
     headline: evidence.description.headline,
@@ -58,7 +59,7 @@ export function buildCardView(input: {
     reversible: evidence.description.reversible ?? input.reversible,
     call: evidence.description.call,
     context: evidence.description.context,
-    flags: request.flags.map((flag) => flag.text),
+    flags: [...request.flags.map((flag) => flag.text), ...(stuck ? [stuck] : [])],
     claim: evidence.agentClaim,
     askedBy: request.requesterIds.map((id) => personWithGroup(directory, id)),
     agent: request.agent,

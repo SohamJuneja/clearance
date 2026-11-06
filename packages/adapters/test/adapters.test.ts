@@ -371,7 +371,11 @@ describe("Cursor beforeShellExecution", () => {
     expect(cursorAdapter.cwd(load("cursor-before-shell"))).toBe("/home/agent/reviewer");
     const [action] = cursorAdapter.toActions(load("cursor-before-shell"), ctx);
     expect(action!.kind).toBe("shell");
-    expect(action!.shell).toEqual({ command: "git push --force origin main" });
+    // The fixture runs in src, below the root, and what the command does depends on that.
+    expect(action!.shell).toEqual({
+      command: "git push --force origin main",
+      workdir: "/home/agent/reviewer/src",
+    });
     expect(action!.agent.cwd).toBe("/home/agent/reviewer");
     expect(action!.session).toEqual({ vendorSessionId: "conv-1" });
   });

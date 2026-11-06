@@ -210,9 +210,15 @@ export function describeCall(input: DescribeInput): CallDescription {
   if (typeof bound.preview === "string" && typeof bound.chars === "number") {
     description.call.push(previewLine("what would be written", bound.preview, bound.chars));
   }
-  if (bound.repeats === true) description.context.push("Repeats: it can run more than once, and an approval covers this whole line");
-  if (typeof bound.run === "number") description.context.push(`Run ${bound.run} of this same command on this line: each run needs its own approval`);
-  if (input.asWritten) description.context.push(`As written: ${oneLine(input.asWritten, 300)}`);
+  // What the short form of a command leaves out goes with the call, because a long card gives up its context first, and
+  // these say what's being approved. Where only a tail differs, the line as written is context, as it always was.
+  if (typeof bound.workdir === "string") description.call.push(`Runs in: ${oneLineKeepingEnd(bound.workdir)}`);
+  if (bound.repeats === true) description.call.push("Repeats: it can run more than once, and an approval covers this whole line");
+  if (typeof bound.run === "number") description.call.push(`Run ${bound.run} of this same command on this line: each run needs its own approval`);
+  if (input.asWritten) {
+    const matters = bound.words !== undefined || bound.setup !== undefined || bound.repeats === true || typeof bound.run === "number";
+    (matters ? description.call : description.context).push(`As written: ${oneLine(input.asWritten, 300)}`);
+  }
   return description;
 }
 

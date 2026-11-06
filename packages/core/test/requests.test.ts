@@ -86,6 +86,8 @@ describe("request lifecycle", () => {
     ["APPROVED", "VOIDED"],
     ["APPROVED", "OUTCOME_UNKNOWN"],
     ["BREAK_GLASS", "OUTCOME_UNKNOWN"],
+    ["OUTCOME_UNKNOWN", "EXECUTED"],
+    ["OUTCOME_UNKNOWN", "VOIDED"],
     ["BREAK_GLASS", "EXECUTED"],
     ["BREAK_GLASS", "GRANTED"],
     ["BREAK_GLASS", "VOIDED"],

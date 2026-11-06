@@ -80,13 +80,16 @@ Header `Authorization: Bearer $CLEARANCE_INTERNAL_TOKEN`.
 | `bound` key | On | What it is |
 |---|---|---|
 | `words` | shell | The words as the shell would treat them, when the text alone can't say: quoted text marked as literal, and a substitution's source. |
-| `setup` | shell | Earlier commands on the line that change where or how this one runs. |
+| `setup` | shell | Earlier commands on the line that aren't known to leave things as they were. |
 | `cwd` | shell, relative file paths | The directory, with the tool's own `workdir` applied. |
+| `workdir` | shell, shell writes | The same, set only when it isn't the agent's own directory. The card says "Runs in". |
 | `line` | shell, shell writes | The whole line, when the command repeats or is fed from the line, or it writes a file. |
 | `repeats` | shell | It can run more than once. The card says so. |
 | `run` | shell, shell writes | The second or later run of the same call on one line. |
 | `content_sha256` | file writes | Over `Action.written`: `content`, and `replaces` for an edit. |
 | `preview`, `chars` | file writes | What a card shows of the content, and how long all of it is. |
+
+`Action.agent.cwd` is the agent's own directory, which is what's protected and what's outside are judged from. Where a shell line really runs goes in `Action.shell.workdir`, when that's anywhere else: a vendor's own argument, Cursor's `cwd` below its workspace root, or a session that has moved inside its directory. The hook route finds the agent's directory by walking up from the hook's `cwd`, and a file tool's path is resolved from where the session is, then given relative to that directory.
 
 A call touching several files is checked with `Action.defer_grants`. Core answers as usual, except that a grant is left unspent, with `grant_pending: true` and nothing recorded. The hook route asks again without the flag once every file can proceed. No agent can set it, since adapters build the Action.
 

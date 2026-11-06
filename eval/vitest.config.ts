@@ -6,7 +6,7 @@ export default defineConfig({
   test: {
     root: fileURLToPath(new URL("..", import.meta.url)),
     include: ["eval/**/*.test.ts", "scripts/**/*.test.ts"],
-    exclude: ["**/node_modules/**", "**/.claude/**"],
+    exclude: ["**/node_modules/**", "**/.claude/**", "**/.tmp/**"],
     testTimeout: 15_000,
   },
 });

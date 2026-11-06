@@ -10,6 +10,7 @@ import type {
   LookupPort,
   OpenCardInput,
   OpenCardResult,
+  RoomAliases,
 } from "@clearance/contracts";
 
 export class FakeClock implements Clock {
@@ -54,6 +55,8 @@ export class FakeChat implements ChatPort {
   readonly directRooms: string[] = [];
   /** Set to answer where an agent is working. Unset, as for a port with no way to ask. */
   unseenRoomCount?: (agentName: string) => Promise<number>;
+  /** Set to answer what a room's aliases are. Unset, as for a port with no way to ask. */
+  roomAliases?: (roomId: string) => Promise<RoomAliases>;
   /** Set to make openCard reject, as if Switch were down. */
   failOpenCard = false;
   /** Real direct rooms give no handle: Switch writes it into the post and no API returns it. */

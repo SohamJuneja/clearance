@@ -13,6 +13,8 @@
 import type { Action, CanonicalCall, Clock, Decision, Flag, LookupPort, Tier } from "@clearance/contracts";
 import { capLevel, levelAllowsWithoutHuman, type AutonomyStore, type Level } from "../autonomy/store.js";
 import {
+  agentTree,
+  commandDirectory,
   denyingClass,
   fileCall,
   firstClass,
@@ -23,6 +25,8 @@ import {
   normaliseCall,
   shellDirectory,
   subCommandCall,
+  workdirAsCd,
+  workdirBinding,
   type NormalCall,
   type ShellPlace,
 } from "../classify/classify.js";
@@ -35,6 +39,7 @@ import {
   outsideAgentDirFlag,
   mayHaveRunFlag,
   ranRecentlyFlag,
+  stillTryingFlag,
   aboveNormalRangeFlag,
   aggregateFlag,
   overCapFlag,
@@ -68,7 +73,9 @@ export type EngineDeps = {
   autonomy: Pick<AutonomyStore, "levelFor"> & Partial<Pick<AutonomyStore, "ceiling" | "spentToday">>;
   grants?: GrantPort | undefined;
   /** The last time this exact call ran, or may have. Only `check` asks: a replay of history is all repeats. */
-  lastRun?: ((callHash: string, agent: string) => { requestId: string; atMs: number; unknown: boolean } | null) | undefined;
+  /** Whether what the agent said contradicts this call. Only `check` asks: an edit isn't what it said, and a replay has no chat. */
+  saidOtherwise?: ((input: { action: Action; cls: string; extracted: Record<string, unknown>; call: CanonicalCall }) => boolean) | undefined;
+  lastRun?: ((callHash: string, agent: string) => { requestId: string; atMs: number; how: "ran" | "unknown" | "trying" } | null) | undefined;
 };
 
 export type Step =
@@ -279,13 +286,16 @@ function takeGrants(hashes: string[], action: Action, deps: EngineDeps): string 
 type Risky = { call: NormalCall; cls: CompiledClass | null; identity: Identity; dynamic: string[]; outside?: string };
 
 /** The deny classes get the whole line too when it could not be read: `eval 'curl ...:7800'` says what it says. */
-function shellDeny(parsed: ParsedShell, line: NormalCall, action: Action, policy: CompiledPolicy): CompiledClass | null {
+function shellDeny(parsed: ParsedShell, commands: SubCommand[], line: NormalCall, action: Action, policy: CompiledPolicy, place: ShellPlace): CompiledClass | null {
   const cwd = action.agent.cwd;
-  const calls: NormalCall[] = parsed.commands.flatMap((command) => [
-    ...(command.effective ? [subCommandCall(command)] : []),
-    ...command.writes.map((path) => fileCall("file_write", path, cwd)),
-    ...command.reads.map((path) => fileCall("file_read", path, cwd)),
-  ]);
+  const calls: NormalCall[] = commands.flatMap((command) => {
+    const here = commandDirectory(command, place);
+    return [
+      ...(command.effective ? [subCommandCall(command, place)] : []),
+      ...command.writes.map((path) => fileCall("file_write", path, cwd, {}, here)),
+      ...command.reads.map((path) => fileCall("file_read", path, cwd, {}, here)),
+    ];
+  });
   if (!parsed.ok) calls.push(line);
   for (const call of calls) {
     const cls = denyingClass(call, policy);
@@ -303,7 +313,8 @@ function classifySubCommand(
   const risky: Risky[] = [];
   let safe = true;
   let viaGateClass: string | null = null;
-  const directory = place.cwd ? { cwd: place.cwd } : {};
+  const directory = { ...(place.cwd ? { cwd: place.cwd } : {}), ...place.workdir };
+  const here = commandDirectory(command, place);
 
   if (command.effective) {
     const call = subCommandCall(command, place);
@@ -321,7 +332,7 @@ function classifySubCommand(
   }
   for (const path of command.writes) {
     // What goes into the file is somewhere on the line, so an approval to write it is for that line.
-    const call = fileCall("file_write", path, action.agent.cwd, { ...directory, ...(place.line !== undefined ? { line: place.line } : {}) });
+    const call = fileCall("file_write", path, action.agent.cwd, { ...directory, ...(place.line !== undefined ? { line: place.line } : {}) }, here);
     if (isSafe(call, policy)) continue;
     safe = false;
     if (isProtected(call, policy)) {
@@ -332,7 +343,7 @@ function classifySubCommand(
     const call = fileCall("file_read", path, action.agent.cwd, {
       ...directory,
       ...(command.boundToLine && place.line !== undefined ? { line: place.line } : {}),
-    });
+    }, here);
     if (!leavesAgentDir(call, action.agent.cwd, policy)) continue;
     safe = false;
     risky.push({ call, cls: null, identity: identityOf(call, UNKNOWN_PROTECTED_CLASS), dynamic: [], outside: path });
@@ -343,9 +354,11 @@ function classifySubCommand(
 async function evaluateShell(action: Action, line: NormalCall, deps: EngineDeps): Promise<Evaluation> {
   const { policy } = deps;
   const parsed = parseShell(line.subject);
+  const place: ShellPlace = { cwd: shellDirectory(action), line: line.subject, tree: agentTree(action), workdir: workdirBinding(action) };
+  const commands = [...workdirAsCd(action), ...parsed.commands];
 
   // 2. Deny classes first, over every sub-command and every path it writes.
-  const deny = shellDeny(parsed, line, action, policy);
+  const deny = shellDeny(parsed, commands, line, action, policy, place);
   if (deny) return denied(identityOf(line, deny.name), deny);
 
   // Not read with confidence: hold, bound to the exact bytes, since there is nothing better to bind to.
@@ -368,8 +381,7 @@ async function evaluateShell(action: Action, line: NormalCall, deps: EngineDeps)
   }
 
   // 3 and 4, per sub-command. Safe only applies when every part is safe.
-  const place: ShellPlace = { cwd: shellDirectory(action), line: line.subject };
-  const parts = parsed.commands.map((command) => classifySubCommand(command, action, policy, place));
+  const parts = commands.map((command) => classifySubCommand(command, action, policy, place));
   const risky = numberRepeats(parts.flatMap((part) => part.risky));
 
   if (risky.length === 0) {
@@ -394,13 +406,16 @@ async function evaluateShell(action: Action, line: NormalCall, deps: EngineDeps)
 
 /**
  * The same call twice on a line is two runs, and a single-use grant covers one. So the second gets an identity of its
- * own and needs its own approval. The first keeps the plain one, which is what an earlier approval of it is for.
+ * own and needs its own approval. The first keeps the plain one, which is what an earlier approval of it is for. The
+ * first run can be setup for the second, so this goes by what the call is, whatever else it's bound to.
  */
 function numberRepeats(risky: Risky[]): Risky[] {
   const seen = new Map<string, number>();
   return risky.map((part) => {
-    const run = (seen.get(part.identity.callHash) ?? 0) + 1;
-    seen.set(part.identity.callHash, run);
+    const { class: cls, target, args } = part.identity.call;
+    const same = callHash({ class: cls, target, args });
+    const run = (seen.get(same) ?? 0) + 1;
+    seen.set(same, run);
     if (run === 1) return part;
     const call: NormalCall = { ...part.call, bound: { ...part.call.bound, run } };
     return { ...part, call, identity: identityOf(call, part.identity.call.class) };
@@ -556,11 +571,18 @@ async function assessClass(
   const repeat = deps.lastRun?.(identity.callHash, action.agent.name);
   if (repeat) {
     const when = formatClockWithZone(repeat.atMs, policy.defaults.business_hours.tz);
-    flags.push(repeat.unknown ? mayHaveRunFlag(repeat.requestId, when) : ranRecentlyFlag(repeat.requestId, when));
+    const flag = { ran: ranRecentlyFlag, unknown: mayHaveRunFlag, trying: stillTryingFlag }[repeat.how];
+    flags.push(flag(repeat.requestId, when));
   }
 
   // A flag is something a person would want to see, so a flagged call doesn't run with nobody looking (F11).
-  const autoEligible = !forceHold && missing.size === 0 && tier !== "critical" && flags.length === 0 && !unchecked;
+  const autoEligible =
+    !forceHold &&
+    missing.size === 0 &&
+    tier !== "critical" &&
+    flags.length === 0 &&
+    !unchecked &&
+    !(deps.saidOtherwise?.({ action, cls: cls.name, extracted, call: identity.call }) ?? false);
 
   const amount = toNumber(extracted.amount);
   let overCap = false;

@@ -93,6 +93,39 @@ describe("optionDecision", () => {
   });
 });
 
+describe("roomAliases", () => {
+  it("asks Switch who's in the room, and gives back each alias, lower-cased, against the agent's real name", async () => {
+    const calls: unknown[][] = [];
+    const agent = {
+      op: async (...args: unknown[]) => {
+        calls.push(args);
+        return [
+          { id: "1", name: "refunds-agent", type: "agent", status: "online", alias: "TF" },
+          { id: "2", name: "sam", type: "user", status: null, alias: null },
+          { id: "3", name: "coder", type: "agent", status: null },
+        ];
+      },
+    };
+    const chat = createChatPort(agent as never);
+    expect(await chat.roomAliases?.("room-1")).toEqual({ tf: "refunds-agent" });
+    expect(calls).toEqual([["list_participants", {}, { roomId: "room-1" }]]);
+  });
+});
+
+describe("the handle resolver", () => {
+  it("gives up on a stalled Mattermost within its own limit, however long the server would have waited", async () => {
+    const agent = { op: async () => ({ external_channel_id: "ch-1" }) };
+    const stalled = ((_url: string, init?: RequestInit) =>
+      new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(new Error("aborted")));
+      })) as typeof fetch;
+    const resolve = createMattermostHandleResolver({ agent: agent as never, mattermostUrl: "http://mm", token: "t", fetch: stalled, timeoutMs: 30, pollMs: 5 });
+    const started = Date.now();
+    await expect(resolve({ roomId: "room-1", title: "CLR-0001 · x", openedAtMs: started })).rejects.toThrow();
+    expect(Date.now() - started).toBeLessThan(1_000);
+  });
+});
+
 describe("openCard", () => {
   it("opens an approval with the fields Switch requires and reports where it lives", async () => {
     const { chat, opened } = port();

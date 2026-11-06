@@ -89,6 +89,22 @@ function cantApproveSentence(trace: RouteTrace): string {
   return ` Can't approve: ${people.join(", ")}.`;
 }
 
+const COUNT_WORDS = ["no", "one", "two", "three", "four", "five"];
+
+/**
+ * When it takes more people than can approve it, a card nobody can complete has to say so. Asking for two when nobody knows
+ * who asked is the point, so this doesn't lower the number: it says who can get it finished. Null when there's nothing to say.
+ */
+export function cannotCompleteText(trace: RouteTrace, requestId: string): string | null {
+  const short = trace.shortOfPeople;
+  if (!short) return null;
+  const people = short.could.length > 0 ? `only ${joinNames(short.could)} can` : "nobody can";
+  const glass = short.breakGlass.length > 0 ? joinNames(short.breakGlass) : "someone named for it";
+  const ways = ["add an approver", ...(trace.fallback ? [`ask ${trace.fallback.group}`] : [])];
+  // Short on purpose: a question card clips a flag at 200 characters, and the command is the part a person needs.
+  return `It takes ${COUNT_WORDS[short.needed] ?? short.needed} people to approve this, and ${people}, so it can't complete. To finish: ${ways.join(", ")}, or have ${glass} run \`@clearance breakglass ${requestId} why\`.`;
+}
+
 /** The card's "Why you:" line. */
 export function whyYou(trace: RouteTrace, id: string): string {
   // Optional: the study builds its frozen cards from a hand-made trace, with no cards to have too many of.

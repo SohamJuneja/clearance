@@ -329,7 +329,9 @@ describe("scenes.yaml", () => {
 
   it("says what the seeded order says about the real card", () => {
     const seed = readFileSync(join(REPO_ROOT, "packages/acme/src/seed.ts"), "utf8");
-    expect(seed).toMatch(/id: "A-2004",\s+customer_id: ROHAN_ID,\s+total: 40000,\s+status: "returned"/);
+    expect(seed).toMatch(
+      /id: "A-2004",\s+customer_id: ROHAN_ID,\s+total: 40000,\s+status: "returned"/,
+    );
   });
 
   it("cuts only SC9's wait for the agent, and runs until the result is on screen", () => {
@@ -337,8 +339,12 @@ describe("scenes.yaml", () => {
     const steps = findScenario("SC9")?.stepNames ?? [];
     const [drill, typed] = sourcesOf(scene!)[0]?.segments ?? [];
     expect(drill?.to).toBe("A real high-risk request arrives");
-    expect(steps.indexOf(typed?.from as string)).toBe(steps.indexOf("A real high-risk request arrives") + 1);
-    expect(steps.indexOf("The room hears it was approved by Sam and ran")).toBeGreaterThan(steps.indexOf(typed?.from as string));
+    expect(steps.indexOf(typed?.from as string)).toBe(
+      steps.indexOf("A real high-risk request arrives") + 1,
+    );
+    expect(steps.indexOf("The room hears it was approved by Sam and ran")).toBeGreaterThan(
+      steps.indexOf(typed?.from as string),
+    );
     expect(typed?.to).toBe(steps.at(-1));
   });
 
@@ -372,8 +378,15 @@ describe("scenes.yaml", () => {
     check(readFileSync(join(REPO_ROOT, "RESULTS.md"), "utf8"));
     check(
       renderResults({
-        E1: { experiment: "E1", clearance: { prevented: 24, total: 25 }, audit: { passed: 5, total: 5 } },
-        E2: { experiment: "E2", risky_unapproved: { baseline: { claude: 7 }, clearance: { claude: 0 } } },
+        E1: {
+          experiment: "E1",
+          clearance: { prevented: 24, total: 25 },
+          audit: { passed: 5, total: 5 },
+        },
+        E2: {
+          experiment: "E2",
+          risky_unapproved: { baseline: { claude: 7 }, clearance: { claude: 0 } },
+        },
         NEG: { experiment: "NEG", text: "we lose here" },
       }),
     );
@@ -435,22 +448,26 @@ describe("scenes.yaml", () => {
     );
   });
 
-  it("reads both E1 lines, and keeps the audit's apart from the 25", () => {
+  it("reads E1's line, says the reviews in words apart from the 25, and leaves their numbers to the slide", () => {
     const numbers = board.scenes.find((scene) => scene.id === "numbers");
-    const said = resolveTemplate(
-      numbers?.voiceover ?? "",
-      parseResults(
-        renderResults({
-          E1: {
-            experiment: "E1",
-            clearance: { prevented: 24, total: 25 },
-            audit: { passed: 5, total: 5 },
-          },
-        }),
-      ),
+    if (numbers?.kind !== "numbers") throw new Error("no numbers scene");
+    const results = parseResults(
+      renderResults({
+        E1: {
+          experiment: "E1",
+          clearance: { prevented: 24, total: 25 },
+          audit: { passed: 5, total: 5 },
+        },
+      }),
     );
+    const said = resolveTemplate(numbers.voiceover ?? "", results);
     expect(said).toContain("of 25: 24.");
-    expect(said).toContain("Audit: 5 of 5.");
+    expect(said).toContain("Independent reviews found more");
+    expect(said).not.toContain("Audit: 5 of 5");
+    expect(numbers.rows).toContain("AUDIT");
+    expect(slideRows(results, numbers.rows).find((row) => row.id === "AUDIT")?.clearance).toContain(
+      "Audit: 5 of 5",
+    );
   });
 
   it("says on screen in SC3 that the agent caught the amount, and credits it first", () => {
@@ -478,7 +495,8 @@ describe("scenes.yaml", () => {
       const clips =
         scene.kind === "clip" ? [scene.source] : scene.kind === "split" ? scene.sources : [];
       // A number where a take is pinned, as this file's header says to do, because a segment's seconds are that take's.
-      for (const clip of clips) expect(clip.clip).toMatch(/^takes\/SC\d+\/(latest|\d+)\/[a-z]+\.mp4$/);
+      for (const clip of clips)
+        expect(clip.clip).toMatch(/^takes\/SC\d+\/(latest|\d+)\/[a-z]+\.mp4$/);
     }
   });
 });
@@ -540,11 +558,29 @@ describe("the refusal's record", () => {
 
   it("maps a moment through the scene's segments and speed", () => {
     expect(clipToScene(35, [{ fromS: 10, toS: 40 }], 2.5)).toBeCloseTo(10);
-    expect(clipToScene(62, [{ fromS: 0, toS: 5 }, { fromS: 60, toS: 70 }], 2)).toBeCloseTo(3.5);
+    expect(
+      clipToScene(
+        62,
+        [
+          { fromS: 0, toS: 5 },
+          { fromS: 60, toS: 70 },
+        ],
+        2,
+      ),
+    ).toBeCloseTo(3.5);
   });
 
   it("says a moment the segments cut isn't in the scene", () => {
-    expect(clipToScene(30, [{ fromS: 0, toS: 5 }, { fromS: 60, toS: 70 }], 2)).toBeUndefined();
+    expect(
+      clipToScene(
+        30,
+        [
+          { fromS: 0, toS: 5 },
+          { fromS: 60, toS: 70 },
+        ],
+        2,
+      ),
+    ).toBeUndefined();
   });
 
   it("passes a refusal the recorder saw in time, and says when", () => {
@@ -553,7 +589,9 @@ describe("the refusal's record", () => {
 
   it("fails a take with no record, whatever else it holds", () => {
     expect(check([]).problem).toMatch(/no record of "Clearance's refusal of Priya" being visible/);
-    expect(check([{ label: "something else", persona: "priya", t: 35 }]).problem).toMatch(/no record/);
+    expect(check([{ label: "something else", persona: "priya", t: 35 }]).problem).toMatch(
+      /no record/,
+    );
     expect(check([record(35, "sam")]).problem).toMatch(/no record/);
   });
 
@@ -561,7 +599,9 @@ describe("the refusal's record", () => {
     const late = check([record(40)]);
     expect(late.atS).toBe(20);
     expect(late.problem).toBeUndefined();
-    expect(check([record(40)], 19.9).problem).toMatch(/visible at 20\.00 s, past the 19\.9 s limit/);
+    expect(check([record(40)], 19.9).problem).toMatch(
+      /visible at 20\.00 s, past the 19\.9 s limit/,
+    );
   });
 
   it("fails a refusal the scene's footage cut", () => {
@@ -574,18 +614,25 @@ describe("the repo URL", () => {
 
   it("leaves its line off the card and its words out of the voice-over until it's set", () => {
     expect(fillLines(["a", "{{repo_url}}", "b"], rows, undefined)).toEqual(["a", "b"]);
-    expect(fillText("Documents. [[if repo_url]]Link below.[[/if]]", rows, undefined)).toBe("Documents.");
-  });
-
-  it("shows both once it is", () => {
-    expect(fillLines(["a", "{{repo_url}}"], rows, "https://example.com/r")).toEqual(["a", "https://example.com/r"]);
-    expect(fillText("Documents. [[if repo_url]]Link below.[[/if]]", rows, "https://example.com/r")).toBe(
-      "Documents. Link below.",
+    expect(fillText("Documents. [[if repo_url]]Link below.[[/if]]", rows, undefined)).toBe(
+      "Documents.",
     );
   });
 
+  it("shows both once it is", () => {
+    expect(fillLines(["a", "{{repo_url}}"], rows, "https://example.com/r")).toEqual([
+      "a",
+      "https://example.com/r",
+    ]);
+    expect(
+      fillText("Documents. [[if repo_url]]Link below.[[/if]]", rows, "https://example.com/r"),
+    ).toBe("Documents. Link below.");
+  });
+
   it("never reads pending on the close card, set or not", () => {
-    const close = loadStoryboard(join(here, "scenes.yaml")).scenes.find((scene) => scene.id === "close");
+    const close = loadStoryboard(join(here, "scenes.yaml")).scenes.find(
+      (scene) => scene.id === "close",
+    );
     if (close?.kind !== "card") throw new Error("no close card");
     expect(fillLines(close.lines ?? [], rows, undefined).join(" ")).not.toContain("pending");
     expect(fillText(close.voiceover ?? "", rows, undefined)).not.toMatch(/pending|Link below/);
@@ -617,12 +664,18 @@ describe("a callout for part of a scene", () => {
   });
 
   it("follows the scene's speed", () => {
-    const [callout] = timeCallouts([{ text: "a", to: "the real card" }], { ...footage, speed: 2 }, 30);
+    const [callout] = timeCallouts(
+      [{ text: "a", to: "the real card" }],
+      { ...footage, speed: 2 },
+      30,
+    );
     expect(callout?.endS).toBeCloseTo(3.55);
   });
 
   it("fails on a step the segments cut, or that doesn't exist, rather than guessing a time", () => {
-    expect(() => timeCallouts([{ text: "a", to: "the wait" }], footage, 30)).toThrow(/segments cut/);
+    expect(() => timeCallouts([{ text: "a", to: "the wait" }], footage, 30)).toThrow(
+      /segments cut/,
+    );
     expect(() => timeCallouts([{ text: "a", to: "nope" }], footage, 30)).toThrow(/no mark "nope"/);
   });
 });

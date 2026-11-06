@@ -317,7 +317,8 @@ describe("who can counter", () => {
     const drill = await h.core.sendDrill("sam");
     if (!drill.ok) throw new Error("no drill");
     await counter(PARTICIPANTS.sam, drill.requestId, "1");
-    expect(lastReply()).toBe(`I can't find ${drill.requestId}.`);
+    // The answer a real card gets when its card won't open, so a drill can't be told by asking.
+    expect(lastReply()).toBe("I couldn't open the card for that just now. Nothing changed; try again.");
     expect(counterCards()).toEqual([]);
     expect(h.gate.edits).toEqual([]);
   });

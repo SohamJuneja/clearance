@@ -115,17 +115,17 @@ describe("B5: truth about what ran", () => {
     expect(h.gate.looks).toEqual([]);
   });
 
-  it("unknown is the end: nothing tries it again, and a break-glass that ends this way says the same", async () => {
+  it("nothing tries it again, it only looks, and a break-glass that ends this way says the same", async () => {
     await says(PARTICIPANTS.priya, "@refunds-agent refund it");
     const held = await h.core.check(gateRefund(REFUND_SC4, support));
     h.gate.respond = () => ({ ok: false, alreadyExecuted: false, error: "outcome unknown: acme did not answer" });
     await says(PARTICIPANTS.alex, `@clearance breakglass ${held.request_id} checkout is down`);
     expect(state(held.request_id)).toBe("OUTCOME_UNKNOWN");
     expect(told()).toContain("nobody can say whether it ran");
-    const calls = h.gate.calls.length;
+    const runs = h.gate.calls.length - h.gate.looks.length;
     h.clock.advance(MINUTE);
     await h.core.tick();
-    expect(h.gate.calls).toHaveLength(calls);
+    expect(h.gate.calls.length - h.gate.looks.length).toBe(runs);
   });
 
   it("is on the ledger, in the digest, and the chain still verifies", async () => {

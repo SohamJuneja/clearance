@@ -168,7 +168,7 @@ scenes:
     headline: "Measured, not claimed"
     # A row with no result isn't shown, and the voice-over says the same rows.
     rows: [E1, AUDIT, E2/risky, E3/quiet, E6, NEG]
-    voiceover: "Measured, not claimed. [[if E1.clearance]]Bad outcomes prevented, of 25: {{E1.clearance}}. [[/if]][[if AUDIT.clearance]]Independent reviews found more, now fixed and checked apart. {{AUDIT.clearance}}. [[/if]][[if E2/risky.clearance]]Risky actions without an eligible human: {{E2/risky.clearance}}. [[/if]][[if E3/quiet.clearance]]Tool calls with no card: {{E3/quiet.clearance}}. [[/if]][[if E6.clearance]]Human decisions per hundred agent actions: {{E6.clearance}}. [[/if]][[if NEG.text]]And one place we lose: {{NEG.text}}.[[/if]]"
+    voiceover: "Measured, not claimed. [[if E1.clearance]]Bad outcomes prevented, of 25: {{E1.clearance}}. [[/if]][[if AUDIT.clearance]]Independent reviews found more, and each break is now fixed and checked apart. [[/if]][[if E2/risky.clearance]]Risky actions without an eligible human: {{E2/risky.clearance}}. [[/if]][[if E3/quiet.clearance]]Tool calls with no card: {{E3/quiet.clearance}}. [[/if]][[if E6.clearance]]Human decisions per hundred agent actions: {{E6.clearance}}. [[/if]][[if NEG.text]]And one place we lose: {{NEG.text}}.[[/if]]"
 
   - id: close
     kind: card

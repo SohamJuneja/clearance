@@ -9,6 +9,7 @@
  */
 import {
   ExecuteResultSchema,
+  GATE_WORDS,
   type ExecuteResult,
   type GatePort,
   type LookupPort,
@@ -47,12 +48,9 @@ export function createGateClient(options: GateClientOptions): GateClient {
       }
       const result = ExecuteResultSchema.safeParse(parsed);
       if (result.success) return result.data;
-      return {
-        ok: false,
-        alreadyExecuted: false,
-        status: res.status,
-        error: `gate answered ${res.status}`,
-      };
+      // Not a result: a proxy, a rotated token, a gate falling over. That says nothing about the call, and an earlier
+      // attempt may have run it, so it mustn't read as the gate having refused.
+      throw new Error(`${GATE_WORDS.brokenAnswer} ${res.status}`);
     },
 
     async edit(requestId, edit) {

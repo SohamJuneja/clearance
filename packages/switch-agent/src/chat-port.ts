@@ -253,6 +253,11 @@ export function createChatPort(agent: SwitchAgent, options: ChatPortOptions = {}
       return unseen.size;
     },
 
+    async roomAliases(roomId) {
+      const participants = await agent.op<{ name: string; alias?: string | null }[]>("list_participants", {}, { roomId });
+      return Object.fromEntries(participants.flatMap((row) => (row.alias ? [[row.alias.toLowerCase(), row.name]] : [])));
+    },
+
     async upsertDocument({ roomId, name, content }) {
       const key = `${roomId}\u0000${name}`;
       let id = documents.get(key) ?? (await findDocument(roomId, name));
@@ -338,8 +343,11 @@ export function createMattermostHandleResolver(config: MattermostHandleResolverC
     const wanted = comparable(title);
     const deadline = Date.now() + timeoutMs;
     for (;;) {
+      // The whole search has this long. Without a limit on each read, a stalled Mattermost holds up whoever is opening the
+      // card, and they may be the only thing reading the stream.
       const res = await doFetch(`${baseUrl}/api/v4/channels/${channelId}/posts?per_page=30`, {
         headers: { authorization: `Bearer ${config.token}` },
+        signal: AbortSignal.timeout(Math.max(1, deadline - Date.now())),
       });
       // A real DM holds only the person and the agent, so most tokens cannot read one. That card still
       // shows its own handle to the person it is for; Clearance just does not learn it.

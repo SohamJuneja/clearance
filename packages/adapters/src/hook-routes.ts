@@ -80,6 +80,23 @@ function resolveFrom(resolveAgent: HookRouteOptions["resolveAgent"], cwd?: strin
   }
 }
 
+/** The agent's own directory: the highest one above where it is that's still its own. */
+function treeFrom(
+  resolveAgent: HookRouteOptions["resolveAgent"],
+  cwd: string | undefined,
+  agent: string,
+): string | undefined {
+  if (!cwd) return undefined;
+  let dir = posix.normalize(cwd).replace(/\/+$/, "") || "/";
+  let tree: string | undefined;
+  for (;;) {
+    if (resolveAgent(dir) === agent) tree = dir;
+    const parent = posix.dirname(dir);
+    if (parent === dir) return tree;
+    dir = parent;
+  }
+}
+
 async function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
   let timer: NodeJS.Timeout | undefined;
   const timeout = new Promise<never>((_resolve, reject) => {
@@ -198,10 +215,12 @@ export async function hookRoutes(app: FastifyInstance, options: HookRouteOptions
     if (!asRecord(payload)) return deny(UNREADABLE);
     const refused = claimsRefused(adapter, payload, agent);
     if (refused) return deny(refused);
+    const tree = treeFrom(options.resolveAgent, adapter.cwd(payload), agent);
     const actions = adapter.toActions(payload, {
       agent,
       id: ulid(),
       at: new Date(now()).toISOString(),
+      ...(tree ? { tree } : {}),
     });
     const paired = adapter.pairedEvent?.(payload);
     const key = paired ? `${agent}|${paired.scope}|${callSubject(actions)}` : undefined;

@@ -23,7 +23,8 @@ export const TRANSITIONS: Record<RequestState, RequestState[]> = {
   /** The gate reported that what ran alone didn't go through. */
   AUTO: ["VOIDED", "OUTCOME_UNKNOWN"],
   EDITED: [],
-  OUTCOME_UNKNOWN: [],
+  /** The gate found out after all, or a person checked and said. */
+  OUTCOME_UNKNOWN: ["EXECUTED", "VOIDED"],
 };
 
 const DECIDED: RequestState[] = ["APPROVED", "DENIED", "EXPIRED", "CANCELLED", "BREAK_GLASS", "EDITED"];
@@ -297,16 +298,18 @@ export class RequestStore {
     this.db.prepare(`UPDATE requests SET exec_attempts = 0 WHERE id = ?`).run(id);
   }
 
-  /** The latest time this exact call ran, or may have, since then. Drills run nothing. */
-  lastRun(callHash: string, agent: string, sinceMs: number): { requestId: string; atMs: number; unknown: boolean } | null {
+  /** The latest time this exact call ran, may have, or was approved and is still being tried, since then. Drills run nothing. */
+  lastRun(callHash: string, agent: string, sinceMs: number): { requestId: string; atMs: number; how: "ran" | "unknown" | "trying" } | null {
     const row = this.db
       .prepare(
         `SELECT id, state, COALESCE(decided_at, created_at) AS at FROM requests
-         WHERE call_hash = ? AND agent = ? AND state IN ('EXECUTED', 'CONSUMED', 'AUTO', 'OUTCOME_UNKNOWN') AND is_drill = 0
+         WHERE call_hash = ? AND agent = ? AND state IN ('EXECUTED', 'CONSUMED', 'AUTO', 'OUTCOME_UNKNOWN', 'APPROVED', 'BREAK_GLASS') AND is_drill = 0
            AND COALESCE(decided_at, created_at) > ?
          ORDER BY at DESC, id DESC LIMIT 1`,
       )
       .get(callHash, agent, sinceMs) as { id: string; state: RequestState; at: number } | undefined;
-    return row ? { requestId: row.id, atMs: row.at, unknown: row.state === "OUTCOME_UNKNOWN" } : null;
+    if (!row) return null;
+    const how = row.state === "OUTCOME_UNKNOWN" ? "unknown" : row.state === "APPROVED" || row.state === "BREAK_GLASS" ? "trying" : "ran";
+    return { requestId: row.id, atMs: row.at, how };
   }
 }

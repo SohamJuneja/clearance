@@ -29,8 +29,13 @@ export type SubCommand = {
   wrappers: string[];
   /** The words as a grant binds them. Set only when `canonical` can't tell this command from another: see `Word.bound`. */
   boundWords?: string[];
-  /** Earlier commands on this line that change where or how this one runs: `cd`, `export`, `git remote`. */
+  /** Earlier commands on this line that aren't known to leave things as they were: `cd`, `export`, `read`, `git remote`. */
   setup: string[][];
+  /**
+   * Where this runs, by the `cd`s before it on the line: "" for where the line starts. Relative to that, unless it's
+   * absolute or starts with `~`. Null when only the shell knows, as after `cd "$X"`.
+   */
+  directory: string | null;
   /** It may run more than once: in a loop, or for each thing `find` or `xargs` reads. */
   repeats: boolean;
   /** What it does depends on more of the line than its words: a loop, a pipe, a heredoc, `bash -c '...' args`. */
@@ -76,12 +81,25 @@ const NOT_REAL_FILES = /^\/dev\/(null|stdout|stderr|tty|fd\/\d+)$/;
 const LEADING_KEYWORDS = new Set(["if", "then", "elif", "else", "while", "until", "do", "!", "{"]);
 const CLOSING_KEYWORDS = new Set(["fi", "done", "}", "esac"]);
 const LOOP_OPENERS = new Set(["while", "until"]);
-/** Commands that change what runs after them on the line: the directory, the environment, what a name means. */
-const CHANGES_WHAT_FOLLOWS = new Set([
-  "cd", "pushd", "popd", "export", "declare", "typeset", "readonly", "local", "unset", "set", "shopt", "alias", "unalias",
-  "umask", "ulimit", "trap", "hash", "enable",
+/** What `time` can time besides a command, since it's the shell's own keyword: a loop, for one. */
+const TIME_TAKES = new Set(["for", "while", "until", "if", "select", "case", "function", "{", "!"]);
+/**
+ * Commands known to leave things as they were, so a later command on the line does what it would have done alone. Anything
+ * else might not, and there are too many ways to set a variable to list them all (`read`, `printf -v`, `mapfile`), so a
+ * grant binds to it. This list stays short on purpose: a command missing from it only costs a new card if the agent rewords.
+ */
+const KNOWN_HARMLESS = new Set([
+  "echo", "printf", "true", "false", ":", "test", "[", "[[", "ls", "cat", "head", "tail", "wc", "grep", "egrep", "fgrep", "cut", "tr", "nl",
+  "pwd", "whoami", "id", "uname", "which", "type", "sleep", "seq", "basename", "dirname", "realpath", "readlink", "stat", "file", "du",
+  "df", "cmp",
 ]);
-const GIT_CHANGES_WHAT_FOLLOWS = new Set(["remote", "config"]);
+const GIT_ONLY_READS = new Set(["status", "log", "diff", "show", "rev-parse", "ls-files", "ls-remote", "describe", "blame", "shortlog", "cat-file"]);
+/** A wrapper's own way of changing directory, for the one command it runs. */
+const CHANGES_DIRECTORY: Record<string, { flags: Set<string>; attached?: string }> = {
+  env: { flags: new Set(["-C", "--chdir"]), attached: "--chdir=" },
+  sudo: { flags: new Set(["-D", "--chdir"]), attached: "--chdir=" },
+  unshare: { flags: new Set(["-w", "--wd"]), attached: "--wd=" },
+};
 
 /** Marks text the shell won't interpret. Everything that means something when bare, so `'*'` can't pass for `*`. */
 function literal(text: string): string {
@@ -143,8 +161,8 @@ const WRAPPERS: Record<string, { flagsWithValue: Set<string>; positionals?: numb
 const RUNS_A_STRING = new Set(["script", "su", "sg"]);
 /** These can be given a string the same way, and otherwise just wrap a command. */
 const MAY_RUN_A_STRING = new Set(["flock", "runuser"]);
-/** These run commands this reader has no way to see: they arrive on stdin or in a job file. */
-const RUNS_WHAT_IT_READS = new Set(["parallel", "at", "batch"]);
+/** These run commands this reader has no way to see: they arrive on stdin or in a job file, or they're a shell's own forms. */
+const RUNS_WHAT_IT_READS = new Set(["parallel", "at", "batch", "coproc", "repeat"]);
 
 const GIT_GLOBALS_WITH_VALUE = new Set(["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--super-prefix", "--config-env"]);
 
@@ -178,7 +196,7 @@ const LEAVES_THE_TREE = /^(\/|~|\$HOME\b|\$\{HOME\})|(^|\/)\.\.(\/|$)/;
 type Carried = { by: "find" | "xargs"; placeholder: string; prefix: Word[] };
 
 /** Shared by every parser reading one line, however nested: what has run so far that the rest depends on. */
-type LineState = { setup: string[][]; assigned: string[] };
+type LineState = { setup: string[][]; assigned: string[]; directory: string | null };
 
 class ShellParser {
   pos = 0;
@@ -189,7 +207,7 @@ class ShellParser {
   constructor(
     private readonly src: string,
     private readonly depth: number,
-    private readonly line: LineState = { setup: [], assigned: [] },
+    private readonly line: LineState = { setup: [], assigned: [], directory: "" },
     /** By value into an inner script, so a stray `done` in a string can't close the loop around it. */
     private loops = 0,
     private readonly wholeLine = false,
@@ -208,10 +226,13 @@ class ShellParser {
   parseList(terminator: ")" | null): void {
     if (this.nesting >= MAX_NESTING) return this.fail("commands nested too deeply");
     this.nesting += 1;
+    // A list in parentheses is a subshell, so a `cd` in it stops at the closing one.
+    const { directory } = this.line;
     try {
       this.readList(terminator);
     } finally {
       this.nesting -= 1;
+      if (terminator) this.line.directory = directory;
     }
   }
 
@@ -480,7 +501,9 @@ class ShellParser {
     if (this.depth >= MAX_DEPTH) return this.fail("commands nested too deeply");
     const loops = this.loops + (how.repeats ? 1 : 0);
     const inner = new ShellParser(script, this.depth + 1, this.line, loops, this.wholeLine || how.wholeLine === true);
+    const { directory } = this.line;
     inner.parseList(null);
+    this.line.directory = directory;
     this.commands.push(...inner.commands);
     if (inner.failure) this.fail(inner.failure);
   }
@@ -492,22 +515,34 @@ class ShellParser {
     const reads = this.resolvePaths(builder.reads);
     if (writes === null || reads === null) return;
     if (builder.words.length === 0) {
-      if (writes.length > 0 || reads.length > 0) this.commands.push(this.noCommand(raw, writes, reads));
+      if (writes.length > 0 || reads.length > 0) this.pushNoCommand(raw, writes, reads);
       return;
     }
 
     // Leading keywords and `{` carry no meaning of their own: what follows them is the command.
     let words = builder.words;
-    while (words[0] && LEADING_KEYWORDS.has(words[0].text)) {
-      if (LOOP_OPENERS.has(words[0].text)) this.loops += 1;
-      words = words.slice(1);
+    for (;;) {
+      const timed = pastTime(words);
+      if (timed) {
+        words = timed;
+      } else if (words[0] && LEADING_KEYWORDS.has(words[0].text)) {
+        if (LOOP_OPENERS.has(words[0].text)) this.loops += 1;
+        words = words.slice(1);
+      } else {
+        break;
+      }
     }
     if (words.length === 0 || (words.length === 1 && CLOSING_KEYWORDS.has((words[0] as Word).text))) {
       const closing = words[0];
-      if (closing?.plain && closing.text === "done") this.loops = Math.max(0, this.loops - 1);
-      if (writes.length > 0 || reads.length > 0) this.commands.push(this.noCommand(raw, writes, reads));
+      if (closing?.plain && closing.text === "done") {
+        // The loop it closes was opened in a way this didn't read, behind some prefix, so what repeats isn't known.
+        if (this.loops === 0) return this.fail("a done with no loop this could read");
+        this.loops -= 1;
+      }
+      if (writes.length > 0 || reads.length > 0) this.pushNoCommand(raw, writes, reads);
       return;
     }
+    if ((words[0] as Word).plain && (words[0] as Word).text === "done") return this.fail("a done with more on it");
     const first = (words[0] as Word).text;
     if (first === "for") {
       this.loops += 1; // The body comes as its own commands, after `do`.
@@ -519,8 +554,33 @@ class ShellParser {
   }
 
   /** Only a redirect, or assignments with one: there is no command, but what it writes still counts. */
-  private noCommand(raw: string, writes: string[], reads: string[], wrappers: string[] = []): SubCommand {
-    return { raw, effective: "", canonical: "", writes, reads, dynamic: [], words: [], wrappers, setup: [], repeats: false, boundToLine: false };
+  private pushNoCommand(raw: string, writes: string[], reads: string[], wrappers: string[] = []): void {
+    if (this.writesSomewhereUnknown(writes)) return;
+    const { directory } = this.line;
+    this.commands.push({ raw, effective: "", canonical: "", writes, reads, dynamic: [], words: [], wrappers, setup: [], directory, repeats: false, boundToLine: false });
+    if (writes.length > 0) this.line.setup.push([">", ...writes]);
+  }
+
+  /** After `cd "$X"`, a relative path written to is as unknown as `> "$X/y"`, which is held. */
+  private writesSomewhereUnknown(writes: string[]): boolean {
+    if (this.line.directory !== null || !writes.some((path) => !/^(\/|~)/.test(path))) return false;
+    this.fail("a path only known at run time, after a cd to one");
+    return true;
+  }
+
+  /** Follows `cd` and `pushd`. Their subshells and strings get the old directory back, in parseList and absorb. */
+  private changeDirectory(args: Word[]): void {
+    const operands = args.filter((word, index) => !(word.text.startsWith("-") && word.text !== "-" && args.slice(0, index).every((before) => before.text.startsWith("-"))));
+    const target = operands[0];
+    if (!target) {
+      this.line.directory = "~";
+    } else if (target.dynamic || target.text === "-") {
+      this.line.directory = null;
+    } else if (/^(\/|~)/.test(target.text)) {
+      this.line.directory = posix.normalize(target.text);
+    } else if (this.line.directory !== null) {
+      this.line.directory = posix.join(this.line.directory, target.text).replace(/^\.$/, "");
+    }
   }
 
   /** From here on, what runs on this line runs under this. */
@@ -544,6 +604,8 @@ class ShellParser {
 
   private finishCommand(all: Word[], builder: Builder, raw: string, writes: string[], reads: string[], carriedBy?: Carried): void {
     const kept: Word[] = [...(carriedBy?.prefix ?? [])]; // Wrappers and assignments: they change what runs, so a grant binds to them.
+    const lineDirectory = this.line.directory;
+    let wrapperDirectory: Word | undefined;
     let carried = carriedBy;
     let rest = all;
     for (;;) {
@@ -551,9 +613,7 @@ class ShellParser {
       if (!word) {
         // Assignments and wrappers with nothing to run. A redirect on one still writes, and what comes next inherits it.
         this.noteSetup(kept);
-        if (writes.length > 0 || reads.length > 0) {
-          this.commands.push(this.noCommand(raw, writes, reads, kept.map((one) => one.text)));
-        }
+        if (writes.length > 0 || reads.length > 0) this.pushNoCommand(raw, writes, reads, kept.map((one) => one.text));
         return;
       }
       if (isAssignment(word.text)) {
@@ -580,6 +640,12 @@ class ShellParser {
         if (baseName(word.text) === "env" && next.text === "-S") return this.fail("env -S");
         if (next.text.startsWith("-") && next.text.length > 1) {
           const takesValue = wrapper.flagsWithValue.has(next.text);
+          const changes = CHANGES_DIRECTORY[baseName(word.text)];
+          if (changes?.attached && next.text.startsWith(changes.attached)) {
+            wrapperDirectory = { ...next, text: next.text.slice(changes.attached.length) };
+          } else if (takesValue && rest[1] && changes?.flags.has(next.text)) {
+            wrapperDirectory = rest[1];
+          }
           kept.push(next);
           rest = rest.slice(1);
           if (takesValue && rest[0]) {
@@ -603,6 +669,21 @@ class ShellParser {
       }
     }
 
+    // A wrapper's directory is for its one command, and what that runs, so it has to be read like a `cd` and then undone.
+    if (wrapperDirectory) {
+      this.changeDirectory([wrapperDirectory]);
+      try {
+        this.finishWrapped(rest, all, kept, builder, raw, writes, [...reads, ...texts([wrapperDirectory])], carried);
+      } finally {
+        this.line.directory = lineDirectory;
+      }
+      return;
+    }
+    this.finishWrapped(rest, all, kept, builder, raw, writes, reads, carried);
+  }
+
+  /** A command with its wrappers off. */
+  private finishWrapped(rest: Word[], all: Word[], kept: Word[], builder: Builder, raw: string, writes: string[], reads: string[], carried: Carried | undefined): void {
     const command = rest[0] as Word;
     if (command.dynamic) return this.fail(`a command only known at run time: ${command.text}`);
     const name = baseName(command.text);
@@ -630,6 +711,7 @@ class ShellParser {
 
     const writtenBy = writesOf(rest);
     if (writtenBy === null) return this.fail("a path only known at run time");
+    if (this.writesSomewhereUnknown([...writes, ...writtenBy])) return;
     const effectiveWords = (name === "git" ? stripGitGlobals(rest) : rest).map((word) => word.text);
     const everyWord = [...kept, ...rest];
     const repeats = this.loops > 0 || carried !== undefined;
@@ -644,12 +726,13 @@ class ShellParser {
       wrappers: kept.map((word) => word.text),
       ...(textIsNotEnough(everyWord) ? { boundWords: everyWord.map((word) => word.bound) } : {}),
       setup: this.line.setup.map((words) => [...words]),
+      directory: this.line.directory,
       repeats,
       boundToLine: repeats || this.wholeLine || builder.pipedIn || builder.fed,
     });
-    if (CHANGES_WHAT_FOLLOWS.has(name) || (name === "git" && GIT_CHANGES_WHAT_FOLLOWS.has(stripGitGlobals(rest)[1]?.text ?? ""))) {
-      this.noteSetup(everyWord);
-    }
+    if (!leavesThingsAsTheyWere(name, rest, [...writes, ...writtenBy])) this.noteSetup(everyWord);
+    if (name === "cd" || name === "pushd") this.changeDirectory(rest.slice(1));
+    if (name === "popd") this.line.directory = null;
   }
 
   /** `find -exec cmd ... ;` runs cmd: each one is read as a command in its own right. False when one can't be. */
@@ -800,6 +883,27 @@ function textIsNotEnough(words: Word[]): boolean {
   return words.some((word) => word.bound !== word.text || word.text === "" || /\s/.test(word.text));
 }
 
+/** Past `time` and its flags, when what it times is a keyword. Otherwise it's a wrapper like any other. */
+function pastTime(words: Word[]): Word[] | null {
+  if (!words[0]?.plain || words[0].text !== "time") return null;
+  let index = 1;
+  while (words[index]?.text.startsWith("-")) index += 1;
+  const next = words[index];
+  return next?.plain && TIME_TAKES.has(next.text) ? words.slice(index) : null;
+}
+
+function leavesThingsAsTheyWere(name: string, words: Word[], writes: string[]): boolean {
+  if (writes.length > 0) return false;
+  if (name === "git") return GIT_ONLY_READS.has(stripGitGlobals(words)[1]?.text ?? "");
+  if (name === "printf" && words[1]?.text.startsWith("-v")) return false;
+  return KNOWN_HARMLESS.has(name);
+}
+
+/** The words that leave the tree by how they're written. Inside it, a path needs no looking at. */
+function texts(from: Word[]): string[] {
+  return from.map((word) => word.text).filter((text) => LEAVES_THE_TREE.test(text));
+}
+
 function hasScript(words: Word[]): boolean {
   for (const word of words.slice(1)) {
     if (INLINE_CODE_FLAGS.has(word.text)) return true;
@@ -813,7 +917,7 @@ function hasScript(words: Word[]): boolean {
 function pathsReadBy(words: Word[]): string[] {
   const name = baseName((words[0] as Word).text);
   const args = words.slice(1);
-  const texts = (from: Word[]) => from.map((word) => word.text).filter((text) => LEAVES_THE_TREE.test(text));
+  if (name === "cd" && args.length === 0) return ["~"];
   if (name === "git") {
     const at = args.findIndex((word) => word.text === "-C");
     return at === -1 ? [] : texts(args.slice(at + 1, at + 2));

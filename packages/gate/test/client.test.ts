@@ -80,11 +80,9 @@ describe("createGateClient GatePort", () => {
     await expect(dead.edit("CLR-3", { callHash: "x", newRequestId: "CLR-4", newCallHash: "y", amount: 1 })).rejects.toThrow();
   });
 
-  it("returns a failed result when the gate answers with a refusal, so core voids at once", async () => {
+  it("throws on anything that isn't the gate's own result, such as a rotated token: an earlier attempt may have run it", async () => {
     const wrongToken = createGateClient({ baseUrl, internalToken: "wrong" });
-    const result = await wrongToken.execute("CLR-3", "x");
-    expect(result.ok).toBe(false);
-    expect(result.error).toBeTruthy();
+    await expect(wrongToken.execute("CLR-3", "x")).rejects.toThrow("gate answered 401");
   });
 
   it("encodes the request id", async () => {

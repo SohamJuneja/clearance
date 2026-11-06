@@ -172,6 +172,15 @@ describe("POST /internal/edit/:requestId", () => {
     expect(refundCalls()[0]?.body).toEqual({ ...(REFUND.payload as object), amount: LOWER });
   });
 
+  it("takes that as the same call when the agent left the customer for the gate to fill in, which changes the fields' order", async () => {
+    const { order_id, destination } = REFUND.payload as Record<string, unknown>;
+    await hold({ ...REFUND, payload: { order_id, amount: ORIGINAL_AMOUNT, destination } }, "CLR-0001");
+    await hold({ ...REFUND, payload: { order_id, amount: LOWER, destination } }, "CLR-0002");
+    expect((await edit("CLR-0001")).json()).toEqual({ ok: true });
+    await execute("CLR-0002");
+    expect(refundCalls()).toHaveLength(1);
+  });
+
   it("refuses a call that has already run or started", async () => {
     await hold(REFUND, "CLR-0001");
     await execute("CLR-0001");

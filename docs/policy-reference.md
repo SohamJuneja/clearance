@@ -48,7 +48,7 @@ Missing data never lowers risk. A lookup that found nothing, or a field of the w
 | `max_open_cards_per_person` | A preference: the router tries someone with fewer cards first. If everyone eligible is over it, someone eligible still gets the card, and the card and the trace say so. Being busy never widens who may approve |
 | `exclude_requester` | The person who asked can't approve |
 | `exclude_agent_owner_from` | The tier at which the agent's owner stops being able to approve |
-| `unknown_requester_quorum` | At least 2. When nobody can tell who asked, this many different people must approve, since only one of them can be the person who asked. A flag on the card says which of these it is: nobody on record, a requester linked to nobody on the team, an agent also working where Clearance can't see, someone addressing a name Clearance doesn't know (it could be an alias) in the last 10 minutes, stream messages lost in the last 10 minutes, or a call naming a pull request whose author couldn't be looked up |
+| `unknown_requester_quorum` | At least 2. When nobody can tell who asked, this many different people must approve, since only one of them can be the person who asked. A flag on the card says which of these it is: nobody on record, a requester linked to nobody on the team, an agent also working where Clearance can't see, someone writing a name that could be this agent when Switch can't say what the room's aliases are, stream messages lost in the last 10 minutes, a call naming a pull request whose author couldn't be looked up, or people who may have asked and would otherwise have been passed over. If fewer people can approve than this asks for, it doesn't lower the number: the card and the room say it can't complete and what to do, which is add an approver, ask the fallback group, or break glass |
 | `gate_hosts` | A `curl` or `wget` whose every URL is one of these is left to the gate |
 | `readable_outside` | Paths outside the agent's folder that may be read without a hold |
 | `unknown_protected_action` | `hold` or `deny` |
@@ -134,7 +134,7 @@ An agent climbs a ladder per agent, class and bucket:
 | L2 | Runs, then posts a review card that can reverse it or demote the agent |
 | L3 | Runs silently up to `daily_cap`, with a line in the digest |
 
-A call with any flag on it never runs by itself: at L2 and L3 it's held for a person, as it would be at L0. So is a call whose ownership can't be checked, with `if_unknown: skip` below, and an identical call that ran in the last 24 h, whose card says when and as which request. At L0 and L1 that repeat is only a flag: a person can see it and approve it again.
+A call with any flag on it never runs by itself: at L2 and L3 it's held for a person, as it would be at L0. So is a call whose ownership can't be checked, with `if_unknown: skip` below, a call that differs from what the agent just said, and an identical call that ran in the last 24 h or was approved and is still being tried, whose card says when and as which request. At L0 and L1 that repeat is only a flag: a person can see it and approve it again.
 
 `max_level` is how far the class can go. `promote_after` is what Clearance needs before it proposes a promotion, and a promotion always needs people to sign it. Demotion is instant on an incident or a denial, and needs nobody's approval. Forced holds, missing data and the critical tier never run on their own. An amount above the bucket's 95th percentile holds that one call for a person and doesn't demote.
 
@@ -169,7 +169,16 @@ Core keeps asking the gate to run an approved call for 5 minutes. After that it 
 | It didn't: the gate refused, every attempt had its connection refused, or the gate says nothing started | `VOIDED` | That it did not run |
 | Nobody can say: an attempt may have reached the gate and no answer came, or the gate sent it to Acme and heard nothing or got a 5xx | `OUTCOME_UNKNOWN` | The agent and the room: nobody can say whether it ran, don't retry it, a person has to check |
 
-`OUTCOME_UNKNOWN` is the end. Nothing tries that call again, and the card for the same call asked for again says it may have run. The ledger entry is `outcome_unknown`.
+Nothing tries an `OUTCOME_UNKNOWN` call again, and the card for the same call asked for again says it may have run. The ledger entry is `outcome_unknown`. Core asks the gate again every minute for a day, in the way that can't start anything, and records it if the gate can now say.
+
+Someone who has checked can say what they found:
+
+```
+@clearance resolve CLR-0042 ran re_7731 is in Acme
+@clearance resolve CLR-0042 didnt no refund in Acme
+```
+
+Anyone eligible to approve the request can do this, including whoever did. It's on the ledger as `outcome_resolved`, and it only records: no money moves, and the gate isn't asked to do anything.
 
 The same goes for what earned autonomy allowed. Core records it as having run when it allows it, so the gate tells core if the run didn't go through. Then it's `VOIDED`, off the window and the budget, or `OUTCOME_UNKNOWN`, which stays on them.
 

@@ -84,6 +84,8 @@ export type RouteTrace = {
   chosen: string[];
   requesterIds: string[];
   fallback: { group: string; room: string; reason: string; eligible: string[] } | null;
+  /** Set only when the people who could approve are fewer than it takes, so the cards can say so. */
+  shortOfPeople?: { needed: number; could: string[]; breakGlass: string[] };
 };
 
 function ownerExcluded(ctx: RouteContext): boolean {
@@ -236,6 +238,20 @@ function fallbackReason(trace: Pick<RouteTrace, "excluded" | "capped" | "label">
   return parts.length > 0 ? parts.join("; ") : "the policy names no approver for this";
 }
 
+/**
+ * Who is barred only because they may have asked, when that's what leaves too few people to decide this. A voice in a
+ * room, or a question the agent hasn't answered, is a guess. An agent can bring about both, so a guess mustn't be able to
+ * hand the decision to another group: these people go on deciding, and two of them have to agree.
+ */
+export function barsThatMoveTheDecision(ctx: RouteContext, onlyMaybe: string[]): string[] {
+  const candidates = candidatesFor(ctx);
+  const eligible = candidates.filter(({ person }) => exclusionsFor(ctx, person.id).length === 0);
+  if (eligible.length >= ctx.quorumRequired) return [];
+  return candidates
+    .filter(({ person }) => onlyMaybe.includes(person.id) && exclusionsFor(ctx, person.id).every((reason) => reason === "requester"))
+    .map(({ person }) => person.id);
+}
+
 /** Pick `need` more people. Fewer than that available means the fallback group, and the trace says why. */
 export function route(ctx: RouteContext, need: number): RouteTrace {
   const cap = ctx.policy.defaults.max_open_cards_per_person;
@@ -301,7 +317,22 @@ export function route(ctx: RouteContext, need: number): RouteTrace {
         }
       : null;
 
+  // Not who was chosen but who could ever answer, and everyone's approval but one person's still leaves it stuck.
+  const could = new Map([...ranked, ...overCap].map((entry) => [entry.id, entry.name]));
+  for (const id of fallback?.eligible ?? []) could.set(id, ctx.directory.person(id)?.name ?? id);
+  const needed = ctx.quorumRequired - ctx.counted.length;
+  const short = need > 0 && ctx.quorumRequired > 1 && could.size < needed;
+
   return {
+    ...(short
+      ? {
+          shortOfPeople: {
+            needed: ctx.quorumRequired,
+            could: [...ctx.counted.map((id) => ctx.directory.person(id)?.name ?? id), ...could.values()],
+            breakGlass: (ctx.policy.file.break_glass?.people ?? []).map((id) => ctx.directory.person(id)?.name ?? id),
+          },
+        }
+      : {}),
     requestId: ctx.requestId,
     className: ctx.className,
     tier: ctx.tier,

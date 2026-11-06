@@ -341,10 +341,12 @@ describe("an eligible approval", () => {
     expect(h.chat.targeted.at(-1)?.body).toContain("Do not retry it");
     expect(h.chat.messages.at(-1)?.body).toContain(`${id}: nobody can say whether this ran`);
     expect(h.core.stores.ledger.list({ requestId: id }).map((entry) => entry.type)).toContain("outcome_unknown");
-    const before = h.gate.calls.length;
+    // From here it only looks, which can't start anything: every further call to the gate is one.
+    const runs = h.gate.calls.length - h.gate.looks.length;
     h.clock.advance(MINUTE);
     await h.core.tick();
-    expect(h.gate.calls).toHaveLength(before);
+    expect(h.gate.looks.length).toBeGreaterThan(0);
+    expect(h.gate.calls.length - h.gate.looks.length).toBe(runs);
   });
 });
 

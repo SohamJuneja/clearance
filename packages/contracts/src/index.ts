@@ -37,7 +37,7 @@ export const ActionSchema = z.object({
    * with `grant_pending`. Nothing is recorded for that file yet, and the route asks again only once every file can proceed.
    */
   defer_grants: z.boolean().optional(),
-  /** `workdir` is the tool's own directory argument, where the vendor has one. It changes what a relative path means. */
+  /** `workdir` is where the line really runs, when that isn't `agent.cwd`: a vendor's own argument, or a session that has moved. */
   shell: z.object({ command: z.string(), workdir: z.string().optional() }).optional(),
   file: z.object({ path: z.string() }).optional(),
   /**
@@ -126,6 +126,7 @@ export const LedgerEntryTypeSchema = z.enum([
   "promotion_signed",
   "promotion_rejected",
   "outcome_unknown",
+  "outcome_resolved",
   "edit_proposed",
   "edit_withdrawn",
   "edited",
@@ -239,6 +240,9 @@ export type OpenCardResult = {
 };
 
 /** Everything core needs from Switch. Implemented by packages/switch-agent, faked in tests. */
+/** A room's aliases, lower-cased alias to the agent's real name: `@alias` addresses that agent there, as its name does. */
+export type RoomAliases = Record<string, string>;
+
 export interface ChatPort {
   openCard(input: OpenCardInput): Promise<OpenCardResult>;
   closeCard(sessionId: string, switchRequestId: string): Promise<void>;
@@ -255,6 +259,8 @@ export interface ChatPort {
    * has nothing to report.
    */
   unseenRoomCount?(agentName: string): Promise<number>;
+  /** The aliases in a room. Throws if Switch can't say. Optional: a port with no way to ask has nothing to report. */
+  roomAliases?(roomId: string): Promise<RoomAliases>;
 }
 
 /** Execute-on-approval and custody live in the gate. Core asks; the gate does exactly the stored call. */
@@ -275,6 +281,8 @@ export const GATE_WORDS = {
   nothingStarted: "nothing had started, and it won't now",
   busy: "another gate process is executing this request",
   outcomeUnknown: "outcome unknown",
+  /** Not the gate talking: something answered in its place, or it fell over. */
+  brokenAnswer: "gate answered",
 } as const;
 
 /**
@@ -286,6 +294,7 @@ export function readExecuteResult(result: ExecuteResult): "ran" | "retry" | "unk
   const error = result.error ?? "";
   if (error.startsWith(GATE_WORDS.outcomeUnknown)) return "unknown";
   if (error === GATE_WORDS.unknownRequest || error === GATE_WORDS.nothingRan || error === GATE_WORDS.busy) return "retry";
+  if (error.startsWith(GATE_WORDS.brokenAnswer)) return "retry";
   return "refused";
 }
 

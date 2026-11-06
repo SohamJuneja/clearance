@@ -94,6 +94,8 @@ describe("ledger summaries read core's real payloads", () => {
     ["promotion_rejected", { reason: "evidence_changed", signed_by: ["sam"] }, "Not promoted: evidence changed"],
     ["demoted", { agent: "ops-agent", class: "deploy", bucket: "staging", from: "L1", to: "L0" }, "ops-agent · deploy · staging: L1 to L0"],
     ["incident", { reported_by: "neha", note: "wrong customer" }, "Reported by neha: wrong customer"],
+    ["outcome_resolved", { by: "sam", outcome: "ran", note: "re_1 in Acme" }, "sam checked: it ran. re_1 in Acme"],
+    ["outcome_resolved", { by: "sam", outcome: "didnt", note: "no refund in Acme" }, "sam checked: it did not run. no refund in Acme"],
     ["edit_proposed", { by: "sam", from: 40000, to: 4000 }, "sam offered 4000 instead of 40000"],
     ["edit_withdrawn", { by: "sam", from: 40000, to: 4000, reason: "wrong_value" }, "Offer of 4000 dropped: wrong value"],
     ["edited", { by: "sam", from: 40000, to: 4000, edited_to: "CLR-0002" }, "Edited by sam to 4000, as CLR-0002. This call did not run."],

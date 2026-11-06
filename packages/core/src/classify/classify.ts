@@ -9,7 +9,7 @@ import { sha256Hex } from "../hash.js";
 import type { CompiledClass, CompiledMatch, CompiledPolicy, MatchKind } from "../policy/load.js";
 import { fetchStaysOnGate } from "./fetch.js";
 import { readsOutside } from "./reads.js";
-import type { SubCommand } from "./shell.js";
+import { parseShell, type SubCommand } from "./shell.js";
 
 export type NormalCall = {
   kind: MatchKind;
@@ -17,6 +17,10 @@ export type NormalCall = {
   subject: string;
   /** Also tried: a file path as the agent wrote it, or a command with its wrappers still on. */
   rawSubject?: string;
+  /** Also tried, for a command running somewhere other than the tree's root: its arguments as paths from the root. */
+  resolvedSubject?: string;
+  /** A file path from where the call really runs, when that isn't the tree's root. What "outside" is judged on. */
+  resolvedPath?: string;
   server?: string;
   target: string;
   args: Record<string, unknown>;
@@ -93,7 +97,7 @@ export function normaliseCall(action: Action, policy: CompiledPolicy): NormalCal
         target: "shell",
         args: { command: action.shell.command },
         structured: false,
-        ...boundTo({ ...cwdBinding(shellDirectory(action)) }),
+        ...boundTo({ ...cwdBinding(shellDirectory(action)), ...workdirBinding(action) }),
       };
     case "file_write":
     case "file_read": {
@@ -148,15 +152,66 @@ const boundTo = (bound: Record<string, unknown>): Pick<NormalCall, "bound"> =>
 
 const cwdBinding = (cwd: string | undefined): Record<string, unknown> => (cwd ? { cwd } : {});
 
-/** The directory a shell line runs in: the tool's own argument when it has one, on top of the agent's. */
+/**
+ * The directory a shell line runs in: the tool's own argument when it has one, on top of the agent's. `~` stays as it is:
+ * it's somewhere else, wherever that turns out to be.
+ */
 export function shellDirectory(action: Action): string | undefined {
   const { workdir } = action.shell ?? {};
   const base = action.agent.cwd;
   if (!workdir) return base ? cleanDirectory(base) : undefined;
+  if (workdir.startsWith("~")) return cleanDirectory(workdir);
   return cleanDirectory(base ? posix.resolve(base, workdir) : workdir);
 }
 
 const cleanDirectory = (path: string): string => posix.normalize(path).replace(/(.)\/+$/, "$1");
+
+/** The agent's own directory, which everything is judged against. */
+export const agentTree = (action: Action): string | undefined => (action.agent.cwd ? cleanDirectory(action.agent.cwd) : undefined);
+
+/** Set when the tool ran it somewhere other than the agent's directory, so the card can say where. */
+export function workdirBinding(action: Action): Record<string, unknown> {
+  const directory = shellDirectory(action);
+  return directory && directory !== agentTree(action) ? { workdir: directory } : {};
+}
+
+/**
+ * The tool's own directory, read as the `cd` it is. So it gets exactly what a `cd` there gets: the deny classes read its
+ * text, and one leaving the agent's directory is held. Nothing when it's where the agent is.
+ */
+export function workdirAsCd(action: Action): SubCommand[] {
+  const directory = shellDirectory(action);
+  const tree = agentTree(action);
+  if (!directory || directory === tree) return [];
+  const inside = tree ? posix.relative(tree, directory) : "";
+  const shown = inside && !inside.startsWith("..") && !directory.startsWith("~") ? inside : directory;
+  return parseShell(`cd '${shown.replace(/'/g, "'\\''")}'`).commands;
+}
+
+/** A path from the directory it's really relative to. One that's absolute, or only known at run time, says for itself. */
+function resolvedFrom(path: string, directory: string): string {
+  if (/^(\/|~|\$)/.test(path)) return path;
+  return directory.startsWith("/") ? posix.resolve(directory, path) : posix.join(directory, path);
+}
+
+/** Where a sub-command really runs: where the line runs, then its `cd`s. Undefined when only the shell knows. */
+export function commandDirectory(command: SubCommand, place: ShellPlace): string | undefined {
+  if (command.directory === null) return undefined;
+  if (!place.cwd) return command.directory || undefined;
+  return command.directory ? cleanDirectory(resolvedFrom(command.directory, place.cwd)) : place.cwd;
+}
+
+/** A command's arguments as paths from the tree's root, so a rule about a path can read them wherever the command runs. */
+function resolvedSubjectOf(command: SubCommand, place: ShellPlace): string | undefined {
+  const directory = commandDirectory(command, place);
+  if (!directory || directory === place.tree) return undefined;
+  const from = place.tree ? normalisePath(directory, place.tree) : directory;
+  const [name, ...args] = command.words;
+  const paths = args.map((word) =>
+    word.startsWith("-") || word.includes("://") || command.dynamic.includes(word) ? word : resolvedFrom(word, from),
+  );
+  return [name, ...paths].join(" ");
+}
 
 /** `extra` carries the rest of what the call is bound to. A relative path means nothing without its directory. */
 export function fileCall(
@@ -164,11 +219,15 @@ export function fileCall(
   path: string,
   cwd: string | undefined,
   extra: Record<string, unknown> = {},
+  directory?: string,
 ): NormalCall {
+  const moved = directory !== undefined && directory !== (cwd && cleanDirectory(cwd));
+  const resolvedPath = moved ? resolvedFrom(path, directory) : undefined;
   return {
     kind,
-    subject: normalisePath(path, cwd),
+    subject: normalisePath(resolvedPath ?? path, cwd),
     rawSubject: path,
+    ...(resolvedPath ? { resolvedPath } : {}),
     target: path,
     args: { path },
     structured: false,
@@ -177,7 +236,7 @@ export function fileCall(
 }
 
 /** Where a sub-command runs: the directory, and the whole line, for a command that depends on more of it than its words. */
-export type ShellPlace = { cwd?: string | undefined; line?: string | undefined };
+export type ShellPlace = { cwd?: string | undefined; line?: string | undefined; tree?: string | undefined; workdir?: Record<string, unknown> };
 
 /** `cd` to where it already is changes nothing, and agents write it out of habit, so it doesn't count against a grant. */
 function setupThatMatters(setup: string[][], cwd: string | undefined): string[][] {
@@ -188,10 +247,12 @@ function setupThatMatters(setup: string[][], cwd: string | undefined): string[][
 /** One sub-command as a call. A grant binds to its canonical form, plus whatever that form can't say. */
 export function subCommandCall(command: SubCommand, place: ShellPlace = {}): NormalCall {
   const setup = setupThatMatters(command.setup, place.cwd);
+  const resolvedSubject = resolvedSubjectOf(command, place);
   return {
     kind: "shell",
     subject: command.effective,
     rawSubject: command.canonical,
+    ...(resolvedSubject ? { resolvedSubject } : {}),
     target: "shell",
     args: { command: command.canonical },
     structured: false,
@@ -201,6 +262,7 @@ export function subCommandCall(command: SubCommand, place: ShellPlace = {}): Nor
       ...(command.boundWords ? { words: command.boundWords } : {}),
       ...(setup.length > 0 ? { setup } : {}),
       ...cwdBinding(place.cwd),
+      ...place.workdir,
       ...(command.boundToLine && place.line !== undefined ? { line: place.line } : {}),
       ...(command.repeats ? { repeats: true } : {}),
     }),
@@ -221,6 +283,7 @@ export function matches(entry: CompiledMatch, call: NormalCall): boolean {
   if (entry.kind !== call.kind) return false;
   if (call.kind === "mcp") return mcpMatches(entry, call);
   if (entry.re.test(call.subject)) return true;
+  if (call.resolvedSubject !== undefined && entry.re.test(call.resolvedSubject)) return true;
   return call.rawSubject !== undefined && entry.re.test(call.rawSubject);
 }
 
@@ -261,7 +324,7 @@ function reachesGate(call: NormalCall, policy: CompiledPolicy): boolean {
 
 /** A read that leaves the agent's own directory, by the words of the path. It outranks the safe list. */
 export function leavesAgentDir(call: NormalCall, cwd: string | undefined, policy: CompiledPolicy): boolean {
-  return call.kind === "file_read" && readsOutside(call.rawSubject ?? call.subject, cwd, policy.defaults.readable_outside ?? []);
+  return call.kind === "file_read" && readsOutside(call.resolvedPath ?? call.rawSubject ?? call.subject, cwd, policy.defaults.readable_outside ?? []);
 }
 
 /** PLAN 7.3 step 6. Every gate write is protected by construction; the rest comes from the policy. */

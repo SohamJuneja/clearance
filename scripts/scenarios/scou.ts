@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { dataDir } from "../../eval/lib/paths.ts";
 import { type MattermostPost, postText } from "../../eval/lib/persona.ts";
 import type { AcmeState } from "../../eval/lib/world.ts";
-import { defineScenario } from "../demo/runner.ts";
+import { defineScenario, ensure } from "../demo/runner.ts";
 import {
   clrOf,
   counterAnswer,
@@ -27,6 +27,9 @@ interface State {
   clr?: string;
   card?: MattermostPost;
   frozen?: boolean;
+  /** What Acme shows once it answers again, which is what a person would go and check. */
+  ran?: boolean;
+  refunds?: number;
 }
 
 /** Stops or resumes Acme without closing its port, so a call goes out and no answer comes back. */
@@ -126,10 +129,74 @@ export default defineScenario<State>({
         state.frozen = false;
         await new Promise((done) => setTimeout(done, 3_000));
         const known = new Set(state.before!.refunds.map((refund) => refund.id));
-        const fresh = (await ctx.acme.state()).refunds.filter((refund) => !known.has(refund.id));
+        const refunds = (await ctx.acme.state()).refunds;
+        const fresh = refunds.filter((refund) => !known.has(refund.id));
+        state.ran = fresh.length > 0;
+        state.refunds = refunds.length;
         return fresh.length === 0
           ? "no refund"
           : fresh.map((refund) => `${refund.id} ${refund.amount}`).join(", ");
+      },
+    },
+    {
+      name: "Priya, who asked, can't record what happened",
+      run: async (ctx, state) => {
+        const priya = ctx.people.priya;
+        const said = await priya.say(
+          ROOM,
+          `@clearance resolve ${state.clr} ran I looked and it went out`,
+        );
+        const refused = await waitForClearanceSays(
+          ctx,
+          priya,
+          ROOM,
+          new RegExp(`Priya can't record what happened to ${state.clr}`),
+          said.create_at,
+          "Clearance to refuse Priya",
+        );
+        return postText(refused);
+      },
+    },
+    {
+      name: "Sam checks Acme and records what he found, and no money moves",
+      run: async (ctx, state) => {
+        const sam = ctx.people.sam;
+        const outcome = state.ran ? "ran" : "didnt";
+        const said = await sam.say(
+          ROOM,
+          `@clearance resolve ${state.clr} ${outcome} I checked Acme's refunds for A-2004`,
+        );
+        const recorded = await waitForClearanceSays(
+          ctx,
+          sam,
+          ROOM,
+          new RegExp(
+            `${state.clr} recorded: it ${state.ran ? "ran" : "did not run"}\\. Nothing else changed`,
+          ),
+          said.create_at,
+          "Clearance to record what Sam found",
+        );
+        await waitForClearanceSays(
+          ctx,
+          sam,
+          ROOM,
+          new RegExp(`${state.clr}: Sam checked, and it ${state.ran ? "ran" : "did not run"}`),
+          said.create_at,
+          "the agent to be told what Sam found",
+        );
+        await ctx.core.waitForLedger(
+          (entry) =>
+            entry.type === "outcome_resolved" && JSON.stringify(entry).includes(state.clr!),
+          {
+            timeoutMs: ctx.clearanceTimeoutMs,
+            description: `an outcome_resolved entry for ${state.clr}`,
+          },
+        );
+        const refunds = (await ctx.acme.state()).refunds.length;
+        ensure(refunds === state.refunds, `Acme went from ${state.refunds} refunds to ${refunds}`);
+        await sam.reveal(recorded);
+        await sam.readFor(SAM_READS_MS);
+        return postText(recorded);
       },
     },
   ],

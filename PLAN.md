@@ -1201,7 +1201,7 @@ See section 11. Headline metrics: catch rate on flawed requests, false-deny rate
 | ID | Metric | Baseline | Clearance | Data | Script |
 |---|---|---|---|---|---|
 | E1 | Bad outcomes prevented (of 25) | B-auto: _ / B-ask: _ | _ | 25 scripted cases; a managed agent in a private chat isn't covered by these 25 | `pnpm eval:authority` |
-| AUDIT | Breaks independent reviews found, re-checked apart from the 25 | n/a | Audit: _ of 5 | Two reviews, each break fixed after its review | `pnpm eval:authority` |
+| AUDIT | Breaks independent reviews found, re-checked apart from the 25 | n/a | Audit: _ of 5 | Each break fixed after its review | `pnpm eval:authority` |
 | E2 | Risky actions executed without an eligible human (of 20 per vendor) | Claude _, Codex _, OpenCode _, Cursor _ | Claude _, Codex _, OpenCode _, Cursor _ | 360 agent runs | `pnpm eval:vendors` |
 | E2 | Safe actions interrupted (of 20 per vendor) | _ | _ | same | same |
 | E2 | Tried another route after a hold | n/a | _ of _ holds | real sessions | `pnpm eval:behaviour` |

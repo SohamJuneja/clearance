@@ -36,13 +36,16 @@ import { ProposalStore, type Proposal } from "./autonomy/proposals.js";
 import { AutonomyStore, capLevel, type Level } from "./autonomy/store.js";
 import { describeCall, describeResult, type CallDescription } from "./cards/describe.js";
 import { describedAction, parseAway, parseCommand, type Command } from "./commands/parse.js";
-import { clipToBudget, renderCard, renderPrompt, renderReviewCard, TITLE_MAX } from "./cards/render.js";
+import { clipToBudget, renderCard, renderCounterTitle, renderPrompt, renderReviewCard, TITLE_MAX } from "./cards/render.js";
 import { buildCardView, type Audience } from "./cards/view.js";
 import {
   askText,
   confirmFieldsFor,
+  counterAsk,
+  counterField,
   DENY_OPTION_ID,
   readQuestionAnswer,
+  typedAmount,
   typedMatches,
   type ConfirmField,
 } from "./confirm/typed.js";
@@ -129,7 +132,11 @@ export type Evidence = {
   autoEligible?: boolean;
   /** People who asked this agent in other rooms in the window. Not who asked for this, but they can't approve it. */
   askedElsewhereIds?: string[];
+  /** This request is an approver's smaller offer on another one (F20), which the gate still holds. */
+  editOf?: EditOf;
 };
+
+export type EditOf = { requestId: string; by: string; from: number; to: number; callHash: string };
 
 /** One line of `POST /v1/autonomy/simulate`: what the rule would do over the last days of decisions. */
 export type BucketReplay = {
@@ -243,6 +250,14 @@ type BucketAssessment = {
 };
 
 type StampReading = { fast: boolean; signals: string[]; tMin: number; flagsIgnored: string[] };
+
+/** How an offer of a smaller amount ended, inside the transaction that decided it. */
+type EditOutcome =
+  | { kind: "closed"; state: RequestState }
+  | { kind: "twin"; id: string }
+  | { kind: "edited"; created: RequestRecord; approved: boolean };
+
+type PreparedEdit = { ok: true; edited: Action; evaluation: Evaluation } | { ok: false; reason: "no_stored_call" | "policy"; why: string };
 
 type Refused =
   | { type: "person"; person: Person; reasons: Refusal[] }
@@ -403,6 +418,7 @@ export class Clearance implements ClearanceCore {
       created_at: new Date(request.createdAtMs).toISOString(),
       expires_at: new Date(request.expiresAtMs).toISOString(),
       decided_at: request.decidedAtMs === null ? null : new Date(request.decidedAtMs).toISOString(),
+      ...(request.state === "EDITED" ? { edited_to: this.editedTo(request.id) } : {}),
       // Only once it is over: while it is open, a drill looks like anything else.
       ...(OPEN_STATES.includes(request.state) ? {} : { is_drill: request.isDrill }),
     };
@@ -640,6 +656,9 @@ export class Clearance implements ClearanceCore {
           decided_at: request.decidedAtMs === null ? "" : new Date(request.decidedAtMs).toISOString(),
           executed_at: of("executed")?.at ?? of("grant_consumed")?.at ?? "",
           last_ledger_hash: entries.at(-1)?.entry_hash ?? "",
+          edited_by: String(of("edited")?.payload.by ?? ""),
+          edited_to: String(of("edited")?.payload.edited_to ?? ""),
+          edit_of: this.evidenceOf(request).editOf?.requestId ?? "",
         };
       });
   }
@@ -667,6 +686,7 @@ export class Clearance implements ClearanceCore {
       cancelled: inState("CANCELLED"),
       break_glass: (db.prepare(`SELECT COUNT(*) AS n FROM ledger WHERE type = 'break_glass' AND at > ?`).get(new Date(since).toISOString()) as { n: number }).n,
       ran_alone: inState("AUTO"),
+      edited: inState("EDITED"),
     };
     const groups = new Map<string, { agent: string; cls: string; bucket: string; ran: number; spent: number }>();
     for (const event of events.autoRuns(since)) {
@@ -697,6 +717,7 @@ export class Clearance implements ClearanceCore {
     const money = (value: number) => (currency ? formatMoney(value, currency) : String(value));
     const lines = [
       `Clearance digest, last 24 h: ${tally.held} held, ${tally.approved} approved, ${tally.denied} denied, ${tally.expired} expired, ${tally.break_glass} break-glass, ${tally.ran_alone} ran alone.`,
+      tally.edited === 0 ? null : `${tally.edited} edited: an approver said yes to a smaller amount, as a new request.`,
       medianDecisionMs === null ? null : `Median time to a decision: ${Math.round(medianDecisionMs / 1000)} s.`,
       ...autonomy.map((row) => {
         const spent = row.cap !== null ? `, ${money(row.spent)} of its ${money(row.cap)} daily cap` : "";
@@ -945,6 +966,10 @@ export class Clearance implements ClearanceCore {
       await this.answerGlassReview(card, evt);
       return;
     }
+    if (card.step === "counter") {
+      await this.answerCounter(card, evt);
+      return;
+    }
 
     let request = requests.require(card.request_id);
     if (OPEN_STATES.includes(request.state) && request.expiresAtMs <= this.deps.clock.nowMs()) {
@@ -1100,7 +1125,8 @@ export class Clearance implements ClearanceCore {
     return this.currentPolicy.classes.find((candidate) => candidate.name === name) ?? null;
   }
 
-  private newRequest(action: Action, evaluation: Evaluation, now: number, drill?: Flaw & { askedBy: string }, reach: AgentReach = "all_seen"): NewRequest {
+  /** `edit` is the request this one replaces (F20): whoever asked for that asked for this, and where. */
+  private newRequest(action: Action, evaluation: Evaluation, now: number, drill?: Flaw & { askedBy: string }, reach: AgentReach = "all_seen", edit?: RequestRecord): NewRequest {
     const policy = this.currentPolicy;
     const { directory, requesters } = this.people;
     const { aggregates } = this.stores;
@@ -1110,20 +1136,31 @@ export class Clearance implements ClearanceCore {
     // A call that says which room it came from was asked for in that room: anyone on record elsewhere is someone
     // else's request. Nobody on record there is nobody known, even if the agent is busy in other rooms.
     const askedIn = drill ? undefined : action.session?.switchRoomId;
-    const everyoneAsking = drill ? [drill.askedBy] : requesters.requestersOf(action.agent.name);
-    const requesterIds = askedIn === undefined ? everyoneAsking : requesters.requestersOf(action.agent.name, directory.roomId(askedIn));
+    const everyoneAsking = edit
+      ? [...edit.requesterIds, ...(this.evidenceOf(edit).askedElsewhereIds ?? [])]
+      : drill
+        ? [drill.askedBy]
+        : requesters.requestersOf(action.agent.name);
+    const requesterIds = edit ? edit.requesterIds : askedIn === undefined ? everyoneAsking : requesters.requestersOf(action.agent.name, directory.roomId(askedIn));
     const agentOwnerIds = directory.agentOwners(action.agent.name, action.agent.ownerUserId);
-    const origin = drill
-      ? null
-      : action.session?.switchRoomId !== undefined
-        ? { room: action.session.switchRoomId, thread: action.session.threadId ?? null }
-        : requesters.lastOrigin(action.agent.name);
+    const origin = edit
+      ? edit.originRoom
+        ? { room: edit.originRoom, thread: edit.originThread }
+        : null
+      : drill
+        ? null
+        : action.session?.switchRoomId !== undefined
+          ? { room: action.session.switchRoomId, thread: action.session.threadId ?? null }
+          : requesters.lastOrigin(action.agent.name);
 
-    const said = drill
-      ? drill.said
-        ? [drill.said]
-        : []
-      : requesters.lastMessages(action.agent.name, origin?.room ?? null, origin?.thread ?? null, 2);
+    // What the agent said was about the amount it asked for. Held against an edit, that would read as the agent lying.
+    const said = edit
+      ? []
+      : drill
+        ? drill.said
+          ? [drill.said]
+          : []
+        : requesters.lastMessages(action.agent.name, origin?.room ?? null, origin?.thread ?? null, 2);
     const mismatches = detectMismatch({
       cls: clsName,
       extracted: evaluation.extracted,
@@ -1756,7 +1793,7 @@ export class Clearance implements ClearanceCore {
     const open = this.stores.routes.openForRequest(request.id);
     const trace = this.traces.latest(request.id);
     const labels = open
-      .filter((row) => row.user_id)
+      .filter((row) => row.user_id && row.step !== "counter")
       .map((row) => {
         const entry = trace?.ranked.find((ranked) => ranked.id === row.user_id);
         return entry ? routeLabel(entry) : (this.people.directory.person(row.user_id as string)?.name ?? (row.user_id as string));
@@ -1804,7 +1841,7 @@ export class Clearance implements ClearanceCore {
     this.stores.requests.noteExecutionAttempt(request.id);
     let result: ExecuteResult;
     try {
-      result = await this.deps.gate.execute(request.id, request.callHash);
+      result = (await this.editAtGate(request)) ?? (await this.deps.gate.execute(request.id, request.callHash));
     } catch (error) {
       // The gate is exactly-once by request id, so trying again is safe. The tick does that.
       this.lastExecuteError.set(request.id, (error as Error).message);
@@ -1816,6 +1853,22 @@ export class Clearance implements ClearanceCore {
   }
 
   private readonly lastExecuteError = new Map<string, string>();
+
+  /**
+   * An edit reaches the gate once it's approved, and until then the gate holds only the original. Asking again gets the
+   * same answer, so a retry is safe. A refusal ends it, as a refused run does: there's nothing a retry could change.
+   */
+  private async editAtGate(request: RequestRecord): Promise<ExecuteResult | null> {
+    const edit = this.evidenceOf(request).editOf;
+    if (!edit) return null;
+    const answer = await this.deps.gate.edit(edit.requestId, {
+      callHash: edit.callHash,
+      newRequestId: request.id,
+      newCallHash: request.callHash,
+      amount: edit.to,
+    });
+    return answer.ok ? null : { ok: false, alreadyExecuted: false, error: answer.error ?? "the gate refused the edit" };
+  }
 
   private async finishExecution(request: RequestRecord, result: ExecuteResult): Promise<void> {
     const { requests, ledger, answers } = this.stores;
@@ -1834,12 +1887,22 @@ export class Clearance implements ClearanceCore {
     this.lastExecuteError.delete(request.id);
     const counted = answers.countedApprovers(request.id);
     const names = counted.length > 0 ? this.approverNames(counted) : `break-glass by ${this.breakGlassBy(request.id) ?? "someone"}`;
+    const edit = this.evidenceOf(request).editOf;
     if (result.ok) {
       const evidence = this.evidenceOf(request);
       const what = describeResult(request.cls, evidence.extracted, request.target, result.result, this.currentPolicy.currency);
+      if (edit) {
+        const [to, from] = [this.money(edit.to), this.money(edit.from)];
+        await this.notifyAgent(request, `${edit.requestId} did not run and will not. ${names} approved ${to} instead, as ${request.id}, and that ran: ${what}. Tell ${this.requesterWords(request)} it was ${to}, not ${from}.`);
+        return;
+      }
       await this.notifyAgent(request, `${request.id} approved by ${names} and executed: ${what}. Continue.`);
     } else {
       const why = result.error ?? `the gate answered ${result.status ?? "with an error"}`;
+      if (edit) {
+        await this.notifyAgent(request, `${request.id}, ${this.money(edit.to)} instead of the ${this.money(edit.from)} in ${edit.requestId}, did not run: ${why}. ${edit.requestId} did not run either. Tell ${this.requesterWords(request)} and stop.`);
+        return;
+      }
       await this.notifyAgent(request, `${request.id} approved by ${names} but it did not run: ${why}. Tell ${this.requesterWords(request)} and stop.`);
     }
   }
@@ -1902,7 +1965,7 @@ export class Clearance implements ClearanceCore {
       },
       counted: answers.countedApprovers(request.id),
       failedConfirm: answers.failedConfirmations(request.id, CONFIRM_TRIES),
-      alreadyRouted: open.flatMap((row) => (row.user_id ? [row.user_id] : [])),
+      alreadyRouted: open.flatMap((row) => (row.user_id && row.step !== "counter" ? [row.user_id] : [])),
       fallbackActive: routes.forRequest(request.id).some((row) => row.step === "fallback"),
     };
   }
@@ -2175,7 +2238,7 @@ export class Clearance implements ClearanceCore {
   }
 
   /** Inside the transaction that decided it. Drills are nobody's record. */
-  private recordBucketEvent(request: RequestRecord, outcome: EventOutcome, approvers: string[], fast: boolean): void {
+  private recordBucketEvent(request: RequestRecord, outcome: EventOutcome, approvers: string[], fast: boolean, edited = false): void {
     if (request.isDrill || !this.classOf(request.cls)?.autonomy) return;
     const evidence = this.evidenceOf(request);
     this.stores.events.add({
@@ -2188,7 +2251,7 @@ export class Clearance implements ClearanceCore {
       outcome,
       approvers,
       fast,
-      edited: false,
+      edited: edited || evidence.editOf !== undefined,
       incident: false,
       autoEligible: evidence.autoEligible ?? false,
       synthetic: false,
@@ -2761,6 +2824,8 @@ export class Clearance implements ClearanceCore {
         return askerId ? this.backReply(askerId) : null;
       case "breakglass":
         return askerId ? this.breakGlassReply(first, after, askerId) : null;
+      case "counter":
+        return askerId ? this.counterReply(first, others, askerId, evt.roomId) : null;
       case "drills":
         return askerId ? this.drillsReply(first, askerId) : null;
       default:
@@ -2896,6 +2961,371 @@ export class Clearance implements ClearanceCore {
       await this.executeApproved(request);
     }
     return `${request.id}: glass broken. ${request.source === "hook" ? "The agent has been told to run it." : "Sent to run."}`;
+  }
+
+  // ── Approve with edits (F20) ───────────────────────────────────────────────
+
+  private money(amount: number): string {
+    return formatMoney(amount, this.currentPolicy.currency);
+  }
+
+  /** The call as the agent made it. An edit starts from this and nothing else, so only the amount can differ. */
+  private storedAction(request: RequestRecord): Action | null {
+    const row = this.stores.db.prepare(`SELECT action_json FROM actions WHERE id = ?`).get(request.actionId) as { action_json: string | null } | undefined;
+    if (!row?.action_json) return null;
+    const parsed = ActionSchema.safeParse(JSON.parse(row.action_json));
+    return parsed.success ? parsed.data : null;
+  }
+
+  private heldAmount(action: Action): number | null {
+    const amount = action.business?.args.amount;
+    return typeof amount === "number" && Number.isSafeInteger(amount) ? amount : null;
+  }
+
+  /**
+   * Runs the edited call through the normal policy path, leaving out of the window the amount it replaces. No grants: a
+   * gate call doesn't use them. What this returns is what the agent would have got asking for that amount itself.
+   */
+  private async prepareEdit(request: RequestRecord, to: number): Promise<PreparedEdit> {
+    const action = this.storedAction(request);
+    if (!action?.business || this.heldAmount(action) === null) {
+      return { ok: false, reason: "no_stored_call", why: `the call behind ${request.id} can't be read any more` };
+    }
+    const args = { ...action.business.args, amount: to };
+    const edited: Action = { ...action, id: `${action.id}-edit-${ulid()}`, at: new Date(this.deps.clock.nowMs()).toISOString(), raw: args, business: { ...action.business, args } };
+    delete edited.agentClaim;
+    const { aggregates, autonomy } = this.stores;
+    const evaluation = await evaluateAction(edited, {
+      policy: this.currentPolicy,
+      lookup: this.deps.lookup,
+      clock: this.deps.clock,
+      aggregates: { sum: (cls, by, key, since) => aggregates.sumWithout(request.id, cls, by, key, since) },
+      autonomy,
+    });
+    if (evaluation.decision === "deny") return { ok: false, reason: "policy", why: evaluation.reason };
+    if (evaluation.cls !== request.cls) return { ok: false, reason: "policy", why: `the edited call wouldn't be a ${request.cls}` };
+    return { ok: true, edited, evaluation };
+  }
+
+  /** Where this agent is working, and no better than it looked when the original was held. */
+  private async reachForEdit(request: RequestRecord): Promise<AgentReach> {
+    const codes = request.flags.map((flag) => flag.code);
+    if (codes.includes("agent_elsewhere")) return "elsewhere";
+    if (codes.includes("agent_reach_unknown")) return "unknown";
+    return this.reach.of(request.agent);
+  }
+
+  private async counterReply(reference: string | undefined, words: string[], askerId: string, roomId: string): Promise<string> {
+    const { requests, ledger, routes } = this.stores;
+    const person = this.people.directory.person(askerId);
+    const usage = (id: string) => `Which amount? \`@clearance counter ${id} 4000\`.`;
+    if (!reference) return usage("CLR-0042");
+    const found = this.findRequest(reference, roomId);
+    // A drill has nothing behind it to run, and saying so would give it away.
+    if (!found || found.isDrill || !person) return `I can't find ${reference}.`;
+    if (OPEN_STATES.includes(found.state) && found.expiresAtMs <= this.deps.clock.nowMs()) await this.expire(found);
+    const request = requests.require(found.id);
+    const { id } = request;
+    if (!OPEN_STATES.includes(request.state)) return `${id} is already decided (${request.state}). Nothing changed.`;
+
+    // Who may answer comes first; only then does it matter what they wrote.
+    const assessment = assessAnswer(this.routeContext(request), askerId);
+    if (!assessment.eligible) {
+      ledger.append("ineligible_answer", id, { answered_by: null, user_id: askerId, answer: null, reasons: assessment.reasons, counter: true });
+      return `${person.name} can't counter ${id} (${exclusionWords(assessment.reasons, this.traces.latest(id)?.label ?? "approver")}). ${this.sentToSentence(request)}`;
+    }
+    if (request.source !== "gate") {
+      return `${id} can't be edited: the agent runs its own command, and nothing can make it re-run a different one. Approve or deny it, and ask for a new request if it should be different.`;
+    }
+    const editOf = this.evidenceOf(request).editOf;
+    if (editOf) return `${id} is already an edit of ${editOf.requestId}. Approve or deny it, and ask the agent for a new request if the amount should change again.`;
+    const action = this.storedAction(request);
+    if (!action) return `The call behind ${id} can't be read any more, so it can't be edited. Approve or deny it.`;
+    const from = this.heldAmount(action);
+    if (from === null) return `${id} has no amount to edit. Approve or deny it.`;
+    if (words.length === 0) return usage(id);
+    const to = typedAmount(words.join(" "));
+    if (to === null || !Number.isSafeInteger(to) || to <= 0) {
+      return `Only the amount of ${id} can change, to a whole number above zero: \`@clearance counter ${id} 4000\`. Destination, customer and order stay as they are.`;
+    }
+    if (to === from) return `${id} already asks for ${this.money(from)}.`;
+    if (to > from) return `${this.money(to)} is more than the ${this.money(from)} in ${id}. An increase is a new request for the agent to make, not an edit.`;
+    const mine = routes.openForRequest(id).find((row) => row.step === "counter" && row.user_id === askerId);
+    if (mine) return `You already have an offer of ${this.money(mine.counter_amount as number)} open on ${id}. Answer that card first.`;
+
+    const prepared = await this.prepareEdit(request, to);
+    if (!prepared.ok) return `${id} can't go to ${this.money(to)}: ${prepared.why}. Nothing changed.`;
+    const opened = await this.openCounter(request, person, prepared, from, to, 0);
+    if (!opened) return `I couldn't open the card for that just now. Nothing changed; try again.`;
+    ledger.append("edit_proposed", id, { by: askerId, from, to });
+    // It may have been decided while the card was opening, and then this card has nothing to offer.
+    if (!OPEN_STATES.includes(requests.require(id).state)) await this.closeOpenCards(request);
+    const where = opened.roomId === roomId ? "the card just above" : "the card in your direct room";
+    return `${id}: to offer ${this.money(to)} instead of ${this.money(from)}, confirm on ${where}.`;
+  }
+
+  private async openCounter(
+    request: RequestRecord,
+    person: Person,
+    prepared: Extract<PreparedEdit, { ok: true }>,
+    from: number,
+    to: number,
+    tries: number,
+  ): Promise<{ roomId: string } | null> {
+    const reach = await this.reachForEdit(request);
+    // The card describes the call it would really make: the edited amount, and the flags that amount gets.
+    const made = this.newRequest(prepared.edited, prepared.evaluation, this.deps.clock.nowMs(), undefined, reach, request);
+    const preview: RequestRecord = { ...request, tier: made.tier, flags: made.flags, quorumRequired: made.quorumRequired, evidence: made.evidence };
+    const view = buildCardView({
+      request: preview,
+      evidence: this.evidenceOf(preview),
+      trace: this.traces.latest(request.id) ?? route(this.routeContext(request), 0),
+      audience: { kind: "person", id: person.id },
+      directory: this.people.directory,
+      reversible: this.classOf(request.cls)?.reversible,
+      tz: this.currentPolicy.defaults.business_hours.tz,
+    });
+    const field = counterField(this.evidenceOf(request).extracted);
+    try {
+      const { roomId } = await this.deps.chat.ensureDirectRoom({ userName: person.userName });
+      const { result, named } = await this.openNaming(
+        {
+          roomId,
+          title: renderCounterTitle(view, this.money(from)),
+          kind: "questions",
+          detail: "",
+          options: [],
+          questions: [
+            {
+              id: field,
+              title: "Confirm",
+              prompt: renderPrompt(view, counterAsk(field, request.id, this.money(to))),
+              options: [{ id: DENY_OPTION_ID, label: "No, deny" }],
+              multiSelect: false,
+              allowCustomAnswer: true,
+            },
+          ],
+          expiresAtMs: request.expiresAtMs,
+        },
+        [person.id],
+      );
+      this.stores.routes.add({
+        requestId: request.id,
+        userId: person.id,
+        step: "counter",
+        cardRoom: roomId,
+        sessionId: result.sessionId,
+        switchRequestId: result.switchRequestId,
+        handle: result.handle,
+        confirmField: field,
+        counter: { amount: to, tries },
+      });
+      if (!named) await this.notifyCard({ roomId }, [person.userName], `${request.id}: your offer of ${this.money(to)} is waiting for you to confirm it. The card is just above.`);
+      return { roomId };
+    } catch {
+      return null;
+    }
+  }
+
+  private async answerCounter(card: RouteRow, evt: ApprovalOutcomeEvent): Promise<void> {
+    const { requests, answers, ledger } = this.stores;
+    const now = this.deps.clock.nowMs();
+    const answeredBy = evt.answeredBy ?? null;
+    const person = this.people.directory.personFromAnswer(answeredBy);
+    const to = card.counter_amount as number;
+    const field = card.confirm_field as ConfirmField;
+    const offer = this.money(to);
+    // Recorded before anything can wait, so a second delivery of this answer stops at `existsForCard`. Nothing here is
+    // an answer to the request itself, so none of it counts as one.
+    const note = (reason: string) =>
+      answers.record({ requestId: card.request_id, switchRequestId: evt.switchRequestId, answeredBy, userId: person?.id ?? null, decision: null, latencyMs: now - card.notified_at, eligible: false, reason, atMs: now });
+    const refuse = (reasons: string[]) => {
+      note(reasons.join(","));
+      ledger.append("ineligible_answer", card.request_id, { answered_by: answeredBy, user_id: person?.id ?? null, answer: null, reasons, counter: true, card_room: card.card_room });
+    };
+    const reply = (body: string) => this.deps.chat.postMessage({ roomId: card.card_room, body }).catch(() => undefined);
+
+    const request = requests.require(card.request_id);
+    const { id } = request;
+    if (!OPEN_STATES.includes(request.state) || request.expiresAtMs <= now) {
+      refuse(["request_closed"]);
+      if (OPEN_STATES.includes(request.state)) await this.expire(request);
+      await reply(`${id} is already decided (${requests.require(id).state}). Your offer of ${offer} changed nothing.`);
+      return;
+    }
+    const extracted = this.evidenceOf(request).extracted;
+    const from = toNumber(extracted.amount) as number;
+    const withdraw = (reason: string) => ledger.append("edit_withdrawn", id, { by: card.user_id, from, to, reason });
+    const stillWaiting = `${id} is still waiting for a decision on ${this.money(from)}.`;
+
+    if (!person || person.id !== card.user_id) {
+      refuse(["not_the_person_offering"]);
+      withdraw("answered_by_someone_else");
+      await reply(`Only the person who offered ${offer} can confirm it, so that offer is dropped. ${stillWaiting}`);
+      return;
+    }
+    const assessment = assessAnswer(this.routeContext(request), person.id);
+    if (!assessment.eligible) {
+      refuse(assessment.reasons);
+      withdraw("not_eligible");
+      await reply(`${person.name} can't counter ${id} (${exclusionWords(assessment.reasons, this.traces.latest(id)?.label ?? "approver")}). ${stillWaiting}`);
+      return;
+    }
+    const reading = evt.kind === "questions" ? readQuestionAnswer(evt.answers, field) : ({ kind: "none" } as const);
+    if (reading.kind === "deny") {
+      note("counter_declined");
+      withdraw("declined");
+      await reply(`Dropped your offer of ${offer}. ${stillWaiting}`);
+      return;
+    }
+    if (reading.kind !== "typed" || !typedMatches(field, reading.text, extracted, id)) {
+      note("wrong_counter_confirmation");
+      await this.retryCounter(request, person, card, from, to, withdraw, reply, stillWaiting);
+      return;
+    }
+
+    note("counter");
+    const prepared = await this.prepareEdit(request, to);
+    if (!prepared.ok) {
+      withdraw(prepared.reason);
+      await reply(`${id} can't go to ${offer}: ${prepared.why}. ${stillWaiting}`);
+      return;
+    }
+    const reach = await this.reachForEdit(request);
+    const outcome = this.commitEdit(request, card, evt, person, prepared, reach, from, to);
+    if (outcome.kind === "closed") {
+      ledger.append("ineligible_answer", id, { answered_by: answeredBy, user_id: person.id, answer: null, reasons: ["request_closed"], counter: true, card_room: card.card_room });
+      await reply(`${id} is already decided (${outcome.state}). Your offer of ${offer} changed nothing.`);
+      return;
+    }
+    if (outcome.kind === "twin") {
+      withdraw("already_waiting");
+      await reply(`${outcome.id} is already waiting for exactly that call. ${stillWaiting}`);
+      return;
+    }
+
+    const { created, approved } = outcome;
+    // The tick reads a HELD request nobody is opening as one to open, and this one is being opened.
+    if (!approved) this.opening.add(created.id);
+    try {
+      await this.closeOpenCards(request);
+      await this.tellOriginCopy(request, `${id} edited by ${person.name}: ${offer} instead of ${this.money(from)}, as ${created.id}.`);
+      if (approved) {
+        await reply(`${created.id} carries it: ${offer} instead of ${this.money(from)}. Sent to run.`);
+        await this.executeApproved(created);
+        if (requests.require(created.id).state === "VOIDED") await reply(`${created.id} did not run, and neither did ${id}. ${request.agent} has been told.`);
+        return;
+      }
+      await this.routeAndOpen(created, "primary");
+    } finally {
+      this.opening.delete(created.id);
+    }
+    await reply(`${created.id} carries it: ${offer} instead of ${this.money(from)}. It still needs another approver.`);
+    await this.notifyAgent(created, `${id} did not run and will not. ${person.name} offered ${offer} instead, as ${created.id}, which still needs another approver. Wait to be told about ${created.id}.`);
+  }
+
+  /** One more try at the typed value, on a fresh card, as an ordinary typed card gets. Then the offer is dropped. */
+  private async retryCounter(
+    request: RequestRecord,
+    person: Person,
+    card: RouteRow,
+    from: number,
+    to: number,
+    withdraw: (reason: string) => unknown,
+    reply: (body: string) => Promise<unknown>,
+    stillWaiting: string,
+  ): Promise<void> {
+    const tries = (card.counter_try ?? 0) + 1;
+    if (tries >= CONFIRM_TRIES) {
+      withdraw("wrong_value");
+      await reply(`That didn't match either, so your offer of ${this.money(to)} is dropped. ${stillWaiting}`);
+      return;
+    }
+    const prepared = await this.prepareEdit(request, to);
+    const opened = prepared.ok ? await this.openCounter(request, person, prepared, from, to, tries) : null;
+    if (!opened) {
+      withdraw("card_failed");
+      await reply(`That didn't match, and I couldn't ask again, so your offer of ${this.money(to)} is dropped. ${stillWaiting}`);
+      return;
+    }
+    await reply(`That didn't match. ${request.id} asks once more; the card is just above.`);
+  }
+
+  /**
+   * The whole of a yes, at once: the original ends, the new request exists, and it's approved if one person is enough.
+   * The new request is what policy made of the edited call, so its tier and quorum are the ones it would have had anyway.
+   * Only the person making the offer has said yes to this call: anyone who approved the original approved something else.
+   */
+  private commitEdit(
+    request: RequestRecord,
+    card: RouteRow,
+    evt: ApprovalOutcomeEvent,
+    person: Person,
+    prepared: Extract<PreparedEdit, { ok: true }>,
+    reach: AgentReach,
+    from: number,
+    to: number,
+  ): EditOutcome {
+    const { requests, ledger, answers, aggregates, db } = this.stores;
+    const { edited, evaluation } = prepared;
+    const now = this.deps.clock.nowMs();
+    const answeredBy = evt.answeredBy ?? null;
+    const write = db.transaction((): EditOutcome => {
+      const current = requests.require(request.id);
+      if (!OPEN_STATES.includes(current.state)) return { kind: "closed", state: current.state };
+      const twin = requests.findOpen(evaluation.callHash, current.agent);
+      if (twin) return { kind: "twin", id: twin.id };
+
+      aggregates.voidRequest(current.id);
+      const made = this.newRequest(edited, evaluation, now, undefined, reach, current);
+      const editOf: EditOf = { requestId: current.id, by: person.id, from, to, callHash: current.callHash };
+      const created = requests.create({
+        ...made,
+        flags: [...made.flags, { code: "edited", text: `Edited by ${person.name} from ${this.money(from)} to ${this.money(to)}` }],
+        evidence: { ...made.evidence, editOf },
+      });
+      this.recordAggregates(edited, evaluation, created.id);
+
+      if (current.state === "HELD") requests.transition(current.id, "ROUTED");
+      requests.transition(current.id, "EDITED");
+      ledger.append("edited", current.id, { by: person.id, answered_by: answeredBy, from, to, edited_to: created.id, call_hash: current.callHash, new_call_hash: created.callHash });
+      this.recordBucketEvent(current, "approved", [person.id], false, true);
+
+      ledger.append("edited", created.id, { by: person.id, from, to, edit_of: current.id, call_hash: created.callHash });
+      const latencyMs = now - card.notified_at;
+      const stamp = this.readStamp(created, person.id, "approve", latencyMs, now);
+      answers.record({ requestId: created.id, switchRequestId: evt.switchRequestId, answeredBy, userId: person.id, decision: "approve", latencyMs, eligible: true, reason: null, atMs: now, fast: stamp.fast, signals: stamp.signals, tMinMs: stamp.tMin });
+      ledger.append("answered", created.id, {
+        answered_by: answeredBy,
+        user_id: person.id,
+        decision: "approve",
+        latency_ms: latencyMs,
+        card_room: card.card_room,
+        fast_approval: stamp.fast,
+        signals: stamp.signals,
+        t_min_ms: stamp.tMin,
+        typed_field: card.confirm_field,
+      });
+      const signal = stamp.signals[0];
+      if (signal) this.people.store.setFriction(person.id, signal);
+
+      const counted = answers.countedApprovers(created.id);
+      if (counted.length < created.quorumRequired) {
+        this.startLadder(created);
+        return { kind: "edited", created, approved: false };
+      }
+      requests.transition(created.id, "ROUTED");
+      requests.transition(created.id, "APPROVED");
+      ledger.append("approved", created.id, { approved_by: counted, quorum: created.quorumRequired, call_hash: created.callHash, edit_of: current.id });
+      this.recordBucketEvent(created, "approved", counted, answers.anyFast(created.id));
+      return { kind: "edited", created: requests.require(created.id), approved: true };
+    });
+    return write.immediate();
+  }
+
+  private editedTo(requestId: string): string | null {
+    const entry = this.stores.ledger.list({ requestId }).find((row) => row.type === "edited" && row.payload.edited_to);
+    return entry ? String(entry.payload.edited_to) : null;
   }
 
   private glassReviewWindow(): number {
@@ -3084,6 +3514,11 @@ export class Clearance implements ClearanceCore {
   private whyReply(reference: string, askerId: string | null, roomId: string): string {
     const request = this.findRequest(reference, roomId);
     const trace = request ? this.traces.latest(request.id) : null;
+    const editOf = request ? this.evidenceOf(request).editOf : undefined;
+    // An edit one person was enough for never went to anyone, so there's no route to explain. There's still a why.
+    if (request && !trace && editOf) {
+      return `${request.id} is ${editOf.requestId} with its amount lowered from ${this.money(editOf.from)} to ${this.money(editOf.to)} by ${this.approverNames([editOf.by])}, who approved it. Nothing else about the call changed.`;
+    }
     if (!request || !trace) return `I can't find ${reference}.`;
     const evidence = this.evidenceOf(request);
     const explained = explainTrace(trace, {
@@ -3108,6 +3543,7 @@ export class Clearance implements ClearanceCore {
     if (!request) return `I can't find ${reference}.`;
     const trace = this.traces.latest(request.id);
     const tz = this.currentPolicy.defaults.business_hours.tz;
+    if (request.state === "EDITED") return `${request.id}: EDITED. It did not run and will not. It went on as ${this.editedTo(request.id) ?? "a new request"}.`;
     const holder = trace ? ` ${holderSentence(trace)}` : "";
     return `${request.id}: ${request.state}.${holder} Expires ${formatClockWithZone(request.expiresAtMs, tz)}.`;
   }

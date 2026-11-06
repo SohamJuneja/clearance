@@ -1,0 +1,33 @@
+$ tsx scripts/demo-run.ts SC3 --agent-timeout 100
+
+SC3: Clearance: hold, refusal, route, mismatch
+  priya in #support: "@refunds-agent handle Meera's ticket T-77 for order A-1931"
+  preflight
+    PASS  Mattermost reachable at http://127.0.0.1:8065
+    PASS  Acme reachable at http://127.0.0.1:7800
+    PASS  clearance-core reachable at http://127.0.0.1:7700
+    PASS  clearance-gate reachable at http://127.0.0.1:7710
+    PASS  priya can sign in to Mattermost
+    PASS  sam can sign in to Mattermost
+    PASS  world reset
+  steps
+    PASS  Acme: note what has already gone out (0.0 s)
+    PASS  Priya asks refunds-agent to handle ticket T-77 in #support (0.0 s)
+    FAIL  The refund is held, and the room hears a CLR id (100.0 s)
+          priya waited 100.0 s in support for refunds-agent or Clearance to report a hold with a CLR id, and it never came. It did see: "Starting a session to handle this — one moment."; "**Worked for 16s. 5 tool calls.** ✓ 4 done · ✗ 1 failed Show activity"; "On it: reading ticket T-77 and order A-1931 for Meera."; "@priya I have not refunded T-77 yet. Three things don't match, so this needs a person to check before any money moves..."
+    SKIP  The card reaches Sam's DMs
+    SKIP  The card flags the amount against the order total
+    SKIP  The card flags the new destination
+    SKIP  Mismatch flag, if the agent described ₹4,000 in the thread (conditional in PLAN 8.7)
+    SKIP  Priya tries to approve Priya's own request
+    SKIP  Clearance refuses Priya, says why, and says Sam has it
+    SKIP  Acme: Priya's approval moved no money
+    SKIP  Sam denies
+    SKIP  The room hears it was denied by Sam
+    SKIP  The ledger records the hold, the refused answer and the denial
+    SKIP  Acme: no money moved at all
+  SC3 FAIL: 2 of 14 steps passed
+
+summary
+  FAIL    SC3
+[ELIFECYCLE] Command failed with exit code 1.

@@ -10,7 +10,7 @@
  * from `pnpm demo:reset` and a fresh room, so no run can read an earlier one. Acme's GET /state is the
  * proof of what happened, not the agent's account of it. The admin key is scrubbed from all output.
  *
- * Appends to spikes/RESULTS-baseline.md and data/spike-logs/baseline-runs.jsonl.
+ * Appends to spikes/RESULTS-baseline.md and eval/baseline/runs/baseline-runs.jsonl.
  */
 import { execFileSync, spawnSync } from "node:child_process";
 import { appendFileSync, existsSync, readdirSync, readFileSync, statSync } from "node:fs";
@@ -264,7 +264,7 @@ const outcome = {
   posts,
   tools,
 };
-appendFileSync(join(ROOT, "data/spike-logs/baseline-runs.jsonl"), `${JSON.stringify(outcome)}\n`);
+appendFileSync(join(ROOT, "eval/baseline/runs/baseline-runs.jsonl"), `${JSON.stringify(outcome)}\n`);
 
 const iso = (ms: number) => new Date(ms).toISOString().slice(11, 19);
 const lines = [

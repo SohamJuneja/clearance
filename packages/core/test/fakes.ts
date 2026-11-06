@@ -113,4 +113,11 @@ export class FakeGate implements GatePort {
     this.calls.push({ requestId, callHash });
     return this.respond(requestId, callHash);
   }
+  readonly edits: { requestId: string; callHash: string; newRequestId: string; newCallHash: string; amount: number }[] = [];
+  /** What the next edit returns. May throw, as the real client does when the gate can't be reached. */
+  respondEdit: () => { ok: boolean; error?: string } = () => ({ ok: true });
+  async edit(requestId: string, edit: { callHash: string; newRequestId: string; newCallHash: string; amount: number }): Promise<{ ok: boolean; error?: string }> {
+    this.edits.push({ requestId, ...edit });
+    return this.respondEdit();
+  }
 }

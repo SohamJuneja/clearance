@@ -54,6 +54,9 @@ const PayoutArgs = z.object({ customer_id: text, upi: text }).strict();
 const DeleteArgs = z.object({ table: pathSegment, id: pathSegment }).strict();
 const MergeArgs = z.object({ repo: text, pr: z.number().int().positive().safe() }).strict();
 
+/** The operations whose `amount` an approver may lower (F20). Nothing else about a held call can be edited. */
+export const AMOUNT_EDITABLE: ReadonlySet<string> = new Set(["refund"]);
+
 export type OperationName =
   "refund" | "deploy" | "rollback" | "email" | "payout" | "delete" | "merge";
 

@@ -126,6 +126,14 @@ export function summariseEntry(type: string, payload: Record<string, unknown>, n
       return `Reported by ${name(text("reported_by")) ?? "someone"}: ${text("note") ?? "no note"}`;
     case "break_glass":
       return `By ${name(text("by")) ?? "someone"}: ${text("reason") ?? "no reason given"}`;
+    case "edit_proposed":
+      return `${name(text("by")) ?? "Someone"} offered ${text("to") ?? "?"} instead of ${text("from") ?? "?"}`;
+    case "edit_withdrawn":
+      return `Offer of ${text("to") ?? "?"} dropped: ${(text("reason") ?? "no reason given").replace(/_/g, " ")}`;
+    case "edited":
+      return text("edited_to")
+        ? `Edited by ${name(text("by")) ?? "someone"} to ${text("to") ?? "?"}, as ${text("edited_to")}. This call did not run.`
+        : `${text("edit_of") ?? "Another request"} edited by ${name(text("by")) ?? "someone"}: ${text("to") ?? "?"} instead of ${text("from") ?? "?"}`;
     default:
       return "";
   }

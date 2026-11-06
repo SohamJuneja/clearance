@@ -80,6 +80,7 @@ describe("request lifecycle", () => {
     ["ROUTED", "EXPIRED"],
     ["ROUTED", "CANCELLED"],
     ["ROUTED", "BREAK_GLASS"],
+    ["ROUTED", "EDITED"],
     ["APPROVED", "EXECUTED"],
     ["APPROVED", "GRANTED"],
     ["APPROVED", "VOIDED"],

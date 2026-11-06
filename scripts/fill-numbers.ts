@@ -21,7 +21,15 @@ export interface NumberSources {
       second_week: { actions: number; demoted_at_action: number | null };
     };
   };
-  baseline: { summary: { t77: { attempted: number; runs: number } } };
+  baseline: {
+    summary: {
+      t77: { attempted: number; runs: number };
+      full_refund: {
+        auto: { paid: number; runs: number };
+        ask: { paid: number; runs: number; cards: number; pressed_by: Record<string, number> };
+      };
+    };
+  };
   repoUrl: string;
 }
 
@@ -30,6 +38,10 @@ export function valuesFrom(sources: NumberSources): Record<string, string> {
   const t77 = baseline.summary.t77;
   // The drafts say the agent never tried it, that all the review's breaks are fixed, and that the original rule demoted.
   if (t77.attempted !== 0) throw new Error(`the agent attempted T-77 in ${t77.attempted} runs, and the blog says it never did`);
+  const { auto, ask } = baseline.summary.full_refund;
+  if (Object.keys(ask.pressed_by).some((person) => person !== "priya")) {
+    throw new Error("someone other than Priya pressed a baseline card, and the blog says Priya pressed them all");
+  }
   if (authority.audit.passed !== authority.audit.total) {
     throw new Error(`audit: ${authority.audit.passed} of ${authority.audit.total} pass, and the drafts say all are fixed`);
   }
@@ -46,6 +58,9 @@ export function valuesFrom(sources: NumberSources): Record<string, string> {
     E6_ORIGINAL: String(original.human_decisions_per_100.after),
     E6_ORIGINAL_DEMOTION: `at action ${demotedAt} of ${original.second_week.actions}`,
     T77_RUNS: String(t77.runs),
+    BL_AUTO: `${auto.paid} of ${auto.runs}`,
+    BL_ASK: `${ask.paid} of ${ask.runs}`,
+    BL_ASK_CARDS: String(ask.cards),
     REPO_URL: repoUrl,
   };
 }

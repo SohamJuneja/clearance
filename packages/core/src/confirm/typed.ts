@@ -57,6 +57,20 @@ export function askText(field: ConfirmField, requestId: string, cls: string, cur
   return `${opener} is high risk. To approve, type ${what[field]}, in quotes, after the request code. Or choose No, deny.`;
 }
 
+/**
+ * F20: the amount is the question here, so typing it back would prove nothing. Asking for something else on the card
+ * means looking at where the money goes.
+ */
+export function counterField(extracted: Record<string, unknown>): ConfirmField {
+  const destination = String(extracted.destination ?? "").trim();
+  return destination.length >= 4 && typeable(destination.slice(-4)) ? "destination_last4" : "request_id";
+}
+
+export function counterAsk(field: ConfirmField, requestId: string, amount: string): string {
+  const what = field === "destination_last4" ? "the last 4 characters of the destination" : "the CLR number from the title";
+  return `Approve ${amount} instead? To approve, type ${what}, in quotes, after the request code. Or choose No, deny, which drops this offer and leaves ${requestId} waiting.`;
+}
+
 export const DENY_OPTION_ID = "deny";
 
 const QUOTE_PAIRS: [string, string][] = [
@@ -78,7 +92,7 @@ function unquoted(text: string): string {
 const SCALE: Record<string, number> = { k: 1e3, lakh: 1e5, lac: 1e5, crore: 1e7, cr: 1e7 };
 const TYPED_AMOUNT = /^(?:₹|rs\.?|inr)?\s*(\d+(?:,\d+)*(?:\.\d+)?)\s*(k|lakh|lac|crore|cr)?\s*(?:rupees|rs\.?|inr)?$/i;
 
-function typedAmount(text: string): number | null {
+export function typedAmount(text: string): number | null {
   const match = TYPED_AMOUNT.exec(text.trim());
   if (!match) return null;
   const value = Number((match[1] as string).replace(/,/g, ""));

@@ -1,6 +1,7 @@
 /**
  * Requests and their state machine (F3):
  *   HELD -> ROUTED -> APPROVED | DENIED | EXPIRED | CANCELLED | BREAK_GLASS -> EXECUTED | GRANTED -> CONSUMED | VOIDED
+ *   ROUTED -> EDITED: an approver said yes to a smaller amount (F20). It ends here, and a new request carries the edit.
  * INELIGIBLE_ANSWER and REROUTED are ledger events, not states: an ineligible answer leaves the request ROUTED.
  */
 import type { Action, CanonicalCall, Clock, Flag, RequestState, Tier } from "@clearance/contracts";
@@ -9,7 +10,7 @@ import type { Ledger } from "../ledger/ledger.js";
 
 export const TRANSITIONS: Record<RequestState, RequestState[]> = {
   HELD: ["ROUTED", "EXPIRED", "CANCELLED"],
-  ROUTED: ["APPROVED", "DENIED", "EXPIRED", "CANCELLED", "BREAK_GLASS"],
+  ROUTED: ["APPROVED", "DENIED", "EXPIRED", "CANCELLED", "BREAK_GLASS", "EDITED"],
   APPROVED: ["EXECUTED", "GRANTED", "VOIDED"],
   BREAK_GLASS: ["EXECUTED", "GRANTED", "VOIDED"],
   GRANTED: ["CONSUMED", "VOIDED"],
@@ -20,9 +21,10 @@ export const TRANSITIONS: Record<RequestState, RequestState[]> = {
   CONSUMED: [],
   VOIDED: [],
   AUTO: [],
+  EDITED: [],
 };
 
-const DECIDED: RequestState[] = ["APPROVED", "DENIED", "EXPIRED", "CANCELLED", "BREAK_GLASS"];
+const DECIDED: RequestState[] = ["APPROVED", "DENIED", "EXPIRED", "CANCELLED", "BREAK_GLASS", "EDITED"];
 
 export const OPEN_STATES: RequestState[] = ["HELD", "ROUTED"];
 

@@ -136,6 +136,27 @@ An agent climbs a ladder per agent, class and bucket:
 
 `max_level` is how far the class can go. `promote_after` is what Clearance needs before it proposes a promotion, and a promotion always needs people to sign it. Demotion is instant on an incident or a denial, and needs nobody's approval. Forced holds, missing data and the critical tier never run on their own. An amount above the bucket's 95th percentile holds that one call for a person and doesn't demote.
 
+### Approving a smaller amount
+
+There's nothing to configure. On a call through the gate whose class has an amount, someone who could approve it can offer less instead:
+
+```
+@clearance counter CLR-0042 4000
+```
+
+That opens a question card to them, in their direct room: "Approve ₹4,000 instead?". They confirm by typing the last 4 characters of the destination, or the CLR number if there's no destination to type. The question already shows the amount, so typing that back would prove nothing. A wrong value asks once more, then drops the offer. "No, deny" drops the offer and leaves the request waiting: it doesn't deny the request. Ordinary cards don't change, and they stay open while an offer is open.
+
+| Rule | What happens |
+|---|---|
+| Who | The same check as answering a card, when the command is sent and again when the card is answered. The requester, the agent's owner where the class bars them, people who aren't approvers, and anyone whose approval already counted are refused, on the ledger. An agent is ignored. |
+| What | Only the amount, only down, to a whole number above zero. An increase is refused: that's a new request for the agent to make, not an edit. Destination, customer and order are never editable. The command takes no other value, and the gate builds the new call from the one it stored. |
+| Hook calls | Refused. Nothing can make an agent re-run a different command. |
+| Policy | The edited call goes through the normal policy path before anything runs, with the amount it replaces left out of the 24 h window. A `deny` leaves the original waiting. The new tier sets the quorum, so an edit can't skip one: if that tier needs more people than the one who offered, it's held and routed as usual. An approval of the original doesn't carry over, because it was for a different call. A quorum raised because nobody knows who asked, or because the agent is working somewhere Clearance can't see, carries over. |
+| Running it | On a yes the original ends as `EDITED` and can't run, and a new request with its own id and hash carries the edit. The gate runs that exactly once. A gate that doesn't answer leaves it retrying, and after 5 minutes it's voided, as for any approved call. A gate that refuses the edit voids it at once. The gate checks the rules again itself and only allows edits on `refund`. |
+| Records | The ledger has `edit_proposed`, `edit_withdrawn` and `edited`, which holds both amounts, both hashes and who made it. `approved` and `executed` appear only on the new request. The audit export has `edited_by`, `edited_to` and `edit_of`. |
+| The agent | It's told "CLR-0042 did not run and will not", then what ran instead, or that the edit still needs someone. |
+| Promotion | An approval with edits counts against promotion. Both requests are recorded as edited, neither counts towards `promote_after`, and either one blocks promotion while it's in the window. |
+
 ## Expressions
 
 `when`, `extract` and bucket conditions use a small language, parsed by jsep, checked against a whitelist and walked by a small evaluator (`packages/core/src/policy/expr.ts`). There is no `eval`, and nothing can be called except the helpers below. It has comparisons, arithmetic, `and`, `or`, `not` and `in`.

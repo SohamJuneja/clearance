@@ -66,6 +66,7 @@ Lead wires all of this together in `packages/core/src/main.ts` at integration.
 Header `Authorization: Bearer $CLEARANCE_INTERNAL_TOKEN`.
 
 - `POST {GATE}/internal/execute/:requestId`, body `{call_hash}`, response `ExecuteResult`. The gate refuses when `call_hash` differs from what it stored. Exactly-once by `request_id` inside a SQLite transaction; a second call returns `{ok:true, alreadyExecuted:true, result}` with the original result.
+- `POST {GATE}/internal/edit/:requestId`, body `{call_hash, new_request_id, new_call_hash, amount}`, response `{ok, error?}`. Closes a held refund and holds a copy under the new id with only the amount changed, lower and whole, in one step. Asking again for the same edit gets the same answer; 409 is a refusal, and core voids the edit. The original can't run afterwards, and `GET /pending/:id` answers `status: "edited"` with `edited_to`.
 - `GET {GATE}/internal/lookup/:kind/:id`, returns JSON or 404. Kinds: `orders`, `customers`, `destinations`, `ci`, `github`, `pulls`, `services`, `tickets`, `files`.
 
 ## Hash

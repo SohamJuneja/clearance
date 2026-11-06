@@ -100,10 +100,25 @@ Each step is also one command, `pnpm demo:run SC3` and so on, which drives the p
 | Addressing policy | Only linked people can answer Clearance's cards | `scripts/setup-identities.ts` |
 | Message stream | Presence and load for routing | `packages/core/src/router` |
 | Mattermost bridge buttons | One-click decisions in the demo | Switch's own |
+| Switch Trust (optional, off by default) | Flags agent messages that pressure approvers. Advice only: it never changes a decision | `packages/core/src/trust` |
 
 ### Remove Switch and this breaks
 
 There's no room where people and different vendors' agents meet, no identity to separate requester from approver, no card, and no way to install. Clearance has no chat surface of its own and no agents of its own. Switch is where the work happens, and Clearance decides who may let it through.
+
+### Switch Trust
+
+Switch can send each message to an outside check before posting it. Clearance can be that check: `POST /guardrails/check` answers `ALERTED` for agent messages that lean on approvers, like "urgent, CEO says approve now", using plain patterns with no LLM.
+
+It's advisory only. Switch gives it 2 s and fails open, so nothing may depend on it, and it never changes a decision: the listener has no way to reach core, and Switch only adds a note in the room. What protects an approver from pressure is the card, which shows the call and not the agent's words.
+
+It's off by default, and it takes config only, with no change to Switch:
+
+1. Find the address of the gateway of Switch's Docker network: `docker network inspect <project>_default -f '{{(index .IPAM.Config 0).Gateway}}'`. Core's API stays on loopback. The check gets a listener of its own, with this one route.
+2. In `.env`, set `CLEARANCE_TRUST_KEY` to a new secret and `CLEARANCE_TRUST_HOST` to that address, then restart core.
+3. As a Switch admin, `PUT /trust-settings` on the gateway with `{"endpoint": "http://<address>:7701", "policy_id": "clearance-pressure", "api_key": "<the key>"}`. It applies from the next message, and `DELETE /trust-settings` turns it off.
+
+Leave it off for a recorded take. Every message then waits on the check before it posts, and if core is down or stopping, every message gets Switch's "could not check" note, including during the fail-closed scene.
 
 ## Architecture
 
@@ -192,11 +207,10 @@ refund:
 
 Working on the real stack: holds, refusals, routing, execute-on-approval and fail-closed behaviour through the gate, the Claude Code and OpenCode hooks, cards with real button presses, the inbox, the ledger mirror, drills, earned autonomy's promotion and demotion, delegation, break-glass, and the install command.
 
-Proved in tests against fakes, not yet on the live stack: signed policy changes.
+Proved in tests, not yet on the live stack: signed policy changes, against fakes, and approve with edits (`@clearance counter CLR-0042 4000`), through the real gate with a stand-in Acme and a fake chat port. Switch Trust's check is proved against Switch's request and response shapes as read from its code, and hasn't been turned on against a running Switch.
 
 Not yet:
 
-- Approve with edits (F20) isn't built.
 - Delete cards show no record name, because the gate has no record lookup.
 - An L2 review's "reverse" can't undo anything automatically, because Acme has no undo. It demotes, records an incident and asks a person.
 - Shadow mode logs what would have been held but keeps denies enforced, because those guard Clearance itself.

@@ -450,7 +450,7 @@ A small React app (read-mostly) at http://localhost:7900. Tabs: **Queue** (open 
 - **F17 Policy changes need two approvers.** Edits to the policy file or autonomy levels go through Clearance itself with `quorum: 2` ("who approves the approver").
 - **F18 Break-glass.** Named emergency approvers can run `@clearance breakglass CLR-0042 <reason>`; it executes, pages the team, and opens a mandatory review card for the next day. Borrowed from Warrant's waiver rule.
 - **F19 Delegation and quiet hours.** `@clearance away until 18:00 delegate @alex`; rotas respect quiet hours; delegation never to the requester.
-- **F20 Approve with edits.** The approver answers a question card "Approve ₹4,000 instead?"; Clearance creates a new call with the edited amount and executes that through the gate.
+- **F20 Approve with edits.** An eligible approver types `@clearance counter CLR-0042 4000`, which opens a question card "Approve ₹4,000 instead?". On a yes, Clearance creates a new call with the edited amount and executes that through the gate. It's a command so that ordinary cards keep their buttons. Only the amount, only down, only gate calls, and the edited call goes through the normal policy path.
 - **F21 Switch Trust endpoint.** Clearance implements `POST /guardrails/check` (the schema Switch's Trust client calls, `trust/client.py`) and returns `ALERTED` for agent messages that pressure approvers ("urgent, CEO says approve now"). Switch calls it with a 2 s timeout and fails open, so it is advisory only.
 - **F22 Digest and audit export.** Daily digest message in `#approvals`; `GET /v1/export.csv` with columns that map to NIST AC-5 and PCI DSS 6.x evidence (who requested, who approved, separation proof, timestamps, hash).
 

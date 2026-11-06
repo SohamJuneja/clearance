@@ -70,6 +70,7 @@ class Chat implements ChatPort {
 }
 
 const gate: GatePort = {
+  edit: async () => ({ ok: true }),
   execute: async (): Promise<ExecuteResult> => ({ ok: true, alreadyExecuted: false, status: 200, result: { id: "synthetic" } }),
 };
 

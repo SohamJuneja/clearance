@@ -77,6 +77,7 @@ describe("createGateClient GatePort", () => {
   it("throws when the gate is down, so core keeps the approval and retries", async () => {
     const dead = createGateClient({ baseUrl: await deadUrl(), internalToken: INTERNAL_TOKEN });
     await expect(dead.execute("CLR-3", "x")).rejects.toThrow();
+    await expect(dead.edit("CLR-3", { callHash: "x", newRequestId: "CLR-4", newCallHash: "y", amount: 1 })).rejects.toThrow();
   });
 
   it("returns a failed result when the gate answers with a refusal, so core voids at once", async () => {

@@ -166,6 +166,13 @@ export function renderReviewCard(view: CardView, level: string, note: string): {
   };
 }
 
+/** An offer of a smaller amount (F20). It says "counter" first, so it can't be taken for the request's own card. */
+export function renderCounterTitle(view: CardView, was: string): string {
+  const head = `${view.id} · COUNTER · `;
+  const tail = ` instead of ${was}`;
+  return `${head}${clip(view.headline, TITLE_MAX - head.length - tail.length)}${tail}`;
+}
+
 /**
  * A questions card has no detail slot, so the question's prompt carries the evidence, with a smaller budget.
  * `ask` is the question itself ("To approve, type the refund amount in rupees, ...") and always stays.

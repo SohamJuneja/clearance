@@ -4,9 +4,10 @@ import type { Db } from "../db/index.js";
 /**
  * primary: first choice. backup, group: from the ladder. fallback: nobody eligible. origin_copy: visibility only.
  * review: after the fact, on something earned autonomy ran. proposal: a signature; its request_id is a proposal id.
- * glass_review: the mandatory look at a break-glass (F18).
+ * glass_review: the mandatory look at a break-glass (F18). counter: someone confirming their own offer of a smaller
+ * amount (F20), which isn't how the request gets decided, so it's left out of what counts as coverage and of the inbox.
  */
-export type RouteStep = "primary" | "reroute" | "backup" | "group" | "fallback" | "origin_copy" | "review" | "proposal" | "glass_review";
+export type RouteStep = "primary" | "reroute" | "backup" | "group" | "fallback" | "origin_copy" | "review" | "proposal" | "glass_review" | "counter";
 
 export type RouteRow = {
   id: number;
@@ -21,6 +22,9 @@ export type RouteRow = {
   closed_at: number | null;
   /** Set on a type-to-confirm card: which value it asked for. */
   confirm_field: string | null;
+  /** Set on a counter card: the amount on offer, and how many wrong values came before this card. */
+  counter_amount: number | null;
+  counter_try: number | null;
 };
 
 /** Cards that exist in Switch for each request. An open card is one nobody has answered or closed. */
@@ -39,12 +43,13 @@ export class RouteStore {
     switchRequestId: string;
     handle?: string | undefined;
     confirmField?: string | undefined;
+    counter?: { amount: number; tries: number } | undefined;
   }): RouteRow {
     const now = this.clock.nowMs();
     const result = this.db
       .prepare(
-        `INSERT INTO routes (request_id, user_id, step, card_room, session_id, switch_request_id, handle, notified_at, confirm_field)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO routes (request_id, user_id, step, card_room, session_id, switch_request_id, handle, notified_at, confirm_field, counter_amount, counter_try)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         input.requestId,
@@ -56,6 +61,8 @@ export class RouteStore {
         input.handle ?? null,
         now,
         input.confirmField ?? null,
+        input.counter?.amount ?? null,
+        input.counter?.tries ?? null,
       );
     return this.db.prepare(`SELECT * FROM routes WHERE id = ?`).get(result.lastInsertRowid) as RouteRow;
   }
@@ -95,7 +102,7 @@ export class RouteStore {
   /** How many typed cards this person has been shown, so the field asked for can rotate. */
   confirmCount(userId: string): number {
     const row = this.db
-      .prepare(`SELECT COUNT(*) AS count FROM routes WHERE user_id = ? AND confirm_field IS NOT NULL`)
+      .prepare(`SELECT COUNT(*) AS count FROM routes WHERE user_id = ? AND confirm_field IS NOT NULL AND step != 'counter'`)
       .get(userId) as { count: number };
     return row.count;
   }
@@ -112,7 +119,7 @@ export class RouteStore {
   askedToType(requestId: string, userId: string): boolean {
     return (
       this.db
-        .prepare(`SELECT 1 FROM routes WHERE request_id = ? AND user_id = ? AND confirm_field IS NOT NULL LIMIT 1`)
+        .prepare(`SELECT 1 FROM routes WHERE request_id = ? AND user_id = ? AND confirm_field IS NOT NULL AND step != 'counter' LIMIT 1`)
         .get(requestId, userId) !== undefined
     );
   }
@@ -149,7 +156,7 @@ export class RouteStore {
     return this.db
       .prepare(
         `SELECT r.* FROM routes r JOIN requests q ON q.id = r.request_id
-         WHERE r.user_id = ? AND r.closed_at IS NULL AND q.state IN ('HELD', 'ROUTED') ORDER BY r.notified_at DESC, r.id DESC`,
+         WHERE r.user_id = ? AND r.closed_at IS NULL AND r.step != 'counter' AND q.state IN ('HELD', 'ROUTED') ORDER BY r.notified_at DESC, r.id DESC`,
       )
       .all(userId) as RouteRow[];
   }

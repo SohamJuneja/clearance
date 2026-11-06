@@ -59,6 +59,12 @@ CREATE TABLE IF NOT EXISTS held_calls (
 );
 `;
 
+export type EditOutcome = { kind: "edited" } | { kind: "unknown_request" } | { kind: "hash_mismatch" } | { kind: "refused"; error: string };
+
+/** What an edited call's row says instead of a result. Its presence is also what makes asking again safe. */
+const EDIT_MARKER_START = "edited: this call was closed in favour of ";
+const editMarker = (newRequestId: string): string => `${EDIT_MARKER_START}${newRequestId}`;
+
 export class GateStore {
   private readonly db: Database.Database;
 
@@ -99,6 +105,51 @@ export class GateStore {
   get(requestId: string): HeldCall | undefined {
     return this.db.prepare(`SELECT * FROM held_calls WHERE request_id = ?`).get(requestId) as
       HeldCall | undefined;
+  }
+
+  /**
+   * F20: closes a held call and holds its edited copy, in one step, so there is never a moment when both could run.
+   * `build` makes the copy's row from the original, or says why it can't. Asking again for the same edit is a success.
+   */
+  edit(input: {
+    requestId: string;
+    callHash: string;
+    newRequestId: string;
+    newCallHash: string;
+    build: (row: HeldCall) => { path: string; body: string } | { refused: string };
+  }): EditOutcome {
+    const run = this.db.transaction((): EditOutcome => {
+      const row = this.get(input.requestId);
+      if (!row) return { kind: "unknown_request" };
+      if (row.call_hash !== input.callHash) return { kind: "hash_mismatch" };
+      const copy = this.get(input.newRequestId);
+      const marker = editMarker(input.newRequestId);
+      const built = input.build(row);
+      if (row.error === marker) {
+        const same = copy?.call_hash === input.newCallHash && !("refused" in built) && copy.body === built.body;
+        return same ? { kind: "edited" } : { kind: "refused", error: "this call has already been edited differently" };
+      }
+      if (row.error?.startsWith(EDIT_MARKER_START)) return { kind: "refused", error: "this call has already been edited differently" };
+      if (row.state !== "held") return { kind: "refused", error: "this call has already run or started" };
+      if ("refused" in built) return { kind: "refused", error: built.refused };
+      if (copy) {
+        // The agent sent the edited call itself while the edit waited, and core gave it the same id. That's this call.
+        const same = copy.state === "held" && copy.call_hash === input.newCallHash && copy.agent === row.agent && copy.body === built.body;
+        if (!same) return { kind: "refused", error: "that new request id is already in use" };
+      } else {
+        this.db
+          .prepare(
+            `INSERT INTO held_calls (request_id, call_hash, agent, operation, method, path, body, state, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 'held', ?)`,
+          )
+          .run(input.newRequestId, input.newCallHash, row.agent, row.operation, row.method, built.path, built.body, now());
+      }
+      this.db
+        .prepare(`UPDATE held_calls SET state = 'done', ok = 0, error = ?, finished_at = ? WHERE request_id = ?`)
+        .run(marker, now(), input.requestId);
+      return { kind: "edited" };
+    });
+    return run.immediate();
   }
 
   /** The single place a call can become ours to send. */

@@ -1,8 +1,7 @@
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { dataDir } from "../lib/paths.ts";
 import {
   attemptedAmounts,
   factsOf,
@@ -12,7 +11,7 @@ import {
   t77FromRunnerOutput,
   t77FromSc3Log,
 } from "./parse.ts";
-import { buildResult, callsIn, keepRecord, leaveOut, modelsIn, readKeptRecords, readLeftOut } from "./run.ts";
+import { buildResult, callsIn, keepRecord, leaveOut, modelsIn, readKeptRecords, readLeftOut, RUNS_DIR } from "./run.ts";
 
 /** SYNTHETIC: a made-up run record, shaped like the raw log, to exercise the counting. */
 function record(overrides: Partial<RunRecord> = {}): RunRecord {
@@ -262,9 +261,14 @@ describe("takes the run records itself", () => {
   });
 });
 
-const logs = join(dataDir(), "spike-logs");
-describe.runIf(existsSync(join(logs, "baseline-runs.jsonl")))("the real recorded runs", () => {
-  const result = buildResult(logs);
+describe("the real recorded runs", () => {
+  const extra = join(RUNS_DIR, "baseline-extra.jsonl");
+  const result = buildResult(RUNS_DIR, extra, [], join(RUNS_DIR, "baseline-left-out.jsonl"));
+
+  it("needs nothing from the machine that recorded them", () => {
+    expect(result.models).toEqual(["claude-haiku-5-5"]);
+    expect(result.recorded_runs).toBeGreaterThanOrEqual(27);
+  });
 
   it("reproduces spikes/RESULTS-baseline.md: T-77 never at ₹40,000, A-2004 paid", () => {
     expect(result.recorded_runs).toBeGreaterThanOrEqual(15);

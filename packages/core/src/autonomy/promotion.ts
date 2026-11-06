@@ -12,7 +12,7 @@ export const F11_CRITERIA: Criteria = { approvals: 20, days: 7, minDistinctAppro
 export type BucketStats = {
   /** Everything decided in this range, whoever or whatever decided it. */
   requests: number;
-  /** Approved by a person, not fast. This is the evidence. */
+  /** Approved by a person as it was asked for, not fast. This is the evidence. */
   counted: number;
   /** Approved by a person in less time than the card takes to read. Not evidence. */
   fastExcluded: number;
@@ -29,7 +29,8 @@ export type BucketStats = {
 
 export function bucketStats(events: NewBucketEvent[]): BucketStats {
   const judged = events.filter((event) => event.outcome !== "auto");
-  const careful = judged.filter((event) => event.outcome === "approved" && !event.fast);
+  // An approval with edits says the agent asked for the wrong thing, so it can't also count for trusting it more.
+  const careful = judged.filter((event) => event.outcome === "approved" && !event.fast && !event.edited);
   const replayed = judged.filter((event) => event.autoEligible);
   return {
     requests: events.length,
@@ -40,7 +41,7 @@ export function bucketStats(events: NewBucketEvent[]): BucketStats {
     edited: events.filter((event) => event.edited).length,
     approvers: [...new Set(careful.flatMap((event) => event.approvers))],
     wouldAuto: replayed.length,
-    wouldAutoApproved: replayed.filter((event) => event.outcome === "approved").length,
+    wouldAutoApproved: replayed.filter((event) => event.outcome === "approved" && !event.edited).length,
     wouldAutoDenied: replayed.filter((event) => event.outcome === "denied").length,
   };
 }

@@ -1,10 +1,10 @@
 /**
  * `pnpm eval:baseline`: the real baseline numbers for the video and README, from the recorded runs. Reads
- * data/spike-logs/baseline-runs.jsonl and the SC3 logs, read-only, and writes eval/out/baseline.json. It starts no agent.
+ * eval/baseline/runs/, read-only, and writes eval/out/baseline.json. It starts no agent.
  *
  *   pnpm eval:baseline                    every recorded run
  *   pnpm eval:baseline --append <file>    checks new run records, one JSON object per line, keeps them in
- *                                         eval/out/baseline-extra.jsonl and counts them from then on
+ *                                         eval/baseline/runs/baseline-extra.jsonl and counts them from then on
  *   pnpm eval:baseline --leave-out <scenario> <take> <reason>
  *                                         names a take that failed on the recorder, so the result says why it isn't counted
  *
@@ -23,7 +23,7 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
-import { dataDir, REPO_ROOT } from "../lib/paths.ts";
+import { REPO_ROOT } from "../lib/paths.ts";
 import {
   factsOf,
   groupRuns,
@@ -36,8 +36,12 @@ import {
 } from "./parse.ts";
 
 const OUT_DIR = join(REPO_ROOT, "eval/out");
-const EXTRA_LOG = join(OUT_DIR, "baseline-extra.jsonl");
-const LEFT_OUT_LOG = join(OUT_DIR, "baseline-left-out.jsonl");
+/** Tracked, so anyone can rerun this and get the same row. It's synthetic chat and tool calls, secret-scanned before it went in. */
+export const RUNS_DIR = join(REPO_ROOT, "eval/baseline/runs");
+const EXTRA_LOG = join(RUNS_DIR, "baseline-extra.jsonl");
+const LEFT_OUT_LOG = join(RUNS_DIR, "baseline-left-out.jsonl");
+/** Which model answered comes from transcripts on the machine that ran it, so the answer is kept here for anyone else. */
+const MODELS_FILE = "models.json";
 const SC3_RUNS = ["sc3-run1", "sc3-run2", "sc3-run3"];
 const BASELINE_AGENT_TRANSCRIPTS =
   ".claude/projects/-home-prashant--switch-agents-127-0-0-1-8000-refunds-agent-vanilla";
@@ -178,6 +182,13 @@ function labelledTakes(
     }));
 }
 
+/** The models this machine's transcripts show, plus those already on record. Writing them down keeps them for the next machine. */
+function knownModels(logs: string, transcripts: string[]): string[] {
+  const file = join(logs, MODELS_FILE);
+  const kept = existsSync(file) ? (JSON.parse(readFileSync(file, "utf8")) as string[]) : [];
+  return [...new Set([...kept, ...modelsIn(...transcripts)])].sort();
+}
+
 export function buildResult(logs: string, extraLog?: string, transcripts?: string[], leftOutLog?: string) {
   const log = join(logs, "baseline-runs.jsonl");
   if (!existsSync(log)) {
@@ -197,9 +208,9 @@ export function buildResult(logs: string, extraLog?: string, transcripts?: strin
   }
   return {
     experiment: "BL" as const,
-    source: "data/spike-logs/baseline-runs.jsonl and sc3-run{1,2,3}",
+    source: "eval/baseline/runs/: baseline-runs.jsonl, baseline-extra.jsonl and sc3-run{1,2,3}",
     recorded_runs: runs.length,
-    models: transcripts ? modelsIn(...transcripts) : [],
+    models: knownModels(logs, transcripts ?? []),
     // Runs may not compare across setups, and the row says how many ran each way.
     setups: [...setups].map(([what, runs]) => ({ what, runs })),
     left_out: leftOutLog ? readLeftOut(leftOutLog) : [],
@@ -214,9 +225,9 @@ export function buildResult(logs: string, extraLog?: string, transcripts?: strin
 
 function append(file: string): number {
   const records = readRecords(resolve(file));
-  mkdirSync(OUT_DIR, { recursive: true });
+  mkdirSync(RUNS_DIR, { recursive: true });
   appendFileSync(EXTRA_LOG, records.map((record) => `${JSON.stringify(record)}\n`).join(""));
-  process.stdout.write(`kept ${records.length} run(s) in eval/out/baseline-extra.jsonl\n`);
+  process.stdout.write(`kept ${records.length} run(s) in eval/baseline/runs/baseline-extra.jsonl\n`);
   return records.length;
 }
 
@@ -240,11 +251,12 @@ function main(): number {
     return 2;
   }
   const result = buildResult(
-    join(dataDir(), "spike-logs"),
+    RUNS_DIR,
     EXTRA_LOG,
     [join(homedir(), BASELINE_AGENT_TRANSCRIPTS), FENCED_BASELINE_TRANSCRIPTS],
     LEFT_OUT_LOG,
   );
+  writeFileSync(join(RUNS_DIR, MODELS_FILE), `${JSON.stringify(result.models, null, 2)}\n`);
   mkdirSync(OUT_DIR, { recursive: true });
   writeFileSync(join(OUT_DIR, "baseline.json"), `${JSON.stringify(result, null, 2)}\n`);
 

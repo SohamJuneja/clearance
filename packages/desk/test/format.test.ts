@@ -94,6 +94,10 @@ describe("ledger summaries read core's real payloads", () => {
     ["promotion_rejected", { reason: "evidence_changed", signed_by: ["sam"] }, "Not promoted: evidence changed"],
     ["demoted", { agent: "ops-agent", class: "deploy", bucket: "staging", from: "L1", to: "L0" }, "ops-agent · deploy · staging: L1 to L0"],
     ["incident", { reported_by: "neha", note: "wrong customer" }, "Reported by neha: wrong customer"],
+    ["edit_proposed", { by: "sam", from: 40000, to: 4000 }, "sam offered 4000 instead of 40000"],
+    ["edit_withdrawn", { by: "sam", from: 40000, to: 4000, reason: "wrong_value" }, "Offer of 4000 dropped: wrong value"],
+    ["edited", { by: "sam", from: 40000, to: 4000, edited_to: "CLR-0002" }, "Edited by sam to 4000, as CLR-0002. This call did not run."],
+    ["edited", { by: "sam", from: 40000, to: 4000, edit_of: "CLR-0001" }, "CLR-0001 edited by sam: 4000 instead of 40000"],
     ["break_glass", { by: "alex", reason: "prod is down" }, "By alex: prod is down"],
     ["something_new", { x: 1 }, ""],
   ] as const)("%s %j", (type, payload, text) => {

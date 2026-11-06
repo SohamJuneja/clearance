@@ -11,7 +11,9 @@ import { hookRoutes, loadHookTokens } from "@clearance/adapters";
 import { DEFAULT_PORTS } from "@clearance/contracts";
 import { createGateClient } from "@clearance/gate";
 import { createChatPort, createMattermostHandleResolver, createOwnPosts, createSwitchAgent, createTemplatePort, serviceConnectionId } from "@clearance/switch-agent";
+import type { FastifyInstance } from "fastify";
 import { buildServer } from "./api/server.js";
+import { buildTrustServer, trustListenFrom } from "./trust/server.js";
 import { systemClock } from "./clock.js";
 import { OperatorCommands } from "./commands/operator.js";
 import { createClearanceCore } from "./core.js";
@@ -190,6 +192,8 @@ await app.register(async (scope) => {
   });
 });
 
+let trustServer: FastifyInstance | null = null;
+
 const tick = setInterval(() => {
   core.tick().catch((error: unknown) => console.error("tick failed:", error));
   // Started, not waited for: nothing that decides depends on the copy.
@@ -201,6 +205,7 @@ const stop = async () => {
   clearInterval(tick);
   clearInterval(inboxTick);
   await agent.stop();
+  await trustServer?.close();
   await app.close();
   core.close();
   process.exit(0);
@@ -210,5 +215,14 @@ process.on("SIGINT", () => void stop());
 
 const port = Number(process.env.CLEARANCE_CORE_PORT ?? DEFAULT_PORTS.core);
 await app.listen({ port, host: "127.0.0.1" });
+
+// F21, off unless it has a key. It's advice, so failing to listen costs nothing else: Switch fails open.
+const trustListen = trustListenFrom(process.env);
+if (trustListen) {
+  trustServer = buildTrustServer(trustListen.key);
+  trustServer.listen({ port: trustListen.port, host: trustListen.host }).catch((error: unknown) => {
+    console.error(`Trust check not listening on ${trustListen.host}:${trustListen.port}: ${(error as Error).message}`);
+  });
+}
 await agent.start(streamHandlers(core, { afterMessage: (event) => operator.start(event) }));
 console.log(`clearance-core listening on 127.0.0.1:${port}, Switch agent connected`);

@@ -55,6 +55,26 @@ export function createGateClient(options: GateClientOptions): GateClient {
       };
     },
 
+    async edit(requestId, edit) {
+      const res = await fetch(`${base}/internal/edit/${encodeURIComponent(requestId)}`, {
+        method: "POST",
+        headers: { authorization, "content-type": "application/json" },
+        body: JSON.stringify({
+          call_hash: edit.callHash,
+          new_request_id: edit.newRequestId,
+          new_call_hash: edit.newCallHash,
+          amount: edit.amount,
+        }),
+        redirect: "error",
+        signal: AbortSignal.timeout(executeTimeoutMs),
+      });
+      // A gate that's broken hasn't refused anything, and asking again is safe.
+      if (res.status >= 500) throw new Error(`gate answered ${res.status}`);
+      const answer = (await res.json().catch(() => null)) as { ok?: unknown; error?: unknown } | null;
+      if (res.ok && answer?.ok === true) return { ok: true };
+      return { ok: false, error: typeof answer?.error === "string" ? answer.error : `gate answered ${res.status}` };
+    },
+
     async lookup(kind: string, id: string): Promise<Record<string, unknown> | null> {
       const res = await fetch(
         `${base}/internal/lookup/${encodeURIComponent(kind)}/${encodeURIComponent(id)}`,

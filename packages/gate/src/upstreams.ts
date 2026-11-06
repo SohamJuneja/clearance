@@ -93,7 +93,7 @@ export class AcmeClient {
 
 export type CoreCheck = { ok: true; response: CheckResponse } | { ok: false; reason: string };
 export type CoreRequest =
-  | { ok: true; found: true; state: string; agent?: string }
+  | { ok: true; found: true; state: string; agent?: string; editedTo?: string }
   | { ok: true; found: false }
   | { ok: false; reason: string };
 
@@ -159,11 +159,18 @@ export class CoreClient {
     const top = parsed as {
       state?: unknown;
       agent?: unknown;
+      edited_to?: unknown;
       request?: { state?: unknown; agent?: unknown };
     } | null;
     const state = top?.state ?? top?.request?.state;
     if (typeof state !== "string") return { ok: false, reason: "core answered the wrong shape" };
     const agent = top?.agent ?? top?.request?.agent;
-    return { ok: true, found: true, state, agent: typeof agent === "string" ? agent : undefined };
+    return {
+      ok: true,
+      found: true,
+      state,
+      agent: typeof agent === "string" ? agent : undefined,
+      ...(typeof top?.edited_to === "string" ? { editedTo: top.edited_to } : {}),
+    };
   }
 }

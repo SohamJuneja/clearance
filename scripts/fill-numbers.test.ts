@@ -11,7 +11,15 @@ const sources = (): NumberSources => ({
       second_week: { actions: 120, demoted_at_action: 34 },
     },
   },
-  baseline: { summary: { t77: { attempted: 0, runs: 9 } } },
+  baseline: {
+    summary: {
+      t77: { attempted: 0, runs: 9 },
+      full_refund: {
+        auto: { paid: 6, runs: 8 },
+        ask: { paid: 6, runs: 8, cards: 29, pressed_by: { priya: 29 } },
+      },
+    },
+  },
   repoUrl: "https://github.com/example/clearance",
 });
 
@@ -25,6 +33,9 @@ describe("valuesFrom", () => {
       E6_ORIGINAL: "79.2",
       E6_ORIGINAL_DEMOTION: "at action 34 of 120",
       T77_RUNS: "9",
+      BL_AUTO: "6 of 8",
+      BL_ASK: "6 of 8",
+      BL_ASK_CARDS: "29",
       REPO_URL: "https://github.com/example/clearance",
     });
   });
@@ -33,6 +44,12 @@ describe("valuesFrom", () => {
     const changed = sources();
     changed.baseline.summary.t77.attempted = 1;
     expect(() => valuesFrom(changed)).toThrow(/attempted T-77/);
+  });
+
+  it("refuses to say Priya pressed every card once someone else has", () => {
+    const changed = sources();
+    changed.baseline.summary.full_refund.ask.pressed_by = { priya: 28, sam: 1 };
+    expect(() => valuesFrom(changed)).toThrow(/pressed/);
   });
 
   it("refuses to quote E1 as passing when a review break is still open", () => {

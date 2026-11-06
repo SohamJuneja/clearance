@@ -89,6 +89,8 @@ export const RequestStateSchema = z.enum([
   "VOIDED",
   /** Ran under earned autonomy (L2, L3): nobody was asked first. The gate or the hook runs it on the allow. */
   "AUTO",
+  /** An approver offered a smaller amount, and said yes to it (F20). This call won't run; a new request carries the edit. */
+  "EDITED",
 ]);
 export type RequestState = z.infer<typeof RequestStateSchema>;
 
@@ -108,6 +110,9 @@ export const LedgerEntryTypeSchema = z.enum([
   "promotion_proposed",
   "promotion_signed",
   "promotion_rejected",
+  "edit_proposed",
+  "edit_withdrawn",
+  "edited",
   "policy_proposed",
   "policy_rejected",
   "demoted",
@@ -250,6 +255,12 @@ export type ExecuteResult = z.infer<typeof ExecuteResultSchema>;
 export interface GatePort {
   /** POST /internal/execute/:requestId on the gate. Refuses when call_hash does not match the stored call. */
   execute(requestId: string, callHash: string): Promise<ExecuteResult>;
+  /**
+   * POST /internal/edit/:requestId (F20). Closes a held call and holds a copy with a lower amount under a new id, ready
+   * for `execute`. Asking again gives the same answer. Throws when the gate can't be reached, so core keeps trying; an
+   * answer that isn't a success is a refusal, which trying again can't change.
+   */
+  edit(requestId: string, edit: { callHash: string; newRequestId: string; newCallHash: string; amount: number }): Promise<{ ok: boolean; error?: string }>;
 }
 
 /** Read-only systems of record, reached through the gate because only the gate holds credentials. */

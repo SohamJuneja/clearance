@@ -41,6 +41,8 @@ We scored {{E1}} on our authority suite: scripted cases on real core, gate and A
 
 On a synthetic week, an agent that earned autonomy needed {{E6_AFTER}} human decisions per 100 actions, against {{E6_BEFORE}} before promotion. The anomaly rule was changed after we saw the first result, which was {{E6_ORIGINAL}}, and both are published.
 
+With no Clearance, the ₹40,000 refund went out in {{BL_AUTO}} recorded runs with auto mode on, and in {{BL_ASK}} with approvals on, where Priya, who asked, pressed all {{BL_ASK_CARDS}} cards.
+
 The scenario we planned didn't happen: the agent attempted the ₹40,000 refund on ticket T-77 in none of {{T77_RUNS}} runs. It caught the wrong amount, and what Clearance holds is the smaller refund it then offers to a brand-new payment ID.
 
 ## Links

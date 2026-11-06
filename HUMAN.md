@@ -35,13 +35,15 @@ Everything else is being done without you. Tick a box when done (or just tell me
   ```
   Open any link on your phone and go at least as far as a practice card. I checked consent, the briefing, both kinds of card and the end of a block at phone size in Chromium: no sideways scrolling, and buttons are large enough to tap. I haven't checked a real phone, Safari, a typed-confirm card or the debrief. For the real sessions, stop terminal 1 and run plain `pnpm study:start`, then send one link per person from what `study:links` printed. Keep both terminals open during sessions (Fri 21:00-23:30, Sat 09:30-12:30). If the tunnel restarts, its address changes, so rerun `study:links` with the new one.
 
+- [ ] **Listen to the video once, 3 minutes.** `docs/media/raw/clearance-demo.mp4`. I can read every frame but I can't hear anything, so the offline voice is unchecked by anyone. Tell me if a word is mispronounced, or if it sounds too robotic to use. The agents' words are real, so tell me about anything that reads wrong too, and I'll fix it or say why not.
+
 - [ ] **1. Free RAM: close what you don't need.** The machine has 14 GB, about 12 GB in use and 11 GB already in swap, which is the OOM risk we've hit before. Switch, Mattermost and four agents need 4 to 6 GB free.
-  - Close Chrome (or most tabs), Discord and Claude desktop if you don't need them tonight.
+  - Close Chrome (or most tabs), Discord and Claude desktop if you don't need them while recording, E2 or the study runs.
   - Optional: your other project containers and Redis use memory too. I won't touch them, because they aren't mine. If you're fine with it:
     ```bash
     docker stop sr-prod-pg faultline-falkordb
     ```
-  - Why: an OOM kills the build overnight. Deadline: before you sleep.
+  - Why: running out of memory kills whatever is running. Deadline: before E2 or the study starts.
 
 - [ ] **2. Stay plugged in, Docker running, lid open.** I've started a sleep inhibitor for the session (`systemd-inhibit`, runs about 50 h, no sudo). To be safe, also run this:
   ```bash
@@ -49,20 +51,20 @@ Everything else is being done without you. Tick a box when done (or just tell me
   gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-battery-type 'nothing'
   gsettings set org.gnome.desktop.session idle-delay 0
   ```
-  Why: a suspended laptop stops the overnight work and the evals. Deadline: before you sleep.
+  Why: a suspended laptop stops the evals and the study's tunnel. Deadline: now, and until we submit.
 
 - [ ] **3. Install and log in to Cursor CLI.** My permission rules block `curl | bash`, so this one is yours (1 minute):
   ```bash
   curl https://cursor.com/install -fsS | bash
   agent login
   ```
-  Why: Cursor is the fourth vendor in E2. If you skip it, the coverage table says "untested" for Cursor. Deadline: before you sleep; it's fine if it slips to the morning.
+  Why: Cursor is the fourth vendor in E2. If you skip it, the coverage table says "untested" for Cursor, which is fine and honest. Deadline: before E2 starts, to be in it.
 
 - [ ] **4. Log in to Codex** (`codex login status` currently says "Not logged in"):
   ```bash
   codex login
   ```
-  Why: support-agent in SC5 runs on Codex. Deadline: before you sleep. If you'd rather use the API key from step 5, run `printenv OPENAI_API_KEY | codex login --with-api-key` after you've set it.
+  Why: support-agent in SC5 runs on Codex, and it's the scene the video is missing. Deadline: before E2 starts, then I'll record SC5. If you'd rather use the API key from step 5, run `printenv OPENAI_API_KEY | codex login --with-api-key` after you've set it.
 
 - [ ] **Know this:** until an Anthropic key is in, Claude agents use a copy of your Claude access token (no refresh token), kept fresh by a background loop for each controller that makes a small call on your login. To stop all of it: `scripts/setup-controller.sh --owner priya --stop` (same for `alex`). Adding the key replaces it with an isolated home.
 
@@ -75,9 +77,9 @@ Everything else is being done without you. Tick a box when done (or just tell me
   OPENAI_API_KEY=         # Codex agent, and OpenCode's provider if you have no other key
   OPENCODE_PROVIDER_KEY=  # Optional. Blank means the free hosted opencode/big-pickle model, which already passes S5. Only synthetic data goes to it. Fill this in if you'd rather not use a free hosted model.
   ```
-  Why: agents can't run without a provider. `.env` is gitignored and I never print it. Deadline: before you sleep, because S5 and S9 need these keys.
+  Why: it replaces your login for agents, and E2's Claude runs wait for it. `.env` is gitignored and I never print it. Deadline: today, so E2 can finish before G4.
 
-- [ ] **5a. Start E2, the cross-vendor run, when you're ready.** It's the one big number still blank in RESULTS.md, and two things stop me starting it: my permission check refused its test run, and I said I'd wait for your API key before spending on Claude. After step 5. Recording is done, so the stack is free, and E2 holds it for hours once it starts:
+- [ ] **5a. Hold off on E2 until I say.** A second independent review found 27 breaks, and E2 should measure the fixed code. The key in step 5 is still useful now. When I say go: It's the one big number still blank in RESULTS.md, and two things stop me starting it: my permission check refused its test run, and I said I'd wait for your API key before spending on Claude. After step 5. Recording is done, so the stack is free, and E2 holds it for hours once it starts:
   ```bash
   cd /home/prashant/projects/Clearance
   bash scripts/services.sh down && bash scripts/services.sh up
@@ -93,14 +95,14 @@ Everything else is being done without you. Tick a box when done (or just tell me
 
 - [ ] **7. Keep Wispr Flow on** and dictate your messages to me from now on (Code with Wispr track). Take the Insights screenshot on Saturday at 19:00.
 
-- [ ] **8. Create the private GitHub repo and let me push** (1 minute). My permission check refused `gh repo create` and `git push`, so you decide. Run this to create the repo privately and push what exists:
+- [ ] **8. If you and Soham haven't settled on his repo by tonight, create yours** (1 minute). Use 0b if he agrees, and this if not, because CI can't run until something is pushed. My permission check refused `gh repo create` and `git push`, so you run it:
   ```bash
   cd /home/prashant/projects/Clearance && gh repo create clearance --private --source . --remote origin --push
   ```
   For later pushes, either let me do them by allowing `Bash(git push:*)` in your Claude Code permissions (`/permissions`), or run `git push` yourself whenever I ask. I run `gitleaks detect` first either way.
-  Why: G1 needs the repo pushed, and CI can't run until it is. Commits stay local until then, so nothing is lost. Deadline: Fri 11:00.
+  Why: G1 needs the repo pushed, and that deadline has passed. Commits stay local until then, so nothing is lost, but a CI failure stays hidden.
 
-- [ ] **9. Optional (only if you're still awake): post these in the WeMakeDevs Discord** and paste the answers into `DECISIONS.md` or send them to me. Ready to copy:
+- [ ] **9. Optional: post these in the WeMakeDevs Discord** and paste the answers into `DECISIONS.md` or send them to me. Ready to copy:
   > Hi! A few quick questions about Flip the Switch:
   > 1. Is there a maximum video length, and what are the exact submission form fields?
   > 2. Track 03: the page says to comment, tag @petr-sandbox and wait to be assigned, but maintainers wrote on #800 and #805 that they won't assign issues and anyone may solve any. Which rule applies?
@@ -110,15 +112,13 @@ Everything else is being done without you. Tick a box when done (or just tell me
 
 ---
 
-## LATER (not needed tonight; I'll mark these NOW when their time comes)
+## LATER (I'll mark these NOW when their time comes)
 
 - [ ] **Make the repos public** (needs your OK; I run the command after you tick). Must happen before submission.
 - [ ] **Track 03, your call (15 minutes first).** #803 is crowded (3 PRs following the maintainer's direction). My recommendation is **#833 Canva**: one open PR, with no video. It needs you to make a Canva developer app that accepts a loopback redirect; nobody has reported that working, so it's a real gate. If it fails and you have no Factory login for #783, I'd drop Track 03 rather than file a weak PR. Steps, comment text and design are in `docs/track03.md`, and nothing is posted. You'd also sign the CLA. A maintainer ruled on Oct 29 that everyone is assigned, PRs are reviewed after the window, and one PR is selected per issue, which also answers your Discord question 2. Tell me "go" or "drop".
-- [ ] **Listen to the video once, 3 minutes.** `docs/media/raw/clearance-demo.mp4`. I can read every frame but I can't hear anything, so the offline voice is unchecked by anyone. Tell me if a word is mispronounced, or if it sounds too robotic to use. The agents' words are real, so tell me about anything that reads wrong too, and I'll fix it or say why not.
-
-- [ ] **Voice-over (optional, 15 minutes).** The offline TTS (Piper) version works, but I can't hear audio, so please listen to it once when the first cut exists. Your voice is better if you have time: drop files at `scripts/video/voice/<scene>.wav` and they win over TTS. Script will be here.
+- [ ] **Voice-over (optional, 15 minutes).** Your voice is better than the offline one if you have time: drop files at `scripts/video/voice/<scene>.wav` and they win over it. The script is in `scripts/video/scenes.yaml`, one `voiceover` per scene.
 - [ ] **Optional, stronger anti-evasion:** needs sudo for `/etc/claude-code/managed-settings.json`, which agents can't edit. Not tested yet. I'd only use it if you want it for the demo host.
 - [ ] **Skip: the `!list-documents` crash** is already reported, with PR #1286 open upstream. Nothing to do.
-- [ ] **Blog:** draft at `docs/blog-draft.md`, written as you, in first person. Please read it, since it speaks for you, and change anything that isn't how you'd say it. I fill the `{{...}}` numbers from RESULTS.md at the end. Post on dev.to or Hashnode when I say it's final.
-- [ ] **Three #HowISwitch posts.** Text is in `docs/social-draft.md`, written as you, so change what isn't how you'd say it. The clips are `docs/media/social/post-1.mp4` and `post-2.mp4`. They're rebuilding with the third cut, so wait for my word. Nothing gets posted until you do it or tick this.
+- [ ] **Blog:** draft at `docs/blog-draft.md`, written as you, in first person. Please read it, since it speaks for you, and change anything that isn't how you'd say it. `pnpm numbers:fill` fills the `{{...}}` numbers from the eval results at the end. Post on dev.to or Hashnode when I say it's final.
+- [ ] **Three #HowISwitch posts.** Text is in `docs/social-draft.md`, written as you, so change what isn't how you'd say it. The clips are `docs/media/social/post-1.mp4` and `post-2.mp4`. They're ready. Nothing gets posted until you do it or tick this.
 - [ ] **Submission form.** Text is in `docs/submission-draft.md`. `pnpm numbers:fill` turns it into `SUBMISSION.md` with numbers and links filled in, once the repo has a remote. You add the team members, video link, blog link and Wispr screenshots.

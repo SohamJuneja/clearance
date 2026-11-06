@@ -5,7 +5,7 @@
 import type { Action, ExecuteResult } from "@clearance/contracts";
 import { ulid } from "ulid";
 import type { GateConfig } from "./config.js";
-import { LOOKUP_PATHS, OPERATIONS, type Operation } from "./operations.js";
+import { AMOUNT_EDITABLE, LOOKUP_PATHS, OPERATIONS, type Operation } from "./operations.js";
 import { GateStore, type HeldCall } from "./store.js";
 import { AcmeClient, CoreClient, UpstreamError, type UpstreamResponse } from "./upstreams.js";
 
@@ -44,6 +44,7 @@ const STATE_TO_STATUS: Record<string, string> = {
   GRANTED: "approved",
   EXECUTED: "executed",
   CONSUMED: "executed",
+  EDITED: "edited",
   AUTO: "executed",
   DENIED: "denied",
   VOIDED: "denied",
@@ -266,6 +267,43 @@ export class GateService {
     }
   }
 
+  /**
+   * F20. Core has decided, and this is the last place that decision can be wrong, so the rules are checked again here:
+   * only the amount, only on an operation that has one, and only down. The copy is the stored call with one field
+   * changed, so nothing else an approver or a bug might send can reach Acme.
+   */
+  edit(
+    requestId: string,
+    input: { callHash: string; newRequestId: string; newCallHash: string; amount: number },
+  ): { status: number; body: { ok: boolean; error?: string } } {
+    const outcome = this.store.edit({
+      requestId,
+      callHash: input.callHash,
+      newRequestId: input.newRequestId,
+      newCallHash: input.newCallHash,
+      build: (row) => {
+        const op = OPERATIONS[row.operation as Operation["name"]];
+        if (!op || !AMOUNT_EDITABLE.has(row.operation)) return { refused: `a ${row.operation} call has no amount to edit` };
+        const args = JSON.parse(row.body ?? "{}") as Record<string, unknown>;
+        const held = args.amount;
+        if (typeof held !== "number" || input.amount >= held) return { refused: "an edit can only lower the amount" };
+        const edited = op.schema.safeParse({ ...args, amount: input.amount });
+        if (!edited.success) return { refused: "the edited call isn't valid" };
+        return { path: op.upstreamPath(edited.data), body: JSON.stringify(edited.data) };
+      },
+    });
+    switch (outcome.kind) {
+      case "edited":
+        return { status: 200, body: { ok: true } };
+      case "unknown_request":
+        return { status: 404, body: { ok: false, error: "unknown request" } };
+      case "hash_mismatch":
+        return { status: 409, body: { ok: false, error: "call_hash does not match the stored call" } };
+      case "refused":
+        return { status: 409, body: { ok: false, error: outcome.error } };
+    }
+  }
+
   private async run(row: HeldCall): Promise<{ status: number; result: ExecuteResult }> {
     const op = OPERATIONS[row.operation as Operation["name"]];
     if (!op) {
@@ -381,7 +419,8 @@ export class GateService {
         status,
         request_id: id,
         state: answer.state,
-        message: pendingMessage(status, id),
+        message: pendingMessage(status, id, answer.editedTo),
+        ...(answer.editedTo ? { edited_to: answer.editedTo } : {}),
         ...(status === "pending" ? { poll_after_s: POLL_AFTER_S } : {}),
         ...(executed ? { result: JSON.parse(row.result_json ?? "null") as unknown } : {}),
       },
@@ -389,9 +428,11 @@ export class GateService {
   }
 }
 
-function pendingMessage(status: string, id: string): string {
+function pendingMessage(status: string, id: string, editedTo?: string): string {
   if (status === "pending")
     return `PENDING ${id}: still waiting for approval. Do not try another way.`;
+  if (status === "edited")
+    return `${id} did not run and will not. An approver edited it${editedTo ? ` to ${editedTo}` : ""}. Do not try it again.`;
   return `${id} is ${status}.`;
 }
 

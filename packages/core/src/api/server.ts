@@ -47,6 +47,9 @@ const AUDIT_COLUMNS = [
   "decided_at",
   "executed_at",
   "last_ledger_hash",
+  "edited_by",
+  "edited_to",
+  "edit_of",
 ] as const;
 
 const DEFAULT_REPLAY = 100;

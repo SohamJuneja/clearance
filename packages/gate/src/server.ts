@@ -27,6 +27,14 @@ export type GateServerOptions = { logger?: FastifyServerOptions["logger"] };
 
 const MAX_HINT_LENGTH = 512;
 const ExecuteBody = z.object({ call_hash: z.string().min(1) }).strict();
+const EditBody = z
+  .object({
+    call_hash: z.string().min(1),
+    new_request_id: z.string().min(1).max(64),
+    new_call_hash: z.string().min(1),
+    amount: z.number().int().positive().safe(),
+  })
+  .strict();
 
 function sha256(value: string): Buffer {
   return createHash("sha256").update(value).digest();
@@ -168,6 +176,24 @@ export function buildGateServer(
       }
       const { status, result } = await service.execute(req.params.requestId, body.data.call_hash);
       return reply.status(status).send(result);
+    },
+  );
+
+  app.post<{ Params: { requestId: string } }>(
+    "/internal/edit/:requestId",
+    { onRequest: requireInternal },
+    async (req, reply) => {
+      const body = EditBody.safeParse(req.body);
+      if (!body.success) {
+        return reply.status(400).send({ ok: false, error: "body must be {call_hash, new_request_id, new_call_hash, amount}" });
+      }
+      const { status, body: answer } = service.edit(req.params.requestId, {
+        callHash: body.data.call_hash,
+        newRequestId: body.data.new_request_id,
+        newCallHash: body.data.new_call_hash,
+        amount: body.data.amount,
+      });
+      return reply.status(status).send(answer);
     },
   );
 

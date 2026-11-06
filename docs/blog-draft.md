@@ -2,7 +2,7 @@
 
 <!-- Draft for Prashant to post. `pnpm numbers:fill` writes docs/blog.md from this file, with the numbers and repo link filled in. Add the SC2 screenshot under the first paragraph. -->
 
-In our test setup, a demo persona called Priya asked an agent in Switch to refund a ₹40,000 order. The approval cards appeared, and they mentioned Priya. Priya pressed Allow on all four, and the money went out. Nobody else was involved, because the card goes to whoever may address the agent, and that was the person who had asked.
+In our test setup, a demo persona called Priya asked an agent in Switch to refund a ₹40,000 order. The approval cards appeared, and they mentioned Priya. Priya pressed Allow on all four, and the money went out. Nobody else was involved, because the card goes to whoever may address the agent, and that was the person who had asked. Across our recorded runs with approvals on, that refund went out in {{BL_ASK}}, and Priya pressed all {{BL_ASK_CARDS}} cards. With auto mode on, where nobody gets a card at all, it went out in {{BL_AUTO}}.
 
 That's Switch's default, and it's reasonable for one person running their own agent. It stops being reasonable when a team runs agents that touch money, customers and production. Anthropic's own [post on auto mode](https://www.anthropic.com/engineering/claude-code-auto-mode) says people accept 93% of permission prompts anyway. So even if the card reaches someone else, there's a fair chance nobody reads it.
 
@@ -72,6 +72,8 @@ Our demo was going to star an agent trying to send ₹40,000 because a ticket pr
 We scored {{E1}} on our 25-case authority suite, and then an independent review found five real breaks the suite had missed. The worst: if you addressed an agent without a literal `@name`, Clearance didn't know you'd asked, and you could approve your own refund. We fixed all five and kept them as regression checks. Now, when Clearance can't tell who asked, it needs two different approvers.
 
 Our first autonomy rule demoted an agent whenever an amount was above the 95th percentile, which by definition is about one call in twenty. On a synthetic week the agent lost its status {{E6_ORIGINAL_DEMOTION}}. We changed it so an unusual amount gets a person's eyes on that one call. Both numbers are in our results, along with a note that we changed the rule after seeing the first one.
+
+Recording the video found bugs the tests hadn't. Reading the frames, we saw Sam get two identical review cards a second apart. A card takes seconds to open and is only on record afterwards, so Clearance's one-second timer looked for a missing card and opened another. Looking for the same pattern turned up two more, including one where the timer ran an approved refund while the path that approved it was still posting, and that path then fell over. The gate runs each request at most once, so no money moved twice. That's why that rule lives in the gate.
 
 And one that scared me: a hosted model running one of our agents ran `cat` on a token file and then read our demo scripts, because agents run as your user. The tokens only worked on localhost and we rotated them, but we fenced agents to their own folders after that. If you run agents on your own machine, think about that before you hand one a shell.
 

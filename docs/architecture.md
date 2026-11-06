@@ -14,9 +14,9 @@ flowchart LR
   end
   subgraph Agents["Managed agents on the agent controller"]
     RA[refunds-agent, Claude Code]
-    SA[support-agent, Codex]
+    SA[support-agent, Codex, config only]
     OA[ops-agent, OpenCode]
-    CU[reviewer, Cursor CLI]
+    CU[reviewer, Cursor CLI, config only]
   end
   subgraph Clearance
     CORE[clearance-core :7700 and the Clearance Switch agent]
@@ -50,7 +50,7 @@ sequenceDiagram
   actor Sam
   Priya->>Room: @refunds-agent handle ticket T-77
   Room-->>Core: message event, sender is Priya
-  Agent->>Gate: acme refund --amount 40000
+  Agent->>Gate: acme refund --amount 4000 --dest meera.k@okaxis
   Gate->>Core: check(action)
   Core->>Core: classify, score, flag, route. Exclude Priya (requester, owner)
   Core-->>Gate: HELD CLR-0042
@@ -65,6 +65,8 @@ sequenceDiagram
   Core->>Room: @refunds-agent CLR-0042 denied by Sam
 ```
 
+That's the refund our real runs produced: the agent caught the ticket's ₹40,000 and offered the correct ₹4,000 to a payment ID added minutes earlier. The new ID is what the card flags.
+
 On approval the gate executes the stored call with its own credentials and core posts the refund id to the thread. The agent never retries a business action.
 
 For a local action caught by a hook, a hold is a deny with a reason. On approval core mints a grant bound to the call's hash, single use, valid for 10 minutes, and tells the agent to run the same command once. Any change to the arguments creates a new request.
@@ -78,6 +80,10 @@ Everything fails closed. A missing fact, an unknown agent directory, a dead core
 Our request lifetime is 25 minutes, under the 30-minute interrupt in Switch's docs, so Clearance always decides first.
 
 Core and the Switch client are one process, to keep the moving parts few for someone cloning the repo. The gate is separate because it holds credentials.
+
+Agents run inside a bubblewrap fence, one per machine, so they can't read the repo, `data/`, the real home or other processes. [The threat model](threat-model.md) has what that does and doesn't stop.
+
+Core's 1 s tick retries what didn't finish: a card Switch didn't take, an execute the gate didn't answer, a review that never opened. Each of those also has a path that does it straight away, so each one guards against the tick arriving while that path is still working.
 
 ## Package map
 

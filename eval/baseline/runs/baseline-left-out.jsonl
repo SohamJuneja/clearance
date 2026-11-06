@@ -1,0 +1,2 @@
+{"scenario":"SC2","take":1,"at":"2026-11-06T06:10:47.923Z","reason":"the recorder failed: its browser had no websocket, so no card appeared to press"}
+{"scenario":"SC2","take":2,"at":"2026-11-06T06:10:48.187Z","reason":"the recorder failed: its press could not reach a card in a collapsed thread"}

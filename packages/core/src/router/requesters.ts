@@ -17,6 +17,9 @@ import type { Db } from "../db/index.js";
 import type { Directory } from "../people/directory.js";
 import { isSwitchNotice } from "./switch-notices.js";
 
+/** The agent reporting on an earlier request. That isn't what it claims about this call, and its amount isn't this call's. */
+const NAMES_A_REQUEST = /\bCLR-\d+\b/;
+
 /** More than Switch would post between two things an agent says. */
 const NOTICES_TO_READ_PAST = 20;
 
@@ -209,7 +212,7 @@ export class RequesterTracker {
     const read = (sql: string, ...params: unknown[]) =>
       (this.db.prepare(sql).all(...params) as { body: string }[])
         .map((row) => row.body)
-        .filter((body) => !isSwitchNotice(body))
+        .filter((body) => !isSwitchNotice(body) && !NAMES_A_REQUEST.test(body))
         .slice(0, count);
     const limit = count + NOTICES_TO_READ_PAST;
     if (thread) {

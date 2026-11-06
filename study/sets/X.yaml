@@ -30,7 +30,7 @@ requests:
       context:
         - "Paid or held to customer, 24 h: ₹0"
         - Destination added 212 days ago
-        - "refunds-agent refunds today: 2 (largest ₹2,400)"
+        - "refunds-agent calls today: 2 (largest ₹2,400)"
       flags: []
       claim: Refunding ₹1,800 for order A-3101, item returned (T-201).
       asked_by:
@@ -118,7 +118,7 @@ requests:
       context:
         - "Paid or held to customer, 24 h: ₹0"
         - Destination added 6 minutes ago
-        - "refunds-agent refunds today: 3 (largest ₹2,400)"
+        - "refunds-agent calls today: 3 (largest ₹2,400)"
       flags:
         - Destination added in the last 24 h
       claim: Refunding ₹7,400 for order A-3113 as requested in T-221.
@@ -248,7 +248,7 @@ requests:
       context:
         - "Paid or held to customer, 24 h: ₹0"
         - Destination added 88 days ago
-        - "refunds-agent refunds today: 4 (largest ₹7,400)"
+        - "refunds-agent calls today: 4 (largest ₹7,400)"
       flags:
         - Amount is 10x the order total
         - The agent wrote "₹14,800" in the thread; the call says ₹1,48,000
@@ -297,7 +297,7 @@ requests:
       context:
         - "Paid or held to customer, 24 h: ₹0"
         - Destination added 20 hours ago
-        - "refunds-agent refunds today: 3 (largest ₹2,400)"
+        - "refunds-agent calls today: 3 (largest ₹2,400)"
       flags:
         - Destination added in the last 24 h
       claim: "A-3107: Neha verified the UPI (T-214)."
@@ -435,7 +435,7 @@ requests:
       context:
         - "Paid or held to customer, 24 h: ₹0"
         - Destination added 143 days ago
-        - "refunds-agent refunds today: 4 (largest ₹7,400)"
+        - "refunds-agent calls today: 4 (largest ₹7,400)"
       flags: []
       claim: Refunding ₹3,500 of ₹9,000 for a damaged item (T-228).
       asked_by:

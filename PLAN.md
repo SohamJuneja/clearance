@@ -1594,7 +1594,7 @@ The call (parsed from what the agent ran, not from its words)
 Context
   Paid or held to customer, 24 h: ₹0
   Destination added 4 minutes ago
-  refunds-agent refunds today: 3 (largest ₹2,500)
+  refunds-agent calls today: 3 (largest ₹2,500)
 
 Flags
   ⚠ Amount is 10x the order total

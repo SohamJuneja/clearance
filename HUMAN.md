@@ -35,7 +35,7 @@ Everything else is being done without you. Tick a box when done (or just tell me
   ```
   Open any link on your phone and go at least as far as a practice card. A whole run now passes at phone size in Chromium and in WebKit, which is close to Safari but isn't iOS. Only a real phone can show these, so look for them: does the keyboard cover Send on a typed card, does autocorrect leave a value like `kfin` alone, does the back button come back to the right card, and is a quick deliberate tap ever ignored? There's a 600 ms guard after each card appears, because a double tap was scoring a card nobody had read. For the real sessions, stop terminal 1 and run plain `pnpm study:start`, then send one link per person from what `study:links` printed. Keep both terminals open during sessions (Fri 21:00-23:30, Sat 09:30-12:30). If the tunnel restarts, its address changes, so rerun `study:links` with the new one.
 
-- [ ] **Listen to the video once, 3 minutes.** `docs/media/raw/clearance-demo.mp4`. I can read every frame but I can't hear anything, so the offline voice is unchecked by anyone. Tell me if a word is mispronounced, or if it sounds too robotic to use. The agents' words are real, so tell me about anything that reads wrong too, and I'll fix it or say why not.
+- [ ] **Listen to the video once, 3 minutes.** `docs/media/raw/clearance-demo.mp4`, the 2:47 cut I sent you. I can read every frame but I can't hear anything, so the offline voice is unchecked by anyone. Tell me if a word is mispronounced, or if it sounds too robotic to use. The agents' words are real, so tell me about anything that reads wrong too, and I'll fix it or say why not.
 
 - [ ] **Clear our leftover test folders from `/tmp` (1 minute, please do this before anything else).** Our tests left over 13,000 folders there, about 6 GB in RAM-backed storage, which is why the machine ran out of memory at 14:31. The leak is fixed, but my permission check refused the cleanup because `/tmp` is shared. This only removes folders named `clearance-*` that you own and that are over 5 minutes old:
   ```bash
@@ -80,22 +80,25 @@ Everything else is being done without you. Tick a box when done (or just tell me
   ```
   ```
   ANTHROPIC_API_KEY=      # Claude agents in E2. Without it the agents use your Claude login.
-  OPENAI_API_KEY=         # Codex agent, and OpenCode's provider if you have no other key
-  OPENCODE_PROVIDER_KEY=  # Leave blank for now. It isn't wired up yet, and I'm fixing that. OpenCode's free model has hit its usage limit, so I'm also making it fall back to another free model.
+  OPENAI_API_KEY=            # Codex agent.
+  CLEARANCE_OPENCODE_MODEL=  # Optional, as provider/model, like anthropic/claude-haiku-5-5. Blank means just demo tries OpenCode's free models and uses the first that answers and can call a tool. They change and run out, so it may find none, and then only the OpenCode scene is lost. Only synthetic data goes to them.
+  OPENCODE_PROVIDER_KEY=     # Optional, and only with a model above, for that model's provider. It goes in the fenced home of the two OpenCode machines, and an agent there can read it, so use a key with a low limit.
   ```
+  Run `just demo` again after changing either OpenCode line. It updates the running agents, so not during a recording.
   Why: it replaces your login for agents, and E2's Claude runs wait for it. `.env` is gitignored and I never print it. Deadline: today, so E2 can finish before G4.
 
-- [ ] **5a. Hold off on E2 until I say.** A second independent review found 27 breaks, and E2 should measure the fixed code. The key in step 5 is still useful now. When I say go: It's the one big number still blank in RESULTS.md, and two things stop me starting it: my permission check refused its test run, and I said I'd wait for your API key before spending on Claude. After step 5. Recording is done, so the stack is free, and E2 holds it for hours once it starts:
+- [ ] **5a. Start E2, the cross-vendor run. It's ready, and only you can start it.** My permission check refused its test run, twice now, so I won't try again or look for another way. It's the one big number still blank in `RESULTS.md`. Run OpenCode's part now, since it needs no key and doesn't touch your Claude login. Clear `/tmp` first, and tell me before you start, so nothing else is using the stack:
   ```bash
   cd /home/prashant/projects/Clearance
-  bash scripts/services.sh down && bash scripts/services.sh up
-  bash scripts/setup-controller.sh --machine clearance-priya-open-base --restart
-  pnpm exec tsx scripts/setup-e2.ts
-  pnpm eval:vendors --dry-run
-  pnpm eval:vendors --probe
-  CLEARANCE_EVAL_E2_GO=1 pnpm eval:vendors --go --claude-model haiku --usd-per-run 0.05
+  pnpm eval:vendors --dry-run --vendor opencode
+  pnpm eval:vendors --probe --vendor opencode          # about 4 short runs. Read what it prints, and tell me if anything looks off
+  CLEARANCE_EVAL_E2_GO=1 pnpm eval:vendors --go --vendor opencode --usd-per-run 0
   ```
-  What it costs: 200 runs. The script books a flat $10.00 against the $35 cap. My estimate at token prices is about $1 for the 120 Claude runs, from 36 earlier sessions that weren't E2 runs. The other 80 use OpenCode's free model. It can take up to 7 to 8 hours. Codex and Cursor show as blocked, not zero, unless you've done steps 3 and 4. Parts of this setup have never run live, so read the probe's output first and tell me if anything looks off. If you kill `--go`, run `pnpm exec tsx scripts/setup-e2.ts --restore`. Setup also wrote a test marker to `~/.clearance-e2-canary` in your home folder. Deadline: start by Sat 03:00 so it can finish before G4.
+  That's 80 runs on OpenCode's free model, up to about 3 hours, and it holds the stack the whole time, so keep the terminal open. The free model can run out partway: those runs are counted as errors, not as prevented, so a low count of real runs is what to tell me about. It also behaves inconsistently, declining by itself in some runs, so the results name the model. After your Anthropic key is in, run Claude's part the same way:
+  ```bash
+  CLEARANCE_EVAL_E2_GO=1 pnpm eval:vendors --go --vendor claude --claude-model haiku --usd-per-run 0.05
+  ```
+  That's 120 runs. The script books a flat $6.00 against the $35 cap, and I estimate about $1 at token prices, from sessions that weren't E2 runs. If you kill either one, run `pnpm exec tsx scripts/setup-e2.ts --restore`. Setup also wrote a test marker to `~/.clearance-e2-canary` in your home folder. Deadline: finished by Sat 13:00.
 
 - [ ] **6. Confirm the spend cap.** The default is **₹3,000 (about $35) total for eval runs**, tracked in `eval/costs.json`. I stop E2 and ask before passing it. Set a hard limit on each key in the provider dashboards too, if they offer one. Reply only if you want a different cap.
 

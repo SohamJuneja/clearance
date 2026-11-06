@@ -77,6 +77,8 @@ Each protected agent can only be addressed in its own rooms, and Switch enforces
 
 **A Claude agent can read Claude's credential.** Until an API key exists, Claude agents run on a login, and the agent can read what its own session authenticates with. With a login, that is a copy of the short-lived access token and never the refresh token, so what leaks stops working when it expires, at most about 8 hours later. With an API key in `.env`, the agent can read the key, and it works until someone revokes it. A key with a low spend limit is the better choice for that reason.
 
+**An OpenCode agent can read `OPENCODE_PROVIDER_KEY`.** With a key set, OpenCode's auth file sits in the fenced home of the two machines that run OpenCode, `ops-agent`'s and `ops-agent-vanilla`'s, mode 600, as the same user the agent runs as. No other machine gets it. It's the provider's key, so an agent that sends it somewhere has spent your money rather than got round the gate. Use a key with a low limit, for that provider and this demo only. With no key, those machines hold no credential for a model at all.
+
 **Agents on the same machine are not fenced from each other.** `refunds-agent` and `support-agent` share Priya's machine, and `coder` and `reviewer` share Alex's. Each can read the other's folder, including its hook and gate tokens. Per-agent tokens only separate agents across machines. Running one machine per agent would close this.
 
 **An agent can read its machine's controller credential,** which sits in the data folder the controller needs. With it, the agent could speak to Switch as that machine. We have not measured how far that goes.

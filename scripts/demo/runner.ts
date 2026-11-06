@@ -256,6 +256,8 @@ export interface RunOptions {
   timeScale?: number;
   secretsPath?: string;
   pollMs?: number;
+  /** Lines saying which agents' models have refused since then, added to a step that failed. */
+  modelRefusals?: (sinceMs: number) => string[];
 }
 
 const refusedControl: ServiceControl = {
@@ -376,12 +378,18 @@ export async function runScenario(
   };
 
   print("  steps");
+  const stepsStarted = Date.now();
   let steps: StepResult[];
   let capture: CaptureOutput | undefined;
   try {
     steps = await scenario.execute(ctx, {
       beforeStep: (name) => session?.mark(name),
       afterStep: (result) => {
+        // A wait that timed out says what it waited for. This says why, when the log knows.
+        if (result.outcome === "fail") {
+          const refusals = options.modelRefusals?.(stepsStarted) ?? [];
+          if (refusals.length > 0) result.detail = [result.detail, ...refusals].filter(Boolean).join("\n          ");
+        }
         const time =
           result.outcome === "skip" ? "" : ` (${(result.durationMs / 1000).toFixed(1)} s)`;
         print(`    ${OUTCOME_WORD[result.outcome]}  ${result.name}${time}`);

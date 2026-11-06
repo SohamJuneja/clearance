@@ -84,6 +84,23 @@ describe("mismatch at hold time", () => {
     expect(detail).toContain(`Agent's claim (unverified): "Refunding ₹4,000 for order A-1931 as requested in T-77."`);
   });
 
+  it("doesn't read an agent's report on an earlier request as what it claims about this one", async () => {
+    await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@refunds-agent handle T-77"));
+    await said("CLR-0001 approved and executed: refund of ₹2,000. Done.");
+    const held = await h.core.check(gateRefund({ ...REFUND_SC3, amount: 9000 }));
+    const request = h.core.stores.requests.require(held.request_id as string);
+    expect(request.flags.map((flag) => flag.code)).not.toContain("mismatch");
+    expect(h.chat.cardIn("dm-sam").detail).not.toContain("Agent's claim");
+  });
+
+  it("still reads the agent's own words past that report", async () => {
+    await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@refunds-agent handle T-77"));
+    await said("Refunding ₹4,000 for order A-1931 as requested in T-77.");
+    await said("CLR-0001 approved and executed: refund of ₹2,000. Done.");
+    await h.core.check(gateRefund({ ...REFUND_SC3, amount: 9000 }));
+    expect(h.chat.cardIn("dm-sam").detail).toContain(`Agent's claim (unverified): "Refunding ₹4,000`);
+  });
+
   it("reads only the agent's last two messages", async () => {
     await said("Refunding ₹4,000 first.");
     await said("Checking the ticket.");

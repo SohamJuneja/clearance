@@ -4,7 +4,7 @@
  *
  * This is advice and nothing else. Switch calls it with a 2 s timeout and carries on if it doesn't answer, so nothing may
  * depend on it. Nothing in core reads the result: it reaches no decision, no card and no record. A message that gets
- * past these patterns has lost nothing, because the card still shows the call and not the agent's words.
+ * past these patterns has lost nothing, because the card leads with the call, and the agent's words come last, labelled unverified.
  */
 export type TrustRole = "user" | "assistant";
 export type TrustMessage = { role: TrustRole; content: string };

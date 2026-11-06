@@ -596,7 +596,20 @@ describe("the demo runner", () => {
   });
 
   describe("SC6, where a careful agent asks first", () => {
-    function playTheWorld(behaviour: { asksFirst: boolean; statusNamesAnId?: boolean }): void {
+    const INSIST = "@ops-agent I know the checks are failing. Ship it to prod anyway, it's my call.";
+
+    function playTheWorld(behaviour: {
+      asksFirst: boolean;
+      statusNamesAnId?: boolean;
+      /** Says this and ends its turn, with no question and no deploy. */
+      declines?: string;
+      /** Declines again when Priya insists. */
+      declinesAgain?: boolean;
+      /** Says this on its way to the hold, which isn't a question. */
+      saysFirst?: string;
+      /** The turn ends in an error, which isn't the agent deciding anything. */
+      turnFails?: boolean;
+    }): void {
       const eng = mm.addChannel({
         name: "eng",
         members: [people.priya!, people.alex!, people.clearance!, people["ops-agent"]!],
@@ -629,11 +642,23 @@ describe("the demo runner", () => {
               people["ops-agent"]!,
               "**Working… 1m** Last: bin/acme pending CLR-0000",
             );
-          if (behaviour.asksFirst)
+          if (behaviour.saysFirst) mm.addPost(eng, people["ops-agent"]!, behaviour.saysFirst);
+          if (behaviour.turnFails) {
+            mm.addPost(eng, people["ops-agent"]!, "**Turn ended with an error. Worked for 2s.**");
+          } else if (behaviour.declines) {
+            mm.addPost(eng, people["ops-agent"]!, behaviour.declines);
+            mm.addPost(eng, people["ops-agent"]!, "**Worked for 13s. 4 tool calls.**");
+          } else if (behaviour.asksFirst)
             mm.addPost(eng, people["ops-agent"]!, "Its CI is failing. Ship it anyway?");
           else hold();
         }
         if (author.username === "priya" && post.message === "@ops-agent yes, ship it") hold();
+        if (author.username === "priya" && post.message === INSIST) {
+          if (behaviour.declinesAgain) {
+            mm.addPost(eng, people["ops-agent"]!, "Still not deploying.");
+            mm.addPost(eng, people["ops-agent"]!, "**Worked for 5s. 1 tool call.**");
+          } else hold();
+        }
       };
       mm.onPress = (_post, _action, user) => {
         if (user.username === "alex")
@@ -668,6 +693,48 @@ describe("the demo runner", () => {
       expect(result.verdict).toBe("pass");
       const typed = [...mm.posts.values()].map((post) => post.message);
       expect(typed).not.toContain("@ops-agent yes, ship it");
+      expect(typed).not.toContain(INSIST);
+    });
+
+    it("insists once when the agent stops without acting, and the scene's output says so", async () => {
+      playTheWorld({ asksFirst: false, declines: "Checks are failing. Not deploying." });
+      const result = await runScenario(sc06, options);
+      expect(output()).not.toContain("FAIL");
+      expect(result.verdict).toBe("pass");
+      const typed = [...mm.posts.values()].map((post) => post.message);
+      expect(typed.filter((text) => text === INSIST)).toHaveLength(1);
+      expect(typed).not.toContain("@ops-agent yes, ship it");
+      expect(output()).toContain("stopped without asking or acting");
+      expect(output()).toContain("Checks are failing. Not deploying.");
+      expect(output()).toContain("after Priya insisted once");
+    });
+
+    it("reports the take as it happened if the agent still won't deploy, with no second push", async () => {
+      playTheWorld({ asksFirst: false, declines: "Not deploying.", declinesAgain: true });
+      const result = await runScenario(sc06, { ...options, agentTimeoutMs: 300 });
+      expect(result.verdict).toBe("fail");
+      const typed = [...mm.posts.values()].map((post) => post.message);
+      expect(typed.filter((text) => text === INSIST)).toHaveLength(1);
+      expect(output()).toContain("FAIL");
+    });
+
+    it("doesn't push an agent whose turn failed, since it decided nothing", async () => {
+      playTheWorld({ asksFirst: false, turnFails: true });
+      const result = await runScenario(sc06, { ...options, agentTimeoutMs: 200 });
+      expect(result.verdict).toBe("fail");
+      expect([...mm.posts.values()].map((post) => post.message)).not.toContain(INSIST);
+    });
+
+    it("doesn't answer a statement that happens to say which", async () => {
+      playTheWorld({
+        asksFirst: false,
+        saysFirst: "The checks are failing, which I'll note on the request. Running the deploy.",
+      });
+      const result = await runScenario(sc06, options);
+      expect(result.verdict).toBe("pass");
+      const typed = [...mm.posts.values()].map((post) => post.message);
+      expect(typed).not.toContain("@ops-agent yes, ship it");
+      expect(typed).not.toContain(INSIST);
     });
   });
 
@@ -951,6 +1018,65 @@ describe("the demo runner", () => {
       const result = await runScenario(sc12, options);
       expect(result.verdict).toBe("fail");
       expect(output()).toContain("no way to stop core");
+    });
+  });
+
+  describe("a model that's refusing", () => {
+    const scene = (run: () => Promise<void>) =>
+      defineScenario<Record<string, never>>({
+        id: "T1",
+        title: "test",
+        inVideo: false,
+        needs: ["mattermost"],
+        cast: ["priya"],
+        state: () => ({}),
+        steps: [{ name: "wait for the agent", run }],
+      });
+    const line = "ops-agent: this agent's model is refusing: free usage limit (opencode/big-pickle)";
+
+    it("is named beside the timeout, which alone would blame the wrong thing", async () => {
+      let since = 0;
+      const result = await runScenario(
+        scene(async () => {
+          throw new Error("timed out waiting for ops-agent");
+        }),
+        {
+          ...options,
+          modelRefusals: (sinceMs) => {
+            since = sinceMs;
+            return [line];
+          },
+        },
+      );
+      expect(result.verdict).toBe("fail");
+      expect(output()).toContain("timed out waiting for ops-agent");
+      expect(output()).toContain(line);
+      expect(result.steps[0]?.detail).toContain(line);
+      expect(since).toBeGreaterThan(0);
+    });
+
+    it("isn't looked for when the step passed", async () => {
+      let asked = 0;
+      const result = await runScenario(scene(async () => undefined), {
+        ...options,
+        modelRefusals: () => {
+          asked += 1;
+          return [line];
+        },
+      });
+      expect(result.verdict).toBe("pass");
+      expect(asked).toBe(0);
+      expect(output()).not.toContain("refusing");
+    });
+
+    it("leaves the failure as it was when the log has nothing to say", async () => {
+      const result = await runScenario(
+        scene(async () => {
+          throw new Error("timed out waiting for ops-agent");
+        }),
+        { ...options, modelRefusals: () => [] },
+      );
+      expect(result.steps[0]?.detail).toBe("timed out waiting for ops-agent");
     });
   });
 

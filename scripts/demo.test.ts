@@ -3,7 +3,18 @@
  * real scripts in a throwaway root, with a scratch home and stubs for the tools, so nothing here reaches a real stack.
  */
 import { spawnSync } from "node:child_process";
-import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -119,7 +130,8 @@ describe("just demo, at its first step", () => {
     home = join(root, "home");
     bin = join(root, "bin");
     for (const dir of [home, bin, join(root, "scripts")]) mkdirSync(dir, { recursive: true });
-    for (const file of ["demo.sh", "fence.sh"]) copyFileSync(join(HERE, file), join(root, "scripts", file));
+    for (const file of ["demo.sh", "fence.sh"])
+      copyFileSync(join(HERE, file), join(root, "scripts", file));
     copyFileSync(join(HERE, "../justfile"), join(root, "justfile"));
     for (const name of STUBS) stub(name);
     symlinkSync(process.execPath, join(bin, "node"));
@@ -195,9 +207,205 @@ describe("just demo, at its first step", () => {
     expect(output).toContain("Blocked: Claude agents have no way to sign in");
   });
 
+  it("ends a good run with success whether or not there's a warning about OpenCode to repeat", () => {
+    const script = readFileSync(join(HERE, "demo.sh"), "utf8");
+    const line = script
+      .split("\n")
+      .find((text) => text.includes("opencode-model.ts check 2>/dev/null"));
+    // It's the script's last command, and a grep that finds nothing would otherwise be the script's exit status.
+    expect(line).toMatch(/\|\| true$/);
+  });
+
+  it("has a step for OpenCode's model between the machines and the agents, and only with agents", () => {
+    signIn();
+    const steps = (output: string) => [...output.matchAll(/^== (\S+)/gm)].map((match) => match[1]);
+    const real = steps(demo("--check").output);
+    expect(real.indexOf("opencode")).toBe(real.indexOf("controllers") + 1);
+    expect(real.indexOf("agents")).toBe(real.indexOf("opencode") + 1);
+    expect(steps(demo("--check", "--no-agents").output)).not.toContain("opencode");
+  });
+
   it("names the command that would run when --check is about --no-agents", () => {
     const { output } = demo("--check", "--no-agents", "--only", "tools,reset,smoke");
     expect(output).toContain("just demo --no-agents would");
     expect(output).toContain("run the spine");
+  });
+});
+
+describe("a service running older code than the checkout", () => {
+  let root: string;
+  let bin: string;
+  const running = ["acme", "gate", "core", "desk"];
+
+  const stub = (file: string, body: string): void => {
+    writeFileSync(file, `#!/bin/sh\n${body}\n`);
+    chmodSync(file, 0o755);
+  };
+  const checkoutAt = (commit: string): void => writeFileSync(join(root, "head"), `${commit}\n`);
+  const env = () => ({ HOME: join(root, "home"), PATH: `${bin}:/usr/bin:/bin` });
+  const services = (...args: string[]) =>
+    spawnSync("bash", [join(root, "scripts/services.sh"), ...args], {
+      encoding: "utf8",
+      env: env(),
+      timeout: 30_000,
+    });
+  const demo = (...args: string[]) => {
+    const result = spawnSync("bash", [join(root, "scripts/demo.sh"), ...args], {
+      encoding: "utf8",
+      env: env(),
+      timeout: 30_000,
+    });
+    return { status: result.status, output: `${result.stdout}${result.stderr}` };
+  };
+  const built = (): string[] =>
+    existsSync(join(root, "builds"))
+      ? readFileSync(join(root, "builds"), "utf8").trim().split("\n")
+      : [];
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), "services-"));
+    bin = join(root, "bin");
+    for (const dir of [
+      bin,
+      join(root, "home"),
+      join(root, "scripts"),
+      join(root, "node_modules/.bin"),
+    ]) {
+      mkdirSync(dir, { recursive: true });
+    }
+    for (const file of ["services.sh", "new-session.sh", "demo.sh", "fence.sh"]) {
+      copyFileSync(join(HERE, file), join(root, "scripts", file));
+      chmodSync(join(root, "scripts", file), 0o755);
+    }
+    copyFileSync(join(HERE, "../justfile"), join(root, "justfile"));
+    // SYNTHETIC: a service is a process that sleeps, and the checkout's commit is a word in a file.
+    stub(join(root, "node_modules/.bin/tsx"), "exec sleep 60");
+    // A port answers only while its service runs, or the script rightly says another checkout has it.
+    stub(
+      join(bin, "curl"),
+      `for a in "$@"; do case "$a" in *:7800*) s=acme ;; *:7710*) s=gate ;; *:7700*) s=core ;; *:7900*) s=desk ;; esac; done
+[ -s "${root}/data/run/$s.pgid" ] || { echo 000; exit 7; }
+echo 200`,
+    );
+    stub(join(bin, "git"), `[ -f "${root}/head" ] || exit 1\ncat "${root}/head"`);
+    stub(
+      join(bin, "pnpm"),
+      `[ "$1" = desk:build ] || exit 0\necho built >>"${root}/builds"\nmkdir -p "${root}/packages/desk/dist"\ntouch "${root}/packages/desk/dist/index.html"`,
+    );
+    symlinkSync(process.execPath, join(bin, "node"));
+    checkoutAt("aaaaaaa");
+  });
+
+  afterEach(() => {
+    services("down", ...running);
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("calls nothing old while the checkout stays where a service started", () => {
+    services("up", "acme");
+    expect(readFileSync(join(root, "data/run/acme.commit"), "utf8").trim()).toBe("aaaaaaa");
+    expect(services("stale").stdout.trim()).toBe("");
+  });
+
+  it("names a running service once the checkout has moved", () => {
+    services("up", "acme", "desk");
+    checkoutAt("bbbbbbb");
+    expect(services("stale").stdout.trim().split("\n")).toEqual(["acme", "desk"]);
+  });
+
+  it("names a running service with no record, which an older script started", () => {
+    services("up", "acme");
+    rmSync(join(root, "data/run/acme.commit"));
+    expect(services("stale").stdout.trim()).toBe("acme");
+  });
+
+  it("doesn't call a stopped service old, so a fresh clone has nothing to redo", () => {
+    expect(services("stale").stdout.trim()).toBe("");
+    services("up", "acme");
+    services("down", "acme");
+    checkoutAt("bbbbbbb");
+    expect(services("stale").stdout.trim()).toBe("");
+  });
+
+  it("calls nothing old with no git to ask, as in an unpacked tarball", () => {
+    services("up", "acme");
+    rmSync(join(root, "head"));
+    expect(services("stale").stdout.trim()).toBe("");
+  });
+
+  it("makes it a to do in --check, without restarting anything", () => {
+    demo("--only", "services");
+    const pid = readFileSync(join(root, "data/run/acme.pgid"), "utf8");
+    expect(demo("--check", "--only", "services").output).not.toContain("todo");
+
+    checkoutAt("bbbbbbb");
+    const { output } = demo("--check", "--only", "services");
+    expect(output).toMatch(/todo\s+acme\b.*older code/);
+    expect(output).toMatch(/todo\s+desk\b.*older code/);
+    expect(output).toMatch(/todo\s+the Desk's build/);
+    expect(readFileSync(join(root, "data/run/acme.pgid"), "utf8")).toBe(pid);
+  });
+
+  it("restarts Acme and the Desk and rebuilds the Desk once the checkout has moved", () => {
+    demo("--only", "services");
+    const pid = readFileSync(join(root, "data/run/acme.pgid"), "utf8");
+    expect(built()).toHaveLength(1);
+
+    checkoutAt("bbbbbbb");
+    const { status } = demo("--only", "services");
+    expect(status).toBe(0);
+    expect(readFileSync(join(root, "data/run/acme.pgid"), "utf8")).not.toBe(pid);
+    expect(readFileSync(join(root, "data/run/desk.commit"), "utf8").trim()).toBe("bbbbbbb");
+    expect(built()).toHaveLength(2);
+    expect(demo("--check", "--only", "services").output).not.toContain("todo");
+  });
+
+  it("leaves Acme and the Desk's build alone when the code hasn't moved", () => {
+    demo("--only", "services");
+    const pid = readFileSync(join(root, "data/run/acme.pgid"), "utf8");
+    rmSync(join(root, "data/run/gate.commit"));
+    demo("--only", "services");
+    expect(readFileSync(join(root, "data/run/acme.pgid"), "utf8")).toBe(pid);
+    expect(built()).toHaveLength(1);
+  });
+
+  it("rebuilds an old build even when the Desk isn't running to be called old", () => {
+    demo("--only", "services");
+    services("down", ...running);
+    checkoutAt("bbbbbbb");
+    demo("--only", "services");
+    expect(built()).toHaveLength(2);
+  });
+
+  it("builds a fresh clone's Desk once", () => {
+    const { status } = demo("--only", "services");
+    expect(status).toBe(0);
+    expect(built()).toHaveLength(1);
+    expect(readFileSync(join(root, "data/run/desk-build.commit"), "utf8").trim()).toBe("aaaaaaa");
+  });
+});
+
+describe("a token loop running an older script", () => {
+  const script = readFileSync(join(import.meta.dirname, "demo.sh"), "utf8");
+  const fn = /token_loop_current\(\) \{[\s\S]*?\n\}\n/.exec(script)?.[0] ?? "";
+
+  function current(scriptAge: "older" | "newer"): boolean {
+    const root = mkdtempSync(join(tmpdir(), "clearance-loop-"));
+    mkdirSync(join(root, "scripts"));
+    const file = join(root, "scripts/fence-claude-token.sh");
+    writeFileSync(file, "");
+    const when = scriptAge === "older" ? "2020-01-01" : "2099-01-01";
+    const out = spawnSync("bash", ["-c", `touch -d ${when} "${file}"\nROOT="${root}"\n${fn}\ntoken_loop_current $$`]);
+    rmSync(root, { recursive: true, force: true });
+    return out.status === 0;
+  }
+
+  it("counts when the script hasn't changed since the loop started", () => {
+    expect(fn).not.toBe("");
+    expect(current("older")).toBe(true);
+  });
+
+  it("is out of date once the script changed after it started", () => {
+    expect(current("newer")).toBe(false);
   });
 });

@@ -183,6 +183,30 @@ export async function ownerMachine(gateway: OwnerGateway, name?: string): Promis
   return machine;
 }
 
+/**
+ * A changed definition reaches a running agent's sessions as each one finishes its turn, and a session retrying a model
+ * that refuses never finishes. So a model change restarts it. The agent, its rooms, folder and tokens all stay.
+ */
+export async function restartAgent(gateway: Pick<OwnerGateway, "must">, agent: ManagedAgent): Promise<void> {
+  await gateway.must("POST", "/management/operations", {
+    controller_id: agent.controller_id,
+    agent_id: agentIdOf(agent),
+    kind: "agent.restart",
+  });
+}
+
+/** Gives an agent another model, without recreating it. Says whether anything changed. */
+export async function setAgentModel(
+  gateway: Pick<OwnerGateway, "must">,
+  agent: ManagedAgent,
+  model: string,
+): Promise<boolean> {
+  if (agent.definition.model === model) return false;
+  await gateway.must("PATCH", `/management/agents/${agentIdOf(agent)}`, { definition: { ...agent.definition, model } });
+  if (agent.desired_state === "running") await restartAgent(gateway, agent);
+  return true;
+}
+
 /** Puts a managed agent on another of its owner's machines. Its id, rooms, folder and tokens all stay. */
 export async function moveAgentToMachine(gateway: OwnerGateway, agent: ManagedAgent, machine: Machine): Promise<void> {
   await gateway.must("PATCH", `/management/agents/${agentIdOf(agent)}`, { controller_id: machine.id });

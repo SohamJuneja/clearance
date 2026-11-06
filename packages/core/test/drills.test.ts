@@ -147,7 +147,7 @@ describe("a drill looks like a real request", () => {
       .replace(/[\w.]+@\w+/g, "UPI")
       .replace(/customer [^(\n]+\(/g, "customer (")
       .replace(/\d+ (minutes?|hours?|days?) ago/g, "AGO")
-      .replace(/refunds today: .*/g, "refunds today: N");
+      .replace(/calls today: .*/g, "calls today: N");
 
   async function pair(): Promise<{ real: OpenedCard; drill: OpenedCard }> {
     // The same shape as the drill: an order paid in full, to a destination added minutes ago.

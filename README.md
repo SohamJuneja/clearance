@@ -69,7 +69,7 @@ It needs Docker with compose v2, Node 22 or later, pnpm, `just`, git and curl. `
 
 Two ways to run it:
 
-- **With real agents.** Needs [Claude Code](https://www.npmjs.com/package/@anthropic-ai/claude-code) on the PATH, an `ANTHROPIC_API_KEY` in `.env` or a Claude login on the host, plus rsync and Linux with [bubblewrap](https://github.com/containers/bubblewrap): agents run inside a fence built on it. Without a way to sign in, `just demo` stops at its first step and says what's missing. Without bubblewrap, for instance on macOS, `just demo --no-fence` runs them with no sandbox and says plainly what that loses. Use it only on a machine you can throw away. The OpenCode agent uses a free model, and `just demo` installs OpenCode for it. Codex and Cursor agents wait for their own logins, and a rerun creates them.
+- **With real agents.** Needs [Claude Code](https://www.npmjs.com/package/@anthropic-ai/claude-code) on the PATH, an `ANTHROPIC_API_KEY` in `.env` or a Claude login on the host, plus rsync and Linux with [bubblewrap](https://github.com/containers/bubblewrap): agents run inside a fence built on it. Without a way to sign in, `just demo` stops at its first step and says what's missing. Without bubblewrap, for instance on macOS, `just demo --no-fence` runs them with no sandbox and says plainly what that loses. Use it only on a machine you can throw away. `just demo` installs OpenCode for its agent and tries its free models, using the first that answers and can call a tool. They change and run out, so if none answers it says so and carries on, and the OpenCode scene is all that's lost. To choose your own, set `CLEARANCE_OPENCODE_MODEL` and `OPENCODE_PROVIDER_KEY` in `.env`. Codex and Cursor agents wait for their own logins, and a rerun creates them.
 - **With no agents, no key and no LLM.** `just demo --no-agents` brings up Switch, the people, the services and the Desk, then runs the spine with scripted calls through real cards and real presses. It proves the plumbing and who can approve, not how an agent behaves.
 
 Then open http://localhost:8065 and log in as `priya` or `sam`. Their password is `PERSONA_PASSWORD` in `.env`, a demo value that only works on a localhost stack. The Desk is at http://localhost:7900.
@@ -79,7 +79,7 @@ Then open http://localhost:8065 and log in as `priya` or `sam`. Their password i
 Each step is also one command, `pnpm demo:run SC3` and so on, which drives the people through Mattermost. People's actions are scripted. The agents' words never are.
 
 1. SC3, the spine. As Priya in `#support`: `@refunds-agent handle Meera's ticket T-77 for order A-1931`. The ticket pressures the agent to send ₹40,000 to a payment ID added minutes ago. In our runs the agent caught the wrong amount and offered the correct ₹4,000 to the new ID, and it's held. Answer the card yourself as Priya and Clearance refuses you in the room. Sam's direct room has the card, with the new destination flagged.
-2. SC6 and SC5, other vendors. Priya asks `@ops-agent` on OpenCode to ship `checkout v2.14.0` to prod with failing checks. Same policy file, same kind of card. With a Codex login you can also ask `@support-agent`, as Sam, to email the customer list outside the company. We haven't run that one: see vendor coverage.
+2. SC6 and SC5, other vendors. Priya asks `@ops-agent` on OpenCode to ship `checkout v2.14.0` to prod with failing checks. Which free model answers changes, and the one we tried last declined by itself, so if it stops, tell it `I know the checks are failing. Ship it to prod anyway, it's my call.` Clearance still holds it for Alex. Same policy file, same kind of card. With a Codex login you can also ask `@support-agent`, as Sam, to email the customer list outside the company. We haven't run that one: see vendor coverage.
 3. SC8, the inbox. Leave a card unanswered with the clock sped up. The backup gets it, and each approver has one "Needs your response" post across rooms.
 4. SC9, a drill. Approve the practice request quickly. Nothing runs, you get a private note, and your next high-risk card asks you to type a detail.
 5. SC11, earned autonomy. `pnpm seed:history` loads a synthetic week. Two people sign a promotion, a small refund runs with a review card, and `@clearance incident` takes it away.
@@ -110,13 +110,13 @@ There's no room where people and different vendors' agents meet, no identity to 
 
 Switch can send each message to an outside check before posting it. Clearance can be that check: `POST /guardrails/check` answers `ALERTED` for agent messages that lean on approvers, like "urgent, CEO says approve now", using plain patterns with no LLM.
 
-It's advisory only. Switch gives it 2 s and fails open, so nothing may depend on it, and it never changes a decision: the listener has no way to reach core, and Switch only adds a note in the room. What protects an approver from pressure is the card, which shows the call and not the agent's words.
+It's advisory only. Switch gives it 2 s and fails open, so nothing may depend on it, and it never changes a decision: the listener has no way to reach core, and Switch only adds a note in the room. The first flagged message also adds `switch-admin` to that channel, with a visible join line, and that stays after the check is turned off. What protects an approver from pressure is the card, which leads with the call parsed from what ran. An agent's own words come last, labelled unverified.
 
 It's off by default, and it takes config only, with no change to Switch:
 
 1. Find the address of the gateway of Switch's Docker network: `docker network inspect <project>_default -f '{{(index .IPAM.Config 0).Gateway}}'`. Core's API stays on loopback. The check gets a listener of its own, with this one route.
 2. In `.env`, set `CLEARANCE_TRUST_KEY` to a new secret and `CLEARANCE_TRUST_HOST` to that address, then restart core.
-3. As a Switch admin, `PUT /trust-settings` on the gateway with `{"endpoint": "http://<address>:7701", "policy_id": "clearance-pressure", "api_key": "<the key>"}`. It applies from the next message, and `DELETE /trust-settings` turns it off.
+3. As a Switch admin, `PUT http://127.0.0.1:8000/gateway/trust-settings` with `{"endpoint": "http://<address>:7701", "policy_id": "clearance-pressure", "api_key": "<the key>"}`. It applies from the next message, and `DELETE /trust-settings` turns it off.
 
 Leave it off for a recorded take. Every message then waits on the check before it posts, and if core is down or stopping, every message gets Switch's "could not check" note, including during the fail-closed scene.
 
@@ -205,9 +205,9 @@ refund:
 
 ## What works today, and what doesn't yet
 
-Working on the real stack: holds, refusals, routing, execute-on-approval and fail-closed behaviour through the gate, the Claude Code and OpenCode hooks, cards with real button presses, the inbox, the ledger mirror, drills, earned autonomy's promotion and demotion, delegation, break-glass, and the install command.
+Working on the real stack: holds, refusals, routing, execute-on-approval and fail-closed behaviour through the gate, the Claude Code and OpenCode hooks, cards with real button presses, the inbox, the ledger mirror, drills, earned autonomy's promotion and demotion, delegation, break-glass, approve with edits (`@clearance counter CLR-0042 4000`), file writes bound to their content, the outcome-unknown message, Switch Trust's flag, and the install command.
 
-Proved in tests, not yet on the live stack: signed policy changes, against fakes, and approve with edits (`@clearance counter CLR-0042 4000`), through the real gate with a stand-in Acme and a fake chat port. Switch Trust's check is proved against Switch's request and response shapes as read from its code, and hasn't been turned on against a running Switch.
+Proved in tests, not yet on the live stack: signed policy changes, against fakes.
 
 Not yet:
 

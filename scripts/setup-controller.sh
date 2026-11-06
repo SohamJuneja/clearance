@@ -373,7 +373,12 @@ build_controller
 install_hook_cli
 install_opencode
 fence_prepare "$MACHINE_NAME"
-if [ "$NO_FENCE" != 1 ]; then fence_args "$MACHINE_NAME"; fi
+# With --no-fence sessions run in the real home, whose OpenCode login is that person's own.
+if [ "$NO_FENCE" != 1 ]; then fence_opencode_auth "$MACHINE_NAME"; fi
+if [ "$NO_FENCE" != 1 ]; then
+  fence_opencode_refresh "$MACHINE_NAME" || echo "warning: OpenCode couldn't refresh its list of models on $MACHINE_NAME, so a new model may not be found yet" >&2
+  fence_args "$MACHINE_NAME"
+fi
 if [ "$ACTION" = doctor ]; then
   doctor
   exit 0

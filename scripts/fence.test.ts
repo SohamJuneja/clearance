@@ -1,12 +1,14 @@
 import { execFile, execFileSync, spawn, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { fetchOnceMore } from "./gateway-owner.ts";
+import { OPENCODE_AGENTS } from "./model-refusal.ts";
 import { MACHINES, planAgents } from "./setup-agents.ts";
+import { OPEN_BASELINE } from "./setup-baseline.ts";
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), "..");
 const FENCE = join(REPO, "scripts/fence.sh");
@@ -89,6 +91,158 @@ describe("E2's OpenCode baseline", () => {
     const args = argsOf(machine).join("\n");
     expect(args).toContain("/ops-agent-vanilla");
     expect(args).not.toContain("/refunds-agent-vanilla");
+  });
+});
+
+describe("the machine that tries free models", () => {
+  const machine = "clearance-opencode-probe";
+
+  it("runs OpenCode, and can never be enrolled, since it has no owner", () => {
+    expect(fence(`fence_providers ${machine}`).trim()).toBe("opencode");
+    expect(() => fence(`fence_owner ${machine}`)).toThrow();
+  });
+
+  it("gets no agent's folder, no login and no shared remote", () => {
+    expect(fence(`fence_agents ${machine}`).trim()).toBe("");
+    const args = argsOf(machine).join("\n");
+    for (const hidden of [".credentials.json", "auth.json", ".origin", "/ops-agent", "/refunds-agent"]) {
+      expect(args).not.toContain(hidden);
+    }
+  });
+
+  it("has a home of its own, so it can't touch a running agent's state", () => {
+    const args = argsOf(machine);
+    expect(args[args.indexOf(home) - 1]).toContain("clearance-opencode-probe");
+  });
+
+  it("hides the real home like any other machine", () => {
+    const args = argsOf(machine);
+    for (let i = 0; i < args.length; i++) {
+      if (!/^--(ro-)?bind(-try)?$/.test(args[i]!)) continue;
+      expect(args[i + 1]).not.toBe(home);
+      expect(args[i + 1]!.startsWith(join(home, ".ssh"))).toBe(false);
+      expect(args[i + 1]!.startsWith(repo)).toBe(false);
+    }
+  });
+});
+
+describe("fence_opencode_auth", () => {
+  const envFile = () => join(repo, ".env");
+  const authFile = (machine: string) => join(tools, "homes", machine, ".local/share/opencode/auth.json");
+  const KEY = "not-a-real-provider-key";
+
+  afterEach(() => {
+    rmSync(envFile(), { force: true });
+    rmSync(join(tools, "homes"), { recursive: true, force: true });
+  });
+
+  it("gives OpenCode's machines their auth file, in the shape OpenCode reads, mode 600", () => {
+    writeFileSync(envFile(), `OPENCODE_PROVIDER_KEY=${KEY}\nCLEARANCE_OPENCODE_MODEL=anthropic/claude-haiku-5-5\n`);
+    for (const machine of ["clearance-alex-open", "clearance-priya-open-base"]) {
+      fence(`fence_opencode_auth ${machine}`);
+      expect(JSON.parse(readFileSync(authFile(machine), "utf8"))).toEqual({ anthropic: { type: "api", key: KEY } });
+      expect(statSync(authFile(machine)).mode & 0o777).toBe(0o600);
+    }
+  });
+
+  it("never prints the key", () => {
+    writeFileSync(envFile(), `OPENCODE_PROVIDER_KEY=${KEY}\nCLEARANCE_OPENCODE_MODEL=anthropic/claude-haiku-5-5\n`);
+    const said = fence("fence_opencode_auth clearance-alex-open");
+    expect(said).toContain("anthropic");
+    expect(said).not.toContain(KEY);
+  });
+
+  it("never gives it to a machine that doesn't run OpenCode, or to the one that tries free models", () => {
+    writeFileSync(envFile(), `OPENCODE_PROVIDER_KEY=${KEY}\nCLEARANCE_OPENCODE_MODEL=anthropic/claude-haiku-5-5\n`);
+    for (const machine of ["clearance-host", "clearance-priya", "clearance-priya-base", "clearance-alex", "clearance-opencode-probe"]) {
+      fence(`fence_opencode_auth ${machine}`);
+      expect(existsSync(authFile(machine)), machine).toBe(false);
+    }
+  });
+
+  it("isn't bound into any other machine, whose home is a different folder", () => {
+    writeFileSync(envFile(), `OPENCODE_PROVIDER_KEY=${KEY}\nCLEARANCE_OPENCODE_MODEL=anthropic/claude-haiku-5-5\n`);
+    fence("fence_opencode_auth clearance-alex-open");
+    for (const machine of ["clearance-host", "clearance-priya", "clearance-priya-base", "clearance-alex", "clearance-priya-open-base"]) {
+      expect(argsOf(machine).join("\n"), machine).not.toContain(join(tools, "homes", "clearance-alex-open"));
+    }
+  });
+
+  it("takes the key back out when it's gone from .env", () => {
+    writeFileSync(envFile(), `OPENCODE_PROVIDER_KEY=${KEY}\nCLEARANCE_OPENCODE_MODEL=anthropic/claude-haiku-5-5\n`);
+    fence("fence_opencode_auth clearance-alex-open");
+    writeFileSync(envFile(), "OPENCODE_PROVIDER_KEY=\nCLEARANCE_OPENCODE_MODEL=anthropic/claude-haiku-5-5\n");
+    fence("fence_opencode_auth clearance-alex-open");
+    expect(existsSync(authFile("clearance-alex-open"))).toBe(false);
+  });
+
+  it("writes nothing when there's no model to say which provider it's for", () => {
+    writeFileSync(envFile(), `OPENCODE_PROVIDER_KEY=${KEY}\n`);
+    fence("fence_opencode_auth clearance-alex-open");
+    expect(existsSync(authFile("clearance-alex-open"))).toBe(false);
+    writeFileSync(envFile(), `OPENCODE_PROVIDER_KEY=${KEY}\nCLEARANCE_OPENCODE_MODEL=no-provider-here\n`);
+    fence("fence_opencode_auth clearance-alex-open");
+    expect(existsSync(authFile("clearance-alex-open"))).toBe(false);
+  });
+
+  it("copes with a key that has quotes and odd characters in it", () => {
+    writeFileSync(envFile(), `OPENCODE_PROVIDER_KEY="sk-a'b$c\\d"\nCLEARANCE_OPENCODE_MODEL=anthropic/x\n`);
+    fence("fence_opencode_auth clearance-alex-open");
+    const held = JSON.parse(readFileSync(authFile("clearance-alex-open"), "utf8")) as { anthropic: { key: string } };
+    expect(held.anthropic.key).toBe("sk-a'b$c\\d");
+  });
+});
+
+describe("fence_opencode_refresh", () => {
+  const stubbed = (body: string) => {
+    const bin = mkdtempSync(join(tmpdir(), "bwrap-stub-"));
+    writeFileSync(join(bin, "bwrap"), `#!/bin/sh\n${body}\n`, { mode: 0o755 });
+    return bin;
+  };
+  const refresh = (machine: string, bin: string) =>
+    fence(`mkdir -p "$(fence_data_dir ${machine})" "$(fence_home ${machine})/tmp"; PATH="${bin}:$PATH"; fence_opencode_refresh ${machine} && echo refreshed || echo failed`).trim();
+
+  afterEach(() => {
+    rmSync(join(tools, "homes"), { recursive: true, force: true });
+  });
+
+  it("asks OpenCode for the fresh list, inside that machine's fence", () => {
+    const bin = stubbed(`printf '%s\\n' "$@" > "${join(root, "bwrap-args")}"`);
+    expect(refresh("clearance-alex-open", bin)).toBe("refreshed");
+    const args = readFileSync(join(root, "bwrap-args"), "utf8");
+    expect(args).toContain("--unshare-user");
+    expect(args).toContain("--die-with-parent");
+    expect(args.trim().split("\n").slice(-3)).toEqual(["opencode", "models", "--refresh"]);
+    rmSync(bin, { recursive: true, force: true });
+  });
+
+  it("says when it couldn't, so the caller can warn and carry on", () => {
+    const bin = stubbed("exit 7");
+    expect(refresh("clearance-alex-open", bin)).toBe("failed");
+    rmSync(bin, { recursive: true, force: true });
+  });
+
+  it("does nothing on a machine that doesn't run OpenCode, or hasn't been set up", () => {
+    const bin = stubbed(`touch "${join(root, "bwrap-ran")}"`);
+    expect(refresh("clearance-priya", bin)).toBe("refreshed");
+    // Other tests here prepare every machine, and a machine that was never set up has no data folder.
+    rmSync(join(tools, "controller-data-priya-open-base"), { recursive: true, force: true });
+    expect(fence(`PATH="${bin}:$PATH"; fence_opencode_refresh clearance-priya-open-base && echo fine`).trim()).toBe("fine");
+    expect(existsSync(join(root, "bwrap-ran"))).toBe(false);
+    rmSync(bin, { recursive: true, force: true });
+  });
+});
+
+describe("OpenCode's agents", () => {
+  it("are on the machines the refusal check reads the logs of", () => {
+    expect(OPENCODE_AGENTS["ops-agent"]).toBe(MACHINES["ops-agent"]);
+    expect(OPENCODE_AGENTS["ops-agent-vanilla"]).toBe(OPEN_BASELINE.machine);
+    expect(OPEN_BASELINE.agent).toBe("ops-agent-vanilla");
+  });
+
+  it("are the ones `just demo` gives the key to", () => {
+    const demo = readFileSync(join(REPO, "scripts/demo.sh"), "utf8");
+    for (const machine of Object.values(OPENCODE_AGENTS)) expect(demo).toContain(machine);
   });
 });
 

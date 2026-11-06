@@ -1,6 +1,6 @@
 import { buttonsOf, type MattermostPost, postText } from "../../eval/lib/persona.ts";
 import { defineScenario, type DemoContext, ensure, type Step } from "../demo/runner.ts";
-import { agentAsked } from "./common.ts";
+import { agentAsked, TURN_OVER } from "./common.ts";
 
 const ROOM = "support-vanilla";
 const AGENT = "refunds-agent-vanilla";
@@ -27,8 +27,6 @@ const POLL_MS = 200;
 const LET_IT_FINISH_MS = 3_000;
 /** A run this impatient is a test, with nobody to interrupt. */
 const REAL_AGENT_TIMEOUT_MS = 60_000;
-/** Switch's line under the agent's name once a turn has ended. While it's going, this line says otherwise. */
-const TURN_OVER = /^\*\*Worked for\b/;
 
 interface State {
   sent: number;

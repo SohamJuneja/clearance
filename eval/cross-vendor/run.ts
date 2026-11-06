@@ -4,6 +4,7 @@
  *   pnpm eval:vendors --dry-run                  what would run, what's blocked, what it would cost. No agent starts.
  *   pnpm eval:vendors --probe                    two prompts per agent, to see the setup works. Isn't E2, and isn't in its results.
  *   pnpm eval:vendors --go                       the real runs. Also needs CLEARANCE_EVAL_E2_GO=1.
+ *     --vendor opencode                          one vendor's runs: replaces that vendor's in the file and keeps the others'
  *     --claude-model haiku                       the model Claude's agents are set to; recorded in the output
  *     --usd-per-run 0.05                         the estimate checked against the cap before each run
  *
@@ -14,13 +15,14 @@
  * login, or no agent, is `blocked` in the output, never zero. Writes eval/out/vendors.json after every run,
  * so an interrupted night keeps what it has.
  */
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readCosts, totalSpend } from "../lib/costs.ts";
 import { REPO_ROOT, setting } from "../lib/paths.ts";
 import { defaultUrls } from "../lib/world.ts";
 import { defaultWorkspacesDir } from "../../scripts/gateway-owner.ts";
+import { agentRefusal } from "../../scripts/model-refusal.ts";
 import {
   AGENTS,
   buildAvailability,
@@ -41,6 +43,7 @@ import {
   CONDITIONS,
   loadIntents,
   type RunResult,
+  type VendorName,
   summarise,
   VENDORS,
 } from "./plan.ts";
@@ -60,6 +63,8 @@ export interface VendorArgs {
   claudeModel: string;
   parallel: number;
   usdPerRun: number;
+  /** One vendor's runs only. Its results replace that vendor's in the file, and the others' stay. */
+  vendor?: VendorName;
 }
 
 export function parseVendorArgs(argv: string[]): VendorArgs {
@@ -67,7 +72,12 @@ export function parseVendorArgs(argv: string[]): VendorArgs {
     const index = argv.indexOf(flag);
     return index >= 0 ? argv[index + 1] : undefined;
   };
+  const vendor = value("--vendor");
+  if (vendor !== undefined && !(VENDORS as readonly string[]).includes(vendor)) {
+    throw new Error(`--vendor takes one of ${VENDORS.join(", ")}`);
+  }
   return {
+    ...(vendor ? { vendor: vendor as VendorName } : {}),
     dryRun: argv.includes("--dry-run"),
     go: argv.includes("--go"),
     probe: argv.includes("--probe"),
@@ -75,6 +85,12 @@ export function parseVendorArgs(argv: string[]): VendorArgs {
     parallel: checkParallel(Number(value("--parallel") ?? 1)),
     usdPerRun: Number(value("--usd-per-run") ?? DEFAULT_USD_PER_RUN),
   };
+}
+
+function openCodeModel(): string | undefined {
+  const chosen = join(REPO_ROOT, "data/opencode-model.json");
+  if (setting("CLEARANCE_OPENCODE_MODEL")) return setting("CLEARANCE_OPENCODE_MODEL");
+  return existsSync(chosen) ? (JSON.parse(readFileSync(chosen, "utf8")) as { model?: string }).model : undefined;
 }
 
 export function renderOutput(
@@ -88,12 +104,41 @@ export function renderOutput(
     ...summarise(results, availability, RISKY_RUNS_PER_VENDOR),
     runs: results.length,
     claude_model: args.claudeModel,
+    // OpenCode's free models differ in what they'll do by themselves, so a count means little without knowing which ran.
+    ...(openCodeModel() ? { opencode_model: openCodeModel() } : {}),
     usd_per_run_estimate: args.usdPerRun,
     availability,
     measured_at: new Date().toISOString(),
     ...extra,
     per_run: results,
   };
+}
+
+/** Results from an earlier run for the vendors this one isn't running. A vendor's runs are only ever replaced whole. */
+export function keptResults(previous: unknown, vendor: VendorName | undefined): RunResult[] {
+  if (!vendor) return [];
+  const runs = (previous as { per_run?: RunResult[] } | null)?.per_run;
+  return Array.isArray(runs) ? runs.filter((run) => run.vendor !== vendor) : [];
+}
+
+/** A vendor left out of this run, with nothing kept for it, reads as not run. It must never read as a clean zero. */
+export function availabilityForRun(
+  availability: AvailabilityMap,
+  vendor: VendorName | undefined,
+  kept: RunResult[],
+): AvailabilityMap {
+  if (!vendor) return availability;
+  const out = structuredClone(availability);
+  for (const other of VENDORS) {
+    if (other === vendor) continue;
+    for (const condition of CONDITIONS) {
+      const hasRuns = kept.some((run) => run.vendor === other && run.condition === condition);
+      if (!hasRuns && out[other][condition].status === "ready") {
+        out[other][condition] = { status: "blocked", reason: `not run yet: this run was --vendor ${vendor}` };
+      }
+    }
+  }
+  return out;
 }
 
 function printAvailability(
@@ -125,7 +170,7 @@ export function probePlan(plan: PlannedRun[]): PlannedRun[] {
 async function main(): Promise<number> {
   const args = parseVendorArgs(process.argv.slice(2).filter((arg) => arg !== "--"));
   const intents = loadIntents(join(here, "intents.yaml"));
-  const plan = buildPlan(intents);
+  const plan = buildPlan(intents).filter((run) => !args.vendor || run.vendor === args.vendor);
   const urls = defaultUrls();
   // A dry run leaves the shared stack alone: it doesn't so much as ask core how it is.
   const live = args.go || args.probe;
@@ -183,6 +228,7 @@ async function main(): Promise<number> {
     internalToken: setting("CLEARANCE_INTERNAL_TOKEN") ?? "",
     canary,
     remoteRepo: remoteOf,
+    modelRefusal: (agent, sinceMs) => agentRefusal(agent, { sinceMs })?.reason ?? null,
     reset: (planned, agent, room) => prepareRun(planned, agent, room, canary, remoteOf(agent)),
   });
 
@@ -190,11 +236,13 @@ async function main(): Promise<number> {
   mkdirSync(directory, { recursive: true });
   // A probe has its own file, so it can never be read as E2.
   const outFile = join(directory, args.probe && !args.go ? "vendors-probe.json" : "vendors.json");
-  const results: RunResult[] = [];
+  const kept = keptResults(existsSync(outFile) ? (JSON.parse(readFileSync(outFile, "utf8")) as unknown) : null, args.vendor);
+  const results: RunResult[] = [...kept];
+  const reported = availabilityForRun(availability, args.vendor, kept);
   const save = (extra: Record<string, unknown> = {}): void =>
     writeFileSync(
       outFile,
-      `${JSON.stringify(renderOutput(results, availability, args, extra), null, 2)}\n`,
+      `${JSON.stringify(renderOutput(results, reported, args, extra), null, 2)}\n`,
     );
   const agents = [
     ...new Set(

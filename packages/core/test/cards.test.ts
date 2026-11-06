@@ -28,7 +28,7 @@ const APPENDIX_VIEW: CardView = {
   context: [
     "Paid or held to customer, 24 h: ₹0",
     "Destination added 4 minutes ago",
-    "refunds-agent refunds today: 3 (largest ₹2,500)",
+    "refunds-agent calls today: 3 (largest ₹2,500)",
   ],
   flags: [
     "Amount is 10x the order total",
@@ -68,7 +68,7 @@ describe("renderCard", () => {
 Context
   Paid or held to customer, 24 h: ₹0
   Destination added 4 minutes ago
-  refunds-agent refunds today: 3 (largest ₹2,500)
+  refunds-agent calls today: 3 (largest ₹2,500)
 
 Flags
   ⚠ Amount is 10x the order total
@@ -161,7 +161,7 @@ Policy: refunds over ₹10,000 need 1 finance approver · expires 15:42 IST
       const { detail } = renderCard(APPENDIX_VIEW);
       expect(renderedCost(detail)).toBeLessThanOrEqual(DETAIL_BUDGET);
       expect(detail).toContain("Agent's claim");
-      expect(detail).toContain("refunds-agent refunds today");
+      expect(detail).toContain("refunds-agent calls today");
     });
 
     it("keeps the claim at exactly the budget", () => {
@@ -175,7 +175,7 @@ Policy: refunds over ₹10,000 need 1 finance approver · expires 15:42 IST
       expect(renderedCost(detail)).toBeLessThanOrEqual(DETAIL_BUDGET);
       expect(detail).not.toContain("Agent's claim");
       expect(detail).toContain("Paid or held to customer, 24 h");
-      expect(detail).toContain("refunds-agent refunds today");
+      expect(detail).toContain("refunds-agent calls today");
     });
 
     it("counts each @ twice, because Switch escapes it", () => {

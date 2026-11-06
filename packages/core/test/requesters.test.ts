@@ -342,6 +342,7 @@ describe("what the agent said, and what Switch said in its name", () => {
 describe("isSwitchNotice", () => {
   /** Word for word from Switch at the pinned commit. */
   const SWITCH_SAYS = [
+    "Starting a session to handle this — one moment.",
     "You're not permitted to direct messages to me in this room — my operator has restricted who can address me here.",
     "@clearance You're not permitted to direct messages to me in this room — my operator has restricted who can address me here.",
     "I only take instructions from my owner, and this chat account isn't linked to a Switch user yet — so I can't tell whether that's you. If it is, link this account to your Switch user in Switch Console, post the code it shows you from this account, and try again.",

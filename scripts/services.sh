@@ -3,6 +3,7 @@
 #   scripts/services.sh up [acme|gate|core|desk]    start, detached, one process group each
 #   scripts/services.sh down [acme|gate|core|desk]  stop by process group
 #   scripts/services.sh status                 health of each
+#   scripts/services.sh stale [service]        names each running service that started before this checkout's commit
 # `node` on this host may be a Volta shim, so killing only the started pid would leave the real server
 # holding its port. Each service gets its own session, and stopping signals the whole group.
 set -euo pipefail
@@ -26,6 +27,19 @@ live_pgid() {
   pgid="$(cat "$RUN/$name.pgid")"
   kill -0 -- "-$pgid" 2>/dev/null || return 1
   echo "$pgid"
+}
+
+# The commit this checkout is on. Empty with no git, as in an unpacked tarball, where nothing can be called old.
+head_commit() { git -C "$ROOT" rev-parse HEAD 2>/dev/null || true; }
+
+# True when a service is running code this checkout has moved past. One with no record was started by this script's
+# older self, so nobody can say what it's running.
+is_stale() {
+  local name="$1" head
+  live_pgid "$name" >/dev/null || return 1
+  head="$(head_commit)"
+  [ -n "$head" ] || return 1
+  [ "$(cat "$RUN/$name.commit" 2>/dev/null || true)" != "$head" ]
 }
 
 entry() {
@@ -60,6 +74,7 @@ up_one() {
   "$ROOT/scripts/new-session.sh" "$TSX" --env-file=.env "$(entry "$name")" >>"$RUN/$name.log" 2>&1 </dev/null &
   echo $! >"$RUN/$name.pgid"
   echo "$BOOT_ID" >"$RUN/$name.boot"
+  head_commit >"$RUN/$name.commit"
   for _ in $(seq 1 40); do
     if curl -s -m 1 -o /dev/null "http://127.0.0.1:$(port "$name")/"; then
       echo "$name: up on $(port "$name")"
@@ -84,6 +99,7 @@ down_one() {
     kill -KILL -- "-$pgid" 2>/dev/null || true
   fi
   : >"$RUN/$name.pgid"
+  rm -f "$RUN/$name.commit"
   echo "$name: stopped"
 }
 
@@ -108,5 +124,6 @@ case "$command" in
   up) for s in "${services[@]}"; do up_one "$s"; done ;;
   down) for s in "${services[@]}"; do down_one "$s"; done ;;
   status) for s in "${services[@]}"; do status_one "$s"; done ;;
-  *) echo "usage: $0 up|down|status [acme|gate|core|desk]" >&2; exit 2 ;;
+  stale) for s in "${services[@]}"; do if is_stale "$s"; then echo "$s"; fi; done ;;
+  *) echo "usage: $0 up|down|status|stale [acme|gate|core|desk]" >&2; exit 2 ;;
 esac

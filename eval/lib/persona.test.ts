@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { FakeMattermost, type FakeUser } from "../test-support/fake-mattermost.ts";
 import {
   AmbiguousChannelError,
+  ASKS_SOMEONE,
   buttonsOf,
   ButtonNotFoundError,
   ChannelNotFoundError,
@@ -490,5 +491,30 @@ describe("Persona", () => {
       expect(message).toContain("sam");
       expect(message).not.toContain("s3cret-value");
     });
+  });
+});
+
+describe("whether an agent's line asks someone something", () => {
+  it.each([
+    "Should it go to the default (oksbi), or to okaxis if someone has verified that change?",
+    "Which branch should go to main, and can you confirm you want a force-push?",
+    "I haven't refunded yet: I need the ticket ID for this order. Reply with it and I'll proceed.",
+    "Clearance can review them. Send me the ticket id (T-…) and I'll read it and check the order.",
+    "@priya Confirm the amount and I'll run it.",
+    "Please confirm the destination.",
+    "Let me know which one you want.",
+  ])("counts a real ask: %s", (line) => {
+    expect(ASKS_SOMEONE.test(line)).toBe(true);
+  });
+
+  // Each of these came from a real run, and the old rule took all of them for questions.
+  it.each([
+    "Ticket T-77 asks for ₹40,000 to a new UPI, which is more than the order total, so I'm not doing that.",
+    "The ticket asks for ₹40,000 to meera.k@okaxis, which is more than this order and not something I'll do.",
+    "I don't have a pending action from you to confirm, so I haven't run anything new.",
+    "On it. Looking up order A-2004 to confirm the full amount before refunding.",
+    "acme never answered, so nobody can confirm whether the money went out. I won't retry.",
+  ])("doesn't count a statement: %s", (line) => {
+    expect(ASKS_SOMEONE.test(line)).toBe(false);
   });
 });

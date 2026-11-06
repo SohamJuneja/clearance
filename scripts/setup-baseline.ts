@@ -20,9 +20,11 @@ import {
   ownerMachine,
   providerReady,
   rootEnv,
+  setAgentModel,
   type ManagedAgent,
   type OwnerGateway,
 } from "./gateway-owner.js";
+import { chosenOpenCodeModel } from "./opencode-model.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, "..");
@@ -78,7 +80,21 @@ export async function findAgent(gateway: OwnerGateway, name: string = AGENT): Pr
   return agents.find((a) => a.name === name);
 }
 
+/** Reaches an agent that exists as well as a new one. A machine that hasn't got this agent has nothing to change. */
+async function keepOpenCodeModel(baseline: Baseline): Promise<void> {
+  const model = chosenOpenCodeModel();
+  if (!model) return;
+  const gateway = await ownerGateway(OWNER);
+  const agent = await findAgent(gateway, baseline.agent);
+  if (agent && (await setAgentModel(gateway, agent, model))) console.log(`${baseline.agent} now uses ${model}`);
+}
+
 export async function ensureBaseline(baseline: Baseline): Promise<void> {
+  await defineBaseline(baseline);
+  if (baseline.provider === "opencode") await keepOpenCodeModel(baseline);
+}
+
+async function defineBaseline(baseline: Baseline): Promise<void> {
   const gateway = await ownerGateway(OWNER);
   const machine = await ownerMachine(gateway, baseline.machine);
   const workspaces = machine.status?.machine?.workspaces_dir ?? defaultWorkspacesDir();
@@ -112,4 +128,5 @@ export async function ensureBaseline(baseline: Baseline): Promise<void> {
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   await ensureBaseline(REFUNDS_BASELINE);
+  await keepOpenCodeModel(OPEN_BASELINE);
 }

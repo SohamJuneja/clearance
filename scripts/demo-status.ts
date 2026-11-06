@@ -9,10 +9,13 @@ import { join } from "node:path";
 import { PEOPLE, personaTokens } from "./demo/greet.ts";
 import { findStrayRooms } from "./demo/stray-rooms.ts";
 import { agentIdOf, defaultWorkspacesDir, type ManagedAgent, type Machine, ownerGateway, providerReady, providersNotReady, ROOT } from "./gateway-owner.ts";
+import { agentRefusal, refusalLine } from "./model-refusal.ts";
+import { chosenOpenCodeModel } from "./opencode-model.ts";
 import { MACHINES, OWNERS, planAgents, staleHookFiles } from "./setup-agents.ts";
 import { roomsOf, roomsOfAgents } from "./setup-world.ts";
 
 const MATTERMOST = process.env.MATTERMOST_URL ?? "http://127.0.0.1:8065";
+const REFUSAL_WINDOW_MS = 15 * 60_000;
 const BASELINE = { name: "refunds-agent-vanilla", owner: "priya", machine: "clearance-priya-base", provider: "claude" };
 const template = () => readFileSync(join(ROOT, "templates/acme-mini.template.yaml"), "utf8");
 
@@ -82,8 +85,15 @@ async function agents(): Promise<void> {
     if (agent && machine && agent.controller_id === machine.id) {
       const folder = join(machine.status?.machine?.workspaces_dir ?? defaultWorkspacesDir(), plan.name);
       const stale = plan === BASELINE ? [] : staleHookFiles(join(ROOT, "acme-mini-app"), folder);
+      const wantedModel = plan.provider === "opencode" ? chosenOpenCodeModel() : null;
       if (stale.length > 0) no(`${plan.name} runs on older hook files than the template: ${stale.join(", ")}`);
-      else ok(`${plan.name} is on ${plan.machine}`);
+      else if (wantedModel && agent.definition.model !== wantedModel) {
+        no(`${plan.name} runs ${String(agent.definition.model)}, and should run ${wantedModel}`);
+      } else ok(`${plan.name} is on ${plan.machine}`);
+      if (plan.provider === "opencode") {
+        const refusal = agentRefusal(plan.name, { sinceMs: Date.now() - REFUSAL_WINDOW_MS, model: String(agent.definition.model) });
+        if (refusal) console.log(`  warn  ${refusalLine(plan.name, refusal)}`);
+      }
     } else if (machine && !providerReady(machine, plan.provider)) {
       // Not a gap in the setup: it can't exist until someone gives this machine a login.
       ok(`${plan.name} is waiting for a ${plan.provider} login on ${plan.machine}, and one rerun creates it`);

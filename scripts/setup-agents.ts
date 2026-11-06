@@ -47,11 +47,13 @@ import {
   ownerGateway,
   ownerMachine,
   providerReady,
+  restartAgent,
   rootEnv,
   type AgentDefinition,
   type ManagedAgent,
   type OwnerGateway,
 } from "./gateway-owner.ts";
+import { chosenOpenCodeModel } from "./opencode-model.ts";
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -110,6 +112,11 @@ type TemplateDoc = {
   params?: { clearance_rules?: { default?: string } };
   resources?: Record<string, TemplateResource>;
 };
+
+/** The template's model, except OpenCode's, whose free models change: see scripts/opencode-model.ts. */
+export function modelFor(plan: Pick<AgentPlan, "provider" | "model">, openCodeModel: string | null): string {
+  return plan.provider === "opencode" && openCodeModel ? openCodeModel : plan.model;
+}
 
 export function planAgents(templateText: string): AgentPlan[] {
   const doc = parse(templateText) as TemplateDoc;
@@ -293,7 +300,7 @@ export function agentNeedsUpdate(current: AgentDefinition, want: AgentDefinition
   return COMPARED.some((field) => current[field] !== want[field]);
 }
 
-async function ensureAgent(
+export async function ensureAgent(
   gateway: OwnerGateway,
   name: string,
   plan: AgentPlan,
@@ -322,6 +329,9 @@ async function ensureAgent(
   const changed = agentNeedsUpdate(existing.definition, definition);
   if (changed) {
     await gateway.must("PATCH", `/management/agents/${id}`, { definition: { ...existing.definition, ...definition } });
+    if (existing.definition.model !== definition.model && existing.desired_state === "running") {
+      await restartAgent(gateway, existing);
+    }
   }
   if (moving) return `moved to ${machine.name}`;
   return changed ? "updated" : "unchanged";
@@ -380,6 +390,7 @@ async function main(): Promise<void> {
   if (plans.length === 0) throw new Error(`no agents match ${String(values.agents)}`);
   const plugins = operatorPlugins();
   const hookCli = installHookCli();
+  const openCodeModel = chosenOpenCodeModel();
   const gateways = new Map<string, OwnerGateway>();
   const problems: string[] = [];
 
@@ -416,13 +427,14 @@ async function main(): Promise<void> {
       const seeded = await seedCodexTrust(resolve(codexHome), dir);
       trust = `${seeded} hooks trusted`;
     }
+    const model = modelFor(plan, openCodeModel);
     let agent = "skipped";
     if (!values["no-create"] && !ready) {
       agent = `waiting: ${machine.name} has no ${plan.provider} login or install. Rerun this once it does`;
     } else if (!values["no-create"]) {
       const definition: AgentDefinition = {
         provider: plan.provider,
-        model: plan.model,
+        model,
         instructions: plan.instructions,
         auto_mode: plan.auto_mode,
         auto_approve: false,
@@ -436,7 +448,7 @@ async function main(): Promise<void> {
         problems.push(`${name}: ${(error as Error).message}`);
       }
     }
-    console.log(`${name}: owner=${plan.owner} machine=${machine.name} provider=${plan.provider} model=${plan.model} folder=${folder} agent=${agent} codex_trust=${trust} dir=${dir}`);
+    console.log(`${name}: owner=${plan.owner} machine=${machine.name} provider=${plan.provider} model=${model} folder=${folder} agent=${agent} codex_trust=${trust} dir=${dir}`);
   }
   console.log(`hook tokens are in ${tokensPath}. Restart core to load them: scripts/services.sh down core && scripts/services.sh up core`);
   if (problems.length > 0) {

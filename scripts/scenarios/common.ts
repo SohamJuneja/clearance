@@ -1,12 +1,14 @@
 /** Moves several scenarios share. They only ever wait for and read what the world really said. */
 import {
   allOf,
+  ASKS_SOMEONE,
   buttonsOf,
   hasButtons,
   type MattermostPost,
   postText,
   type PostPredicate,
   textMatches,
+  isSwitchStatus,
 } from "../../eval/lib/persona.ts";
 import type { AcmeRefund, AcmeState } from "../../eval/lib/world.ts";
 import { ensure, type DemoContext, type Step } from "../demo/runner.ts";
@@ -80,11 +82,7 @@ export async function waitForHoldAnsweringOnce(
     },
   );
   if (await isHold(first)) return { held: first, answered: false };
-  // What it asked can be a thread reply, which the channel doesn't show, and a person reads before answering. On camera only.
-  await person.reveal(first);
-  await person.readFor(READS_THE_QUESTION_MS);
-  await person.closeThread();
-  const said = await person.say(room, answer);
+  const said = await answerTheQuestion(person, first, room, answer);
   const held = await person.waitForPost(room, isHold, {
     after: said,
     timeoutMs: ctx.agentTimeoutMs,
@@ -93,14 +91,74 @@ export async function waitForHoldAnsweringOnce(
   return { held, answered: true };
 }
 
-const ASKED = /\?|\bconfirm\b|\bwhich\b|\blet me know\b|\btell me\b|\breply\b|\bsend (?:it|me)\b/i;
+/** What it asked can be a thread reply, which the channel doesn't show, and a person reads before answering. On camera only. */
+export async function answerTheQuestion(
+  person: Person,
+  question: MattermostPost,
+  room: string,
+  answer: string,
+): Promise<MattermostPost> {
+  await person.reveal(question);
+  await person.readFor(READS_THE_QUESTION_MS);
+  await person.closeThread();
+  return person.say(room, answer);
+}
+
+/** Switch's line under the agent's name once a turn has ended. While it's going, this line says otherwise, and a turn that failed says that instead. */
+export const TURN_OVER = /^\*\*Worked for\b/;
+/** A hold's card can land just after the turn that made it ends, so nobody decides on the turn's last second. */
+const TURN_SETTLES_MS = 3_000;
+
+export type FirstMove =
+  | { kind: "held"; post: MattermostPost }
+  | { kind: "asked"; post: MattermostPost }
+  | { kind: "stopped"; words?: MattermostPost };
+
+/**
+ * What the agent does with a request before anyone says anything more: reports a hold, asks, or ends its turn having
+ * done neither. This only reads, and what follows is up to the scene. A failed turn is none of these, so it runs out of
+ * time and says what it saw.
+ */
+export async function waitForFirstMove(
+  ctx: DemoContext,
+  person: Person,
+  room: string,
+  agent: string,
+  after: MattermostPost,
+): Promise<FirstMove> {
+  const isHold = reportsAHold(person, agent);
+  const asked = agentAsked(person, agent);
+  const turnOver = allOf(person.api.fromAuthor(agent), textMatches(TURN_OVER));
+  const first = await person.waitForPost(
+    room,
+    async (post) => (await isHold(post)) || (await asked(post)) || (await turnOver(post)),
+    {
+      after,
+      timeoutMs: ctx.agentTimeoutMs,
+      description: `${agent} to ask something, report a hold with a CLR id or end its turn`,
+    },
+  );
+  if (await isHold(first)) return { kind: "held", post: first };
+  if (await asked(first)) return { kind: "asked", post: first };
+  await new Promise((done) => setTimeout(done, Math.min(TURN_SETTLES_MS, ctx.agentTimeoutMs / 10)));
+  const since = (await person.api.recent(room, { limit: 30 }))
+    .filter((post) => post.create_at > after.create_at)
+    .sort((a, b) => a.create_at - b.create_at);
+  const words = agentWords(person, agent);
+  let last: MattermostPost | undefined;
+  for (const post of since) if (await isHold(post)) return { kind: "held", post };
+  for (const post of since) if (await asked(post)) return { kind: "asked", post };
+  for (const post of since) if (await words(post)) last = post;
+  return last ? { kind: "stopped", words: last } : { kind: "stopped" };
+}
+
 /** SC3's voice-over is about this sentence: it's where the agent catches the wrong amount. */
 const READS_THE_QUESTION_MS = 8_000;
 
 /** The agent's own post waiting on someone. Reacts to whatever it says, and is never a claim about what it must say. */
 export function agentAsked(person: Person, agent: string): PostPredicate {
   const words = agentWords(person, agent);
-  return allOf(words, textMatches(ASKED), (post) => !hasButtons(post));
+  return allOf(words, textMatches(ASKS_SOMEONE), (post) => !hasButtons(post));
 }
 
 /**
@@ -148,13 +206,19 @@ export async function waitForCard(
   clr: string,
   sinceMs: number,
 ): Promise<MattermostPost> {
-  const card = await approver.waitForDm(allOf(textMatches(new RegExp(`\\b${clr}\\b`)), textMatches(HANDLE)), {
-    sinceMs,
-    timeoutMs: ctx.clearanceTimeoutMs,
-    description: `the ${clr} card with an answer handle in ${approver.name}'s DMs`,
-  });
+  const card = await approver.waitForDm(
+    allOf(textMatches(new RegExp(`\\b${clr}\\b`)), textMatches(HANDLE)),
+    {
+      sinceMs,
+      timeoutMs: ctx.clearanceTimeoutMs,
+      description: `the ${clr} card with an answer handle in ${approver.name}'s DMs`,
+    },
+  );
   // Switch says this when the person has not written in that direct room. Each take's hello is there to prevent it.
-  ensure(!/Nobody here is linked/.test(postText(card)), `${approver.name}'s card says nobody is linked to the agent's owner`);
+  ensure(
+    !/Nobody here is linked/.test(postText(card)),
+    `${approver.name}'s card says nobody is linked to the agent's owner`,
+  );
   return card;
 }
 
@@ -238,11 +302,8 @@ export function tryToApprove(
  * redrawn native card). A step waiting for the agent to say something must not end on those.
  */
 export function agentWords(person: Person, agent: string): PostPredicate {
-  return allOf(person.api.fromAuthor(agent), (post) => !SWITCH_STATUS.test(post.message));
+  return allOf(person.api.fromAuthor(agent), (post) => !isSwitchStatus(post.message));
 }
-
-const SWITCH_STATUS =
-  /^(@[\w.-]+\n)?(\*\*(Work|Queued|Permission|Allow|Approve|Deny|Decline|Closed)|Starting a session)/;
 
 /** A person's message in a room saying who decided what about a request, from Clearance. */
 export function waitForClearanceSays(

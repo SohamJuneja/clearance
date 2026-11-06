@@ -60,17 +60,27 @@ case "$MODE" in
     ;;
   --follow)
     last_nudge=0
+    seen=""
+    last_full=0
     while kill -0 "$FOLLOW" 2>/dev/null; do
-      if left="$(sync_once 2>/dev/null)"; then
-        now="$(date +%s)"
-        if [ "$left" -lt "$NUDGE_BELOW_MINUTES" ] && [ $((now - last_nudge)) -gt 600 ]; then
-          last_nudge="$now"
-          echo "fence-claude-token: login has $left minutes left, asking Claude on the host to refresh it"
-          nudge_host_login
-          sync_once >/dev/null 2>&1 || true
+      # A refresh revokes the old token, so every second the copy lags can fail an agent's turn. Looking at the file is
+      # cheap, so that's every second. Starting node to read it is not, so that's when it changed, or every 30 s for the
+      # time left on the login.
+      now="$(date +%s)"
+      stamp="$(stat -c '%y %i' "$SOURCE" 2>/dev/null || true)"
+      if [ "$stamp" != "$seen" ] || [ $((now - last_full)) -ge 30 ]; then
+        seen="$stamp"
+        last_full="$now"
+        if left="$(sync_once 2>/dev/null)"; then
+          if [ "$left" -lt "$NUDGE_BELOW_MINUTES" ] && [ $((now - last_nudge)) -gt 600 ]; then
+            last_nudge="$now"
+            echo "fence-claude-token: login has $left minutes left, asking Claude on the host to refresh it"
+            nudge_host_login
+            sync_once >/dev/null 2>&1 || true
+          fi
         fi
       fi
-      sleep 30
+      sleep 1
     done
     ;;
   *)

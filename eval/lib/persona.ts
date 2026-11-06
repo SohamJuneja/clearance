@@ -70,6 +70,27 @@ const PostListSchema = z.object({
 
 const SecretsSchema = z.object({ mattermostTokens: z.record(z.string()) }).passthrough();
 
+/**
+ * Switch's own lines under an agent's name: "Starting a session...", the Working card, a redrawn native card. They say
+ * Switch is doing something, not that the agent said anything: a model that never answers leaves one of these behind.
+ */
+export function isSwitchStatus(message: string): boolean {
+  return /^(@[\w.-]+\n)?(\*\*(Work|Queued|Permission|Allow|Approve|Deny|Decline|Closed)|Starting a session)/.test(
+    message,
+  );
+}
+
+/**
+ * The rule for "the agent asked someone something", on its own words. Baseline counts questions with it and the scenes
+ * decide with it whether Priya answers, so the two can't disagree. A bare "which" or "confirm" isn't asking: in real runs
+ * ", which is more than the order total" and "Looking up order A-2004 to confirm the full amount" are statements, and the
+ * first put a "Yes, go ahead" that made no sense on camera.
+ */
+export const ASKS_SOMEONE =
+  /\?|\b(?:let me know|tell me)\b|(?:^(?:@[\w.-]+[,:]?\s+)?|[.!:;]\s+|\b(?:please|you|just)\s+)(?:confirm|reply|send (?:it|me))\b|(?:^|[.!:;]\s+)which\b/im;
+export const QUESTION_RULE =
+  "the agent's own post has a question mark, says let me know or tell me, tells someone to confirm, reply, send it or send me, or starts a sentence with which";
+
 // ── Errors ───────────────────────────────────────────────────────────────────
 
 /** The server answered, and the answer was a refusal or nonsense. Never carries a credential. */

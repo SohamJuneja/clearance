@@ -144,6 +144,7 @@ resources:
     display_name: Ops agent
     description: Deploys and rolls back Acme's services.
     provider: opencode
+    # Only a starting point, and free models run out: CLEARANCE_OPENCODE_MODEL or scripts/opencode-model.ts replaces it.
     model: opencode/big-pickle
     machine: "{machine}"
     directory: "{agents_root}/ops-agent"

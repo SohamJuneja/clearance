@@ -4,10 +4,19 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished } from "vitest";
-import { type Machine, providersNotReady } from "./gateway-owner.ts";
+import {
+  type AgentDefinition,
+  type Machine,
+  type ManagedAgent,
+  type OwnerGateway,
+  providersNotReady,
+  setAgentModel,
+} from "./gateway-owner.ts";
 import {
   agentNeedsUpdate,
+  ensureAgent,
   gateTokenFor,
+  modelFor,
   OWNERS,
   planAgents,
   prepareDirectory,
@@ -20,6 +29,89 @@ import {
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), "..");
 const template = readFileSync(join(REPO, "templates/acme-mini.template.yaml"), "utf8");
+
+describe("an OpenCode agent's model", () => {
+  const definition = { provider: "opencode", model: "opencode/big-pickle", instructions: "x", auto_mode: true };
+  const existing = {
+    name: "ops-agent",
+    agent_id: "ag-1",
+    id: "ag-1",
+    controller_id: "m-1",
+    desired_state: "running",
+    definition,
+  } as unknown as ManagedAgent;
+  const machine = { id: "m-1", name: "clearance-alex-open" } as Machine;
+  const plan = { name: "ops-agent", owner: "alex", provider: "opencode", model: "opencode/big-pickle", description: "d", instructions: "x", auto_mode: true, addressing: "anyone" };
+
+  function fakeGateway(agents: ManagedAgent[]) {
+    const calls: { method: string; path: string; body?: unknown }[] = [];
+    const gateway = {
+      owner: "alex",
+      must: async (method: string, path: string, body?: unknown) => {
+        calls.push({ method, path, body });
+        return method === "GET" ? agents : {};
+      },
+      call: async (method: string, path: string, body?: unknown) => {
+        calls.push({ method, path, body });
+        return { status: 200, body: {} };
+      },
+    } as unknown as OwnerGateway;
+    return { gateway, calls };
+  }
+  const want = (model: string) => ({ ...definition, model }) as AgentDefinition;
+
+  it("takes the setting or the probe's choice over the template's name", () => {
+    expect(modelFor(plan, "opencode/beam-free")).toBe("opencode/beam-free");
+    expect(modelFor(plan, null)).toBe("opencode/big-pickle");
+  });
+
+  it("leaves every other provider's model alone", () => {
+    expect(modelFor({ provider: "claude", model: "haiku" }, "opencode/beam-free")).toBe("haiku");
+  });
+
+  it("reaches an agent that exists, without recreating it, and restarts a session stuck on the old one", async () => {
+    const { gateway, calls } = fakeGateway([existing]);
+    const result = await ensureAgent(gateway, "ops-agent", plan, want("opencode/beam-free"), machine);
+    expect(result).toBe("updated");
+    expect(calls.filter((call) => call.method === "DELETE")).toEqual([]);
+    expect(calls.filter((call) => call.method === "POST" && call.path === "/management/agents")).toEqual([]);
+    const patch = calls.find((call) => call.method === "PATCH");
+    expect(patch?.path).toBe("/management/agents/ag-1");
+    expect(patch?.body).toMatchObject({ definition: { model: "opencode/beam-free" } });
+    expect(calls.find((call) => call.path === "/management/operations")?.body).toMatchObject({ kind: "agent.restart", agent_id: "ag-1" });
+  });
+
+  it("does nothing when the model is already right", async () => {
+    const { gateway, calls } = fakeGateway([existing]);
+    const result = await ensureAgent(gateway, "ops-agent", plan, want("opencode/big-pickle"), machine);
+    expect(result).toBe("unchanged");
+    expect(calls.filter((call) => call.method !== "GET")).toEqual([]);
+  });
+
+  it("creates a new agent with the model it was given", async () => {
+    const { gateway, calls } = fakeGateway([]);
+    const result = await ensureAgent(gateway, "ops-agent", plan, want("opencode/beam-free"), machine);
+    expect(result).toBe("created");
+    const created = calls.find((call) => call.method === "POST" && call.path === "/management/agents");
+    expect(created?.body).toMatchObject({ definition: { model: "opencode/beam-free" } });
+  });
+
+  it("doesn't start an agent someone stopped, only changes what it'll run", async () => {
+    const stopped = { ...existing, desired_state: "stopped" } as ManagedAgent;
+    const { gateway, calls } = fakeGateway([stopped]);
+    await ensureAgent(gateway, "ops-agent", plan, want("opencode/beam-free"), machine);
+    expect(calls.some((call) => call.method === "PATCH")).toBe(true);
+    expect(calls.some((call) => call.path === "/management/operations")).toBe(false);
+  });
+
+  it("does the same for an agent with no plan behind it, the baseline", async () => {
+    const { gateway, calls } = fakeGateway([]);
+    expect(await setAgentModel(gateway, existing, "opencode/beam-free")).toBe(true);
+    expect(calls.map((call) => call.method)).toEqual(["PATCH", "POST"]);
+    expect(await setAgentModel(gateway, existing, "opencode/big-pickle")).toBe(false);
+    expect(calls).toHaveLength(2);
+  });
+});
 
 describe("providersNotReady", () => {
   const reporting = (providers: { provider: string; installed?: boolean; auth?: string }[]) =>

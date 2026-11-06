@@ -30,7 +30,7 @@ requests:
       context:
         - "Paid or held to customer, 24 h: ₹0"
         - Destination added 301 days ago
-        - "refunds-agent refunds today: 1 (largest ₹900)"
+        - "refunds-agent calls today: 1 (largest ₹900)"
       flags: []
       claim: Refunding ₹1,200 for order A-1001, item returned (T-101).
       asked_by:

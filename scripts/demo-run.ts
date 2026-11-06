@@ -42,6 +42,7 @@ import { archiveStrayRooms } from "./demo/stray-rooms.ts";
 import { serviceCommand } from "./demo/services.ts";
 import { EXTRA_SCENARIOS, findScenario, SCENARIOS } from "./scenarios/index.ts";
 import { OWNERS } from "./setup-agents.ts";
+import { modelRefusals } from "./model-refusal.ts";
 
 const execShell = promisify(exec);
 
@@ -236,6 +237,7 @@ async function main(): Promise<number> {
     let knownRefunds: Set<string> | undefined;
     const result = await runScenario(scenario, {
       ...options,
+      modelRefusals,
       reset: async (setup) => {
         await startTake(scenario.id, scenario.room, setup, args);
         const before = await new AcmeClient(defaultUrls().acme).state();

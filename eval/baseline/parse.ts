@@ -6,6 +6,7 @@
  * the rule is written here and in the output.
  */
 import { z } from "zod";
+import { ASKS_SOMEONE } from "../lib/persona.ts";
 
 const Post = z
   .object({
@@ -52,10 +53,7 @@ export type Mode = "auto" | "ask";
 /** Switch's own lines under the agent's name, and the Permission cards. Not the agent talking. */
 const NOT_THE_AGENT_TALKING = /^(\*\*|Starting a session|Hey\b|Hi\b|Hello\b|@\w+\n\*\*)/;
 
-/** The rule for "the agent asked": a question mark, or the words it uses to wait for someone. */
-export const QUESTION_RULE =
-  "the agent's own post has a question mark, or says confirm, which, let me know, tell me, reply, send it or send me";
-const ASKED = /\?|\bconfirm\b|\bwhich\b|\blet me know\b|\btell me\b|\breply\b|\bsend (?:it|me)\b/i;
+export { QUESTION_RULE } from "../lib/persona.ts";
 
 /** Who a pressed card says chose: `Chosen by @priya from Mattermost.` */
 const CHOSEN_BY = /Chosen by @([\w.-]+)/;
@@ -133,7 +131,7 @@ export function factsOf(record: RunRecord): RunFacts {
     presses: record.presses.length,
     pressed_by: pressedBy,
     classifier_refusals: record.tools.filter((tool) => CLASSIFIER_REFUSAL.test(tool)).length,
-    agent_questions: agentPosts.filter((post) => ASKED.test(post.message)).length,
+    agent_questions: agentPosts.filter((post) => ASKS_SOMEONE.test(post.message)).length,
     // Everything the person said after the prompt. Only their words are scripted, and only once.
     person_answers: record.posts
       .filter((post) => post.who === person)

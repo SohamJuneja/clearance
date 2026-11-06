@@ -46,6 +46,8 @@ fence_providers() {
     clearance-priya-open-base) echo "opencode" ;;
     clearance-alex) echo "claude cursor" ;;
     clearance-alex-open) echo "opencode" ;;
+    # Runs no agent and is never enrolled: it only tries free models. It has no owner, so setup-controller.sh refuses it.
+    clearance-opencode-probe) echo "opencode" ;;
     *) echo "" ;;
   esac
 }
@@ -201,6 +203,60 @@ fence_path() {
     esac
   fi
   echo "${CLEARANCE_EXTRA_PATH:+$CLEARANCE_EXTRA_PATH:}$base"
+}
+
+# A setting from the root .env. REPO_ROOT is the caller's, and the value is never printed.
+_fence_env_value() {
+  [ -f "$REPO_ROOT/.env" ] || return 0
+  sed -n "s/^$1=//p" "$REPO_ROOT/.env" | tail -n 1 | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'$/\1/"
+}
+
+# OPENCODE_PROVIDER_KEY goes in OpenCode's auth file in this machine's fenced home, under the provider its model names.
+# It goes to machines that run OpenCode and no others. A key taken out of .env comes out of the machine too.
+# The key reaches node by the environment, so it's never in a process's arguments.
+fence_opencode_auth() {
+  local machine="$1" file key model provider
+  fence_has_provider "$machine" opencode || return 0
+  [ -n "$(fence_agents "$machine")" ] || return 0
+  file="$(fence_home "$machine")/.local/share/opencode/auth.json"
+  key="$(_fence_env_value OPENCODE_PROVIDER_KEY)"
+  model="$(_fence_env_value CLEARANCE_OPENCODE_MODEL)"
+  case "$key:$model" in
+    :*)
+      rm -f "$file"
+      return 0
+      ;;
+    */*) provider="${model%%/*}" ;;
+    *)
+      # Nothing says which provider it's for, and a key put under the wrong one is no use to anyone.
+      rm -f "$file"
+      return 0
+      ;;
+  esac
+  (
+    umask 077
+    mkdir -p "$(dirname "$file")"
+    OPENCODE_AUTH_KEY="$key" OPENCODE_AUTH_PROVIDER="$provider" OPENCODE_AUTH_FILE="$file" node -e '
+      const { writeFileSync, chmodSync } = require("node:fs");
+      const { OPENCODE_AUTH_KEY: key, OPENCODE_AUTH_PROVIDER: provider, OPENCODE_AUTH_FILE: file } = process.env;
+      writeFileSync(file, `${JSON.stringify({ [provider]: { type: "api", key } }, null, 2)}\n`, { mode: 0o600 });
+      chmodSync(file, 0o600);
+    '
+  )
+  echo "$machine: OpenCode has its key for $provider, in this machine's fenced home"
+}
+
+# OpenCode only knows models from a list it fetches, and the one it ships with is old. A model chosen from the fresh list
+# is "not found" on a machine that hasn't fetched it, with nothing in the room to say so. A short command run first in a
+# new home can leave that fetch undone, so this goes first. Returns non-zero if it couldn't, which callers warn about.
+fence_opencode_refresh() {
+  local machine="$1"
+  fence_has_provider "$machine" opencode || return 0
+  [ -d "$(fence_data_dir "$machine")" ] || return 0
+  fence_args "$machine"
+  fence_env
+  timeout -k 3 60 "${FENCE_ENV[@]}" "$(command -v "${CLEARANCE_BWRAP:-bwrap}")" "${FENCE_ARGS[@]}" --die-with-parent \
+    opencode models --refresh >/dev/null 2>&1
 }
 
 # What the fence's environment starts from. Nothing from the invoking shell gets in.

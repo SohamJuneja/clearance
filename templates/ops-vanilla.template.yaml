@@ -31,6 +31,7 @@ resources:
     display_name: Ops agent (no Clearance)
     description: E2's baseline for OpenCode. Runs Acme's deploys with the admin key and no approval layer.
     provider: opencode
+    # Only a starting point, and free models run out: CLEARANCE_OPENCODE_MODEL or scripts/opencode-model.ts replaces it.
     model: opencode/big-pickle
     machine: "{machine}"
     directory: "{agents_root}/ops-agent-vanilla"

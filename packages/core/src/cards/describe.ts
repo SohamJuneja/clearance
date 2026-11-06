@@ -73,7 +73,7 @@ function describeRefund(input: DescribeInput): CallDescription {
   if (input.agentActivity) {
     const { count, largest } = input.agentActivity;
     const biggest = count > 0 ? ` (largest ${formatMoney(largest, currency)})` : "";
-    context.push(`${input.agent} refunds today: ${count}${biggest}`);
+    context.push(`${input.agent} calls today: ${count}${biggest}`);
   }
   return { headline: hasAmount ? `REFUND ${amount}` : "REFUND", call, context };
 }

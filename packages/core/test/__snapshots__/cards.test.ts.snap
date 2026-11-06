@@ -11,7 +11,7 @@ exports[`cards from real calls: snapshots across fixture calls > 'SC3 with the a
 Context
   Paid or held to customer, 24 h: ₹0
   Destination added 4 minutes ago
-  refunds-agent refunds today: 0
+  refunds-agent calls today: 0
 
 Flags
   ⚠ Destination added in the last 24 h
@@ -35,7 +35,7 @@ Policy: refunds need 1 finance approver · expires 14:25 IST
 Context
   Paid or held to customer, 24 h: ₹0
   Destination added 4 minutes ago
-  refunds-agent refunds today: 0
+  refunds-agent calls today: 0
 
 Flags
   ⚠ Destination added in the last 24 h
@@ -64,7 +64,7 @@ exports[`cards from real calls: snapshots across fixture calls > 'SC3, ₹4,000 
 Context
   Paid or held to customer, 24 h: ₹0
   Destination added 4 minutes ago
-  refunds-agent refunds today: 0
+  refunds-agent calls today: 0
 
 Flags
   ⚠ Destination added in the last 24 h
@@ -86,7 +86,7 @@ Policy: refunds need 1 finance approver · expires 14:25 IST
 Context
   Paid or held to customer, 24 h: ₹0
   Destination added 4 minutes ago
-  refunds-agent refunds today: 0
+  refunds-agent calls today: 0
 
 Flags
   ⚠ Destination added in the last 24 h
@@ -113,7 +113,7 @@ exports[`cards from real calls: snapshots across fixture calls > 'SC4 legit larg
 Context
   Paid or held to customer, 24 h: ₹0
   Destination added 83 days ago
-  refunds-agent refunds today: 0
+  refunds-agent calls today: 0
 
 Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
 Why you: finance approver on duty. Can't approve: Priya (requester, agent owner).
@@ -132,7 +132,7 @@ Policy: refunds over ₹10,000 need 1 finance approver · expires 14:25 IST
 Context
   Paid or held to customer, 24 h: ₹0
   Destination added 83 days ago
-  refunds-agent refunds today: 0
+  refunds-agent calls today: 0
 
 Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
 Why here: copy for this room; Sam (finance, on duty) decides. Can't approve: Priya (requester, agent owner).
@@ -336,7 +336,7 @@ exports[`cards from real calls: snapshots across fixture calls > 'nobody known t
 Context
   Paid or held to customer, 24 h: ₹0
   Destination added 83 days ago
-  refunds-agent refunds today: 0
+  refunds-agent calls today: 0
 
 Flags
   ⚠ Requester unknown: nobody can tell who asked, so this needs two approvals from different people.
@@ -358,7 +358,7 @@ Policy: refunds over ₹10,000 need 2 finance approvers · expires 14:25 IST
 Context
   Paid or held to customer, 24 h: ₹0
   Destination added 83 days ago
-  refunds-agent refunds today: 0
+  refunds-agent calls today: 0
 
 Flags
   ⚠ Requester unknown: nobody can tell who asked, so this needs two approvals from different people.
@@ -380,7 +380,7 @@ Policy: refunds over ₹10,000 need 2 finance approvers · expires 14:25 IST
 Context
   Paid or held to customer, 24 h: ₹0
   Destination added 83 days ago
-  refunds-agent refunds today: 0
+  refunds-agent calls today: 0
 
 Flags
   ⚠ Requester unknown: nobody can tell who asked, so this needs two approvals from different people.
@@ -557,7 +557,7 @@ exports[`cards from real calls: snapshots across fixture calls > 'small refund, 
 Context
   Paid or held to customer, 24 h: ₹0
   Destination added 412 days ago
-  refunds-agent refunds today: 0
+  refunds-agent calls today: 0
 
 Flags
   ⚠ Could not verify order total from systems of record: treated as risky
@@ -579,7 +579,7 @@ Policy: refunds need 1 finance approver · expires 14:25 IST
 Context
   Paid or held to customer, 24 h: ₹0
   Destination added 412 days ago
-  refunds-agent refunds today: 0
+  refunds-agent calls today: 0
 
 Flags
   ⚠ Could not verify order total from systems of record: treated as risky
@@ -647,7 +647,7 @@ The call (parsed from what the agent ran, not from its words)
 Context
   Paid or held to customer, 24 h: ₹0
   Destination added 4 minutes ago
-  refunds-agent refunds today: 0
+  refunds-agent calls today: 0
 
 Flags
   ⚠ Amount is 10x the order total
@@ -670,7 +670,7 @@ The call (parsed from what the agent ran, not from its words)
 Context
   Paid or held to customer, 24 h: ₹0
   Destination added 4 minutes ago
-  refunds-agent refunds today: 0
+  refunds-agent calls today: 0
 
 Flags
   ⚠ Amount is 10x the order total
@@ -693,7 +693,7 @@ The call (parsed from what the agent ran, not from its words)
 Context
   Paid or held to customer, 24 h: ₹0
   Destination added 4 minutes ago
-  refunds-agent refunds today: 0
+  refunds-agent calls today: 0
 
 Flags
   ⚠ Amount is 10x the order total

@@ -195,13 +195,15 @@ describe("B6: an identical call", () => {
   });
 
   it("a hook call that ran under its grant isn't flagged by its own retry", async () => {
-    const held = await h.core.check(hookShell("git push origin main"));
+    // Not coder: Alex owns it, and an agent's owner can't break glass on what it does at this tier.
+    const push = () => hookShell("git push origin main", { agent: { name: "refunds-agent" } });
+    const held = await h.core.check(push());
     const id = held.request_id as string;
     await says(PARTICIPANTS.alex, `@clearance breakglass ${id} it cannot wait`);
     expect(state(id)).toBe("GRANTED");
-    expect((await h.core.check(hookShell("git push origin main"))).decision).toBe("allow");
+    expect((await h.core.check(push())).decision).toBe("allow");
     expect(state(id)).toBe("CONSUMED");
-    const next = await h.core.check(hookShell("git push origin main"));
+    const next = await h.core.check(push());
     expect(next.decision).toBe("hold");
     expect(flagCodes(next.request_id)).toContain("ran_recently");
   });

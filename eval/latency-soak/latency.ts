@@ -152,6 +152,8 @@ async function run(
 
     // A small refund the policy allows once promoted, far under the 24 h limit even at this count.
     await world.setAutonomy("refunds-agent", "refund", "small", "L3");
+    // Someone has to have asked, or it's held.
+    await world.say("priya", "priya", "@refunds-agent refund these small orders");
     const refund = { order_id: "A-1931", amount: SMALL_REFUND };
     const gateRefund = async (): Promise<void> => {
       const res = await world.gate("refunds-agent", "POST", "/acme/refunds", refund);

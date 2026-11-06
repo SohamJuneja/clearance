@@ -81,6 +81,7 @@ describe("mode: shadow", () => {
 
   it("adds up the 24 h window as if the calls had run, so it reports what enforcement would really do", async () => {
     h.core.stores.autonomy.setLevel("refunds-agent", "refund", "small", "L2", h.clock.nowMs());
+    await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@refunds-agent refund it"));
     const run = (order: string) => h.core.check(gateRefund({ ...SMALL, amount: 4000, order_id: order }));
     expect((await run("A-1931")).would_decide).toBe("allow");
     expect((await run("A-1941")).would_decide).toBe("allow");

@@ -52,6 +52,14 @@ export function oneLineKeepingEnd(value: unknown, max = 200): string {
   return `${text.slice(0, head)}…${text.slice(text.length - (max - head - 1))}`;
 }
 
+/** Cuts text that's already one line from the middle, so both ends stay: the first words say what it is, the last often where it goes. */
+export function clipKeepingBothEnds(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const room = Math.max(0, max - 1);
+  const head = Math.ceil(room / 2);
+  return `${text.slice(0, head)}…${text.slice(text.length - (room - head))}`;
+}
+
 /** Characters of what would be written or sent that a card shows. All of it is in the hash; this is only for a person to read. */
 export const PREVIEW_CHARS = 160;
 

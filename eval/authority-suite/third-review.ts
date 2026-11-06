@@ -86,7 +86,7 @@ export const CORE_CHECKS: AuditCheck[] = [
       const stuckId = String(stuck.json.request_id);
       findings.control("a stream gap still takes two", (await world.request(stuckId)).quorum_required === 2);
       const card = cardOrStop(world, findings, stuckId, "dm-alex");
-      findings.bad("the card doesn't say it can't complete", !detailOf(card).includes("it can't complete as things stand"));
+      findings.bad("the card doesn't say it can't complete", !detailOf(card).includes("so it can't complete"));
       findings.bad("the card doesn't say what to do", !detailOf(card).includes("@clearance breakglass"));
     },
   },

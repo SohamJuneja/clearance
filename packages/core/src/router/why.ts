@@ -99,10 +99,13 @@ export function cannotCompleteText(trace: RouteTrace, requestId: string): string
   const short = trace.shortOfPeople;
   if (!short) return null;
   const people = short.could.length > 0 ? `only ${joinNames(short.could)} can` : "nobody can";
-  const glass = short.breakGlass.length > 0 ? joinNames(short.breakGlass) : "someone named for it";
-  const ways = ["add an approver", ...(trace.fallback ? [`ask ${trace.fallback.group}`] : [])];
+  // A group with nobody left in it isn't somewhere to ask.
+  const ways = ["add an approver", ...(trace.fallback && trace.fallback.eligible.length > 0 ? [`ask ${trace.fallback.group}`] : [])];
+  const glass = joinNames(short.breakGlass);
+  const finish = glass ? `${ways.join(", ")}, or have ${glass} run \`@clearance breakglass ${requestId} why\`` : ways.join(" or ");
   // Short on purpose: a question card clips a flag at 200 characters, and the command is the part a person needs.
-  return `It takes ${COUNT_WORDS[short.needed] ?? short.needed} people to approve this, and ${people}, so it can't complete. To finish: ${ways.join(", ")}, or have ${glass} run \`@clearance breakglass ${requestId} why\`.`;
+  if (short.needed === 1) return `Nobody can approve this, so it can't complete as things stand. To finish: ${finish}.`;
+  return `It takes ${COUNT_WORDS[short.needed] ?? short.needed} people to approve this, and ${people}, so it can't complete. To finish: ${finish}.`;
 }
 
 /** The card's "Why you:" line. */

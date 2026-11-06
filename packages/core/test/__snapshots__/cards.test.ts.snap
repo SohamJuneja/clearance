@@ -720,6 +720,7 @@ Context
 Flags
   ⚠ Could not verify diff lines, touches auth from systems of record: treated as risky
   ⚠ Could not tell who the author is, so nobody was excluded for it
+  ⚠ Nobody can approve this, so it can't complete as things stand. To finish: add an approver.
 
 Asked by Priya (support) through coder (Claude Code, owned by Alex)
 Why here: nobody else could take it, so it came to eng-leads. Can't approve: Alex (agent owner), Priya (requester).
@@ -739,6 +740,7 @@ Context
 Flags
   ⚠ Could not verify diff lines, touches auth from systems of record: treated as risky
   ⚠ Could not tell who the author is, so nobody was excluded for it
+  ⚠ Nobody can approve this, so it can't complete as things stand. To finish: add an approver.
 
 Asked by Priya (support) through coder (Claude Code, owned by Alex)
 Why here: copy for this room; eng-leads in #approvals decides. Can't approve: Alex (agent owner), Priya (requester).

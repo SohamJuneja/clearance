@@ -8,6 +8,7 @@
  * never a reason to allow.
  */
 import { posix } from "node:path";
+import { expandBraces, hasGlob, patternOf, sensitivePaths, type Atom } from "./globs.js";
 import { inlineCodeProblem } from "./inline-code.js";
 
 export type SubCommand = {
@@ -17,8 +18,10 @@ export type SubCommand = {
   effective: string;
   /** Every word that changes what runs, one space apart, redirects off: what a grant binds to. */
   canonical: string;
-  /** Paths this command writes to, through redirects, tee, sed -i, cp, mv or dd. */
+  /** Paths this command writes to, through redirects, tee, sed -i, cp, mv, dd and the like. */
   writes: string[];
+  /** Paths it deletes or moves away: gone is as changed as overwritten. */
+  removes: string[];
   /** Paths it reads through a `<` redirect, and, for commands known to read their arguments, those that leave the tree. */
   reads: string[];
   /** Words whose value only the shell knows: `$BRANCH`, `$(...)`. */
@@ -57,7 +60,15 @@ type Word = {
   procSub: boolean;
   /** No quote or escape in it, so a keyword really is one: `"done"` is a command called done. */
   plain: boolean;
+  /** An unquoted `*`, `?` or `[...]`, so the shell will turn this into whatever matches on disk. */
+  glob: boolean;
+  /** For a glob: names a rule might care about that it could turn into. See globs.ts. */
+  could: string[];
+  /** The pieces, for brace expansion. */
+  atoms: Atom[];
 };
+
+type Heredoc = { delimiter: string; stripTabs: boolean; quoted: boolean };
 
 type Builder = {
   start: number;
@@ -70,11 +81,16 @@ type Builder = {
   grouped: boolean;
 };
 
+/** What bash splits on. JavaScript's `\s` also takes NBSP, a form feed and more, which to bash are parts of a word. */
+const BLANK = /[ \t]/;
+const ENDS_A_WORD = /[ \t\n;&|()<>]/;
+
 const MAX_DEPTH = 4;
 /** Subshells and substitutions, one inside another. Past this it is an attack or a bug, not a command. */
 const MAX_NESTING = 64;
 
 const SHELLS = new Set(["sh", "bash", "zsh", "dash", "ksh", "fish", "ash"]);
+const SHELL_OPTIONS_WITH_VALUE = new Set(["--rcfile", "--init-file"]);
 const INTERPRETERS = /^(python[\d.]*|node|perl|ruby|php|deno|bun)$/;
 const INLINE_CODE_FLAGS = new Set(["-c", "-e", "-m", "-p", "-E", "--eval", "--print", "-r"]);
 const NOT_REAL_FILES = /^\/dev\/(null|stdout|stderr|tty|fd\/\d+)$/;
@@ -93,6 +109,15 @@ const KNOWN_HARMLESS = new Set([
   "pwd", "whoami", "id", "uname", "which", "type", "sleep", "seq", "basename", "dirname", "realpath", "readlink", "stat", "file", "du",
   "df", "cmp",
 ]);
+/** `env -S'rm -rf /'`, `env -vS...`, `env --split-string=...`: env splits the string into a command of its own. */
+const ENV_SPLITS_A_STRING = /^(-[a-zA-Z0]*S|--split-string(=|$))/;
+/** Long options wrappers take with no value, that real commands use. Any other long option might take the next word. */
+const LONG_FLAGS_ALONE = new Set([
+  "--ignore-environment", "--null", "--preserve-status", "--foreground", "--preserve-env", "--non-interactive", "--background", "--login", "--stdin",
+  "--wait", "--nonblock", "--nb", "--exclusive", "--shared", "--unlock", "--close", "--no-fork", "--verbose", "--portability", "--append", "--ctty",
+  "--no-run-if-empty", "--exit", "--interactive", "--open-tty", "--show-limits", "--process-slot-var", "--fork", "--pid", "--mount-proc", "--user",
+  "--map-root-user", "--map-current-user", "--help", "--version", "--quiet", "--scope", "--no-block", "--no-new-privs", "--clear-groups", "--keep-groups",
+]);
 const GIT_ONLY_READS = new Set(["status", "log", "diff", "show", "rev-parse", "ls-files", "ls-remote", "describe", "blame", "shortlog", "cat-file"]);
 /** A wrapper's own way of changing directory, for the one command it runs. */
 const CHANGES_DIRECTORY: Record<string, { flags: Set<string>; attached?: string }> = {
@@ -106,6 +131,40 @@ function literal(text: string): string {
   return text.replace(/[\\$`"'*?[\]{}~!,#=]/g, "\\$&");
 }
 
+/** A word from its pieces. A glob's reach is worked out here, so a word from brace expansion gets its own. */
+function wordFrom(atoms: Atom[], plain: boolean): Word {
+  const text = atoms.map((atom) => atom.text).join("");
+  const dynamic = atoms.some((atom) => atom.dynamic);
+  const glob = hasGlob(atoms);
+  return {
+    text,
+    bound: atoms.map((atom) => atom.bound).join(""),
+    dynamic,
+    procSub: false,
+    plain,
+    glob,
+    could: glob && !dynamic ? sensitivePaths(patternOf(atoms), { dot: false }) : [],
+    atoms,
+  };
+}
+
+/** One escape inside `$'...'`, starting after its backslash. */
+function ansiEscape(src: string, at: number): { text: string; next: number } {
+  const c = src[at] ?? "";
+  const simple: Record<string, string> = { a: "\x07", b: "\b", e: "\x1b", E: "\x1b", f: "\f", n: "\n", r: "\r", t: "\t", v: "\v", "\\": "\\", "'": "'", '"': '"', "?": "?" };
+  if (simple[c] !== undefined) return { text: simple[c] as string, next: at + 1 };
+  const number = (pattern: RegExp, from: number, base: number) => {
+    const digits = pattern.exec(src.slice(from))?.[0] ?? "";
+    return digits ? { text: String.fromCodePoint(Math.min(Number.parseInt(digits, base), 0x10ffff)), next: from + digits.length } : null;
+  };
+  if (/[0-7]/.test(c)) return number(/^[0-7]{1,3}/, at, 8) as { text: string; next: number };
+  if (c === "x") return number(/^[0-9a-fA-F]{1,2}/, at + 1, 16) ?? { text: "\\x", next: at + 1 };
+  if (c === "u") return number(/^[0-9a-fA-F]{1,4}/, at + 1, 16) ?? { text: "\\u", next: at + 1 };
+  if (c === "U") return number(/^[0-9a-fA-F]{1,8}/, at + 1, 16) ?? { text: "\\U", next: at + 1 };
+  if (c === "c" && src[at + 1] !== undefined) return { text: String.fromCharCode((src.charCodeAt(at + 1) as number) & 0x1f), next: at + 2 };
+  return { text: `\\${c}`, next: at + 1 };
+}
+
 function baseName(word: string): string {
   return word.slice(word.lastIndexOf("/") + 1);
 }
@@ -116,8 +175,8 @@ function isAssignment(text: string): boolean {
 
 /** Flags that consume the next word, for commands that merely run another command. */
 const WRAPPERS: Record<string, { flagsWithValue: Set<string>; positionals?: number; assignments?: boolean }> = {
-  sudo: { flagsWithValue: new Set(["-u", "-g", "-h", "-p", "-C", "-r", "-t", "-T", "-U", "-D"]) },
-  env: { flagsWithValue: new Set(["-u", "-C", "--unset", "--chdir"]), assignments: true },
+  sudo: { flagsWithValue: new Set(["-u", "-g", "-h", "-p", "-C", "-r", "-t", "-T", "-U", "-D", "--user", "--group", "--host", "--prompt", "--close-from", "--role", "--type", "--command-timeout", "--other-user", "--chdir", "--chroot"]) },
+  env: { flagsWithValue: new Set(["-u", "-C", "-a", "--unset", "--chdir", "--argv0"]), assignments: true },
   nice: { flagsWithValue: new Set(["-n", "--adjustment"]) },
   ionice: { flagsWithValue: new Set(["-c", "-n", "-p"]) },
   timeout: { flagsWithValue: new Set(["-k", "-s", "--kill-after", "--signal"]), positionals: 1 },
@@ -130,7 +189,7 @@ const WRAPPERS: Record<string, { flagsWithValue: Set<string>; positionals?: numb
   },
   exec: { flagsWithValue: new Set(["-a"]) },
   nohup: { flagsWithValue: new Set() },
-  time: { flagsWithValue: new Set() },
+  time: { flagsWithValue: new Set(["-f", "-o", "--format", "--output"]) },
   command: { flagsWithValue: new Set() },
   builtin: { flagsWithValue: new Set() },
   setsid: { flagsWithValue: new Set() },
@@ -145,11 +204,11 @@ const WRAPPERS: Record<string, { flagsWithValue: Set<string>; positionals?: numb
   chroot: { flagsWithValue: new Set(["--userspec", "--groups"]), positionals: 1 },
   chrt: { flagsWithValue: new Set(["-T", "-P", "-D"]), positionals: 1 },
   nsenter: { flagsWithValue: new Set(["-t", "-S", "-G", "--target", "--setuid", "--setgid"]) },
-  setpriv: { flagsWithValue: new Set() },
+  setpriv: { flagsWithValue: new Set(["--reuid", "--regid", "--groups", "--inh-caps", "--ambient-caps", "--bounding-set", "--securebits", "--selinux-label", "--apparmor-profile"]) },
   strace: { flagsWithValue: new Set(["-o", "-e", "-p", "-s", "-u", "-a", "-I", "-b", "-E", "-O", "-P", "-S", "-X"]) },
   ltrace: { flagsWithValue: new Set(["-o", "-e", "-p", "-s", "-u", "-a", "-n", "-x", "-D", "-F", "-l", "-A"]) },
   fakeroot: { flagsWithValue: new Set(["-l", "-s", "-i", "-b", "--lib", "--faked"]) },
-  prlimit: { flagsWithValue: new Set() },
+  prlimit: { flagsWithValue: new Set(["-p", "--pid", "-o", "--output"]) },
   cpulimit: { flagsWithValue: new Set(["-l", "-p", "-e", "--limit", "--pid", "--exe"]) },
   numactl: { flagsWithValue: new Set(["-C", "-N", "-m", "-p", "-i", "--cpunodebind", "--membind", "--preferred", "--interleave", "--physcpubind"]) },
   unbuffer: { flagsWithValue: new Set() },
@@ -164,6 +223,30 @@ const MAY_RUN_A_STRING = new Set(["flock", "runuser"]);
 /** These run commands this reader has no way to see: they arrive on stdin or in a job file, or they're a shell's own forms. */
 const RUNS_WHAT_IT_READS = new Set(["parallel", "at", "batch", "coproc", "repeat"]);
 
+/** Tools whose first argument says what they do, so a glob there is a command only known at run time. */
+const SUBCOMMAND_TOOLS = new Set(["acme", "kubectl", "terraform", "helm", "npm", "gh", "aws", "gcloud", "az", "psql", "docker"]);
+/** The shell or the loader runs what these say, before the command on the line. */
+const SHELL_RISKY_ENVIRONMENT = /^(BASH_ENV|PS[0-4]|LD_PRELOAD|LD_AUDIT|BASH_FUNC_[^=]*)\+?=/;
+
+/** Why this command runs something named by one of its options, so what it runs isn't on the line as a command. */
+function runsThroughAFlag(name: string, args: Word[]): string | null {
+  const said = (pattern: RegExp) => args.find((word) => pattern.test(word.text))?.text;
+  const named: Record<string, RegExp | undefined> = {
+    tar: /^(--(to-command|checkpoint-action|use-compress-program|rsh-command|rmt-command|info-script|new-volume-script)(=|$)|-[a-zA-Z]*[IF]$)/,
+    zip: /^(-TT|--unzip-command)(=|$)/,
+    vi: /^(-c|-S|--cmd|\+.+)$/,
+    vim: /^(-c|-S|--cmd|\+.+)$/,
+    nvim: /^(-c|-S|--cmd|\+.+)$/,
+    ex: /^(-c|-S|--cmd|\+.+)$/,
+    gdb: /^(-ex|-iex|-x|--eval-command|--command)(=|$)/,
+    man: /^(-P|--pager|-H|--html)(=|$)/,
+    less: /^\+.*!/,
+  };
+  const pattern = named[name];
+  const flag = pattern ? said(pattern) : undefined;
+  return flag ? `${name} ${flag}, which runs what it's given` : null;
+}
+
 const GIT_GLOBALS_WITH_VALUE = new Set(["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--super-prefix", "--config-env"]);
 
 /**
@@ -177,6 +260,12 @@ const GIT_RISKY_ENVIRONMENT = /^GIT_(CONFIG_(COUNT|PARAMETERS|GLOBAL|SYSTEM|KEY_
 /** What `find` runs for each thing it finds. Each one is a command of its own, up to its `;` or `+`. */
 const FIND_RUNS = new Set(["-exec", "-execdir", "-ok", "-okdir"]);
 /** Given a target only known at run time, these are a delete or an overwrite of who knows what. */
+/** Put what they're given somewhere, the last path or `-t DIR` being where. */
+const MOVES_FILES = new Set(["cp", "mv", "install", "ln"]);
+/** Change or create each of their arguments. */
+const TOUCHES_ITS_ARGUMENTS = new Set(["touch", "truncate"]);
+/** Take away each of their arguments. */
+const REMOVES_ITS_ARGUMENTS = new Set(["rm", "rmdir", "unlink", "shred"]);
 const DESTROYS_ITS_TARGET = new Set(["rm", "rmdir", "unlink", "shred", "truncate", "mv", "dd"]);
 /** A path that climbs, so `./../x` and `src/../../x` read as what they are. Not a flag's value or a URL: those aren't paths here. */
 const CLIMBS = /(^|\/)\.\.(\/|$)/;
@@ -193,7 +282,7 @@ const NAMES_ITS_PATTERN = new Set(["-e", "--regexp", "-f", "--file", "--expressi
 const LEAVES_THE_TREE = /^(\/|~|\$HOME\b|\$\{HOME\})|(^|\/)\.\.(\/|$)/;
 
 /** A command run by `find` or `xargs`: its arguments come from what those read, and so might the command itself. */
-type Carried = { by: "find" | "xargs"; placeholder: string; prefix: Word[] };
+type Carried = { by: "find" | "xargs"; placeholder: string; prefix: Word[]; appends: boolean };
 
 /** Shared by every parser reading one line, however nested: what has run so far that the rest depends on. */
 type LineState = { setup: string[][]; assigned: string[]; directory: string | null };
@@ -238,7 +327,7 @@ class ShellParser {
 
   private readList(terminator: ")" | null): void {
     let current = this.builder();
-    const heredocs: { delimiter: string; stripTabs: boolean }[] = [];
+    const heredocs: Heredoc[] = [];
     const end = (pipedIn = false) => {
       this.finish(current);
       current = this.builder(pipedIn);
@@ -246,7 +335,7 @@ class ShellParser {
 
     while (this.pos < this.src.length && !this.failure) {
       const c = this.src[this.pos] as string;
-      if (c !== "\n" && /\s/.test(c)) {
+      if (BLANK.test(c)) {
         this.pos += 1;
       } else if (c === "\n") {
         this.pos += 1;
@@ -288,7 +377,7 @@ class ShellParser {
         this.readRedirect(current, heredocs);
       } else {
         const word = this.readWord();
-        if (word) current.words.push(word);
+        if (word) current.words.push(...this.expanded(word));
       }
     }
     if (this.failure) return;
@@ -296,30 +385,60 @@ class ShellParser {
     if (terminator) this.fail("an unbalanced parenthesis");
   }
 
-  private skipHeredocs(heredocs: { delimiter: string; stripTabs: boolean }[]): void {
-    for (const { delimiter, stripTabs } of heredocs.splice(0)) {
+  /** What brace expansion makes of a word, which happens before anything else looks at it. An assignment doesn't get one. */
+  private expanded(word: Word): Word[] {
+    if (isAssignment(word.text)) return [{ ...word, glob: false, could: [] }];
+    const lists = expandBraces(word.atoms);
+    if (!lists) {
+      this.fail("a brace expansion too big to read");
+      return [];
+    }
+    if (lists.length === 1) return [word];
+    return lists.filter((atoms) => atoms.length > 0).map((atoms) => wordFrom(atoms, word.plain));
+  }
+
+  private skipHeredocs(heredocs: Heredoc[]): void {
+    for (const { delimiter, stripTabs, quoted } of heredocs.splice(0)) {
+      let body = "";
       while (this.pos < this.src.length) {
-        const lineEnd = this.src.indexOf("\n", this.pos);
-        const stop = lineEnd === -1 ? this.src.length : lineEnd;
-        const line = this.src.slice(this.pos, stop);
-        this.pos = lineEnd === -1 ? this.src.length : lineEnd + 1;
+        const line = this.heredocLine(quoted);
         if ((stripTabs ? line.replace(/^\t+/, "") : line) === delimiter) break;
+        body += `${line}\n`;
       }
+      // With no quote on its delimiter, a body is expanded as double quotes are, and what it substitutes runs.
+      if (!quoted) this.absorbExpansions(body);
     }
   }
 
-  private readRedirect(current: Builder, heredocs: { delimiter: string; stripTabs: boolean }[]): void {
+  /** One line of a heredoc's body. Where it's expanded, a backslash at the end joins the next line, even into the delimiter. */
+  private heredocLine(quoted: boolean): string {
+    let line = "";
+    while (this.pos < this.src.length) {
+      const lineEnd = this.src.indexOf("\n", this.pos);
+      const stop = lineEnd === -1 ? this.src.length : lineEnd;
+      const piece = this.src.slice(this.pos, stop);
+      this.pos = lineEnd === -1 ? this.src.length : lineEnd + 1;
+      const joins = !quoted && lineEnd !== -1 && (/\\+$/.exec(piece)?.[0].length ?? 0) % 2 === 1;
+      if (!joins) return line + piece;
+      line += piece.slice(0, -1);
+    }
+    return line;
+  }
+
+  private readRedirect(current: Builder, heredocs: Heredoc[]): void {
     while (/\d/.test(this.src[this.pos] ?? "")) this.pos += 1;
     const operators = ["&>>", "&>", "<<<", "<<-", "<<", "<&", "<>", ">>", ">&", ">|", "<", ">"];
     const op = operators.find((candidate) => this.src.startsWith(candidate, this.pos));
     if (!op) return this.fail("an unreadable redirect");
     this.pos += op.length;
-    while (this.src[this.pos] !== "\n" && /\s/.test(this.src[this.pos] ?? "")) this.pos += 1;
+    while (BLANK.test(this.src[this.pos] ?? "")) this.pos += 1;
     const target = this.readWord();
     if (!target) return this.fail("a redirect with no target");
     if (op === "<<" || op === "<<-") {
+      // Its end is the word as written, and a word keeps a substitution's text only in short, so it could never match.
+      if (target.dynamic) return this.fail("a heredoc whose end this can't read");
       current.fed = true;
-      heredocs.push({ delimiter: target.text, stripTabs: op === "<<-" });
+      heredocs.push({ delimiter: target.text, stripTabs: op === "<<-", quoted: !target.plain });
     } else if (op === "<<<") {
       current.fed = true;
     } else if (op === "<") {
@@ -338,69 +457,94 @@ class ShellParser {
     this.pos += 2;
     this.parseList(")");
     const bound = this.src.slice(start, this.pos);
-    return { text: `${opener}(…)`, bound, dynamic: true, procSub: true, plain: false };
+    const text = `${opener}(…)`;
+    return { text, bound, dynamic: true, procSub: true, plain: false, glob: false, could: [], atoms: [{ text, bound, live: false, dynamic: true }] };
   }
 
   /** One shell word, with quotes and escapes resolved. Null when there is no word here. */
   private readWord(): Word | null {
-    let text = "";
-    let bound = "";
-    let dynamic = false;
-    let any = false;
+    const atoms: Atom[] = [];
     let plain = true;
+    let any = false;
+    const piece = (text: string, bound: string, dynamic: boolean) => atoms.push({ text, bound, live: false, dynamic });
     while (this.pos < this.src.length && !this.failure) {
       const c = this.src[this.pos] as string;
-      if (/[\s;&|()<>]/.test(c)) break;
+      if (ENDS_A_WORD.test(c)) break;
       if (c === "\\" && this.src[this.pos + 1] === "\n") {
         // A line continuation disappears, and is not a word by itself.
         this.pos += 2;
         continue;
       }
       any = true;
+      const next = this.src[this.pos + 1];
       if (c === "'") {
         const close = this.src.indexOf("'", this.pos + 1);
         if (close === -1) {
           this.fail("an unbalanced single quote");
           break;
         }
-        text += this.src.slice(this.pos + 1, close);
-        bound += literal(this.src.slice(this.pos + 1, close));
+        const inner = this.src.slice(this.pos + 1, close);
+        piece(inner, literal(inner), false);
         plain = false;
         this.pos = close + 1;
-      } else if (c === '"') {
+      } else if (c === '"' || (c === "$" && next === '"')) {
+        // `$"..."` is double quotes, translated if there's a catalogue for it. Nothing here has one.
+        if (c === "$") this.pos += 1;
         const inner = this.readDoubleQuoted();
-        text += inner.text;
-        bound += inner.bound;
+        piece(inner.text, inner.bound, inner.dynamic);
         plain = false;
-        dynamic ||= inner.dynamic;
+      } else if (c === "$" && next === "'") {
+        const inner = this.readAnsiQuoted();
+        piece(inner, literal(inner), false);
+        plain = false;
       } else if (c === "\\") {
-        const next = this.src[this.pos + 1];
         if (next === undefined) {
           this.fail("a trailing backslash");
           break;
         }
-        text += next;
-        bound += literal(next);
+        piece(next, literal(next), false);
         plain = false;
         this.pos += 2;
       } else if (c === "`") {
         const start = this.pos;
-        text += this.readBacktick();
-        bound += this.src.slice(start, this.pos);
-        dynamic = true;
+        const text = this.readBacktick();
+        piece(text, this.src.slice(start, this.pos), true);
       } else if (c === "$") {
         const start = this.pos;
         const expansion = this.readDollar();
-        text += expansion.text;
-        bound += this.src.slice(start, this.pos);
-        dynamic ||= expansion.dynamic;
+        piece(expansion.text, this.src.slice(start, this.pos), expansion.dynamic);
       } else {
-        text += c;
-        bound += c;
+        atoms.push({ text: c, bound: c, live: true, dynamic: false });
         this.pos += 1;
       }
     }
-    return any ? { text, bound, dynamic, procSub: false, plain } : null;
+    return any ? wordFrom(atoms, plain) : null;
+  }
+
+  /** `$'...'`, which is quoting with its own rules: a backslash can quote a quote, and can spell any character. */
+  private readAnsiQuoted(): string {
+    let cursor = this.pos + 2;
+    let text = "";
+    let ended = false;
+    while (cursor < this.src.length) {
+      const c = this.src[cursor] as string;
+      if (c === "'") {
+        this.pos = cursor + 1;
+        return text;
+      }
+      if (c !== "\\") {
+        if (!ended) text += c;
+        cursor += 1;
+        continue;
+      }
+      const escape = ansiEscape(this.src, cursor + 1);
+      // A NUL ends the string as far as the command can tell, whatever comes after it.
+      if (escape.text === "\0") ended = true;
+      if (!ended) text += escape.text;
+      cursor = escape.next;
+    }
+    this.fail("an unbalanced $' quote");
+    return text;
   }
 
   private readDoubleQuoted(): { text: string; bound: string; dynamic: boolean } {
@@ -430,7 +574,7 @@ class ShellParser {
       } else if (c === "`" || c === "$") {
         // Inside double quotes it expands, but doesn't split into words, so it isn't the same as the bare form.
         const start = this.pos;
-        const expansion = c === "`" ? { text: this.readBacktick(), dynamic: true } : this.readDollar();
+        const expansion = c === "`" ? { text: this.readBacktick(), dynamic: true } : this.readDollar(true);
         text += expansion.text;
         bound += `"${this.src.slice(start, this.pos)}"`;
         dynamic ||= expansion.dynamic;
@@ -461,32 +605,15 @@ class ShellParser {
     return "`…`";
   }
 
-  private readDollar(): { text: string; dynamic: boolean } {
+  private readDollar(quoted = false): { text: string; dynamic: boolean } {
     const next = this.src[this.pos + 1];
-    if (next === "(" && this.src[this.pos + 2] === "(") {
-      const close = this.src.indexOf("))", this.pos + 3);
-      if (close === -1) {
-        this.fail("unbalanced arithmetic");
-        return { text: "", dynamic: true };
-      }
-      this.pos = close + 2;
-      return { text: "$((…))", dynamic: true };
-    }
+    if (next === "(" && this.src[this.pos + 2] === "(") return this.readArithmetic();
     if (next === "(") {
       this.pos += 2;
       this.parseList(")");
       return { text: "$(…)", dynamic: true };
     }
-    if (next === "{") {
-      const close = this.src.indexOf("}", this.pos + 2);
-      if (close === -1) {
-        this.fail("an unbalanced ${");
-        return { text: "", dynamic: true };
-      }
-      const text = this.src.slice(this.pos, close + 1);
-      this.pos = close + 1;
-      return { text, dynamic: true };
-    }
+    if (next === "{") return this.readParameter(quoted);
     const name = /^(?:[A-Za-z_][A-Za-z0-9_]*|[0-9?!#@*$-])/.exec(this.src.slice(this.pos + 1, this.pos + 64));
     if (name) {
       this.pos += 1 + name[0].length;
@@ -494,6 +621,88 @@ class ShellParser {
     }
     this.pos += 1;
     return { text: "$", dynamic: false };
+  }
+
+  /**
+   * `${...}`. What it has inside runs too, as in `${x:-$(cmd)}`, so it's read as far as its own `}`. Inside double quotes a
+   * single quote is usually a plain character, so a substitution behind one still runs. Reading on past it can only see more.
+   */
+  private readParameter(quoted: boolean): { text: string; dynamic: boolean } {
+    const start = this.pos;
+    this.pos += 2;
+    while (this.pos < this.src.length && !this.failure) {
+      const c = this.src[this.pos] as string;
+      if (c === "}") {
+        this.pos += 1;
+        return { text: this.src.slice(start, this.pos), dynamic: true };
+      }
+      if (c === "\\") {
+        this.pos += 2;
+      } else if (c === "'" && !quoted) {
+        const close = this.src.indexOf("'", this.pos + 1);
+        if (close === -1) break;
+        this.pos = close + 1;
+      } else if (c === '"') {
+        this.readDoubleQuoted();
+      } else if (c === "`") {
+        this.readBacktick();
+      } else if (c === "$") {
+        this.readDollar(quoted);
+      } else {
+        this.pos += 1;
+      }
+    }
+    this.fail("an unbalanced ${");
+    return { text: "", dynamic: true };
+  }
+
+  /**
+   * `$((...))`, whose inside can substitute too. It's only arithmetic if its first `)` is followed by another. Otherwise
+   * it's a subshell in a substitution, as bash decides it, and those are commands.
+   */
+  private readArithmetic(): { text: string; dynamic: boolean } {
+    if (!this.closesAsArithmetic(this.pos + 3)) {
+      this.pos += 2;
+      this.parseList(")");
+      return { text: "$(…)", dynamic: true };
+    }
+    this.pos += 3;
+    let depth = 0;
+    while (this.pos < this.src.length && !this.failure) {
+      const c = this.src[this.pos] as string;
+      if (c === ")" && depth === 0) {
+        this.pos += 2;
+        return { text: "$((…))", dynamic: true };
+      }
+      if (c === "(") depth += 1;
+      if (c === ")") depth -= 1;
+      if (c === "$") this.readDollar(true);
+      else if (c === "`") this.readBacktick();
+      else if (c === '"') this.readDoubleQuoted();
+      else this.pos += c === "\\" ? 2 : 1;
+    }
+    this.fail("unbalanced arithmetic");
+    return { text: "", dynamic: true };
+  }
+
+  private closesAsArithmetic(from: number): boolean {
+    let depth = 0;
+    for (let cursor = from; cursor < this.src.length; cursor += 1) {
+      const c = this.src[cursor] as string;
+      if (c === "\\") {
+        cursor += 1;
+      } else if (c === "'" || c === '"') {
+        const close = this.src.indexOf(c, cursor + 1);
+        if (close === -1) return false;
+        cursor = close;
+      } else if (c === "(") {
+        depth += 1;
+      } else if (c === ")") {
+        if (depth === 0) return this.src[cursor + 1] === ")";
+        depth -= 1;
+      }
+    }
+    return false;
   }
 
   /** Commands inside a string the shell will run: backticks and `bash -c`. */
@@ -506,6 +715,28 @@ class ShellParser {
     this.line.directory = directory;
     this.commands.push(...inner.commands);
     if (inner.failure) this.fail(inner.failure);
+  }
+
+  /** A heredoc's body: only its expansions mean anything, and they're read as inside double quotes. */
+  private absorbExpansions(body: string): void {
+    if (!/[$`]/.test(body)) return;
+    if (this.depth >= MAX_DEPTH) return this.fail("commands nested too deeply");
+    const inner = new ShellParser(body, this.depth + 1, this.line, this.loops, true);
+    const { directory } = this.line;
+    inner.readExpansions();
+    this.line.directory = directory;
+    this.commands.push(...inner.commands);
+    if (inner.failure) this.fail(inner.failure);
+  }
+
+  private readExpansions(): void {
+    while (this.pos < this.src.length && !this.failure) {
+      const c = this.src[this.pos] as string;
+      if (c === "\\") this.pos += 2;
+      else if (c === "`") this.readBacktick();
+      else if (c === "$") this.readDollar(true);
+      else this.pos += 1;
+    }
   }
 
   private finish(builder: Builder): void {
@@ -557,7 +788,7 @@ class ShellParser {
   private pushNoCommand(raw: string, writes: string[], reads: string[], wrappers: string[] = []): void {
     if (this.writesSomewhereUnknown(writes)) return;
     const { directory } = this.line;
-    this.commands.push({ raw, effective: "", canonical: "", writes, reads, dynamic: [], words: [], wrappers, setup: [], directory, repeats: false, boundToLine: false });
+    this.commands.push({ raw, effective: "", canonical: "", writes, removes: [], reads, dynamic: [], words: [], wrappers, setup: [], directory, repeats: false, boundToLine: false });
     if (writes.length > 0) this.line.setup.push([">", ...writes]);
   }
 
@@ -593,7 +824,8 @@ class ShellParser {
   private resolvePaths(words: Word[]): string[] | null {
     const paths: string[] = [];
     for (const word of words) {
-      if (word.dynamic) {
+      // A redirect expands a glob too, when it matches one file, which is as unknown as a variable.
+      if (word.dynamic || word.glob) {
         this.fail(`a path only known at run time: ${word.text}`);
         return null;
       }
@@ -628,7 +860,7 @@ class ShellParser {
       if (!wrapper) break;
       kept.push(word);
       rest = rest.slice(1);
-      if (baseName(word.text) === "xargs") carried = { by: "xargs", placeholder: xargsPlaceholder(rest), prefix: [] };
+      if (baseName(word.text) === "xargs") carried = { by: "xargs", placeholder: xargsPlaceholder(rest), prefix: [], appends: !xargsReplaces(rest) };
       let positionals = wrapper.positionals ?? 0;
       while (rest[0]) {
         const next = rest[0];
@@ -637,9 +869,17 @@ class ShellParser {
           rest = rest.slice(1);
           break;
         }
-        if (baseName(word.text) === "env" && next.text === "-S") return this.fail("env -S");
+        if (baseName(word.text) === "env" && ENV_SPLITS_A_STRING.test(next.text)) return this.fail("env -S");
+        // `env -` is `env -i`, not a command called -.
+        if (baseName(word.text) === "env" && next.text === "-") {
+          kept.push(next);
+          rest = rest.slice(1);
+          continue;
+        }
         if (next.text.startsWith("-") && next.text.length > 1) {
           const takesValue = wrapper.flagsWithValue.has(next.text);
+          // Whether a long option takes the next word decides which word is the command, so one this doesn't know is a hold.
+          if (!takesValue && /^--[^=]+$/.test(next.text) && !LONG_FLAGS_ALONE.has(next.text)) return this.fail(`${runner} ${next.text}, which this can't read`);
           const changes = CHANGES_DIRECTORY[baseName(word.text)];
           if (changes?.attached && next.text.startsWith(changes.attached)) {
             wrapperDirectory = { ...next, text: next.text.slice(changes.attached.length) };
@@ -685,9 +925,17 @@ class ShellParser {
   /** A command with its wrappers off. */
   private finishWrapped(rest: Word[], all: Word[], kept: Word[], builder: Builder, raw: string, writes: string[], reads: string[], carried: Carried | undefined): void {
     const command = rest[0] as Word;
-    if (command.dynamic) return this.fail(`a command only known at run time: ${command.text}`);
+    if (command.dynamic || command.glob) return this.fail(`a command only known at run time: ${command.text}`);
     const name = baseName(command.text);
     if (name === "eval") return this.fail("eval");
+    const risky = [...kept.map((word) => word.text), ...this.line.assigned].find((word) => SHELL_RISKY_ENVIRONMENT.test(word));
+    if (risky) return this.fail(`${risky.slice(0, risky.indexOf("="))} set, which runs something this can't read`);
+    if (name === "trap") return this.readTrap(rest, kept);
+    const through = runsThroughAFlag(name, rest.slice(1));
+    if (through) return this.fail(through);
+    if (SUBCOMMAND_TOOLS.has(name) && rest.slice(1).find((word) => !word.text.startsWith("-"))?.glob) {
+      return this.fail(`${name} with a subcommand only known at run time`);
+    }
     if (name === "source" || name === ".") return this.fail(`${name}: the script's commands are not on this line`);
     if (carried) {
       const problem = carriedProblem(rest, carried);
@@ -711,8 +959,12 @@ class ShellParser {
 
     const writtenBy = writesOf(rest);
     if (writtenBy === null) return this.fail("a path only known at run time");
-    if (this.writesSomewhereUnknown([...writes, ...writtenBy])) return;
-    const effectiveWords = (name === "git" ? stripGitGlobals(rest) : rest).map((word) => word.text);
+    const removes = removesOf(rest);
+    if (this.writesSomewhereUnknown([...writes, ...writtenBy, ...removes])) return;
+    // A rule about a name reads what a glob could turn into as well as how it's written.
+    const effectiveWords = (name === "git" ? stripGitGlobals(rest) : rest).flatMap((word) => [word.text, ...word.could]);
+    // What xargs reads goes on the end, so a rule has to read it as a word only known at run time.
+    if (carried?.appends) effectiveWords.push("$XARGS");
     const everyWord = [...kept, ...rest];
     const repeats = this.loops > 0 || carried !== undefined;
     this.commands.push({
@@ -720,6 +972,7 @@ class ShellParser {
       effective: effectiveWords.map((text, index) => (index === 0 ? text : resolveClimb(text))).join(" "),
       canonical: everyWord.map((word) => word.text).join(" "),
       writes: [...writes, ...writtenBy],
+      removes,
       reads: [...reads, ...pathsReadBy(rest)],
       dynamic: all.filter((word) => word.dynamic).map((word) => word.text),
       words: effectiveWords,
@@ -730,9 +983,18 @@ class ShellParser {
       repeats,
       boundToLine: repeats || this.wholeLine || builder.pipedIn || builder.fed,
     });
-    if (!leavesThingsAsTheyWere(name, rest, [...writes, ...writtenBy])) this.noteSetup(everyWord);
+    if (!leavesThingsAsTheyWere(name, rest, [...writes, ...writtenBy, ...removes])) this.noteSetup(everyWord);
     if (name === "cd" || name === "pushd") this.changeDirectory(rest.slice(1));
     if (name === "popd") this.line.directory = null;
+  }
+
+  /** `trap 'cmd' EXIT`: the string runs later, and it runs all the same. `trap - EXIT` and `trap -p` run nothing. */
+  private readTrap(words: Word[], kept: Word[]): void {
+    const action = words[1];
+    this.noteSetup([...kept, ...words]);
+    if (!action || action.text === "-" || action.text.startsWith("-") || action.text === "") return;
+    if (action.dynamic) return this.fail("trap with a command only known at run time");
+    this.absorb(action.text, { wholeLine: true });
   }
 
   /** `find -exec cmd ... ;` runs cmd: each one is read as a command in its own right. False when one can't be. */
@@ -753,7 +1015,7 @@ class ShellParser {
       }
       const prefix = [...kept, ...words.slice(0, index + 1)];
       const fresh = { ...builder, pipedIn: false, fed: false, words: child, writes: [], reads: [] };
-      this.finishCommand(child, fresh, child.map((word) => word.text).join(" "), [], [], { by: "find", placeholder: "{}", prefix });
+      this.finishCommand(child, fresh, child.map((word) => word.text).join(" "), [], [], { by: "find", placeholder: "{}", prefix, appends: false });
       if (this.failure) return false;
       index = end;
     }
@@ -805,32 +1067,31 @@ class ShellParser {
     const name = baseName((words[0] as Word).text);
     let index = 1;
     let inline = false;
-    while (words[index] && (words[index] as Word).text.startsWith("-") && (words[index] as Word).text.length > 1) {
-      const flag = (words[index] as Word).text;
+    let readsInput = false;
+    let attached: Word | undefined;
+    // `+x` is an option too. Reading only `-` here made `bash +x -c '...'` a script called +x.
+    while (words[index] && /^[-+]./.test((words[index] as Word).text)) {
+      const word = words[index] as Word;
+      const flag = word.text;
       if (flag === "--") {
         index += 1;
         break;
       }
-      if (!flag.startsWith("--") && flag.includes("c")) inline = true;
-      if (flag === "-O" || flag === "+O" || flag === "-o") index += 1;
+      const short = /^-[^-]/.test(flag);
+      if (flag.startsWith("--command=")) attached = { ...word, text: flag.slice("--command=".length) };
+      else if (flag === "--command" || (short && flag.includes("c"))) inline = true;
+      else if (short && flag.includes("s")) readsInput = true;
+      if (flag === "-O" || flag === "+O" || flag === "-o" || flag === "+o" || SHELL_OPTIONS_WITH_VALUE.has(flag)) index += 1;
       index += 1;
     }
+    if (attached) return this.absorbShellString(attached, words.length > index, kept, name);
     const next = words[index];
     if (inline) {
-      if (!next) {
-        this.fail(`${name} -c with no script`);
-        return "failed";
-      }
-      if (next.dynamic) {
-        this.fail(`${name} -c with a script only known at run time`);
-        return "failed";
-      }
-      // What it runs under counts, and so do its arguments: `bash -c 'rm -rf "$1"' _ /` says where only out here.
-      this.noteSetup(kept);
-      this.absorb(next.text, { wholeLine: words.length > index + 1 });
-      return this.failure ? "failed" : "absorbed";
+      if (next) return this.absorbShellString(next, words.length > index + 1, kept, name);
+      this.fail(`${name} -c with no script`);
+      return "failed";
     }
-    if (!next || next.text === "-") {
+    if (!next || next.text === "-" || readsInput) {
       this.fail(`${name} reads its commands from input`);
       return "failed";
     }
@@ -839,6 +1100,17 @@ class ShellParser {
       return "failed";
     }
     return "script";
+  }
+
+  private absorbShellString(script: Word, hasArguments: boolean, kept: Word[], name: string): "absorbed" | "failed" {
+    if (script.dynamic) {
+      this.fail(`${name} -c with a script only known at run time`);
+      return "failed";
+    }
+    // What it runs under counts, and so do its arguments: `bash -c 'rm -rf "$1"' _ /` says where only out here.
+    this.noteSetup(kept);
+    this.absorb(script.text, { wholeLine: hasArguments });
+    return this.failure ? "failed" : "absorbed";
   }
 }
 
@@ -949,6 +1221,15 @@ function xargsPlaceholder(args: Word[]): string {
   return "{}";
 }
 
+/** Whether xargs puts what it reads in place of a word, and so doesn't add it to the end. */
+function xargsReplaces(args: Word[]): boolean {
+  for (const { text } of args) {
+    if (!text.startsWith("-")) return false;
+    if (text.startsWith("-I") || text.startsWith("-i") || text === "--replace" || text.startsWith("--replace=")) return true;
+  }
+  return false;
+}
+
 /**
  * Why a command run by `find` or `xargs` can't be read. Its target comes from what they read, so `xargs rm -rf` could be
  * `rm -rf /`. For `xargs` that's always so. For `find` only when the placeholder is there: `find -exec rm -rf / ;` says
@@ -961,6 +1242,12 @@ function carriedProblem(words: Word[], carried: Carried): string | null {
   if (SHELLS.has(name) && words.slice(1).some(has)) return `${carried.by} gives ${name} a script only known at run time`;
   if (DESTROYS_ITS_TARGET.has(name) && (carried.by === "xargs" || words.slice(1).some(has))) {
     return `${carried.by} ${name}: what it acts on is only known at run time`;
+  }
+  if (name === "git") {
+    const parts = stripGitGlobals(words);
+    const subcommand = parts[1];
+    if (!subcommand || has(subcommand)) return `${carried.by} git with a subcommand only known at run time`;
+    if (subcommand.text === "push" && parts.slice(2).some(has)) return `${carried.by} git push: where it goes is only known at run time`;
   }
   return null;
 }
@@ -984,7 +1271,34 @@ function gitProblem(words: Word[], kept: string[]): string | null {
     }
     index += GIT_GLOBALS_WITH_VALUE.has(text) ? 2 : 1;
   }
-  return (words[index] as Word | undefined)?.text === "config" ? gitConfigProblem(words.slice(index + 1)) : null;
+  const subcommand = words[index];
+  if (!subcommand) return null;
+  if (subcommand.glob) return "git with a subcommand only known at run time";
+  const args = words.slice(index + 1);
+  const runs = gitRunsSomething(subcommand.text, args);
+  if (runs) return runs;
+  if (subcommand.text === "push" && args.some((word) => word.glob && !word.text.includes("*"))) return "git push to a branch only known at run time";
+  return subcommand.text === "config" ? gitConfigProblem(args) : null;
+}
+
+/** Git's own ways to run a command, by subcommand and by option. Reading the option as text would call `ls-remote` a read. */
+const GIT_RUNS_ITS_OPTION = /^--(upload-pack|receive-pack|exec|open-files-in-pager|extcmd|sendmail-cmd|to-cmd|cc-cmd)(=|$)/;
+const GIT_RUNS_ITS_SHORT_OPTION: Record<string, RegExp> = {
+  clone: /^-[a-zA-Z]*[uc]/,
+  rebase: /^-[a-zA-Z]*x/,
+  grep: /^-O/,
+  difftool: /^-[a-zA-Z]*x/,
+};
+
+function gitRunsSomething(subcommand: string, args: Word[]): string | null {
+  if (subcommand === "filter-branch" || subcommand === "filter-repo") return `git ${subcommand}, which runs what it's given`;
+  const first = args[0]?.text;
+  if ((subcommand === "bisect" && first === "run") || (subcommand === "submodule" && args.some((word) => word.text === "foreach"))) {
+    return `git ${subcommand} ${subcommand === "bisect" ? "run" : "foreach"}, which runs what it's given`;
+  }
+  const short = GIT_RUNS_ITS_SHORT_OPTION[subcommand];
+  const flag = args.find((word) => GIT_RUNS_ITS_OPTION.test(word.text) || short?.test(word.text) || ((subcommand === "init" || subcommand === "clone") && /^--(template|config)(=|$)/.test(word.text)));
+  return flag ? `git ${subcommand} ${flag.text.split("=", 1)[0] as string}, which runs what it's given` : null;
 }
 
 /** `git config alias.boom '!rm -rf /'` then `git boom` is the same trick in two steps. Reading a setting is fine. */
@@ -1023,10 +1337,14 @@ function writesOf(words: Word[]): string[] | null {
   let targets: Word[] = [];
   if (name === "tee") {
     targets = args.filter((word) => !word.text.startsWith("-"));
-  } else if (name === "cp" || name === "mv") {
-    const paths = args.filter((word) => !word.text.startsWith("-"));
-    const last = paths[paths.length - 1];
-    if (last && paths.length >= 2) targets = [last];
+  } else if (MOVES_FILES.has(name)) {
+    const copied = copyTargets(args);
+    if (copied === null) return null;
+    targets = copied;
+  } else if (TOUCHES_ITS_ARGUMENTS.has(name)) {
+    targets = args.filter((word) => !word.text.startsWith("-") && !word.dynamic);
+  } else if (name === "sort") {
+    targets = valuesOf(args, ["-o", "--output"]);
   } else if (name === "dd") {
     targets = args
       .filter((word) => word.text.startsWith("of="))
@@ -1041,9 +1359,83 @@ function writesOf(words: Word[]): string[] | null {
   const paths: string[] = [];
   for (const target of targets) {
     if (target.dynamic) return null;
-    if (!NOT_REAL_FILES.test(target.text)) paths.push(target.text);
+    // A glob in a directory it's written under, aimed at nothing in particular, could be under any directory at all.
+    if (target.glob && target.could.length === 0 && /[*?[]/.test(posix.dirname(target.text))) return null;
+    if (!NOT_REAL_FILES.test(target.text)) paths.push(target.text, ...target.could);
   }
   return paths;
+}
+
+/** `-o x`, `-ox`, `--output x`, `--output=x`. */
+function valuesOf(args: Word[], flags: string[]): Word[] {
+  const found: Word[] = [];
+  args.forEach((word, index) => {
+    const named = flags.find((flag) => word.text === flag);
+    if (named) {
+      const next = args[index + 1];
+      if (next) found.push(next);
+      return;
+    }
+    const attached = flags.find((flag) => (flag.startsWith("--") ? word.text.startsWith(`${flag}=`) : word.text.startsWith(flag) && !word.text.startsWith("--")));
+    if (attached) found.push({ ...word, text: word.text.slice(attached.length + (attached.startsWith("--") ? 1 : 0)) });
+  });
+  return found;
+}
+
+/** Where `cp`, `mv`, `install` or `ln` puts things: the last path, or into `-t DIR`, where `-t` can sit anywhere and in a cluster. */
+function copyTargets(args: Word[]): Word[] | null {
+  const paths: Word[] = [];
+  let directory: Word | undefined;
+  for (let index = 0; index < args.length; index += 1) {
+    const word = args[index] as Word;
+    const { text } = word;
+    if (text === "--") {
+      paths.push(...args.slice(index + 1));
+      break;
+    }
+    if (text === "--target-directory") {
+      directory = args[index + 1];
+      index += 1;
+    } else if (text.startsWith("--target-directory=")) {
+      directory = { ...word, text: text.slice("--target-directory=".length) };
+    } else if (/^-[a-zA-Z]*t$/.test(text)) {
+      directory = args[index + 1];
+      index += 1;
+    } else if (/^-[a-zA-Z]*t./.test(text) && !text.startsWith("--")) {
+      directory = { ...word, text: text.slice(text.indexOf("t") + 1) };
+    } else if (text === "-S" || text === "--suffix" || text === "-m" || text === "--mode" || text === "-o" || text === "--owner" || text === "-g" || text === "--group") {
+      index += 1;
+    } else if (!text.startsWith("-")) {
+      paths.push(word);
+    }
+  }
+  if (directory) {
+    if (directory.dynamic) return null;
+    const inside = directory.text.replace(/\/+$/, "");
+    return paths.map((path) => ({ ...directory, text: `${inside}/${baseName(path.text.replace(/\/+$/, ""))}`, could: directory.could.map((name) => `${name}/${baseName(path.text)}`) }));
+  }
+  const last = paths[paths.length - 1];
+  return last && paths.length >= 2 ? [last] : [];
+}
+
+/**
+ * What a command deletes or moves away. A path only known at run time stays out of this: the delete class reads those, and
+ * a move's target is what gets held if it matters.
+ */
+function removesOf(words: Word[]): string[] {
+  const name = baseName((words[0] as Word).text);
+  const args = words.slice(1);
+  const paths = args.filter((word) => !word.text.startsWith("-") && !word.dynamic);
+  if (REMOVES_ITS_ARGUMENTS.has(name)) return paths.flatMap((word) => [word.text, ...word.could]);
+  if (name !== "mv") return [];
+  const hasDirectory = args.some((word) => word.text.startsWith("--target-directory") || /^-[a-zA-Z]*t/.test(word.text));
+  const sources = hasDirectory ? paths.filter((word) => !isTargetDirectory(word, args)) : paths.slice(0, -1);
+  return sources.flatMap((word) => [word.text, ...word.could]);
+}
+
+function isTargetDirectory(word: Word, args: Word[]): boolean {
+  const before = args[args.indexOf(word) - 1]?.text ?? "";
+  return before === "--target-directory" || /^-[a-zA-Z]*t$/.test(before);
 }
 
 /** `git log --output=x` writes x, so a safe-looking read isn't one. `-o` means that only for these two commands. */

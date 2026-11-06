@@ -241,6 +241,7 @@ async function incidentDrill(dir: string) {
   try {
     await promote(core, chat, clock);
     const action = (index: number): Action => refundAction({ amount: 2000, small: true, flawed: false, atMs: clock.nowMs() }, 900 + index, clock);
+    await core.onMessage(SEND(PEOPLE.priya, "@refunds-agent refund it", "#support"));
     const ran = await core.check(action(0));
     const started = performance.now();
     await core.onMessage(SEND(PEOPLE.sam, `@clearance incident ${ran.request_id} customer disputes this refund`, "#approvals"));

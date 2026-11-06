@@ -145,7 +145,7 @@ export const MUTATIONS: Mutation[] = [
     source: [
       {
         file: REQUESTERS,
-        find: "for (const userId of this.requestersOf(senderAgent)) this.record(agent, evt, userId, senderAgent);",
+        find: "for (const userId of new Set([...this.requestersOf(senderAgent), ...stillWaiting])) this.record(agent, evt, userId, senderAgent, guesses.has(userId));",
         replace: "",
       },
     ],

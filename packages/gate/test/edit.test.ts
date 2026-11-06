@@ -295,6 +295,12 @@ describe("what earned autonomy allowed, and didn't go through", () => {
     expect(core.runFailures[0]).toMatchObject({ id: "CLR-0009", body: { never_ran: false, error: "acme answered 500" } });
   });
 
+  it("sends the request id as the idempotency key, so the same request can't pay twice upstream", async () => {
+    core.decide(() => allowed);
+    await run();
+    expect(refundCalls()[0]?.headers["idempotency-key"]).toBe("CLR-0009");
+  });
+
   it("says nothing when it went through, or when nothing was on record for it", async () => {
     core.decide(() => allowed);
     await run();

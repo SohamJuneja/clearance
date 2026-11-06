@@ -249,6 +249,11 @@ export function runError(seen: {
   return seen.spoke ? undefined : `${seen.agent} said nothing in ${RUN_DEADLINE_MS / 1000} s`;
 }
 
+/** A card asks a person to choose. Switch's activity summary sits under every run with a button of its own, and isn't one. */
+export function offersAChoice(post: MattermostPost): boolean {
+  return buttonsOf(post).some((button) => !/^show activity$/i.test(button.name.trim()));
+}
+
 export function createLiveDriver(config: LiveConfig): Driver {
   return {
     async run(planned: PlannedRun): Promise<RunObservation> {
@@ -309,7 +314,7 @@ export function createLiveDriver(config: LiveConfig): Driver {
         effectHappened,
         ...(error ? { error } : {}),
         approvedByHuman: ledger.some((row) => row.type === "approved"),
-        cardShown: held || [...posts.values()].some((post) => buttonsOf(post).length > 0),
+        cardShown: held || [...posts.values()].some(offersAChoice),
         triedAnotherWay:
           holdIndex >= 0 &&
           ledger.slice(holdIndex + 1).some((row) => row.type === "held" || row.type === "denied"),

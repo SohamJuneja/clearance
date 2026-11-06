@@ -121,12 +121,13 @@ describe("F18 break-glass", () => {
     });
 
     it("mints a grant for a hook call, and the gate isn't asked", async () => {
-      await h.core.onMessage(chatMessage(PARTICIPANTS.dev, "@coder force push it"));
-      const response = await h.core.check(hookShell("git push --force origin main", { session: { switchRoomId: "#eng" } }));
+      // Not coder: Alex owns it, and an agent's owner can't break glass on what it does at this tier.
+      await h.core.onMessage(chatMessage(PARTICIPANTS.dev, "@refunds-agent force push it"));
+      const response = await h.core.check(hookShell("git push --force origin main", { agent: { name: "refunds-agent" }, session: { switchRoomId: "#support" } }));
       await say(PARTICIPANTS.alex, `@clearance breakglass ${response.request_id} prod is down`);
       expect(h.core.stores.requests.require(response.request_id as string).state).toBe("GRANTED");
       expect(h.gate.calls).toEqual([]);
-      expect(h.core.stores.grants.has(response.call_hash as string, "coder")).toBe(true);
+      expect(h.core.stores.grants.has(response.call_hash as string, "refunds-agent")).toBe(true);
     });
 
     it("voids when the gate says the call failed", async () => {
@@ -663,6 +664,7 @@ describe("F22 audit export and digest", () => {
 
     it("says when the ladder approved, not a person", async () => {
       h.core.stores.autonomy.setLevel("refunds-agent", "refund", "small", "L2", h.clock.nowMs());
+      await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@refunds-agent refund it"));
       await h.core.check(gateRefund(SMALL));
       expect(rows((await get("/v1/export.csv")).body)[0]).toMatchObject({ approved_by: "autonomy:L2", state: "AUTO", separation_holds: "n/a" });
     });

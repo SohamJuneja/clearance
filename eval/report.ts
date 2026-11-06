@@ -57,6 +57,10 @@ const E1 = z.object({
   third_review: z
     .object({ passed: z.number().int().nonnegative(), total: z.number().int().positive() })
     .optional(),
+  /** The fourth's. */
+  fourth_review: z
+    .object({ passed: z.number().int().nonnegative(), total: z.number().int().positive() })
+    .optional(),
   /** So a case that isn't prevented can be named in the negative results. */
   per_case: z
     .array(
@@ -363,7 +367,8 @@ function auditCell(e1: Inputs["E1"]): string {
   const first = `Audit: ${num(e1?.audit?.passed)} of ${e1?.audit?.total ?? 5}`;
   const second = e1?.second_review ? `; second review: ${num(e1.second_review.passed)} of ${e1.second_review.total}` : "";
   const third = e1?.third_review ? `; third review: ${num(e1.third_review.passed)} of ${e1.third_review.total}` : "";
-  return `${first}${second}${third}`;
+  const fourth = e1?.fourth_review ? `; fourth review: ${num(e1.fourth_review.passed)} of ${e1.fourth_review.total}` : "";
+  return `${first}${second}${third}${fourth}`;
 }
 
 function behaviourData(behaviour: Inputs["E2-behaviour"]): string {
@@ -509,8 +514,16 @@ export function negativeResults(inputs: Inputs): NegativeResult[] {
   if (e1?.third_review) {
     results.push({
       id: "third-review",
-      text: `A third independent review reproduced ${num(e1.third_review.total)} more in what had been written since, and one came from fixing an earlier break: a stray @name raised a quorum, which could make a prod deploy impossible to approve. They're fixed and re-checked on their own line. Each review so far has found more, so a fourth probably would too.`,
+      text: `A third independent review reproduced ${num(e1.third_review.total)} more in what had been written since, and one came from fixing an earlier break: a stray @name raised a quorum, which could make a prod deploy impossible to approve. They're fixed and re-checked on their own line.${e1.fourth_review ? "" : " Each review so far has found more, so a fourth probably would too."}`,
       short: `a third independent review reproduced ${num(e1.third_review.total)} more, one of them caused by fixing an earlier break`,
+      source: "`pnpm eval:authority`",
+    });
+  }
+  if (e1?.fourth_review) {
+    results.push({
+      id: "fourth-review",
+      text: `A fourth independent review reproduced ${num(e1.fourth_review.total)} more, and the worst was the simplest: send the same refund twice at once and both ran alone, because every limit was checked before the record it reads was written. They're fixed and re-checked on their own line. Each review so far has found more, so a fifth probably would too.`,
+      short: `a fourth independent review reproduced ${num(e1.fourth_review.total)} more, the worst being one refund sent twice at once running twice`,
       source: "`pnpm eval:authority`",
     });
   }

@@ -47,7 +47,7 @@ const present = (value: unknown): boolean => value !== undefined && value !== nu
 
 function fromShell(input: DescribeInput): string[] | null {
   const command = input.call.args.command;
-  return typeof command === "string" ? [`Run: ${oneLine(command, 300)}`] : null;
+  return typeof command === "string" ? [`Run: ${oneLineKeepingEnd(command, 300)}`] : null;
 }
 
 function describeRefund(input: DescribeInput): CallDescription {
@@ -58,7 +58,7 @@ function describeRefund(input: DescribeInput): CallDescription {
   const who = present(fields.customer_name) ? `${oneLine(fields.customer_name)} (${customer})` : customer;
   const call = fromShell(input) ?? [`Refund ${amount} to customer ${who}`];
   if (present(fields.destination)) {
-    const destination = oneLine(fields.destination);
+    const destination = oneLineKeepingEnd(fields.destination);
     call.push(`Destination: ${destination.includes("@") ? "UPI " : ""}${destination}`);
   }
   if (present(fields.order)) {
@@ -168,7 +168,7 @@ function describePayoutChange(input: DescribeInput): CallDescription {
   if (shell) return { headline: "PAYOUT CHANGE", call: shell, context: [] };
   const customer = oneLine(fields.customer ?? "unknown");
   const who = present(fields.customer_name) ? `${oneLine(fields.customer_name)} (${customer})` : customer;
-  const upi = oneLine(fields.upi ?? "unknown");
+  const upi = oneLineKeepingEnd(fields.upi ?? "unknown");
   return {
     headline: `PAYOUT CHANGE ${customer}`,
     call: [`Change the payout destination of customer ${who}`, `New destination: UPI ${upi}`],
@@ -217,7 +217,7 @@ export function describeCall(input: DescribeInput): CallDescription {
   if (typeof bound.run === "number") description.call.push(`Run ${bound.run} of this same command on this line: each run needs its own approval`);
   if (input.asWritten) {
     const matters = bound.words !== undefined || bound.setup !== undefined || bound.repeats === true || typeof bound.run === "number";
-    (matters ? description.call : description.context).push(`As written: ${oneLine(input.asWritten, 300)}`);
+    (matters ? description.call : description.context).push(`As written: ${oneLineKeepingEnd(input.asWritten, 300)}`);
   }
   return description;
 }

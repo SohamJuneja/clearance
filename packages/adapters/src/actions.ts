@@ -71,10 +71,18 @@ export function requireString(value: unknown, what: string): string {
   return value;
 }
 
-/** A command is normally a string. An argv array is joined so patterns still see all of it. */
+/** One argv word as the shell would need it written to come back as that one word. */
+function shellWord(word: string): string {
+  return /^[\w@%+=:,./-]+$/.test(word) ? word : `'${word.replace(/'/g, "'\\''")}'`;
+}
+
+/**
+ * A command is normally a string. An argv array is written back as a line that means the same, so `["bash", "-c", "a b"]`
+ * keeps its script as one word, and a `$` in a word stays the plain character it is in an argv.
+ */
 export function requireCommand(value: unknown): string {
   if (Array.isArray(value) && value.length > 0 && value.every((part) => typeof part === "string")) {
-    return value.join(" ");
+    return value.map(shellWord).join(" ");
   }
   return requireString(value, "command");
 }
@@ -85,10 +93,17 @@ export function parseMcpName(name: string): { server: string; tool: string } | u
   return match ? { server: match[1]!, tool: match[2]! } : undefined;
 }
 
+/**
+ * A patch's file markers, with the padding around them that its parser tolerates. A line of a diff starts with `+`, `-` or
+ * a single space of context, so one that reads like this and isn't a marker costs a look, and nothing else.
+ */
+const PATCH_FILE = /^[ \t]*\*\*\*[ \t]*(?:Add File|Update File|Delete File|Move to):[ \t]*(.+)$/gm;
+const PATCH_SECTION = /^[ \t]*\*\*\*[ \t]*(?:Add|Update|Delete) File:.*$/gm;
+
 /** Every file an apply_patch touches, in order, including a rename's destination. */
 export function patchPaths(patch: unknown): string[] {
   const text = requireString(patch, "patch text");
-  const paths = [...text.matchAll(/^\*\*\* (?:Add File|Update File|Delete File|Move to): (.+)$/gm)]
+  const paths = [...text.matchAll(PATCH_FILE)]
     .map((match) => match[1]!.trim())
     .filter((path) => path.length > 0);
   if (paths.length === 0) throw new PayloadError("could not read the files in this patch");
@@ -147,7 +162,7 @@ function alongside(before: Written | undefined, next: Written): Written {
 export function writtenByPatch(patch: unknown): (path: string) => Written {
   const text = requireString(patch, "patch text");
   const sections = new Map<string, Written>();
-  const headers = [...text.matchAll(/^\*\*\* (?:Add|Update|Delete) File: .*$/gm)];
+  const headers = [...text.matchAll(PATCH_SECTION)];
   headers.forEach((header, index) => {
     const start = header.index;
     const end = headers[index + 1]?.index ?? text.length;
@@ -161,7 +176,7 @@ export function writtenByPatch(patch: unknown): (path: string) => Written {
       replaces: section,
     };
     // One file can have several sections, and an approval is for all of them.
-    for (const match of section.matchAll(/^\*\*\* (?:Add File|Update File|Delete File|Move to): (.+)$/gm)) {
+    for (const match of section.matchAll(PATCH_FILE)) {
       const path = match[1]!.trim();
       sections.set(path, alongside(sections.get(path), written));
     }

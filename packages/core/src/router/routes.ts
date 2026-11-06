@@ -136,14 +136,18 @@ export class RouteStore {
   }
 
   /**
-   * Switch counts handles per channel, so the same handle names different cards in different rooms. The
-   * card in `roomId` comes first when there is one.
+   * Switch counts handles per channel, so the same handle names different cards in different rooms. So a handle means the
+   * card of that name in the room it was used in, and nothing at all if that room has none.
    */
-  byHandle(handle: string, roomId?: string): RouteRow | null {
-    const row = this.db
-      .prepare(`SELECT * FROM routes WHERE handle = ? ORDER BY card_room = ? DESC, id DESC LIMIT 1`)
-      .get(handle, roomId ?? null) as RouteRow | undefined;
+  byHandle(handle: string, roomId: string): RouteRow | null {
+    const row = this.db.prepare(`SELECT * FROM routes WHERE handle = ? AND card_room = ? ORDER BY id DESC LIMIT 1`).get(handle, roomId) as RouteRow | undefined;
     return row ?? null;
+  }
+
+  /** The requests with a card of this name in any room, for a question that changes nothing. */
+  requestsWithHandle(handle: string): string[] {
+    const rows = this.db.prepare(`SELECT DISTINCT request_id FROM routes WHERE handle = ?`).all(handle) as { request_id: string }[];
+    return rows.map((row) => row.request_id);
   }
 
   close(id: number): void {

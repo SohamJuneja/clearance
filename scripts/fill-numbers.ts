@@ -17,6 +17,7 @@ export interface NumberSources {
     audit: { passed: number; total: number };
     second_review: { passed: number; total: number };
     third_review: { passed: number; total: number };
+    fourth_review: { passed: number; total: number };
   };
   autonomy: {
     synthetic: boolean;
@@ -56,6 +57,9 @@ export function valuesFrom(sources: NumberSources): Record<string, string> {
   if (authority.third_review.passed !== authority.third_review.total) {
     throw new Error(`third review: ${authority.third_review.passed} of ${authority.third_review.total} pass, and the drafts say all are fixed`);
   }
+  if (authority.fourth_review.passed !== authority.fourth_review.total) {
+    throw new Error(`fourth review: ${authority.fourth_review.passed} of ${authority.fourth_review.total} pass, and the drafts say all are fixed`);
+  }
   if (!autonomy.synthetic) throw new Error("the autonomy week isn't labelled synthetic, and the drafts call it that");
   const original = autonomy.original_rule;
   const demotedAt = original.second_week.demoted_at_action;
@@ -66,6 +70,7 @@ export function valuesFrom(sources: NumberSources): Record<string, string> {
     AUDIT_BREAKS: String(authority.audit.total),
     SECOND_REVIEW_BREAKS: String(authority.second_review.total),
     THIRD_REVIEW_BREAKS: String(authority.third_review.total),
+    FOURTH_REVIEW_BREAKS: String(authority.fourth_review.total),
     E6_BEFORE: String(autonomy.human_decisions_per_100.before),
     E6_AFTER: String(autonomy.human_decisions_per_100.after),
     E6_ORIGINAL: String(original.human_decisions_per_100.after),

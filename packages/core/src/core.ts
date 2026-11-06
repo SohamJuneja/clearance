@@ -84,7 +84,7 @@ import { DRILL_RESULT_GROUP } from "./ledger/mirror.js";
 import { buildRoiReport, type RoiReport } from "./reports/roi.js";
 import { medianDecisionMs, OPEN_STATES_SQL, readRequestFacts, tallyRequests } from "./reports/tally.js";
 import { mentionedNames, RequesterTracker, REQUESTER_WINDOW_MS, withoutRequestFragments } from "./router/requesters.js";
-import { assessAnswer, barsThatMoveTheDecision, route, type Refusal, type RouteContext, type RouteTrace } from "./router/router.js";
+import { assessAnswer, barsThatMoveTheDecision, route, separationBars, type Refusal, type RouteContext, type RouteTrace } from "./router/router.js";
 import { RouteStore, type RouteRow, type RouteStep } from "./router/routes.js";
 import { TraceStore } from "./router/traces.js";
 import { article, cannotCompleteText, exclusionWords, explainTrace, heldExplanation, holderSentence, routeLabel } from "./router/why.js";
@@ -226,6 +226,25 @@ const REPEAT_WINDOW_MS = DAY_MS;
 /** Refused or unroutable: nothing left the machine, so that attempt can't have reached the gate. */
 const NEVER_SENT = new Set(["ECONNREFUSED", "ENOTFOUND", "EHOSTUNREACH", "ENETUNREACH", "EAI_AGAIN"]);
 
+/**
+ * What systems of record said the first time through a call, for the second. The second happens while others wait their
+ * turn, so it can't wait on anything, and something the first didn't ask is unknown, which holds.
+ */
+function rememberedLookups(lookup: LookupPort): { first: LookupPort; again: LookupPort } {
+  const answers = new Map<string, Promise<Record<string, unknown> | null>>();
+  const key = (kind: string, id: string): string => `${kind}\0${id}`;
+  return {
+    first: {
+      lookup: (kind, id) => {
+        const answer = answers.get(key(kind, id)) ?? lookup.lookup(kind, id);
+        answers.set(key(kind, id), answer);
+        return answer;
+      },
+    },
+    again: { lookup: (kind, id) => answers.get(key(kind, id)) ?? Promise.reject(new Error("not asked the first time")) },
+  };
+}
+
 function neverSent(error: unknown): boolean {
   const { code, cause } = error as { code?: unknown; cause?: { code?: unknown } };
   return NEVER_SENT.has(String(cause?.code ?? code));
@@ -328,6 +347,7 @@ export class Clearance implements ClearanceCore {
   private readonly executing = new Set<string>();
   private readonly aliasCache = new Map<string, { aliases: RoomAliases; atMs: number }>();
   private readonly reach: AgentReachCheck;
+  private turns: Promise<unknown> = Promise.resolve();
 
   constructor(private readonly deps: CoreDeps) {
     this.reach = new AgentReachCheck(deps.chat, deps.clock);
@@ -739,11 +759,11 @@ export class Clearance implements ClearanceCore {
       .get(since) as { sent: number; caught: number; missed: number };
     const incidents = this.stores.incidents.all().filter((row) => row.at > since).length;
     const money = (value: number) => (currency ? formatMoney(value, currency) : String(value));
-    const summary = (drillLine: string) => [
+    const summary = (drillLine: string, showMedian: boolean) => [
       `Clearance digest, last 24 h: ${tally.held} held, ${tally.approved} approved, ${tally.denied} denied, ${tally.expired} expired, ${tally.break_glass} break-glass, ${tally.ran_alone} ran alone.`,
       tally.edited === 0 ? null : `${tally.edited} edited: an approver said yes to a smaller amount, as a new request.`,
       tally.outcome_unknown === 0 ? null : `${tally.outcome_unknown} with an unknown outcome: sent, and nobody can say whether it ran. A person has to check.`,
-      median === null ? null : `Median time to a decision: ${Math.round(median / 1000)} s.`,
+      !showMedian || median === null ? null : `Median time to a decision: ${Math.round(median / 1000)} s.`,
       ...autonomy.map((row) => {
         const spent = row.cap !== null ? `, ${money(row.spent)} of its ${money(row.cap)} daily cap` : "";
         return `${row.agent} ran ${row.ran} of ${row.label} on its own${spent}.`;
@@ -763,8 +783,9 @@ export class Clearance implements ClearanceCore {
       autonomy,
       incidents,
       drills,
-      text: summary(` Drills: ${drills.sent} sent, ${drills.caught} caught, ${drills.missed} missed.`),
-      room_text: summary(whole.length > 0 ? ` Drills: ${whole.length} finished, ${wholeCount("caught")} caught, ${wholeCount("missed")} missed.` : ""),
+      text: summary(` Drills: ${drills.sent} sent, ${drills.caught} caught, ${drills.missed} missed.`, true),
+      // No median in the room: from one decision it's one person's timing. `@clearance roi` gives it once there are enough.
+      room_text: summary(whole.length > 0 ? ` Drills: ${whole.length} finished, ${wholeCount("caught")} caught, ${wholeCount("missed")} missed.` : "", false),
     };
   }
 
@@ -955,18 +976,32 @@ export class Clearance implements ClearanceCore {
     return { ...this.responseFor(evaluation), step: evaluation.step, hold_summary: evaluation.holdSummary ?? null };
   }
 
+  /**
+   * A call is read twice when it might run alone or be held. The first time waits on systems of record, and while it does
+   * another call can run and spend what this one is about to count on, so nothing that first read says is settled. The second
+   * time asks nothing of anyone, sees everything written so far, and goes in turn with whatever it writes. So parallel calls
+   * come out the way the same calls one after another would: two identical refunds are one that runs and one held.
+   */
   async check(input: Action): Promise<CheckResponse> {
     const parsed = ActionSchema.safeParse(input);
     if (!parsed.success) return { decision: "deny", reason: "DENIED: malformed action" };
     const action = parsed.data;
-    const { grants } = this.stores;
     if (!this.people.directory.isTeamAgent(action.agent.name)) return this.denyUnknownAgent(action);
-    const shadowing = this.currentPolicy.file.mode === "shadow";
+    const lookups = rememberedLookups(this.deps.lookup);
+    const first = await this.evaluateCheck(action, lookups.first);
+    if (first.step !== "autonomy" && first.decision !== "hold") return this.settle(action, first, "all_seen")();
+    const reach = await this.reachBefore(action, first);
+    const settled = await this.inTurn(async () => this.settle(action, await this.evaluateCheck(action, lookups.again), reach));
+    return settled();
+  }
+
+  private evaluateCheck(action: Action, lookup: LookupPort): Promise<Evaluation> {
+    const { grants } = this.stores;
     // The same action delivered twice is one call, not a repeat of itself.
     const seen = this.stores.db.prepare(`SELECT 1 FROM actions WHERE id = ?`).get(action.id) !== undefined;
-    const evaluation = await evaluateAction(action, {
+    return evaluateAction(action, {
       policy: this.currentPolicy,
-      lookup: this.deps.lookup,
+      lookup,
       clock: this.deps.clock,
       aggregates: this.stores.aggregates,
       autonomy: this.stores.autonomy,
@@ -981,17 +1016,40 @@ export class Clearance implements ClearanceCore {
             }
           : undefined,
     });
+  }
+
+  /** One at a time. Nothing in a turn waits on anything outside this process, so a turn is over at once. */
+  private inTurn<T>(work: () => Promise<T>): Promise<T> {
+    const turn = this.turns.then(work);
+    this.turns = turn.catch(() => undefined);
+    return turn;
+  }
+
+  /**
+   * Asked before a call's turn, because this can take Switch a moment, and only for a request that will be new. Null means it
+   * wasn't asked, because a request for this call is already open. If that's gone by the time it counts, nobody can say.
+   */
+  private async reachBefore(action: Action, evaluation: Evaluation): Promise<AgentReach | null> {
+    const now = this.deps.clock.nowMs();
+    const open = this.stores.requests.findOpen(evaluation.callHash, action.agent.name);
+    if (open && open.expiresAtMs <= now) await this.expire(open);
+    return open && open.expiresAtMs > now ? null : this.reach.of(action.agent.name);
+  }
+
+  /** Writes what was decided, there and then. What it gives back is what's left to do, which is talking to people. */
+  private settle(action: Action, evaluation: Evaluation, reach: AgentReach | null): () => Promise<CheckResponse> {
+    const done = (response: CheckResponse) => () => Promise.resolve(response);
     if (action.defer_grants && evaluation.step === "grant") {
-      return { decision: "allow", reason: "An approval is waiting for this.", grant_pending: true };
+      return done({ decision: "allow", reason: "An approval is waiting for this.", grant_pending: true });
     }
-    if (shadowing && evaluation.decision !== "deny") return this.inShadow(action, evaluation);
+    if (this.currentPolicy.file.mode === "shadow" && evaluation.decision !== "deny") return done(this.inShadow(action, evaluation, reach));
     switch (evaluation.decision) {
       case "allow":
-        return evaluation.step === "autonomy" ? this.runOnItsOwn(action, evaluation) : this.allow(action, evaluation);
+        return evaluation.step === "autonomy" ? this.runOnItsOwn(action, evaluation, reach) : done(this.allow(action, evaluation));
       case "deny":
-        return this.deny(action, evaluation);
+        return done(this.deny(action, evaluation));
       case "hold":
-        return this.hold(action, evaluation);
+        return this.hold(action, evaluation, reach);
     }
   }
 
@@ -1154,8 +1212,10 @@ export class Clearance implements ClearanceCore {
    * The window still adds up, so what it reports is what enforcing would really do. A deny stays a deny, because
    * those guard Clearance itself and shadow is a question about holds.
    */
-  private inShadow(action: Action, evaluation: Evaluation): CheckResponse {
-    const would = evaluation.decision;
+  private inShadow(action: Action, evaluation: Evaluation, reach: AgentReach | null): CheckResponse {
+    // What running alone asks of who's on record is core's to say, so shadow has to ask it too.
+    const whoAsked = evaluation.step === "autonomy" ? this.newRequest(action, evaluation, this.deps.clock.nowMs(), undefined, reach ?? "unknown").flags : [];
+    const would = whoAsked.length > 0 ? "hold" : evaluation.decision;
     const write = this.stores.db.transaction(() => {
       this.recordAction(action, { ...evaluation, decision: "allow" }, evaluation.grantRequestId ?? null, would);
       this.recordAggregates(action, evaluation, null);
@@ -1163,6 +1223,7 @@ export class Clearance implements ClearanceCore {
     write.immediate();
     const response: CheckResponse = { ...this.responseFor(evaluation), decision: "allow", would_decide: would };
     if (would === "hold") response.reason = `SHADOW, not enforced: would have held: ${evaluation.holdSummary ?? evaluation.reason}`;
+    if (whoAsked.length > 0) response.flags = whoAsked;
     return response;
   }
 
@@ -1213,38 +1274,35 @@ export class Clearance implements ClearanceCore {
     return this.deny(action, evaluation);
   }
 
-  private async hold(action: Action, evaluation: Evaluation): Promise<CheckResponse> {
+  private hold(action: Action, evaluation: Evaluation, reach: AgentReach | null): () => Promise<CheckResponse> {
     const { requests } = this.stores;
     const now = this.deps.clock.nowMs();
-    const stale = requests.findOpen(evaluation.callHash, action.agent.name);
-    if (stale && stale.expiresAtMs <= now) await this.expire(stale);
-    // Asked before the transaction, which can't wait, and only for a request that will be new.
-    const reach = stale && stale.expiresAtMs > now ? "all_seen" : await this.reach.of(action.agent.name);
-
     const write = this.stores.db.transaction((): { request: RequestRecord; isNew: boolean } => {
       const open = requests.findOpen(evaluation.callHash, action.agent.name);
       if (open) {
         this.recordAction(action, evaluation, open.id);
         return { request: open, isNew: false };
       }
-      const created = requests.create(this.newHold(action, evaluation, now, reach));
+      const created = requests.create(this.newHold(action, evaluation, now, reach ?? "unknown"));
       this.recordAction(action, evaluation, created.id);
       this.recordAggregates(action, evaluation, created.id);
       this.startLadder(created);
       return { request: created, isNew: true };
     });
     const { request, isNew } = write.immediate();
-    if (isNew) {
-      await this.routeAndOpen(request, "primary");
-      await this.maybeRollDrill(request);
-    }
-    const response: CheckResponse = {
-      ...this.responseFor(evaluation),
-      reason: this.holdReason(request.id, action, evaluation),
-      request_id: request.id,
+    return async () => {
+      if (isNew) {
+        await this.routeAndOpen(request, "primary");
+        await this.maybeRollDrill(request);
+      }
+      const response: CheckResponse = {
+        ...this.responseFor(evaluation),
+        reason: this.holdReason(request.id, action, evaluation),
+        request_id: request.id,
+      };
+      if (request.flags.length > 0) response.flags = request.flags;
+      return response;
     };
-    if (request.flags.length > 0) response.flags = request.flags;
-    return response;
   }
 
   private classOf(name: string): CompiledClass | null {
@@ -2290,7 +2348,8 @@ export class Clearance implements ClearanceCore {
     });
     write.immediate();
     const stuck = cannotCompleteText(trace, request.id);
-    if (stuck && !openFallback && OPEN_STATES.includes(requests.require(request.id).state)) {
+    // A request one person could decide has its card say so, and the room keeps the line about who it went to and why.
+    if (stuck && request.quorumRequired > 1 && !openFallback && OPEN_STATES.includes(requests.require(request.id).state)) {
       // Routing can pass here more than once for a request, and a room needs telling once.
       if (!this.toldCannotComplete.has(request.id)) {
         this.toldCannotComplete.add(request.id);
@@ -2600,39 +2659,53 @@ export class Clearance implements ClearanceCore {
     return "recorded";
   }
 
-  /** L2 and L3: nobody is asked first, and everything is on the record. Core runs nothing: the allow does. */
-  private async runOnItsOwn(action: Action, evaluation: Evaluation): Promise<CheckResponse> {
+  /**
+   * L2 and L3: nobody is asked first, and everything is on the record. Core runs nothing: the allow does. A flag holds it
+   * (F11), and the ones about who asked are only known here. So does an identical call a person is deciding, because this
+   * would be the second run of what they're about to approve.
+   */
+  private runOnItsOwn(action: Action, evaluation: Evaluation, reach: AgentReach | null): () => Promise<CheckResponse> {
     const { requests } = this.stores;
     const now = this.deps.clock.nowMs();
     const level = evaluation.level as Level;
-    const earlier = this.stores.db.prepare(`SELECT request_id FROM actions WHERE id = ? AND step = 'autonomy'`).get(action.id) as { request_id: string | null } | undefined;
-    if (earlier?.request_id) return { ...this.responseFor(evaluation), request_id: earlier.request_id };
-    const write = this.stores.db.transaction(() => {
+    const write = this.stores.db.transaction((): { request: RequestRecord; isNew: boolean } | null => {
+      const earlier = this.stores.db.prepare(`SELECT request_id FROM actions WHERE id = ? AND step = 'autonomy'`).get(action.id) as { request_id: string | null } | undefined;
+      if (earlier?.request_id) return { request: requests.require(earlier.request_id), isNew: false };
+      if (requests.findOpen(evaluation.callHash, action.agent.name)) return null;
+      const input = this.newRequest(action, evaluation, now, undefined, reach ?? "unknown");
+      if (input.flags.length > 0) return null;
       const created = requests.create({
-        ...this.newRequest(action, evaluation, now),
+        ...input,
         auto: { level, bucket: evaluation.bucket as string },
         expiresAtMs: now + this.deps.clock.scaledMs(REVIEW_WINDOW_MS),
       });
       this.recordAction(action, evaluation, created.id);
       this.recordAggregates(action, evaluation, created.id);
       this.recordBucketEvent(created, "auto", [], false);
-      return created;
+      return { request: created, isNew: true };
     });
-    const request = write.immediate();
-    if (level === "L2") {
-      // The gate is waiting on this answer to run the call, so it can't wait on Switch. A card that can open at once does;
-      // otherwise it goes on opening after the allow has gone back.
-      const review = this.openReview(request).catch((error: unknown) => console.error(`could not open the review of ${request.id}:`, error));
-      await Promise.race([review, new Promise((done) => setImmediate(done))]);
+    const ran = write.immediate();
+    if (!ran) {
+      const reason = `HELD: ${evaluation.holdSummary ?? `${evaluation.call.class} needs approval`}`;
+      return this.hold(action, { ...evaluation, decision: "hold", step: "class_hold", reason, autoEligible: false }, reach);
     }
-    return { ...this.responseFor(evaluation), request_id: request.id };
+    return async () => {
+      if (ran.isNew && level === "L2") {
+        // The gate is waiting on this answer to run the call, so it can't wait on Switch. A card that can open at once does;
+        // otherwise it goes on opening after the allow has gone back.
+        const review = this.openReview(ran.request).catch((error: unknown) => console.error(`could not open the review of ${ran.request.id}:`, error));
+        await Promise.race([review, new Promise((done) => setImmediate(done))]);
+      }
+      return { ...this.responseFor(evaluation), request_id: ran.request.id };
+    };
   }
 
   private async openReview(request: RequestRecord): Promise<void> {
     const { directory } = this.people;
     const { ledger } = this.stores;
     const ctx = this.routeContext(request);
-    const trace = route(ctx, 1);
+    // It already ran, so whether anyone could have approved it has nothing to tell whoever reviews it.
+    const { shortOfPeople: _alreadyRan, ...trace } = route(ctx, 1);
     const personId = trace.chosen[0];
     const person = personId ? directory.person(personId) : null;
     const fallbackRoom = !person && trace.fallback ? directory.roomId(trace.fallback.room) : null;
@@ -3137,7 +3210,7 @@ export class Clearance implements ClearanceCore {
       case "back":
         return askerId ? this.backReply(askerId) : null;
       case "breakglass":
-        return askerId ? this.breakGlassReply(first, after, askerId) : null;
+        return askerId ? this.breakGlassReply(first, after, askerId, evt.roomId) : null;
       case "counter":
         return askerId ? this.counterReply(first, others, askerId, evt.roomId) : null;
       case "resolve":
@@ -3218,11 +3291,11 @@ export class Clearance implements ClearanceCore {
 
   // ── Break-glass (F18) ──────────────────────────────────────────────────────
 
-  private async breakGlassReply(reference: string | undefined, reason: string | undefined, actorId: string): Promise<string> {
+  private async breakGlassReply(reference: string | undefined, reason: string | undefined, actorId: string, roomId: string): Promise<string> {
     const { requests, ledger, grants } = this.stores;
     const { directory } = this.people;
     if (!reference) return "Which request? `@clearance breakglass CLR-0042 why it can't wait`.";
-    const found = this.findRequest(reference);
+    const found = this.findRequest(reference, roomId);
     if (!found) return `I can't find ${reference}.`;
     const actor = directory.person(actorId);
     const named = this.currentPolicy.file.break_glass?.people ?? [];
@@ -3234,9 +3307,16 @@ export class Clearance implements ClearanceCore {
       const who = joinNames(named.map((id) => directory.person(id)?.name ?? id));
       return `${actor?.name ?? "That account"} can't break glass on ${found.id}: only ${who || "people named in the policy"} can.`;
     }
-    if (this.routeContext(found).requesterIds.includes(actorId)) {
+    const ctx = this.routeContext(found);
+    if (ctx.requesterIds.includes(actorId)) {
       refuse(["requester"]);
       return `${actor?.name ?? "That account"} asked for ${found.id}, so can't break glass on it.`;
+    }
+    // An emergency doesn't turn the person who wrote the code into someone else, or the agent's owner.
+    const bars = separationBars(ctx, actorId);
+    if (bars.length > 0) {
+      refuse(bars);
+      return `${actor?.name ?? "That account"} can't break glass on ${found.id} (${exclusionWords(bars, "approver")}).`;
     }
     if (!reason) return `Say the reason: \`@clearance breakglass ${found.id} why it can't wait\`.`;
     // Up to here a drill gets the answers a real request gets, or anyone could tell them apart by asking. Only someone
@@ -3812,7 +3892,7 @@ export class Clearance implements ClearanceCore {
   private async incidentReply(reference: string | undefined, note: string | undefined, reporterId: string, room: string): Promise<string | null> {
     const { incidents, ledger, events } = this.stores;
     if (!reference) return "Which request? `@clearance incident CLR-0042 what went wrong`.";
-    const request = this.findRequest(reference);
+    const request = this.findRequest(reference, room);
     if (!request) return `I can't find ${reference}.`;
     if (!note) return `Say what went wrong: \`@clearance incident ${request.id} what went wrong\`.`;
     const reporter = this.people.directory.person(reporterId);
@@ -3829,8 +3909,11 @@ export class Clearance implements ClearanceCore {
     return room === this.approvalsRoom() ? null : demotion;
   }
 
-  /** A CLR id, or an answer handle like A12, which means the card of that name in this room if there is one. */
-  private findRequest(reference: string, roomId?: string): RequestRecord | null {
+  /**
+   * A CLR id, or an answer handle like A12, which means the card of that name in this room and nothing else. Switch counts
+   * handles per room, so the newest A1 anywhere could be someone else's call entirely.
+   */
+  private findRequest(reference: string, roomId: string): RequestRecord | null {
     const { requests, routes } = this.stores;
     const direct = requests.get(reference.toUpperCase());
     if (direct) return direct;
@@ -3838,8 +3921,16 @@ export class Clearance implements ClearanceCore {
     return found ? requests.get(found.request_id) : null;
   }
 
+  /** For a question that changes nothing, a handle from another room is fine to answer for, if it can only mean one request. */
+  private requestAskedAbout(reference: string, roomId: string): RequestRecord | null {
+    const here = this.findRequest(reference, roomId);
+    if (here) return here;
+    const elsewhere = this.stores.routes.requestsWithHandle(reference);
+    return elsewhere.length === 1 ? this.stores.requests.get(elsewhere[0] as string) : null;
+  }
+
   private whyReply(reference: string, askerId: string | null, roomId: string): string {
-    const request = this.findRequest(reference, roomId);
+    const request = this.requestAskedAbout(reference, roomId);
     const trace = request ? this.traces.latest(request.id) : null;
     const editOf = request ? this.evidenceOf(request).editOf : undefined;
     // An edit one person was enough for never went to anyone, so there's no route to explain. There's still a why.
@@ -3866,7 +3957,7 @@ export class Clearance implements ClearanceCore {
   }
 
   private statusReply(reference: string, roomId: string): string {
-    const request = this.findRequest(reference, roomId);
+    const request = this.requestAskedAbout(reference, roomId);
     if (!request) return `I can't find ${reference}.`;
     const trace = this.traces.latest(request.id);
     const tz = this.currentPolicy.defaults.business_hours.tz;

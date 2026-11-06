@@ -16,6 +16,7 @@ import { hookRoutes, loadHookTokens } from "../../packages/adapters/src/index.ts
 import type {
   ChatPort,
   Clock,
+  LookupPort,
   OpenCardInput,
   OpenCardResult,
 } from "../../packages/contracts/src/index.ts";
@@ -57,6 +58,9 @@ const release = new Map<string, () => void>();
 const ORIGIN_ROOM = "room-support";
 
 let cardCounter = 0;
+/** Switch counts handles per room. Off by default, because these ids are what most of the suite reads. */
+let handlesPerRoom = false;
+const roomCounters = new Map<string, number>();
 const chat: ChatPort = {
   async openCard(input: OpenCardInput): Promise<OpenCardResult> {
     cardCounter += 1;
@@ -73,6 +77,11 @@ const chat: ChatPort = {
       switchRequestId: input.requestId ?? `sr-${process.pid}-${cardCounter}`,
       handle: `A${process.pid % 1000}${cardCounter}`,
     };
+    if (handlesPerRoom) {
+      const number = (roomCounters.get(input.roomId) ?? 0) + 1;
+      roomCounters.set(input.roomId, number);
+      result.handle = `A${number}`;
+    }
     record("card", { ...input, ...result });
     if (fails) throw new Error("the card opened, and the reply was lost");
     const answer = whileOpening.get(input.roomId);
@@ -119,6 +128,25 @@ const clock: Clock = {
 
 const gateClient = createGateClient({ baseUrl: required("CLEARANCE_GATE_URL"), internalToken });
 
+/**
+ * The next `left` answers of this kind wait for each other and arrive together, which is what parallel calls need for their
+ * checks to overlap. Over real sockets that only happens now and then, so a run could pass by luck. This makes it certain.
+ * It gives up waiting after a while, so a call that never comes can't hang a case.
+ */
+let meeting: { kind: string; left: number; open: () => void; opened: Promise<void> } | null = null;
+const lookupsThatCanMeet: LookupPort = {
+  lookup: async (kind, id) => {
+    const answer = await gateClient.lookup(kind, id);
+    const here = meeting?.kind === kind ? meeting : null;
+    if (here) {
+      here.left -= 1;
+      if (here.left <= 0) here.open();
+      await here.opened;
+    }
+    return answer;
+  },
+};
+
 // A plain variable so options the core doesn't take yet pass through untouched. Random drills stay off:
 // a drill rolled in the middle of a case or a soak would make runs differ.
 const deps = {
@@ -130,7 +158,7 @@ const deps = {
   rollDrills: false,
   chat,
   gate: gateClient,
-  lookup: gateClient,
+  lookup: lookupsThatCanMeet,
   clock,
 };
 const core = createClearanceCore(deps);
@@ -193,6 +221,23 @@ await app.register(async (scope) => {
     const { roomId } = request.body as { roomId: string };
     release.get(roomId)?.();
     held.delete(roomId);
+    return { ok: true };
+  });
+  scope.post("/eval/handles-per-room", async () => {
+    handlesPerRoom = true;
+    return { ok: true };
+  });
+  scope.post("/eval/lookups-together", async (request) => {
+    const { kind, count } = request.body as { kind: string; count: number };
+    let open: () => void = () => undefined;
+    const opened = new Promise<void>((done) => {
+      open = () => {
+        meeting = null;
+        done();
+      };
+    });
+    meeting = { kind, left: count, open, opened };
+    setTimeout(open, 5_000).unref();
     return { ok: true };
   });
   scope.post("/eval/stream-gap", async () => {

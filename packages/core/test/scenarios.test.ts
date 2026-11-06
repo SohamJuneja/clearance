@@ -269,9 +269,11 @@ describe("SC10: structuring, and PLAN 7.3 on low tier", () => {
 
   it("the sum resets once earlier refunds fall out of the window", async () => {
     h.core.stores.autonomy.setLevel("refunds-agent", "refund", "small", "L3", h.clock.nowMs());
+    await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@refunds-agent refund Meera's small orders"));
     await gateCheck(small());
     await gateCheck(gateRefund({ order_id: "A-1931", customer_id: "cus_8812", amount: 4001, destination: "meera.k@oksbi" }));
     h.clock.advance(24 * 3_600_000 + 1);
+    await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@refunds-agent and this one"));
     const later = await gateCheck(gateRefund({ order_id: "A-1931", customer_id: "cus_8812", amount: 4002, destination: "meera.k@oksbi" }));
     expect(later.decision).toBe("allow");
   });

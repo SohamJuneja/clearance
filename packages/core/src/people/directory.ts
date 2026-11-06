@@ -127,16 +127,25 @@ export class Directory {
     return this.all().find((person) => person.name.toLowerCase() === wanted) ?? null;
   }
 
+  /**
+   * Whether this is Clearance's own message, so it can be ignored. Its id settles it when the id is on file. A name is only
+   * for when it isn't, and never for someone else who is on file: a person called `clearance` still asked for what they asked for.
+   */
   isSelf(participant: string, senderName?: string | null): boolean {
-    return participant === this.selfParticipant || senderName === SELF_AGENT;
+    if (this.selfParticipant) return participant === this.selfParticipant;
+    return senderName === SELF_AGENT && !this.byParticipant.has(participant) && !this.agentByParticipant.has(participant);
   }
 
-  /** Which agent a sender is: by participant id, else by the name Switch gave it. A known person is never an agent. */
+  /**
+   * Which agent a sender is: by participant id, else by the name Switch gave it. A known person is never an agent, and
+   * neither is a stranger using the name of an agent whose id is on file, or their words would pass for that agent's.
+   */
   agentForSender(participant: string, senderName?: string | null): string | null {
     const known = this.agentByParticipant.get(participant);
     if (known) return known;
     if (this.byParticipant.has(participant)) return null;
-    return senderName && this.agentNames.has(senderName) ? senderName : null;
+    if (!senderName || !this.agentNames.has(senderName)) return null;
+    return [...this.agentByParticipant.values()].includes(senderName) ? null : senderName;
   }
 
   isAgent(name: string): boolean {

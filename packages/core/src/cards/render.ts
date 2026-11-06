@@ -10,7 +10,7 @@
  * the agent's claim, then context lines. The parsed call, the flags and the expiry always stay.
  */
 import type { Tier } from "@clearance/contracts";
-import { joinNames, oneLine, withoutHidden } from "../format.js";
+import { clipKeepingBothEnds, joinNames, oneLine, withoutHidden } from "../format.js";
 
 export const TITLE_MAX = 500;
 export const DETAIL_BUDGET = 960;
@@ -86,7 +86,8 @@ function* shrinkSteps(view: CardView): Generator<Shrink> {
 }
 
 function list(lines: string[], shrink: Shrink, prefix: string): string[] {
-  const kept = lines.slice(0, shrink.listMax).map((text) => `${prefix}${clip(text, shrink.lineMax)}`);
+  // What the call does and where it goes can be at either end of a long line, so a line loses its middle.
+  const kept = lines.slice(0, shrink.listMax).map((text) => `${prefix}${clipKeepingBothEnds(text, shrink.lineMax)}`);
   const dropped = lines.length - kept.length;
   return dropped > 0 ? [...kept, `${prefix}and ${dropped} more`] : kept;
 }

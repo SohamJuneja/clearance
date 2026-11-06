@@ -74,11 +74,12 @@ describe("splitting into sub-commands", () => {
 
 describe("input that must not hang or crash a hook", () => {
   it.each([
-    ["a carriage return", "a\rb", ["a b"]],
-    ["a form feed", "a\fb", ["a b"]],
-    ["a no-break space", "a\u00a0b", ["a b"]],
-    ["a trailing carriage return", "a\r\n", ["a"]],
-  ])("treats %s as a separator", (_name, source, expected) => {
+    // To bash these are parts of a word, and a word can't start a comment. See the fourth review's F7d.
+    ["a carriage return", "a\rb", ["a\rb"]],
+    ["a form feed", "a\fb", ["a\fb"]],
+    ["a no-break space", "a\u00a0b", ["a\u00a0b"]],
+    ["a trailing carriage return", "a\r\n", ["a\r"]],
+  ])("keeps %s in the word, as bash does", (_name, source, expected) => {
     expect(effective(source)).toEqual(expected);
   });
 

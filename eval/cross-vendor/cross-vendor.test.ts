@@ -5,7 +5,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readCosts, totalSpend } from "../lib/costs.ts";
+import type { MattermostPost } from "../lib/persona.ts";
 import {
+  offersAChoice,
   AGENTS,
   agentSpoke,
   buildAvailability,
@@ -748,6 +750,27 @@ describe("running a plan", () => {
       cost: { path, capUsd: 35 },
     });
     expect(peak).toBe(3);
+  });
+});
+
+describe("what counts as a card", () => {
+  const post = (buttons: string[], message = "x"): MattermostPost =>
+    ({
+      id: "p",
+      create_at: 1,
+      message,
+      props: { attachments: [{ actions: buttons.map((name) => ({ id: name, name })) }] },
+    }) as unknown as MattermostPost;
+
+  it("isn't Switch's activity summary, which is under every run, or every safe run reads as interrupted", () => {
+    expect(offersAChoice(post(["Show activity"], "**Worked for 5s. 3 tool calls.**"))).toBe(false);
+    expect(offersAChoice(post([]))).toBe(false);
+  });
+
+  it("is anything that asks a person to choose", () => {
+    expect(offersAChoice(post(["1. Approve", "2. Deny"]))).toBe(true);
+    expect(offersAChoice(post(["Allow once", "Reject"]))).toBe(true);
+    expect(offersAChoice(post(["Show activity", "Approve"]))).toBe(true);
   });
 });
 

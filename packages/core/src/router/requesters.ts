@@ -14,6 +14,7 @@
  */
 import type { ChatMessageEvent, Clock, RoomAliases } from "@clearance/contracts";
 import type { Db } from "../db/index.js";
+import { isCommandToClearance } from "../commands/parse.js";
 import type { Directory } from "../people/directory.js";
 import { isSwitchNotice } from "./switch-notices.js";
 
@@ -89,6 +90,8 @@ export class RequesterTracker {
    */
   observe(evt: ChatMessageEvent, aliases: RoomAliases | null = null): void {
     const senderAgent = this.directory.agentForSender(evt.sender, evt.senderName);
+    // Before this message counts as its answer: an agent passing a request on hasn't answered the person who gave it.
+    const stillWaiting = senderAgent ? this.stillWaitingOn(senderAgent) : [];
     if (senderAgent) this.recordAgentMessage(senderAgent, evt);
     const named = mentionedNames(evt.body);
     const mentioned = [
@@ -104,7 +107,7 @@ export class RequesterTracker {
       }
     }
     if (mentioned.length === 0) {
-      if (speaking && !this.namesClearance(evt.body)) {
+      if (speaking && !this.onlySpeaksToClearance(evt, named)) {
         for (const userId of voices) this.recordVoice(evt, userId);
       }
       return;
@@ -112,7 +115,9 @@ export class RequesterTracker {
     for (const agent of mentioned) {
       if (agent === senderAgent) continue;
       if (senderAgent) {
-        for (const userId of this.requestersOf(senderAgent)) this.record(agent, evt, userId, senderAgent);
+        // Those it only guesses at stay guesses, whichever agent they've reached, or chat could move a decision through a chain.
+        const guesses = new Set([...this.voicesOf(senderAgent), ...stillWaiting]);
+        for (const userId of new Set([...this.requestersOf(senderAgent), ...stillWaiting])) this.record(agent, evt, userId, senderAgent, guesses.has(userId));
         if (onBehalfOf) this.record(agent, evt, onBehalfOf, senderAgent);
       } else if (senderPerson) {
         this.record(agent, evt, senderPerson.id, onBehalfOf);
@@ -127,8 +132,13 @@ export class RequesterTracker {
     }
   }
 
-  private namesClearance(body: string): boolean {
-    return mentionedNames(body).some((name) => name.toLowerCase() === "clearance");
+  /**
+   * A command to Clearance isn't asking anyone else for anything. A request with Clearance's name beside it is still a
+   * request, and so is a command with a name in it that could be how an agent is addressed, like a role.
+   */
+  private onlySpeaksToClearance(evt: ChatMessageEvent, named: string[]): boolean {
+    if (!isCommandToClearance(evt)) return false;
+    return named.every((name) => name.toLowerCase() === "clearance" || this.directory.knowsMention(name));
   }
 
   /** Who spoke where, for as long as that can matter and no longer. Only that: what they said isn't kept. */
@@ -152,10 +162,10 @@ export class RequesterTracker {
     return this.directory.personByDisplayName(name)?.id ?? name;
   }
 
-  private record(agent: string, evt: ChatMessageEvent, userId: string, onBehalfOf: string | null): void {
+  private record(agent: string, evt: ChatMessageEvent, userId: string, onBehalfOf: string | null, guess = false): void {
     this.db
-      .prepare(`INSERT INTO requesters (agent, room, thread, user_id, on_behalf_of, at, sent_at) VALUES (?, ?, ?, ?, ?, ?, ?)`)
-      .run(agent, evt.roomId, evt.threadId ?? null, userId, onBehalfOf, this.clock.nowMs(), sentAt(evt));
+      .prepare(`INSERT INTO requesters (agent, room, thread, user_id, on_behalf_of, at, sent_at, guess) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(agent, evt.roomId, evt.threadId ?? null, userId, onBehalfOf, this.clock.nowMs(), sentAt(evt), guess ? 1 : 0);
   }
 
   private recordAgentMessage(agent: string, evt: ChatMessageEvent): void {
@@ -184,16 +194,20 @@ export class RequesterTracker {
     return rows.map((row) => row.user_id);
   }
 
-  /** Those of `requestersOf` who only spoke in a room the agent is in, and never named it. */
+  /** Those of `requestersOf` who only spoke in a room the agent is in, or reached it through a guess, and never named it. */
   voicesOf(agent: string): string[] {
     const now = this.clock.nowMs();
     const rows = this.db
       .prepare(
-        `SELECT DISTINCT user_id FROM room_voices WHERE at > @since AND room IN (
-           SELECT room FROM agent_messages WHERE agent = @agent AND at > @recent
-           UNION
-           SELECT room FROM requesters WHERE agent = @agent AND at > @recent
-         ) AND user_id NOT IN (SELECT user_id FROM requesters WHERE agent = @agent AND at > @since)`,
+        `SELECT DISTINCT user_id FROM (
+           SELECT user_id FROM room_voices WHERE at > @since AND room IN (
+             SELECT room FROM agent_messages WHERE agent = @agent AND at > @recent
+             UNION
+             SELECT room FROM requesters WHERE agent = @agent AND at > @recent
+           )
+           UNION ALL
+           SELECT user_id FROM requesters WHERE agent = @agent AND at > @since AND guess = 1
+         ) WHERE user_id NOT IN (SELECT user_id FROM requesters WHERE agent = @agent AND at > @since AND guess = 0)`,
       )
       .all({ agent, since: now - REQUESTER_WINDOW_MS, recent: now - IN_ROOM_MS }) as { user_id: string }[];
     return rows.map((row) => row.user_id);
@@ -255,8 +269,9 @@ export class RequesterTracker {
   }
 
   /**
-   * What the agent just said where this call came from, newest first: in the thread if it spoke there, else in
-   * the room. Older than the requester window says nothing about this call.
+   * What the agent just said where this call came from, newest first: in the thread, and in the room as well. A call's
+   * thread is only the agent's word for it, so naming a quiet one can't take what it said in the room out of the evidence.
+   * Older than the requester window says nothing about this call.
    */
   lastMessages(agent: string, room: string | null, thread: string | null, count: number): string[] {
     if (!room) return [];
@@ -269,23 +284,26 @@ export class RequesterTracker {
         .filter((body) => !isSwitchNotice(body) && !isOnlyAReport(body))
         .slice(0, count);
     const limit = count + NOTICES_TO_READ_PAST;
-    if (thread) {
-      const inThread = read(
-        `SELECT body FROM agent_messages WHERE agent = ? AND room = ? AND thread = ? AND at > ? ORDER BY at DESC, id DESC LIMIT ?`,
-        agent,
-        room,
-        thread,
-        since,
-        limit,
-      );
-      if (inThread.length > 0) return inThread;
-    }
-    return read(
-      `SELECT body FROM agent_messages WHERE agent = ? AND room = ? AND at > ? ORDER BY at DESC, id DESC LIMIT ?`,
+    const inThread = thread
+      ? read(
+          `SELECT body FROM agent_messages WHERE agent = ? AND room = ? AND thread = ? AND at > ? ORDER BY at DESC, id DESC LIMIT ?`,
+          agent,
+          room,
+          thread,
+          since,
+          limit,
+        )
+      : [];
+    // Everything else in the room, so a few quiet words in the thread can't push the rest out of what's read.
+    const inRoom = read(
+      `SELECT body FROM agent_messages WHERE agent = ? AND room = ? AND (? IS NULL OR thread IS NOT ?) AND at > ? ORDER BY at DESC, id DESC LIMIT ?`,
       agent,
       room,
+      thread,
+      thread,
       since,
       limit,
     );
+    return [...new Set([...inThread, ...inRoom])];
   }
 }

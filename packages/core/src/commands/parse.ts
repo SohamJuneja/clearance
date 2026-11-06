@@ -27,6 +27,15 @@ export function parseCommand(evt: { body: string; addressed: boolean; channelTyp
   return { verb: verb.toLowerCase(), args: words.join(" "), words };
 }
 
+/** What Clearance answers to. Anything else after its name is someone saying something. */
+const VERBS = new Set(["why", "status", "inbox", "autonomy", "policy", "incident", "away", "back", "breakglass", "counter", "resolve", "drills", "install", "uninstall", "help"]);
+
+/** Whether this message reads as a command to Clearance, whoever it reached, rather than something said with its name in it. */
+export function isCommandToClearance(evt: { body: string; channelType?: string | null | undefined }): boolean {
+  const command = parseCommand({ ...evt, addressed: true });
+  return command !== null && VERBS.has(command.verb);
+}
+
 const AWAY = /^until\s+(\d{1,2}):(\d{2})(?:\s+delegate\s+@?(\S+))?$/i;
 const DAY_MINUTES = 24 * 60;
 

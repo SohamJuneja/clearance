@@ -2,6 +2,8 @@
 
 Updated: Sat Nov 7, 01:00 IST. Freeze Sat 15:00 and submit Sat 20:00 do not move. Soham's repo is the main repo, pushed to `master` at `0996d9b`. CI can't start until he clears a billing lock on his account (`HUMAN.md`).
 
+Fourth independent review: fixed on its worktree branch and re-checked in E1 as its own group (`pnpm eval:authority --group fourth-review`). RESULTS.md and the README's table need a full `pnpm eval:authority` then `pnpm eval:report`, because the third review's T1 check had gone stale and every count should come from one run.
+
 ## Gates
 
 | Gate | Time (IST) | Must be true | State |

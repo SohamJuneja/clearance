@@ -30,6 +30,7 @@ import {
   type NormalCall,
   type ShellPlace,
 } from "../classify/classify.js";
+import { pathsASearchReaches } from "../classify/globs.js";
 import { parseShell, type ParsedShell, type SubCommand } from "../classify/shell.js";
 import { toNumber } from "../format.js";
 import { formatClockWithZone } from "../time.js";
@@ -234,7 +235,7 @@ async function evaluateCall(action: Action, call: NormalCall, deps: EngineDeps):
   const { policy } = deps;
 
   // 2. Deny classes come first, before anything can be called safe.
-  const cls = denyingClass(call, policy);
+  const cls = denyingClass(call, policy) ?? searchDeny(call, action, policy);
   if (cls) return denied(identityOf(call, cls.name), cls);
   if (call.kind === "mcp" && !isKnownMcpServer(call, policy)) {
     return {
@@ -278,6 +279,16 @@ async function evaluateCall(action: Action, call: NormalCall, deps: EngineDeps):
   return { ...EMPTY, ...identity, decision: "allow", step: "unmatched", cls: null, reason: "no rule, not protected" };
 }
 
+/** A search reads what its glob matches, so `.en*` has to reach the rule about `.env`, as `**\/.env*` always did. */
+function searchDeny(call: NormalCall, action: Action, policy: CompiledPolicy): CompiledClass | null {
+  if (call.kind !== "file_read") return null;
+  for (const path of pathsASearchReaches(call.rawSubject ?? call.subject)) {
+    const cls = denyingClass(fileCall("file_read", path, action.agent.cwd), policy);
+    if (cls) return cls;
+  }
+  return null;
+}
+
 function takeGrants(hashes: string[], action: Action, deps: EngineDeps): string | null {
   if (!deps.grants || !hashes.every((hash) => deps.grants?.has(hash, action))) return null;
   return deps.grants.consumeAll(hashes, action)?.requestIds[0] ?? null;
@@ -292,7 +303,7 @@ function shellDeny(parsed: ParsedShell, commands: SubCommand[], line: NormalCall
     const here = commandDirectory(command, place);
     return [
       ...(command.effective ? [subCommandCall(command, place)] : []),
-      ...command.writes.map((path) => fileCall("file_write", path, cwd, {}, here)),
+      ...[...command.writes, ...command.removes].flatMap((path) => [fileCall("file_write", path, cwd, {}, here), fileCall("file_write", asDirectory(path), cwd, {}, here)]),
       ...command.reads.map((path) => fileCall("file_read", path, cwd, {}, here)),
     ];
   });
@@ -303,6 +314,9 @@ function shellDeny(parsed: ParsedShell, commands: SubCommand[], line: NormalCall
   }
   return null;
 }
+
+/** `cp x .github` lands in `.github/`, and `rm -rf .git` takes all of it, so a rule about what's under a directory reads these too. */
+const asDirectory = (path: string): string => (path.endsWith("/") ? path : `${path}/`);
 
 function classifySubCommand(
   command: SubCommand,
@@ -330,15 +344,18 @@ function classifySubCommand(
       }
     }
   }
-  for (const path of command.writes) {
+  const touches = (path: string): void => {
     // What goes into the file is somewhere on the line, so an approval to write it is for that line.
     const call = fileCall("file_write", path, action.agent.cwd, { ...directory, ...(place.line !== undefined ? { line: place.line } : {}) }, here);
-    if (isSafe(call, policy)) continue;
+    if (isSafe(call, policy)) return;
     safe = false;
-    if (isProtected(call, policy)) {
+    if (isProtected(call, policy) || isProtected(fileCall("file_write", asDirectory(path), action.agent.cwd, {}, here), policy)) {
       risky.push({ call, cls: null, identity: identityOf(call, UNKNOWN_PROTECTED_CLASS), dynamic: [] });
     }
-  }
+  };
+  command.writes.forEach(touches);
+  // A command already held for what it is, like a delete outside the tree, needs one approval for one thing.
+  if (risky.length === 0) command.removes.forEach(touches);
   for (const path of command.reads) {
     const call = fileCall("file_read", path, action.agent.cwd, {
       ...directory,

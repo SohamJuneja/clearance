@@ -229,6 +229,11 @@ function fallbackMembers(ctx: RouteContext, group: string): string[] {
 
 const SOD: Exclusion[] = ["requester", "agent_owner", "author"];
 
+/** Who someone is to this request that keeps them from deciding it, however they go about it. Being away or counted isn't that. */
+export function separationBars(ctx: RouteContext, id: string): Exclusion[] {
+  return exclusionsFor(ctx, id).filter((reason) => SOD.includes(reason));
+}
+
 /** Why nobody could take it, separation of duties first: that is the reason a reader needs. */
 function fallbackReason(trace: Pick<RouteTrace, "excluded" | "capped" | "label">): string {
   const isSod = (reasons: Exclusion[]) => reasons.some((reason) => SOD.includes(reason));
@@ -321,7 +326,7 @@ export function route(ctx: RouteContext, need: number): RouteTrace {
   const could = new Map([...ranked, ...overCap].map((entry) => [entry.id, entry.name]));
   for (const id of fallback?.eligible ?? []) could.set(id, ctx.directory.person(id)?.name ?? id);
   const needed = ctx.quorumRequired - ctx.counted.length;
-  const short = need > 0 && ctx.quorumRequired > 1 && could.size < needed;
+  const short = need > 0 && could.size < needed;
 
   return {
     ...(short
@@ -329,7 +334,8 @@ export function route(ctx: RouteContext, need: number): RouteTrace {
           shortOfPeople: {
             needed: ctx.quorumRequired,
             could: [...ctx.counted.map((id) => ctx.directory.person(id)?.name ?? id), ...could.values()],
-            breakGlass: (ctx.policy.file.break_glass?.people ?? []).map((id) => ctx.directory.person(id)?.name ?? id),
+            // Only those it would work for: break-glass keeps the separations of duty, so a card can't offer what will be refused.
+            breakGlass: (ctx.policy.file.break_glass?.people ?? []).filter((id) => separationBars(ctx, id).length === 0).map((id) => ctx.directory.person(id)?.name ?? id),
           },
         }
       : {}),

@@ -114,8 +114,9 @@ export class GateService {
       return this.hold(principal, op, args, requestId, callHash, reason);
     }
     // Only earned autonomy allows with a request id. Core has it down as having run, so it has to hear if it didn't.
+    // The id goes along as the idempotency key, as it does for an approved call: the same request can't pay twice.
     try {
-      const res = await this.send(op, args);
+      const res = await this.send(op, args, requestId);
       if (requestId && res.status >= 400) {
         await this.core.reportRunFailed(requestId, { never_ran: res.status < 500, error: `acme answered ${res.status}` });
       }

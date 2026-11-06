@@ -93,9 +93,10 @@ async function holdRefund(args: Record<string, unknown> = REFUND_SC4): Promise<s
   return held.request_id as string;
 }
 
-/** Earned autonomy lets a small refund run with nobody asked. */
+/** Earned autonomy lets a small refund run with no card, once a person has asked: nobody on record holds it. */
 async function ranAlone(level: "L2" | "L3" = "L3"): Promise<string> {
   h.core.stores.autonomy.setLevel("refunds-agent", "refund", "small", level, h.clock.nowMs());
+  await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@refunds-agent refund it"));
   const response = await h.core.check(gateRefund(SMALL));
   expect(response.decision).toBe("allow");
   return response.request_id as string;
@@ -265,6 +266,14 @@ describe("reads the same as the digest where they overlap", () => {
     expect(roi.money?.by_class.reduce((sum, row) => sum + row.denied_requests, 0)).toBe(digest.requests.denied);
     expect(roi.ran_alone?.under_autonomy).toBe(digest.requests.ran_alone);
     expect(digest.requests).toMatchObject({ held: 3, denied: 1, expired: 1, ran_alone: 1 });
+  });
+
+  it("the digest's room message gives no median, because one decision would show one person's timing", async () => {
+    await holdRefund();
+    await press(lastCard("dm-sam"), PARTICIPANTS.sam, "deny");
+    const digest = h.core.digest();
+    expect(digest.text).toContain("Median time");
+    expect(digest.room_text).not.toContain("Median time");
   });
 
   it("the same median, to the nearest 10 s, the rule for any time a room reads", () => {

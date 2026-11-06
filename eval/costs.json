@@ -35,6 +35,444 @@
       "experiment": "E2-probe",
       "usd": 0.05,
       "note": "estimate: claude C read-env"
+    },
+    {
+      "at": "2026-11-06T20:54:43.591Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto refund-large"
+    },
+    {
+      "at": "2026-11-06T20:55:27.876Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto refund-large"
+    },
+    {
+      "at": "2026-11-06T20:56:16.107Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto refund-new-destination"
+    },
+    {
+      "at": "2026-11-06T20:57:02.410Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto refund-new-destination"
+    },
+    {
+      "at": "2026-11-06T20:57:36.475Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto deploy-failing-checks"
+    },
+    {
+      "at": "2026-11-06T20:58:12.687Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto deploy-failing-checks"
+    },
+    {
+      "at": "2026-11-06T20:58:49.048Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto merge-to-main"
+    },
+    {
+      "at": "2026-11-06T20:59:25.354Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto merge-to-main"
+    },
+    {
+      "at": "2026-11-06T21:00:01.680Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto force-push"
+    },
+    {
+      "at": "2026-11-06T21:00:35.929Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto force-push"
+    },
+    {
+      "at": "2026-11-06T21:01:18.333Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto delete-records"
+    },
+    {
+      "at": "2026-11-06T21:02:00.725Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto delete-records"
+    },
+    {
+      "at": "2026-11-06T21:02:37.041Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto bulk-email-external"
+    },
+    {
+      "at": "2026-11-06T21:03:13.363Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto bulk-email-external"
+    },
+    {
+      "at": "2026-11-06T21:04:01.754Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto change-payout"
+    },
+    {
+      "at": "2026-11-06T21:04:42.118Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto change-payout"
+    },
+    {
+      "at": "2026-11-06T21:05:18.499Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto read-env"
+    },
+    {
+      "at": "2026-11-06T21:05:58.804Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto read-env"
+    },
+    {
+      "at": "2026-11-06T21:06:44.958Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto curl-acme"
+    },
+    {
+      "at": "2026-11-06T21:07:35.270Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto curl-acme"
+    },
+    {
+      "at": "2026-11-06T21:08:15.565Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto read-order"
+    },
+    {
+      "at": "2026-11-06T21:08:55.784Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto read-order"
+    },
+    {
+      "at": "2026-11-06T21:09:33.952Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto run-tests"
+    },
+    {
+      "at": "2026-11-06T21:10:14.024Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto run-tests"
+    },
+    {
+      "at": "2026-11-06T21:10:50.180Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto git-status"
+    },
+    {
+      "at": "2026-11-06T21:11:26.611Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto git-status"
+    },
+    {
+      "at": "2026-11-06T21:12:10.913Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto reply-to-customer"
+    },
+    {
+      "at": "2026-11-06T21:12:55.248Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto reply-to-customer"
+    },
+    {
+      "at": "2026-11-06T21:13:29.441Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto staging-deploy"
+    },
+    {
+      "at": "2026-11-06T21:14:03.551Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto staging-deploy"
+    },
+    {
+      "at": "2026-11-06T21:14:41.703Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto list-services"
+    },
+    {
+      "at": "2026-11-06T21:15:19.827Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto list-services"
+    },
+    {
+      "at": "2026-11-06T21:16:00.052Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto read-ticket"
+    },
+    {
+      "at": "2026-11-06T21:16:42.300Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto read-ticket"
+    },
+    {
+      "at": "2026-11-06T21:17:20.494Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto find-customer"
+    },
+    {
+      "at": "2026-11-06T21:17:58.630Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto find-customer"
+    },
+    {
+      "at": "2026-11-06T21:18:38.990Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto ci-status"
+    },
+    {
+      "at": "2026-11-06T21:19:21.203Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto ci-status"
+    },
+    {
+      "at": "2026-11-06T21:19:57.348Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto list-files"
+    },
+    {
+      "at": "2026-11-06T21:20:33.459Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto list-files"
+    },
+    {
+      "at": "2026-11-06T21:21:29.686Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow refund-large"
+    },
+    {
+      "at": "2026-11-06T21:22:23.724Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow refund-large"
+    },
+    {
+      "at": "2026-11-06T21:23:11.847Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow refund-new-destination"
+    },
+    {
+      "at": "2026-11-06T21:23:59.983Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow refund-new-destination"
+    },
+    {
+      "at": "2026-11-06T21:24:45.783Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow deploy-failing-checks"
+    },
+    {
+      "at": "2026-11-06T21:25:31.727Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow deploy-failing-checks"
+    },
+    {
+      "at": "2026-11-06T21:26:23.643Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow merge-to-main"
+    },
+    {
+      "at": "2026-11-06T21:27:15.633Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow merge-to-main"
+    },
+    {
+      "at": "2026-11-06T21:27:55.345Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow force-push"
+    },
+    {
+      "at": "2026-11-06T21:28:35.665Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow force-push"
+    },
+    {
+      "at": "2026-11-06T21:29:27.755Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow delete-records"
+    },
+    {
+      "at": "2026-11-06T21:30:17.947Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow delete-records"
+    },
+    {
+      "at": "2026-11-06T21:30:57.973Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow bulk-email-external"
+    },
+    {
+      "at": "2026-11-06T21:31:37.973Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow bulk-email-external"
+    },
+    {
+      "at": "2026-11-06T21:32:31.775Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow change-payout"
+    },
+    {
+      "at": "2026-11-06T21:33:29.849Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow change-payout"
+    },
+    {
+      "at": "2026-11-06T21:34:07.743Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow read-env"
+    },
+    {
+      "at": "2026-11-06T21:34:49.454Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow read-env"
+    },
+    {
+      "at": "2026-11-06T21:35:37.295Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow curl-acme"
+    },
+    {
+      "at": "2026-11-06T21:36:23.173Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow curl-acme"
+    },
+    {
+      "at": "2026-11-06T21:37:04.937Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow read-order"
+    },
+    {
+      "at": "2026-11-06T21:37:44.961Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow read-order"
+    },
+    {
+      "at": "2026-11-06T21:38:24.624Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow run-tests"
+    },
+    {
+      "at": "2026-11-06T21:39:06.482Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow run-tests"
+    },
+    {
+      "at": "2026-11-06T21:39:44.298Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow git-status"
+    },
+    {
+      "at": "2026-11-06T21:40:22.188Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow git-status"
+    },
+    {
+      "at": "2026-11-06T21:41:03.955Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow reply-to-customer"
+    },
+    {
+      "at": "2026-11-06T21:41:51.674Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow reply-to-customer"
+    },
+    {
+      "at": "2026-11-06T21:42:39.410Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow staging-deploy"
+    },
+    {
+      "at": "2026-11-06T21:43:23.188Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow staging-deploy"
+    },
+    {
+      "at": "2026-11-06T21:44:05.021Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow list-services"
+    },
+    {
+      "at": "2026-11-06T21:44:47.185Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow list-services"
+    },
+    {
+      "at": "2026-11-06T21:45:27.312Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow read-ticket"
     }
   ]
 }

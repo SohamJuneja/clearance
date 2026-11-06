@@ -153,7 +153,7 @@ describe("what an answer means", () => {
 
   it("a critical card in condition B cannot be approved by a button", () => {
     expect(resolveAnswer(critical, "B", 0, { label: "Approve" }).kind).toBe("invalid");
-    expect(resolveAnswer(critical, "B", 0, { label: "No" })).toEqual({ kind: "final", decision: "deny", option: "No" });
+    expect(resolveAnswer(critical, "B", 0, { label: "No, deny" })).toEqual({ kind: "final", decision: "deny", option: "No, deny" });
   });
 
   it("type-to-confirm approves on the right value, re-asks once on a wrong one, then gives up (PLAN F6)", () => {

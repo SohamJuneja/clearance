@@ -648,7 +648,7 @@ describe("type-to-confirm on critical items, condition B", () => {
     expect(question.prompt.startsWith(critical.b.confirm!.question)).toBe(true);
     expect(question.title).toContain("in quotes");
     expect(question.allowCustomAnswer).toBe(true);
-    expect(question.options.map((option) => option.label)).toEqual(["No"]);
+    expect(question.options.map((option) => option.label)).toEqual(["No, deny"]);
   });
 
   it("approves on the right value", async () => {
@@ -660,8 +660,8 @@ describe("type-to-confirm on critical items, condition B", () => {
 
   it("denies on the No button", async () => {
     const h = await atCritical();
-    await h.answer({ label: "No" });
-    expect(decisions(h.events()).at(-1)).toMatchObject({ request_id: critical.id, decision: "deny", option: "No", confirm_attempts: 0 });
+    await h.answer({ label: "No, deny" });
+    expect(decisions(h.events()).at(-1)).toMatchObject({ request_id: critical.id, decision: "deny", option: "No, deny", confirm_attempts: 0 });
   });
 
   it("asks once more on a wrong value, with the clock still running", async () => {

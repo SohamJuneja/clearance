@@ -45,16 +45,6 @@ export function Status({ kind, children, id }: { kind: "good" | "bad" | "idle"; 
   );
 }
 
-/** Something core does not serve yet. Says so, and names what is missing, rather than showing a guess. */
-export function NotAvailable({ what, needs, id }: { what: string; needs: string; id?: string }) {
-  return (
-    <div className="not-available" data-testid={id ?? "not-available"}>
-      <div className="not-available-what">{what}</div>
-      <div className="muted">Not available yet. {needs}</div>
-    </div>
-  );
-}
-
 export function Empty({ title, children }: { title: string; children?: ReactNode }) {
   return (
     <div className="empty">

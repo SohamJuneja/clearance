@@ -88,6 +88,7 @@ code {
 }
 
 .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.typed-hint { flex-basis: 100%; margin: 0; color: var(--muted); font-size: 0.875rem; }
 
 button {
   font: inherit;

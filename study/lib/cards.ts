@@ -40,7 +40,7 @@ const CLEARANCE_OPTIONS: ApprovalOption[] = [
 ];
 
 /** The option a type-to-confirm card offers alongside the typed answer. */
-const CONFIRM_NO_OPTION = { label: "No", description: null };
+const CONFIRM_NO_OPTION = { label: "No, deny", description: null };
 
 /** Switch's form needs a title for the question. Core does not post this card yet, so this is the study's word. */
 const CONFIRM_QUESTION_TITLE = "Confirm";
@@ -142,9 +142,19 @@ export function buttonDecision(label: string): "approve" | "deny" {
   throw new Error(`unknown card button: ${label}`);
 }
 
+/**
+ * The value out of whatever a person typed. The card teaches `A106 "kfin"`, so someone careful types all of it, and
+ * a phone turns the straight quotes curly. None of that is a wrong answer.
+ */
+function typedValueOnly(typed: string): string {
+  const withoutCode = typed.trim().replace(/^(?:<handle>|A\d+)(?=[\s"'“‘])\s*/i, "");
+  const quoted = /^["'“‘](.*)["'”’]$/su.exec(withoutCode);
+  return (quoted ? quoted[1]! : withoutCode).trim();
+}
+
 /** Type-to-confirm comparison. Forgiving about format ("₹38,000"), strict about the value. */
 export function confirmMatches(field: NonNullable<StudyRequest["b"]["confirm"]>["field"], expected: string, typed: string): boolean {
-  const value = typed.trim();
+  const value = typedValueOnly(typed);
   if (field === "amount") return value.replace(/[₹,\s]|rs\.?|inr/gi, "") === expected;
   return value.toLowerCase() === expected.toLowerCase();
 }

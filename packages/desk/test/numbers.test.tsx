@@ -9,12 +9,12 @@ import { resolve } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { AutonomyView, CoverageView, LedgerVerification, LedgerView, PeopleView, PolicyView, QueueView } from "../src/shared/api";
+import type { AutonomyView, CoverageView, LedgerVerification, LedgerView, PeopleView, PersonDetail, PolicyView, QueueView } from "../src/shared/api";
 import { httpCore } from "../src/server/core-source";
 import { createDeskServer } from "../src/server/server";
-import { formatCount, formatDuration, formatLatency } from "../src/web/format";
-import { AutonomyTab, CoverageTab, LedgerTab, PeopleTab, PolicyTab, QueueTab } from "../src/web/views";
-import { FAKE_TOKEN, startFakeCore, type FakeCore } from "./fake-core";
+import { formatCount, formatDuration, formatLatency, formatPercent, formatRate } from "../src/web/format";
+import { AutonomyTab, CoverageTab, LedgerTab, PeopleTab, PersonRecord, PolicyTab, QueueTab } from "../src/web/views";
+import { FAKE_TOKEN, POLICY_FILE_HASH, startFakeCore, type FakeCore } from "./fake-core";
 
 const REPO = resolve(import.meta.dirname, "../../..");
 const NOW = Date.parse("2026-11-06T10:00:00.000Z");
@@ -68,12 +68,14 @@ const page = (element: ReactElement) => renderToStaticMarkup(element);
 describe("Queue", () => {
   const load = async () => page(<QueueTab data={await api<QueueView>("/api/queue")} nowMs={NOW} />);
 
-  it("shows core's open count, not a count of its own", async () => {
+  it("counts what core's open list holds", async () => {
     expect(cell(await load(), "queue-open")).toBe(String(core.data.health.open_requests));
-    core.data.health.open_requests = 9;
-    const html = await load();
-    expect(cell(html, "queue-open")).toBe("9");
-    expect(cell(html, "queue-disagreement")).toContain("Core reports 9 open, but the Desk found 2");
+    core.data.requests["CLR-0012"]!.state = "APPROVED";
+    expect(cell(await load(), "queue-open")).toBe("1");
+  });
+
+  it("says the list can run behind Switch, and that a card still needs an answer, all the time so it says nothing", async () => {
+    expect(await load()).toContain("a card you have there still needs your answer, whether or not it is listed");
   });
 
   it("derives ages and the time left from core's timestamps", async () => {
@@ -120,9 +122,9 @@ describe("Queue", () => {
 
   it("has an honest empty state", async () => {
     core.data.ledger = [];
-    core.data.health.open_requests = 0;
+    core.data.requests = {};
     const html = await load();
-    expect(html).toContain("Nothing is waiting on a person.");
+    expect(html).toContain("No open requests listed.");
     expect(cell(html, "queue-open")).toBe("0");
     expect(cell(html, "queue-oldest")).toBe("–");
   });
@@ -131,8 +133,12 @@ describe("Queue", () => {
 describe("Ledger", () => {
   const load = async () => page(<LedgerTab data={await api<LedgerView>("/api/ledger")} verify={await api<LedgerVerification>("/api/ledger/verify")} />);
 
-  it("shows core's chain status and count", async () => {
-    expect(cell(await load(), "chain-badge")).toContain(`Chain intact · ${core.data.verify.count} entries · head hash12aa`);
+  it("shows core's chain status, at the newest entry listed, which is core's own head when nothing is left out", async () => {
+    expect(cell(await load(), "chain-badge")).toContain(`Chain intact through entry ${core.data.verify.count} · head ${core.data.verify.head.slice(0, 8)}`);
+  });
+
+  it("says drills are left out, so that a skipped number is no surprise", async () => {
+    expect(await load()).toContain("Drills are left out of this list and its export, so the numbers can skip");
   });
 
   it("shows a broken chain, with where and why", async () => {
@@ -221,8 +227,10 @@ describe("Coverage", () => {
   });
 });
 
+const noReplay = async () => ({ replays: [] });
+
 describe("Autonomy", () => {
-  const load = async () => page(<AutonomyTab data={await api<AutonomyView>("/api/autonomy")} />);
+  const load = async () => page(<AutonomyTab data={await api<AutonomyView>("/api/autonomy")} replay={noReplay} />);
 
   it("shows core's level for each agent, class and scope", async () => {
     const html = await load();
@@ -234,63 +242,246 @@ describe("Autonomy", () => {
     expect(await load()).toContain("Every agent is at L0, Always ask.");
   });
 
-  it("shows history from the ledger, and an honest gap for what core doesn't serve", async () => {
+  it("shows human decisions per 100 from core's own route", async () => {
+    const html = await load();
+    const load100 = core.data.humanLoad;
+    expect(cell(html, "load-per-100")).toBe(String(load100.per_100));
+    expect(cell(html, "load-per-100-governed")).toBe(String(load100.per_100_governed));
+    expect(cell(html, "load-actions")).toBe(formatCount(load100.agent_actions));
+    expect(cell(html, "load-decisions")).toBe(formatCount(load100.human_decisions));
+    for (const row of load100.by_class) {
+      expect(cell(html, `load-${row.class}-actions`)).toBe(formatCount(row.agent_actions));
+      expect(cell(html, `load-${row.class}-decisions`)).toBe(formatCount(row.human_decisions));
+      expect(cell(html, `load-${row.class}-per-100`)).toBe(formatRate(row.per_100));
+    }
+    expect(cell(html, "load-deploy-per-100")).toBe("–");
+  });
+
+  it("shows no traffic as a dash, never a rate of zero", async () => {
+    core.data.humanLoad = { agent_actions: 0, governed_actions: 0, human_decisions: 0, per_100: null, per_100_governed: null, by_class: [] };
+    const html = await load();
+    expect(cell(html, "load-per-100")).toBe("–");
+    expect(html).toContain("No real traffic yet.");
+  });
+
+  it("shows core's numbers for every replayed scope, with real and synthetic evidence told apart", async () => {
+    const html = await load();
+    for (const row of core.data.buckets) {
+      const id = `replay-${row.agent}-${row.class}-${row.bucket}`;
+      expect(cell(html, `${id}-counted`), id).toBe(`${row.counted} of ${row.needs.approvals}`);
+      expect(cell(html, `${id}-fast`), id).toBe(String(row.fast_excluded));
+      expect(cell(html, `${id}-denied`), id).toBe(String(row.denied));
+      expect(cell(html, `${id}-incidents`), id).toBe(String(row.incidents));
+      expect(cell(html, `${id}-approvers`), id).toBe(`${row.approvers.length} of ${row.needs.min_distinct_approvers}`);
+      expect(cell(html, `${id}-auto`), id).toBe(String(row.would_auto));
+      expect(cell(html, `${id}-auto-split`), id).toBe(`${row.would_auto_approved} approved, ${row.would_auto_denied} denied`);
+    }
+    expect(cell(html, "replay-refunds-agent-refund-small-level")).toContain("L1 to L2");
+    expect(cell(html, "replay-refunds-agent-refund-small-meets")).toContain("Met");
+    expect(cell(html, "replay-ops-agent-deploy-staging-meets")).toContain("Not yet");
+    expect(cell(html, "replay-refunds-agent-refund-small-evidence")).toBe("19 real83 synthetic");
+    expect(cell(html, "replay-ops-agent-deploy-staging-evidence")).toBe("11 real");
+    expect(cell(html, "replay-note")).toContain(`${core.data.evidence.real} real, ${core.data.evidence.synthetic} labelled synthetic`);
+  });
+
+  it("shows who has signed a proposal, of how many, and that nothing is signed here", async () => {
+    const html = await load();
+    expect(cell(html, "proposal-PRO-0003-signed")).toBe("1 of 2");
+    expect(cell(html, "proposal-PRO-0003-state")).toBe("Open");
+    expect(html).toContain("Promote refunds-agent to L2 for small refunds");
+    expect(html).toContain("sign on its card in Switch");
+  });
+
+  it("shows history from the ledger, in words, with people named", async () => {
+    core.data.ledger.push({ seq: 13, at: new Date(NOW).toISOString(), type: "promotion_signed", request_id: "PRO-0003", payload: { agent: "refunds-agent", class: "refund", bucket: "small", level: "L2", signed_by: ["sam", "alex"] }, prev_hash: "", entry_hash: "" });
     const html = await load();
     expect(html).toContain("Promotion proposed");
-    expect(html).toContain("Demoted");
-    expect(cell(html, "na-replay")).toContain("Not available yet");
-    expect(cell(html, "na-decisions")).toContain("Not available yet");
+    expect(html).toContain("refunds-agent · refund · small: L1 to L2");
+    expect(html).toContain("signed by Sam, Alex");
+    expect(html).toContain("ops-agent · deploy · staging: L1 to L0");
+  });
+
+  it("says when nothing has been proposed or replayed yet", async () => {
+    core.data.proposals = [];
+    core.data.buckets = [];
+    const html = await load();
+    expect(html).toContain("No promotion has been proposed yet.");
+    expect(html).toContain("No scope has any recorded history yet.");
   });
 });
 
-describe("People", () => {
-  const load = async () => page(<PeopleTab data={await api<PeopleView>("/api/people")} nowMs={NOW} />);
+describe("People, the team view", () => {
+  const load = async () => page(<PeopleTab data={await api<PeopleView>("/api/people")} viewing="" onView={() => {}} />);
+  const sum = (key: "answers" | "approvals" | "denials" | "fast_approvals" | "flags_ignored" | "batch_approvals" | "streaks") => formatCount(Object.values(core.data.stats).reduce((total, row) => total + row[key], 0));
 
-  it("shows core's stats for each person", async () => {
+  it("shows the sum of what core returned for each person", async () => {
     const html = await load();
-    for (const [id, stats] of Object.entries(core.data.stats)) {
-      expect(cell(html, `people-${id}-open`), id).toBe(String(stats.open_cards));
-      expect(cell(html, `people-${id}-answers`), id).toBe(String(stats.answers));
-      expect(cell(html, `people-${id}-approvals`), id).toBe(String(stats.approvals));
-      expect(cell(html, `people-${id}-denials`), id).toBe(String(stats.denials));
-      expect(cell(html, `people-${id}-ineligible`), id).toBe(String(stats.ineligible));
-      expect(cell(html, `people-${id}-latency`), id).toBe(formatLatency(stats.median_latency_ms));
+    expect(cell(html, "team-answers")).toBe(sum("answers"));
+    expect(cell(html, "team-approvals")).toBe(sum("approvals"));
+    expect(cell(html, "team-denials")).toBe(sum("denials"));
+    expect(cell(html, "team-fast")).toBe(sum("fast_approvals"));
+    expect(cell(html, "team-flags")).toBe(sum("flags_ignored"));
+    expect(cell(html, "team-batch")).toBe(sum("batch_approvals"));
+    expect(cell(html, "team-streaks")).toBe(sum("streaks"));
+    expect(cell(html, "team-answers")).toBe("80");
+  });
+
+  it("shows nobody's own number, and says where those are", async () => {
+    const html = await load();
+    expect(html).toContain("private to that person and the team admin");
+    expect(html).not.toContain('data-testid="person-');
+    expect(cell(html, "people-row-sam")).not.toMatch(/\d/);
+    expect(html).toContain("medians don&#x27;t add up across people");
+  });
+
+  it("offers the admin's view, labelled as that, for each person", async () => {
+    const html = await load();
+    for (const person of core.data.people) expect(html).toContain(`Admin&#x27;s view: ${person.name}`);
+  });
+
+  it("says who is away and who covers", async () => {
+    const html = await load();
+    expect(cell(html, "people-away-alex")).toContain("Dev covering");
+    expect(cell(html, "people-away-sam")).toBe("–");
+  });
+
+  it("says drill totals come only in groups", async () => {
+    expect(cell(await load(), "team-drills")).toBe("Drill totals appear once 3 have finished, so that nobody's own result can be worked out.");
+    expect(cell(await load(), "team-drills-finished")).toBe("0");
+  });
+});
+
+describe("People, the admin's view of one person", () => {
+  const load = async (id = "sam") => page(<PersonRecord data={await api<PersonDetail>(`/api/people/${id}`)} />);
+
+  it("says what it is, whose it is, and who should not see it", async () => {
+    const banner = cell(await load(), "people-admin-banner");
+    expect(banner).toContain("Admin's view of Sam.");
+    expect(banner).toContain("Private to Sam and the team admin.");
+    expect(banner).toContain("don't show this screen to the team");
+  });
+
+  it("shows core's numbers", async () => {
+    const html = await load();
+    const stats = core.data.stats.sam!;
+    expect(cell(html, "person-answers")).toBe(String(stats.answers));
+    expect(cell(html, "person-approvals")).toBe(String(stats.approvals));
+    expect(cell(html, "person-denials")).toBe(String(stats.denials));
+    expect(cell(html, "person-latency")).toBe(formatLatency(stats.median_latency_ms));
+    expect(cell(html, "person-fast")).toBe(String(stats.fast_approvals));
+    expect(cell(html, "person-flags")).toBe(String(stats.flags_ignored));
+    expect(cell(html, "person-batch")).toBe(String(stats.batch_approvals));
+    expect(cell(html, "person-streaks")).toBe(String(stats.streaks));
+    expect(cell(html, "person-ineligible")).toBe(String(stats.ineligible));
+    expect(cell(html, "person-signal-odd_hours")).toBe("4");
+  });
+
+  it("charts core's median for each tier, with the count beside it", async () => {
+    const html = await load();
+    for (const [tier, row] of Object.entries(core.data.stats.sam!.by_tier)) {
+      expect(cell(html, `person-tier-${tier}-latency`), tier).toBe(formatLatency(row.median_latency_ms));
+      expect(cell(html, `person-tier-${tier}-answers`), tier).toBe(String(row.answers));
     }
   });
 
-  it("shows a dash for a person with no answers yet, never a zero that looks measured", async () => {
-    expect(cell(await load(), "people-neha-latency")).toBe("–");
+  it("says no answers for an empty tier, never a zero-length bar that looks measured", async () => {
+    const html = await load("alex");
+    expect(cell(html, "person-tier-low-latency")).toBe("No answers");
+    expect(cell(html, "person-tier-low-answers")).toBe("0");
+    expect(cell(html, "person-tier-high-latency")).toBe(formatLatency(4_000));
   });
 
-  it("says when core doesn't know someone, rather than showing zeros", async () => {
-    delete core.data.stats.dev;
-    expect(cell(await load(), "people-dev-unknown")).toContain("does not know this person");
+  it("gives a dash for no answers at all", async () => {
+    expect(cell(await load("neha"), "person-latency")).toBe("–");
   });
 
-  it("says what is not available yet, instead of leaving it out or making it up", async () => {
+  it("shows drill results, with the rate core worked out", async () => {
     const html = await load();
-    for (const id of ["na-latency-tier", "na-signals", "na-drills"]) expect(cell(html, id)).toContain("Not available yet");
+    const { drills } = core.data.stats.sam!;
+    expect(cell(html, "person-drills-caught")).toBe(String(drills.caught));
+    expect(cell(html, "person-drills-missed")).toBe(String(drills.missed));
+    expect(cell(html, "person-drills-finished")).toBe(String(drills.caught + drills.missed + drills.expired));
+    expect(cell(html, "person-drills-rate")).toBe(formatPercent(drills.catch_rate));
+    expect(cell(html, "person-drills-rate")).toBe("67%");
+    expect(cell(html, "person-drills-note")).toContain(`${drills.expired} not answered`);
   });
 
-  it("says who may see this tab", async () => {
-    expect(await load()).toContain("visible to each person and the team admin");
+  it("gives no catch rate before there is one, rather than zero", async () => {
+    expect(cell(await load("neha"), "person-drills-rate")).toBe("–");
+  });
+
+  it("says why friction is on, in words", async () => {
+    expect(cell(await load(), "person-friction")).toContain("after fast approvals");
+    expect(cell(await load("alex"), "person-friction")).toContain("after a missed drill");
+    expect(cell(await load("neha"), "person-friction")).toBe("No extra friction is on.");
   });
 });
 
 describe("Policy", () => {
   const load = async () => page(<PolicyTab data={await api<PolicyView>("/api/policy")} simulate={async () => core.data.simulation as never} />);
+  const sign = () => {
+    core.data.policy.hash = "c0ffee123456";
+    core.data.ledger.push({ seq: 13, at: new Date(NOW).toISOString(), type: "policy_loaded", request_id: null, payload: { hash: "c0ffee123456", source: "proposal", approved_by: ["sam", "alex"] }, prev_hash: "", entry_hash: "" });
+  };
 
-  it("shows core's version, and whether the file matches it", async () => {
-    expect(cell(await load(), "policy-hash")).toContain("Core is enforcing abc123de");
-    expect(cell(await load(), "policy-hash")).toContain("but this file is");
+  it("marks a match as good, with no explanation needed", async () => {
+    core.data.policy.hash = POLICY_FILE_HASH;
+    const html = await load();
+    expect(cell(html, "policy-hash")).toContain("Core is enforcing this file");
+    expect(html).toContain("status-good");
+    expect(html).not.toContain('data-testid="policy-relation"');
+  });
+
+  it("explains a signed version without looking like an alarm", async () => {
+    sign();
+    const html = await load();
+    expect(cell(html, "policy-hash")).toContain("Core is enforcing a signed version · c0ffee12");
+    const why = cell(html, "policy-relation");
+    expect(why).toContain("Signed by Sam and Alex.");
+    expect(why).toContain("doesn't write it back to the file");
+    expect(why).toContain(POLICY_FILE_HASH.slice(0, 8));
+    expect(why).toContain("That is expected");
+    expect(html).not.toContain("status-bad");
+    expect(html).not.toContain("warning-line");
+  });
+
+  it("explains the other ways they can differ, also without an alarm", async () => {
+    let html = await load();
+    expect(cell(html, "policy-relation")).toContain("Core's version is the one in force");
+    expect(html).not.toContain("status-bad");
+    core.data.policy.pending = { proposal: "PRO-0002", hash: POLICY_FILE_HASH, signed_by: [], quorum: 2, detail: "" };
+    html = await load();
+    expect(cell(html, "policy-relation")).toContain("waiting for signatures");
+    expect(html).not.toContain("status-bad");
+  });
+
+  it("shows a pending change, how far along it is, and where it gets signed", async () => {
+    core.data.policy.pending = { proposal: "PRO-0002", hash: "ddeeff001122", signed_by: ["neha"], quorum: 2, detail: "Raises the refund limit" };
+    const html = await load();
+    expect(cell(html, "policy-pending")).toContain("PRO-0002");
+    expect(cell(html, "policy-pending")).toContain("version ddeeff00");
+    expect(cell(html, "policy-pending-signed")).toBe("1 of 2 signed: Neha");
+    expect(cell(html, "policy-pending-detail")).toBe("Raises the refund limit");
+    expect(html).toContain("Signed on its card in Switch");
+  });
+
+  it("shows no pending section when nothing is pending", async () => {
+    expect(await load()).not.toContain('data-testid="policy-pending"');
+  });
+
+  it("says what shadow mode has been doing", async () => {
+    core.data.policy.text = core.data.policy.text.replace(/^mode: \w+/m, "mode: shadow");
+    core.data.policy.mode = "shadow";
+    core.data.policy.shadow_would_hold = 23;
+    expect(cell(await load(), "policy-shadow")).toContain("23 calls so far");
   });
 
   it("shows a refused reload", async () => {
-    core.data.health.policy_error = "line 12: bad tier";
+    core.data.policy.error = "line 12: bad tier";
     expect(cell(await load(), "policy-error")).toContain("line 12: bad tier");
   });
 
-  it("shows the real file", async () => {
+  it("shows the policy core is enforcing", async () => {
     const html = await load();
     expect(html).toContain('data-testid="policy-class-refund"');
     expect(html).toContain("Always denied, with a reason.");
@@ -303,8 +494,9 @@ describe("no tab can approve or deny", () => {
     queue: page(<QueueTab data={await api<QueueView>("/api/queue")} nowMs={NOW} />),
     ledger: page(<LedgerTab data={await api<LedgerView>("/api/ledger")} verify={await api<LedgerVerification>("/api/ledger/verify")} />),
     coverage: page(<CoverageTab data={await api<CoverageView>("/api/coverage")} nowMs={NOW} />),
-    autonomy: page(<AutonomyTab data={await api<AutonomyView>("/api/autonomy")} />),
-    people: page(<PeopleTab data={await api<PeopleView>("/api/people")} nowMs={NOW} />),
+    autonomy: page(<AutonomyTab data={await api<AutonomyView>("/api/autonomy")} replay={noReplay} />),
+    people: page(<PeopleTab data={await api<PeopleView>("/api/people")} viewing="" onView={() => {}} />),
+    person: page(<PersonRecord data={await api<PersonDetail>("/api/people/sam")} />),
     policy: page(<PolicyTab data={await api<PolicyView>("/api/policy")} simulate={async () => core.data.simulation as never} />),
   });
 
@@ -315,6 +507,7 @@ describe("no tab can approve or deny", () => {
     expect(buttons(all.coverage)).toEqual([]);
     expect(buttons(all.autonomy)).toEqual([]);
     expect(buttons(all.people)).toEqual([]);
+    expect(buttons(all.person)).toEqual([]);
     expect(buttons(all.policy)).toEqual(["Run the policy on this call"]);
   });
 

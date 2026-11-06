@@ -249,7 +249,7 @@ for (let guard = 0; guard < 60; guard += 1) {
       criticals += 1;
       say("typed the right value");
     } else {
-      await press(card, "No");
+      await press(card, "No, deny");
       criticals += 1;
       say("pressed No on a type-to-confirm card");
     }

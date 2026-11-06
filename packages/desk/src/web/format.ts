@@ -40,6 +40,26 @@ export function formatLatency(ms: number | null): string {
 
 export const shortHash = (hash: string): string => hash.slice(0, 8);
 
+/** Core's rate as core rounded it. Null is no traffic yet, which is not a rate of zero. */
+export const formatRate = (value: number | null): string => (value === null ? "–" : String(value));
+
+export const formatPercent = (rate: number | null): string => (rate === null ? "–" : `${Math.round(rate * 100)}%`);
+
+/** "Sam", "Sam and Alex", "Sam, Alex and Neha". */
+export function joinNames(names: string[]): string {
+  return names.length < 2 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+}
+
+const FRICTION_WORDS: Record<string, string> = {
+  drill_miss: "a missed drill",
+  fast: "fast approvals",
+  streak: "a streak of approvals",
+  batch: "approvals in a batch",
+  flag_ignored: "approving past a flag",
+};
+
+export const frictionWords = (friction: string | null): string | null => (friction === null ? null : (FRICTION_WORDS[friction] ?? friction.replace(/_/g, " ")));
+
 export function sentenceCase(text: string): string {
   const spaced = text.replace(/_/g, " ");
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
@@ -58,14 +78,18 @@ export function summariseEntry(type: string, payload: Record<string, unknown>, n
   const list = (key: string) => (Array.isArray(payload[key]) ? (payload[key] as unknown[]).map(String) : null);
   const name = (id: string | null) => (id === null ? null : (names[id] ?? id));
   const people = (key: string) => list(key)?.map((id) => names[id] ?? id).join(", ");
+  const scope = [text("agent"), text("class"), text("bucket")]
+    .filter(Boolean)
+    .map((part) => (part as string).replace(/_/g, " "))
+    .join(" · ");
   switch (type) {
     case "held":
       return [text("agent"), text("class")?.replace(/_/g, " "), text("tier")].filter(Boolean).join(" · ");
     case "routed":
       return `To ${people("chosen") || "nobody yet"}`;
     case "answered": {
-      const latency = typeof payload.latency_ms === "number" ? ` in ${formatDuration(payload.latency_ms)}` : "";
-      return `${name(text("user_id")) ?? "Someone"}: ${text("decision") ?? "answered"}${latency}`;
+      // Answer times are per person, so they stay off team views (PLAN F10). The admin view has them.
+      return `${name(text("user_id")) ?? "Someone"}: ${text("decision") ?? "answered"}`;
     }
     case "ineligible_answer":
       return `${name(text("user_id")) ?? "Someone"}'s answer refused: ${
@@ -86,11 +110,22 @@ export function summariseEntry(type: string, payload: Record<string, unknown>, n
     case "cancelled":
       return text("by") ? `By ${text("by")}` : "";
     case "policy_loaded":
-      return text("hash") ? `Version ${shortHash(text("hash") as string)}` : "";
+      if (!text("hash")) return "";
+      return `Version ${shortHash(text("hash") as string)}${people("approved_by") ? `, signed by ${people("approved_by")}` : ""}`;
+    case "policy_proposed":
+      return text("hash") ? `Version ${shortHash(text("hash") as string)}, needs ${text("quorum") ?? "?"} signatures` : "";
     case "promotion_proposed":
+      return `${scope}: ${text("from") ?? "?"} to ${text("level") ?? "?"}`;
     case "promotion_signed":
+      return `${scope}: ${text("level") ?? "?"}, signed by ${people("signed_by") ?? "unknown"}`;
+    case "promotion_rejected":
+      return `Not promoted: ${(text("reason") ?? "no reason given").replace(/_/g, " ")}`;
     case "demoted":
-      return [text("agent"), text("class"), text("bucket"), text("level") ?? text("to")].filter(Boolean).join(" · ");
+      return `${scope}: ${text("from") ?? "?"} to ${text("to") ?? "?"}`;
+    case "incident":
+      return `Reported by ${name(text("reported_by")) ?? "someone"}: ${text("note") ?? "no note"}`;
+    case "break_glass":
+      return `By ${name(text("by")) ?? "someone"}: ${text("reason") ?? "no reason given"}`;
     default:
       return "";
   }

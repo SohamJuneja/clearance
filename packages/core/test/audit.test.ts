@@ -120,7 +120,7 @@ describe("F5 cross-agent grant consumption via the shared hook token", () => {
 
     // Any holder of the one shared hook token (every agent can read it) presents as coder. There is no per-agent
     // credential binding the caller to coder, so the grant is spent on a self-asserted identity.
-    const res = await app.inject({
+    await app.inject({
       method: "POST",
       url: "/v1/hooks/claude",
       headers: { authorization: `Bearer ${HOOK}`, "content-type": "application/json" },

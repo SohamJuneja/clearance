@@ -2,32 +2,39 @@
  * The six tabs as plain functions of API data and the time, so tests can check every number without a
  * browser. Nothing here fetches, and nothing here decides: all approving and denying happens in Switch.
  */
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type {
   AutonomyView,
+  BucketReplay,
   CoverageRow,
   CoverageView,
   LedgerEntry,
   LedgerVerification,
   LedgerView,
   PeopleView,
+  PersonDetail,
   PolicyView,
   QueueItem,
   QueueView,
   SimulationResult,
+  TeamDrills,
 } from "../shared/api";
 import {
   formatAge,
   formatCount,
   formatDateTime,
   formatLatency,
+  formatPercent,
+  formatRate,
   formatUntil,
+  frictionWords,
+  joinNames,
   sentenceCase,
   shortHash,
   stateName,
   summariseEntry,
 } from "./format";
-import { Empty, NotAvailable, PageHead, Section, Stat, Status, TierMark } from "./parts";
+import { Empty, PageHead, Section, Stat, Status, TierMark } from "./parts";
 
 // ── Queue ────────────────────────────────────────────────────────────────────
 
@@ -115,20 +122,15 @@ export function QueueTab({ data, nowMs }: { data: QueueView; nowMs: number }) {
   const sorted = [...data.requests].sort((a, b) => a.created_at.localeCompare(b.created_at));
   return (
     <>
-      <PageHead title="Queue" note="Requests waiting on a person. Each one is answered on its card in Switch, using the handle shown here." />
+      <PageHead title="Queue" note="Requests waiting on a person, each answered on its card in Switch with the handle shown here. This list can run behind Switch, so a card you have there still needs your answer, whether or not it is listed." />
       <div className="stats">
         <Stat label="Open requests" value={data.open_count} id="queue-open" />
         <Stat label="Oldest waiting" value={oldest ? formatAge(oldest, nowMs) : "–"} id="queue-oldest" />
         <Stat label="Escalated" value={data.requests.filter((item) => item.escalation.fired > 0).length} id="queue-escalated" />
         <Stat label="Critical tier" value={data.requests.filter((item) => item.tier === "critical").length} id="queue-critical" />
       </div>
-      {data.disagreement ? (
-        <p className="warning-line" data-testid="queue-disagreement">
-          <span aria-hidden="true">⚠</span> {data.disagreement}
-        </p>
-      ) : null}
       {sorted.length === 0 ? (
-        <Empty title="Nothing is waiting on a person.">Held requests appear here as soon as an agent is stopped.</Empty>
+        <Empty title="No open requests listed.">Held requests appear here once an agent is stopped.</Empty>
       ) : (
         <table data-testid="queue-table">
           <thead>
@@ -160,7 +162,7 @@ const ROW_LIMIT = 300;
 export function ChainBadge({ verify }: { verify: LedgerVerification }) {
   return verify.ok ? (
     <Status kind="good" id="chain-badge">
-      Chain intact · {formatCount(verify.count)} entries · head {shortHash(verify.head)}
+      {verify.through_seq === null ? "Chain intact · no entries listed yet" : `Chain intact through entry ${formatCount(verify.through_seq)} · head ${shortHash(verify.head ?? "")}`}
     </Status>
   ) : (
     <Status kind="bad" id="chain-badge">
@@ -187,7 +189,7 @@ export function LedgerTab({ data, verify }: { data: LedgerView; verify: LedgerVe
 
   return (
     <>
-      <PageHead title="Ledger" note="Every decision, in a hash chain. Core recomputes the chain from the first entry for this badge." aside={<ChainBadge verify={verify} />} />
+      <PageHead title="Ledger" note="Every decision, in a hash chain. Core recomputes the whole chain for this badge, drills included. Drills are left out of this list and its export, so the numbers can skip, and the list can run behind Switch." aside={<ChainBadge verify={verify} />} />
       <div className="filters">
         <label>
           Type
@@ -375,11 +377,137 @@ function LadderMark({ level }: { level: string }) {
   );
 }
 
-export function AutonomyTab({ data }: { data: AutonomyView }) {
-  const history = [...data.history].reverse();
+const scopeKey = (row: { agent: string; class: string; bucket: string }) => `${row.agent}/${row.class}/${row.bucket}`;
+const scopeId = (row: { agent: string; class: string; bucket: string }) => `${row.agent}-${row.class}-${row.bucket}`;
+
+function ReplayTable({ rows }: { rows: BucketReplay[] }) {
+  return (
+    <table data-testid="replay-table">
+      <thead>
+        <tr>
+          <th>Scope</th>
+          <th>Level</th>
+          <th className="num">Approvals counted</th>
+          <th className="num">Too fast to count</th>
+          <th className="num">Denied</th>
+          <th className="num">Incidents</th>
+          <th className="num">Approvers</th>
+          <th className="num">Would have run alone</th>
+          <th>Bar for promotion</th>
+          <th>Evidence</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row) => {
+          const id = `replay-${scopeId(row)}`;
+          return (
+            <tr key={scopeKey(row)} data-testid={id}>
+              <td>
+                <div className="strong">{row.agent}</div>
+                <div className="muted small">
+                  {sentenceCase(row.class)} · {row.label}
+                </div>
+              </td>
+              <td className="nowrap" data-testid={`${id}-level`}>
+                {row.proposed_level ? `${row.level} to ${row.proposed_level}` : row.level}
+                <div className="muted small">Highest {row.max_level}</div>
+              </td>
+              <td className="num">
+                <span data-testid={`${id}-counted`}>
+                  {formatCount(row.counted)} of {formatCount(row.needs.approvals)}
+                </span>
+                <div className="muted small">{row.window_days} days</div>
+              </td>
+              <td className="num" data-testid={`${id}-fast`}>
+                {formatCount(row.fast_excluded)}
+              </td>
+              <td className="num" data-testid={`${id}-denied`}>
+                {formatCount(row.denied)}
+              </td>
+              <td className="num" data-testid={`${id}-incidents`}>
+                {formatCount(row.incidents)}
+              </td>
+              <td className="num" data-testid={`${id}-approvers`}>
+                {row.approvers} of {row.needs.min_distinct_approvers}
+              </td>
+              <td className="num">
+                <span data-testid={`${id}-auto`}>{formatCount(row.would_auto)}</span>
+                <div className="muted small" data-testid={`${id}-auto-split`}>
+                  {formatCount(row.would_auto_approved)} approved, {formatCount(row.would_auto_denied)} denied
+                </div>
+              </td>
+              <td data-testid={`${id}-meets`}>{row.meets_criteria ? <Status kind="good">Met</Status> : <Status kind="idle">Not yet</Status>}</td>
+              <td className="nowrap" data-testid={`${id}-evidence`}>
+                {formatCount(row.real_events)} real
+                {row.synthetic_events > 0 ? <div className="muted small">{formatCount(row.synthetic_events)} synthetic</div> : null}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
+
+export type Replay = (scope: { agent: string; class: string; bucket: string }) => Promise<{ replays: BucketReplay[] }>;
+
+/** All scopes come with the page. Picking one asks core to replay just that scope. Neither records anything. */
+function ReplayPanel({ buckets, replay }: { buckets: BucketReplay[]; replay: Replay }) {
+  const [scope, setScope] = useState("");
+  const [picked, setPicked] = useState<BucketReplay[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const latest = useRef("");
+
+  const choose = async (key: string) => {
+    latest.current = key;
+    setScope(key);
+    setPicked(null);
+    setError(null);
+    const row = buckets.find((bucket) => scopeKey(bucket) === key);
+    if (!row) return;
+    try {
+      const { replays } = await replay({ agent: row.agent, class: row.class, bucket: row.bucket });
+      if (latest.current === key) setPicked(replays);
+    } catch (failure) {
+      if (latest.current === key) setError((failure as Error).message);
+    }
+  };
+
+  if (buckets.length === 0) return <Empty title="No scope has any recorded history yet." />;
+  const rows = scope ? picked : buckets;
   return (
     <>
-      <PageHead title="Autonomy" note="What each agent has earned, per class and scope. Promotion always takes two people. Demotion is instant." />
+      <div className="filters">
+        <label>
+          Scope
+          <select data-testid="replay-scope" value={scope} onChange={(event) => void choose(event.target.value)}>
+            <option value="">All scopes</option>
+            {buckets.map((bucket) => (
+              <option key={scopeKey(bucket)} value={scopeKey(bucket)}>
+                {bucket.agent} · {sentenceCase(bucket.class)} · {bucket.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      {error ? <p className="warning-line">{error}</p> : rows ? <ReplayTable rows={rows} /> : <p className="muted loading">Replaying…</p>}
+    </>
+  );
+}
+
+export function AutonomyTab({ data, replay }: { data: AutonomyView; replay: Replay }) {
+  const history = [...data.history].reverse();
+  const load = data.human_load;
+  return (
+    <>
+      <PageHead title="Autonomy" note="What each agent has earned, per class and scope. Promotion always takes two people, who sign on its card in Switch. Demotion is instant." />
+      <div className="stats">
+        <Stat label="Human decisions per 100 agent actions" value={formatRate(load.per_100)} id="load-per-100" />
+        <Stat label="Per 100 governed actions" value={formatRate(load.per_100_governed)} id="load-per-100-governed" />
+        <Stat label="Agent actions" value={formatCount(load.agent_actions)} id="load-actions" />
+        <Stat label="Human decisions" value={formatCount(load.human_decisions)} id="load-decisions" />
+      </div>
+      <p className="muted small after-stats">Real traffic only. Governed leaves out the work policy lets through without a thought.</p>
       <div className="ladder-legend">
         {LADDER.map((step) => (
           <div key={step.level} className="ladder-legend-item">
@@ -406,12 +534,12 @@ export function AutonomyTab({ data }: { data: AutonomyView }) {
             </thead>
             <tbody>
               {data.levels.map((row) => (
-                <tr key={`${row.agent}/${row.class}/${row.bucket}`} data-testid={`autonomy-row-${row.agent}-${row.class}-${row.bucket}`}>
+                <tr key={scopeKey(row)} data-testid={`autonomy-row-${scopeId(row)}`}>
                   <td className="strong">{row.agent}</td>
                   <td>{sentenceCase(row.class)}</td>
                   <td>{sentenceCase(row.bucket)}</td>
                   <td>
-                    <LadderMark level={row.level} /> <span data-testid={`autonomy-level-${row.agent}-${row.class}-${row.bucket}`}>{row.level}</span>
+                    <LadderMark level={row.level} /> <span data-testid={`autonomy-level-${scopeId(row)}`}>{row.level}</span>
                   </td>
                   <td className="nowrap">{formatDateTime(row.since)}</td>
                 </tr>
@@ -420,7 +548,82 @@ export function AutonomyTab({ data }: { data: AutonomyView }) {
           </table>
         )}
       </Section>
-      <Section title="Proposals and history">
+      <Section title="Proposals">
+        {data.proposals.length === 0 ? (
+          <Empty title="No promotion has been proposed yet.">Core proposes one when a scope clears its bar.</Empty>
+        ) : (
+          <table data-testid="proposal-table">
+            <thead>
+              <tr>
+                <th>Proposal</th>
+                <th>State</th>
+                <th>Signed</th>
+                <th>When</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.proposals.map((proposal) => (
+                <tr key={proposal.id} data-testid={`proposal-${proposal.id}`}>
+                  <td className="cell-wide">
+                    <div className="strong">{proposal.title}</div>
+                    <details>
+                      <summary>The record behind it</summary>
+                      <pre>{proposal.detail}</pre>
+                    </details>
+                  </td>
+                  <td data-testid={`proposal-${proposal.id}-state`}>{sentenceCase(proposal.state)}</td>
+                  <td>
+                    <span data-testid={`proposal-${proposal.id}-signed`}>
+                      {proposal.signed_by.length} of {proposal.quorum}
+                    </span>
+                    {proposal.signed_by.length > 0 ? <div className="muted small">{joinNames(proposal.signed_by)}</div> : null}
+                  </td>
+                  <td className="nowrap">{proposal.decided_at ? `Decided ${formatDateTime(Date.parse(proposal.decided_at))}` : `Expires ${formatDateTime(Date.parse(proposal.expires_at))}`}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Section>
+      <Section title="What it would have done">
+        <p className="muted section-note" data-testid="replay-note">
+          Each scope's next level, replayed over its recorded history. This reads the record and changes nothing. On record: {formatCount(data.evidence.real)} real, {formatCount(data.evidence.synthetic)} labelled synthetic.
+        </p>
+        <ReplayPanel buckets={data.buckets} replay={replay} />
+      </Section>
+      <Section title="Human decisions by class">
+        {load.by_class.length === 0 ? (
+          <Empty title="No real traffic yet." />
+        ) : (
+          <table data-testid="load-table">
+            <thead>
+              <tr>
+                <th>Class</th>
+                <th className="num">Agent actions</th>
+                <th className="num">Human decisions</th>
+                <th className="num">Per 100</th>
+              </tr>
+            </thead>
+            <tbody>
+              {load.by_class.map((row) => (
+                <tr key={row.class}>
+                  <td>{sentenceCase(row.class)}</td>
+                  <td className="num" data-testid={`load-${row.class}-actions`}>
+                    {formatCount(row.agent_actions)}
+                  </td>
+                  <td className="num" data-testid={`load-${row.class}-decisions`}>
+                    {formatCount(row.human_decisions)}
+                  </td>
+                  <td className="num" data-testid={`load-${row.class}-per-100`}>
+                    {formatRate(row.per_100)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Section>
+      <Section title="History">
         {history.length === 0 ? (
           <Empty title="No promotions or demotions recorded yet." />
         ) : (
@@ -437,18 +640,12 @@ export function AutonomyTab({ data }: { data: AutonomyView }) {
                 <tr key={entry.seq}>
                   <td className="nowrap">{formatDateTime(Date.parse(entry.at))}</td>
                   <td className="nowrap">{sentenceCase(entry.type)}</td>
-                  <td className="cell-wide">{summariseEntry(entry.type, entry.payload)}</td>
+                  <td className="cell-wide">{summariseEntry(entry.type, entry.payload, data.names)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
-      </Section>
-      <Section title="Replay and impact">
-        <div className="not-available-row">
-          <NotAvailable what="Replay of a proposed promotion" needs="Core's POST /v1/autonomy/simulate answers 501." id="na-replay" />
-          <NotAvailable what="Human decisions per 100 agent actions" needs="Core has no route for this. pnpm eval:autonomy is its source." id="na-decisions" />
-        </div>
       </Section>
     </>
   );
@@ -456,115 +653,219 @@ export function AutonomyTab({ data }: { data: AutonomyView }) {
 
 // ── People ───────────────────────────────────────────────────────────────────
 
-export function PeopleTab({ data, nowMs }: { data: PeopleView; nowMs: number }) {
-  const [viewing, setViewing] = useState("");
+function teamDrillsText(drills: TeamDrills): string {
+  const why = "so that nobody's own result can be worked out.";
+  if (drills.finished === 0) return `Drill totals appear once ${drills.group} have finished, ${why}`;
+  return `${drills.finished} finished: ${drills.caught} caught, ${drills.missed} missed, ${drills.expired} not answered. Totals move in steps of ${drills.group}, ${why}`;
+}
+
+function TeamView({ data }: { data: PeopleView }) {
+  const { team } = data;
+  return (
+    <>
+      <div className="stats">
+        <Stat label="Answers" value={formatCount(team.answers)} id="team-answers" />
+        <Stat label="Approved" value={formatCount(team.approvals)} id="team-approvals" />
+        <Stat label="Denied" value={formatCount(team.denials)} id="team-denials" />
+        <Stat label="Fast approvals" value={formatCount(team.fast_approvals)} id="team-fast" />
+        <Stat label="Flags ignored" value={formatCount(team.flags_ignored)} id="team-flags" />
+        <Stat label="Batch approvals" value={formatCount(team.batch_approvals)} id="team-batch" />
+        <Stat label="Streaks" value={formatCount(team.streaks)} id="team-streaks" />
+        <Stat label="Drills finished" value={formatCount(team.drills.finished)} id="team-drills-finished" />
+      </div>
+      <p className="muted small after-stats" data-testid="team-drills">
+        {teamDrillsText(team.drills)}
+      </p>
+      <p className="muted small after-stats">Time to answer isn't totalled here, because medians don't add up across people.</p>
+      <Section title="The team">
+        <table data-testid="people-table">
+          <thead>
+            <tr>
+              <th>Person</th>
+              <th>Groups</th>
+              <th>Roles</th>
+              <th>Away</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.people.map((row) => (
+              <tr key={row.id} data-testid={`people-row-${row.id}`}>
+                <td className="strong">{row.name}</td>
+                <td>{row.groups.map(sentenceCase).join(", ") || "–"}</td>
+                <td>{row.roles.map(sentenceCase).join(", ") || "–"}</td>
+                <td data-testid={`people-away-${row.id}`}>
+                  {row.away ? `Until ${formatDateTime(Date.parse(row.away.until))}${row.away.delegate_to ? `, ${data.people.find((person) => person.id === row.away?.delegate_to)?.name ?? row.away.delegate_to} covering` : ""}` : <span className="muted">–</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Section>
+    </>
+  );
+}
+
+const TIER_ORDER = ["low", "medium", "high", "critical"];
+
+/**
+ * Time to answer by tier: careful review takes longer as risk rises, so a flat row of bars is the thing to look for.
+ * Bars inside a table, so the numbers are always there to read. One hue and one scale, with the value at each tip.
+ */
+function TierChart({ byTier }: { byTier: PersonDetail["stats"]["by_tier"] }) {
+  const longest = Math.max(0, ...TIER_ORDER.map((tier) => byTier[tier]?.median_latency_ms ?? 0));
+  return (
+    <table className="tier-chart" data-testid="person-tier-chart">
+      <thead>
+        <tr>
+          <th>Tier</th>
+          <th>Median time to answer</th>
+          <th className="num">Answers</th>
+        </tr>
+      </thead>
+      <tbody>
+        {TIER_ORDER.map((tier) => {
+          const row = byTier[tier];
+          const ms = row?.median_latency_ms ?? null;
+          const answers = row?.answers ?? 0;
+          return (
+            <tr key={tier}>
+              <td className="tier-chart-label">
+                <TierMark tier={tier} />
+              </td>
+              <td className="bar-cell">
+                {ms === null ? (
+                  <span className="muted" data-testid={`person-tier-${tier}-latency`}>
+                    No answers
+                  </span>
+                ) : (
+                  <div className="bar-row" title={`${sentenceCase(tier)} tier: median ${formatLatency(ms)} over ${answers} ${answers === 1 ? "answer" : "answers"}`}>
+                    <span className="bar" style={{ width: `calc((100% - 96px) * ${longest > 0 ? ms / longest : 0})` }} />
+                    <span className="bar-value" data-testid={`person-tier-${tier}-latency`}>
+                      {formatLatency(ms)}
+                    </span>
+                  </div>
+                )}
+              </td>
+              <td className="num" data-testid={`person-tier-${tier}-answers`}>
+                {formatCount(answers)}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
+
+const NAMED_SIGNALS = new Set(["fast", "streak", "batch", "flag_ignored"]);
+
+/** One person's record, for the admin. The Desk has no login, so this says what it is on every view of it. */
+export function PersonRecord({ data }: { data: PersonDetail }) {
+  const { stats, name } = data;
+  const finished = stats.drills.caught + stats.drills.missed + stats.drills.expired;
+  const otherSignals = Object.entries(stats.signals).filter(([signal]) => !NAMED_SIGNALS.has(signal));
+  const friction = frictionWords(stats.friction);
+  return (
+    <>
+      <p className="admin-banner" role="note" data-testid="people-admin-banner">
+        <span className="strong">Admin's view of {name}.</span> Private to {name} and the team admin. This Desk has no login, so don't show this screen to the team.
+      </p>
+      <div className="stats">
+        <Stat label="Answers" value={formatCount(stats.answers)} id="person-answers" />
+        <Stat label="Approved" value={formatCount(stats.approvals)} id="person-approvals" />
+        <Stat label="Denied" value={formatCount(stats.denials)} id="person-denials" />
+        <Stat label="Median time to answer" value={formatLatency(stats.median_latency_ms)} id="person-latency" />
+      </div>
+      <div className="person-grid">
+        <Section title="Time to answer, by risk">
+          <TierChart byTier={stats.by_tier} />
+          <p className="muted small section-foot">Careful review takes longer as risk rises. Bars that stay flat across tiers can mean cards aren't being read.</p>
+        </Section>
+        <Section title="Attention signals">
+          <table data-testid="person-signals">
+            <tbody>
+              <tr>
+                <td>Fast approvals</td>
+                <td className="num" data-testid="person-fast">
+                  {formatCount(stats.fast_approvals)}
+                </td>
+              </tr>
+              <tr>
+                <td>Flags ignored</td>
+                <td className="num" data-testid="person-flags">
+                  {formatCount(stats.flags_ignored)}
+                </td>
+              </tr>
+              <tr>
+                <td>Batch approvals</td>
+                <td className="num" data-testid="person-batch">
+                  {formatCount(stats.batch_approvals)}
+                </td>
+              </tr>
+              <tr>
+                <td>Streaks</td>
+                <td className="num" data-testid="person-streaks">
+                  {formatCount(stats.streaks)}
+                </td>
+              </tr>
+              {otherSignals.map(([signal, count]) => (
+                <tr key={signal}>
+                  <td>{sentenceCase(signal)}</td>
+                  <td className="num" data-testid={`person-signal-${signal}`}>
+                    {formatCount(count)}
+                  </td>
+                </tr>
+              ))}
+              <tr>
+                <td>Refused as ineligible</td>
+                <td className="num" data-testid="person-ineligible">
+                  {formatCount(stats.ineligible)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p className="muted small section-foot" data-testid="person-friction">
+            {friction ? `Extra friction is on, after ${friction}: the next high-tier card asks for a typed value.` : "No extra friction is on."}
+          </p>
+        </Section>
+      </div>
+      <Section title="Drills">
+        <div className="stats">
+          <Stat label="Finished" value={formatCount(finished)} id="person-drills-finished" />
+          <Stat label="Caught" value={formatCount(stats.drills.caught)} id="person-drills-caught" />
+          <Stat label="Missed" value={formatCount(stats.drills.missed)} id="person-drills-missed" />
+          <Stat label="Catch rate" value={formatPercent(stats.drills.catch_rate)} id="person-drills-rate" />
+        </div>
+        <p className="muted small after-stats" data-testid="person-drills-note">
+          {formatCount(stats.drills.expired)} not answered. The catch rate counts caught against missed, so a drill nobody answered counts for neither. Each result goes only to {name}.
+        </p>
+      </Section>
+    </>
+  );
+}
+
+export function PeopleTab({ data, viewing, onView, children }: { data: PeopleView; viewing: string; onView: (id: string) => void; children?: ReactNode }) {
   const person = data.people.find((row) => row.id === viewing);
-  const rows = person ? [person] : data.people;
   return (
     <>
       <PageHead
         title="People"
-        note="Private: visible to each person and the team admin. This Desk has no login, so it runs on the admin's machine and only answers on loopback."
+        note={person ? `One person's record, as only ${person.name} and the team admin should see it.` : "Totals for the whole team. One person's times, flags and drill results are private to that person and the team admin, so they appear only in the admin's view."}
         aside={
           <label className="inline-label">
-            Viewing
-            <select data-testid="people-view" value={viewing} onChange={(event) => setViewing(event.target.value)}>
-              <option value="">Everyone (admin)</option>
+            Showing
+            <select data-testid="people-view" value={person ? viewing : ""} onChange={(event) => onView(event.target.value)}>
+              <option value="">The team</option>
               {data.people.map((row) => (
                 <option key={row.id} value={row.id}>
-                  {row.name}
+                  Admin's view: {row.name}
                 </option>
               ))}
             </select>
           </label>
         }
       />
-      <table data-testid="people-table">
-        <thead>
-          <tr>
-            <th>Person</th>
-            <th className="num">Open cards</th>
-            <th className="num">Answers</th>
-            <th className="num">Approved</th>
-            <th className="num">Denied</th>
-            <th className="num">Refused as ineligible</th>
-            <th className="num">Median time to answer</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.id} data-testid={`people-row-${row.id}`}>
-              <td>
-                <div className="strong">{row.name}</div>
-                <div className="muted small">{[...row.groups, ...row.roles].join(" · ")}</div>
-              </td>
-              {row.stats ? (
-                <>
-                  <td className="num" data-testid={`people-${row.id}-open`}>
-                    {row.stats.open_cards}
-                  </td>
-                  <td className="num" data-testid={`people-${row.id}-answers`}>
-                    {row.stats.answers}
-                  </td>
-                  <td className="num" data-testid={`people-${row.id}-approvals`}>
-                    {row.stats.approvals}
-                  </td>
-                  <td className="num" data-testid={`people-${row.id}-denials`}>
-                    {row.stats.denials}
-                  </td>
-                  <td className="num" data-testid={`people-${row.id}-ineligible`}>
-                    {row.stats.ineligible}
-                  </td>
-                  <td className="num" data-testid={`people-${row.id}-latency`}>
-                    {formatLatency(row.stats.median_latency_ms)}
-                  </td>
-                </>
-              ) : (
-                <td colSpan={6} className="muted" data-testid={`people-${row.id}-unknown`}>
-                  Core does not know this person yet.
-                </td>
-              )}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {person ? (
-        <Section title={`Cards open for ${person.name}`}>
-          {person.inbox.length === 0 ? (
-            <Empty title={`Nothing is waiting on ${person.name}.`} />
-          ) : (
-            <table data-testid="people-inbox">
-              <thead>
-                <tr>
-                  <th>Handle</th>
-                  <th>Request</th>
-                  <th>What</th>
-                  <th>Room</th>
-                  <th className="num">Expires</th>
-                </tr>
-              </thead>
-              <tbody>
-                {person.inbox.map((item) => (
-                  <tr key={item.request_id}>
-                    <td>{item.handle ? <code>{item.handle}</code> : "–"}</td>
-                    <td className="nowrap">{item.request_id}</td>
-                    <td className="cell-wide">{item.what}</td>
-                    <td>{item.room ?? "–"}</td>
-                    <td className="num">{formatUntil(item.expires_at, nowMs)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </Section>
-      ) : null}
-      <Section title="Attention signals">
-        <div className="not-available-row">
-          <NotAvailable what="Latency against tier" needs="GET /v1/people/:id/stats reports one median across all tiers." id="na-latency-tier" />
-          <NotAvailable what="Rubber-stamp signals" needs="The stats route does not report fast approvals or ignored flags." id="na-signals" />
-          <NotAvailable what="Drill catch rate" needs="The stats route does not report drill results." id="na-drills" />
-        </div>
-      </Section>
+      {person ? children : <TeamView data={data} />}
     </>
   );
 }
@@ -676,28 +977,77 @@ export function Simulator({ simulate }: { simulate: Simulate }) {
   );
 }
 
+/** Only one of these is a match, and none is an alarm: core's version is the one in force either way. */
+function policyStanding(data: PolicyView): { status: string; explain: string | null } {
+  const version = shortHash(data.core_hash);
+  const file = data.file_hash ? shortHash(data.file_hash) : "";
+  switch (data.relation) {
+    case "same":
+      return { status: `Core is enforcing this file · version ${version}`, explain: null };
+    case "signed":
+      return {
+        status: `Core is enforcing a signed version · ${version}`,
+        explain: `Signed by ${joinNames(data.signed_by)}. Core keeps a signed policy and doesn't write it back to the file, so the file on disk (${file}) differs. That is expected: core's version is the one in force.`,
+      };
+    case "file_pending":
+      return {
+        status: `Core is enforcing version ${version}`,
+        explain: `The file on disk (${file}) has been edited, and the edit is waiting for signatures. Core keeps enforcing ${version} until it is signed.`,
+      };
+    case "differs":
+      return {
+        status: `Core is enforcing version ${version}`,
+        explain: `The file on disk (${file}) isn't what core is enforcing. Core's version is the one in force: an edit to the file takes effect only once it is signed.`,
+      };
+    case "no_file":
+      return { status: `Core is enforcing version ${version}`, explain: "The Desk can't read the policy file to compare, so this page shows core's own copy." };
+  }
+}
+
 export function PolicyTab({ data, simulate }: { data: PolicyView; simulate: Simulate }) {
+  const standing = policyStanding(data);
   return (
     <>
       <PageHead
         title="Policy"
-        note={`The policy file, one view for every agent and vendor. Mode: ${data.mode ?? "not set"}.`}
+        note={`The policy in force, one view for every agent and vendor. Mode: ${data.mode ?? "not set"}.`}
         aside={
-          data.matches ? (
-            <Status kind="good" id="policy-hash">
-              Core is enforcing this file · version {shortHash(data.core_hash)}
-            </Status>
-          ) : (
-            <Status kind="bad" id="policy-hash">
-              Core is enforcing {shortHash(data.core_hash)}, but this file is {shortHash(data.file_hash)}
-            </Status>
-          )
+          <Status kind={data.relation === "same" ? "good" : "idle"} id="policy-hash">
+            {standing.status}
+          </Status>
         }
       />
+      {standing.explain ? (
+        <p className="note-line" data-testid="policy-relation">
+          {standing.explain}
+        </p>
+      ) : null}
+      {data.mode === "shadow" ? (
+        <p className="note-line" data-testid="policy-shadow">
+          Shadow mode: Clearance holds nothing and records what it would have held. {formatCount(data.shadow_would_hold)} {data.shadow_would_hold === 1 ? "call" : "calls"} so far.
+        </p>
+      ) : null}
       {data.policy_error ? (
         <p className="warning-line" data-testid="policy-error">
           <span aria-hidden="true">⚠</span> Core refused its last reload and kept the previous policy: {data.policy_error}
         </p>
+      ) : null}
+      {data.pending ? (
+        <Section title="Waiting for signatures">
+          <div className="pending" data-testid="policy-pending">
+            <div>
+              <span className="strong">{data.pending.proposal}</span> <span className="muted">· version {shortHash(data.pending.hash)}</span>
+            </div>
+            <div data-testid="policy-pending-signed">
+              {data.pending.signed_by.length} of {data.pending.quorum} signed{data.pending.signed_by.length > 0 ? `: ${joinNames(data.pending.signed_by)}` : ""}
+            </div>
+            <details>
+              <summary>What it changes</summary>
+              <pre data-testid="policy-pending-detail">{data.pending.detail}</pre>
+            </details>
+            <div className="muted small">Signed on its card in Switch. Nothing changes until then.</div>
+          </div>
+        </Section>
       ) : null}
       <Section title="Classes">
         <table data-testid="policy-table">
@@ -751,10 +1101,10 @@ export function PolicyTab({ data, simulate }: { data: PolicyView; simulate: Simu
       <Section title="Try a call">
         <Simulator simulate={simulate} />
       </Section>
-      <Section title="The file">
+      <Section title="The policy in force">
         <details className="policy-file">
           <summary>
-            Show clearance.policy.yaml <span className="muted">(version {shortHash(data.file_hash)})</span>
+            Show it <span className="muted">(version {shortHash(data.core_hash)})</span>
           </summary>
           <pre data-testid="policy-text">{data.text}</pre>
         </details>

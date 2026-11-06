@@ -46,7 +46,9 @@ export type Step =
 
 const view = (request: StudyRequest, condition: Condition): CardView => {
   const { sender, kind, text, buttons, typeToConfirm } = renderCard(request, condition);
-  return { sender, kind, text, buttons, typeToConfirm };
+  // Core writes a placeholder because Switch only assigns the code once the card is open. The Lab knows it, and a
+  // literal <handle> on a participant's phone reads as a bug. A Lab adaptation: the in-Switch bot shows core's text.
+  return { sender, kind, text: text.replaceAll("<handle>", request.b.handle), buttons, typeToConfirm };
 };
 
 const attemptsFor = (events: StudyEvent[], requestId: string) => events.filter((e) => e.type === "confirm_wrong" && e.request_id === requestId).length;

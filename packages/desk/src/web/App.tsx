@@ -1,10 +1,10 @@
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
-import type { AutonomyView, CoverageView, Health, LedgerVerification, LedgerView, Meta, PeopleView, PolicyView, QueueView } from "../shared/api";
-import { getJson, simulate } from "./api";
+import type { AutonomyView, CoverageView, Health, LedgerVerification, LedgerView, Meta, PeopleView, PersonDetail, PolicyView, QueueView } from "../shared/api";
+import { getJson, replay, simulate } from "./api";
 import { shortHash } from "./format";
 import { ErrorPanel } from "./parts";
-import { AutonomyTab, CoverageTab, LedgerTab, PeopleTab, PolicyTab, QueueTab } from "./views";
+import { AutonomyTab, CoverageTab, LedgerTab, PeopleTab, PersonRecord, PolicyTab, QueueTab } from "./views";
 
 const TABS = ["queue", "ledger", "people", "autonomy", "coverage", "policy"] as const;
 type TabId = (typeof TABS)[number];
@@ -47,12 +47,29 @@ function LedgerPage() {
   return <Loaded query={entries}>{(data) => <Loaded query={verify}>{(chain) => <LedgerTab data={data} verify={chain} />}</Loaded>}</Loaded>;
 }
 
-function PeoplePage({ nowMs }: { nowMs: number }) {
-  return <Loaded query={useApi<PeopleView>("/api/people")}>{(data) => <PeopleTab data={data} nowMs={nowMs} />}</Loaded>;
+/** Starts on the team view each time, and asks for one person's record only once someone picks them. */
+function PeoplePage() {
+  const [viewing, setViewing] = useState("");
+  const people = useApi<PeopleView>("/api/people");
+  const person = useQuery<PersonDetail>({
+    queryKey: ["/api/people", viewing],
+    queryFn: () => getJson<PersonDetail>(`/api/people/${encodeURIComponent(viewing)}`),
+    enabled: viewing !== "",
+    refetchInterval: POLL_MS,
+  });
+  return (
+    <Loaded query={people}>
+      {(data) => (
+        <PeopleTab data={data} viewing={viewing} onView={setViewing}>
+          <Loaded query={person}>{(record) => <PersonRecord data={record} />}</Loaded>
+        </PeopleTab>
+      )}
+    </Loaded>
+  );
 }
 
 function AutonomyPage() {
-  return <Loaded query={useApi<AutonomyView>("/api/autonomy")}>{(data) => <AutonomyTab data={data} />}</Loaded>;
+  return <Loaded query={useApi<AutonomyView>("/api/autonomy")}>{(data) => <AutonomyTab data={data} replay={replay} />}</Loaded>;
 }
 
 function CoveragePage({ nowMs }: { nowMs: number }) {
@@ -82,7 +99,7 @@ function CoreStatus({ synthetic }: { synthetic: boolean }) {
   if (!health.data) return <span className="muted">Connecting…</span>;
   return (
     <span className="status status-good" data-testid="core-status">
-      <span aria-hidden="true">✓</span> Core connected <span className="muted">· policy {shortHash(health.data.policy_hash)}</span>
+      <span aria-hidden="true">✓</span> Core connected <span className="muted">· {health.data.mode === "shadow" ? "shadow mode · " : ""}policy {shortHash(health.data.policy_hash)}</span>
     </span>
   );
 }
@@ -128,7 +145,7 @@ export function App() {
       <main className="page">
         {tab === "queue" ? <QueuePage nowMs={nowMs} /> : null}
         {tab === "ledger" ? <LedgerPage /> : null}
-        {tab === "people" ? <PeoplePage nowMs={nowMs} /> : null}
+        {tab === "people" ? <PeoplePage /> : null}
         {tab === "autonomy" ? <AutonomyPage /> : null}
         {tab === "coverage" ? <CoveragePage nowMs={nowMs} /> : null}
         {tab === "policy" ? <PolicyPage /> : null}

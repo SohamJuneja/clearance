@@ -10,9 +10,10 @@ import { existsSync, readFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { extname, resolve, sep } from "node:path";
 import type { Meta } from "../shared/api";
-import { composeAutonomy, composeLedger, composePeople, composePolicy, composeQueue, CoreRefused, CoreShapeError, readCoverage, readHealth, readVerify, type WorldFiles } from "./compose";
+import { composeAutonomy, composeLedger, composePeople, composePerson, composePolicy, composeQueue, composeVerify, CoreRefused, CoreShapeError, readCoverage, readHealth, replayScope, type WorldFiles } from "./compose";
 import { CoreUnavailable, type CoreSource } from "./core-source";
-import { SimulationSchema } from "./schemas";
+import { ReplayScopeSchema, SimulationSchema } from "./schemas";
+import { ledgerCsv } from "./team-view";
 
 export type DeskOptions = WorldFiles & {
   core: CoreSource;
@@ -72,11 +73,11 @@ export function createDeskServer(options: DeskOptions): Server {
   const reads: Record<string, () => Promise<unknown>> = {
     "/api/health": () => readHealth(core),
     "/api/queue": () => composeQueue(core, options),
-    "/api/ledger": () => composeLedger(core, options),
-    "/api/ledger/verify": () => readVerify(core),
+    "/api/ledger": () => composeLedger(core),
+    "/api/ledger/verify": () => composeVerify(core),
     "/api/coverage": () => readCoverage(core),
     "/api/autonomy": () => composeAutonomy(core),
-    "/api/people": () => composePeople(core, options),
+    "/api/people": () => composePeople(core),
     "/api/policy": () => composePolicy(core, options),
   };
 
@@ -98,17 +99,28 @@ export function createDeskServer(options: DeskOptions): Server {
     res.end(readFileSync(file));
   };
 
-  const handleSimulate = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
-    // Requiring JSON makes this a request another site cannot send without a CORS preflight, which fails.
-    if (!(req.headers["content-type"] ?? "").startsWith("application/json")) return sendJson(res, 415, { error: "expected JSON" });
-    let body: unknown;
-    try {
-      body = JSON.parse(await readBody(req));
-    } catch (error) {
-      if (error instanceof BodyTooLarge) return sendJson(res, 413, { error: "That call is too large to simulate." });
-      return sendJson(res, 400, { error: "That is not valid JSON." });
+  /**
+   * The body, or null once this has answered for itself. Requiring JSON makes this a request another site cannot send
+   * without a CORS preflight, which fails.
+   */
+  const readJson = async (req: IncomingMessage, res: ServerResponse): Promise<{ body: unknown } | null> => {
+    if (!(req.headers["content-type"] ?? "").startsWith("application/json")) {
+      sendJson(res, 415, { error: "expected JSON" });
+      return null;
     }
-    const answer = await core.post("/v1/policy/simulate", body);
+    try {
+      return { body: JSON.parse(await readBody(req)) as unknown };
+    } catch (error) {
+      if (error instanceof BodyTooLarge) sendJson(res, 413, { error: "That call is too large to simulate." });
+      else sendJson(res, 400, { error: "That is not valid JSON." });
+      return null;
+    }
+  };
+
+  const handleSimulate = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+    const read = await readJson(req, res);
+    if (!read) return;
+    const answer = await core.post("/v1/policy/simulate", read.body);
     if (answer.status === 400) {
       const reason = (JSON.parse(answer.body) as { error?: string }).error ?? "Core could not read that call.";
       return sendJson(res, 400, { error: reason });
@@ -119,16 +131,35 @@ export function createDeskServer(options: DeskOptions): Server {
     return sendJson(res, 200, parsed.data);
   };
 
+  /** Forwards a scope and nothing else. Core's replay reads its history and writes nothing. */
+  const handleReplay = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+    const read = await readJson(req, res);
+    if (!read) return;
+    const scope = ReplayScopeSchema.safeParse(read.body);
+    if (!scope.success) return sendJson(res, 400, { error: "Expected an agent, class or bucket to replay." });
+    return sendJson(res, 200, await replayScope(core, scope.data));
+  };
+
+  const handlePerson = async (res: ServerResponse, encoded: string): Promise<void> => {
+    let id: string;
+    try {
+      id = decodeURIComponent(encoded);
+    } catch {
+      return sendJson(res, 404, { error: "No such person." });
+    }
+    const person = await composePerson(core, id);
+    return person ? sendJson(res, 200, person) : sendJson(res, 404, { error: "No such person." });
+  };
+
   const handleExport = async (res: ServerResponse): Promise<void> => {
-    const answer = await core.get("/v1/export.csv?kind=ledger");
-    if (answer.status !== 200) return sendJson(res, 502, { error: "core_error", message: `Core answered the export with HTTP ${answer.status}` });
+    const { entries } = await composeLedger(core);
     res.writeHead(200, {
       ...SECURITY_HEADERS,
       "content-type": "text/csv; charset=utf-8",
       "content-disposition": 'attachment; filename="clearance-ledger.csv"',
       "cache-control": "no-store",
     });
-    res.end(answer.body);
+    res.end(`${options.synthetic ? "# SYNTHETIC fixture data\n" : ""}${ledgerCsv(entries)}`);
   };
 
   return createServer((req, res) => {
@@ -139,9 +170,12 @@ export function createDeskServer(options: DeskOptions): Server {
 
       if (path.startsWith("/api/")) {
         if (path === "/api/policy/simulate" && method === "POST") return await handleSimulate(req, res);
+        if (path === "/api/autonomy/simulate" && method === "POST") return await handleReplay(req, res);
         if (method !== "GET") return sendJson(res, 405, { error: "The Desk is read-only." });
         if (path === "/api/meta") return sendJson(res, 200, { synthetic: options.synthetic } satisfies Meta);
         if (path === "/api/export.csv") return await handleExport(res);
+        const person = /^\/api\/people\/([^/]+)$/.exec(path);
+        if (person) return await handlePerson(res, person[1]!);
         const read = reads[path];
         if (!read) return sendJson(res, 404, { error: "No such route." });
         return sendJson(res, 200, await read());

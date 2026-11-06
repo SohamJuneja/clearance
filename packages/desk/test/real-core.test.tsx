@@ -11,11 +11,13 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ApprovalOutcomeEvent } from "../../contracts/src/index";
 import { buildServer } from "../../core/src/api/server";
-import { actionId, chatMessage, gateRefund, makeHarness, MINUTE, NOW, PARTICIPANTS, REFUND_SC3, TEAM_ALEX_ONLY_PATH, type Harness } from "../../core/test/harness";
+import { HISTORY_SEED, seedSyntheticHistory } from "../../core/src/autonomy/history";
+import { drillTotals } from "../../core/src/ledger/mirror";
+import { actionId, chatMessage, gateRefund, makeHarness, MINUTE, NOW, PARTICIPANTS, REFUND_SC3, REFUND_SC4, TEAM_ALEX_ONLY_PATH, type Harness } from "../../core/test/harness";
 import { httpCore } from "../src/server/core-source";
 import { createDeskServer } from "../src/server/server";
-import type { AutonomyView, CoverageView, Health, LedgerVerification, LedgerView, PeopleView, PolicyView, QueueView, SimulationResult } from "../src/shared/api";
-import { AutonomyTab, CoverageTab, LedgerTab, PeopleTab, PolicyTab, QueueTab, SIMULATOR_PRESETS, presetAction } from "../src/web/views";
+import type { AutonomyView, BucketReplay, CoverageView, Health, LedgerVerification, LedgerView, PeopleView, PersonDetail, PolicyView, QueueView, SimulationResult } from "../src/shared/api";
+import { AutonomyTab, CoverageTab, LedgerTab, PeopleTab, PersonRecord, PolicyTab, QueueTab, SIMULATOR_PRESETS, presetAction } from "../src/web/views";
 
 const TOKEN = "real-core-test-token";
 const REPO = resolve(import.meta.dirname, "../../..");
@@ -80,7 +82,7 @@ function press(on: World, roomId: string, who: string, answer: "allow" | "deny")
 describe("the Queue on real core", () => {
   it("starts empty, with core's own count", async () => {
     const queue = await read<QueueView>("/api/queue");
-    expect(queue).toEqual({ open_count: 0, requests: [], disagreement: null });
+    expect(queue).toEqual({ open_count: 0, requests: [] });
   });
 
   it("shows a held request exactly as core describes it", async () => {
@@ -90,7 +92,6 @@ describe("the Queue on real core", () => {
 
     expect(queue.open_count).toBe(world.h.core.health().open_requests);
     expect(queue.open_count).toBe(1);
-    expect(queue.disagreement).toBeNull();
     const [item] = queue.requests;
     expect(item).toMatchObject({
       id,
@@ -133,13 +134,13 @@ describe("the Queue on real core", () => {
     const id = await holdRefund();
     await press(world, "dm-sam", PARTICIPANTS.sam, "deny");
     expect(world.h.core.describeRequest(id)!.state).toBe("DENIED");
-    expect(await read<QueueView>("/api/queue")).toEqual({ open_count: 0, requests: [], disagreement: null });
+    expect(await read<QueueView>("/api/queue")).toEqual({ open_count: 0, requests: [] });
   });
 
   it("drops an approved request too, after it ran", async () => {
     await holdRefund();
     await press(world, "dm-sam", PARTICIPANTS.sam, "allow");
-    expect(await read<QueueView>("/api/queue")).toEqual({ open_count: 0, requests: [], disagreement: null });
+    expect(await read<QueueView>("/api/queue")).toEqual({ open_count: 0, requests: [] });
   });
 
   it("shows the group when core finds nobody eligible, on the team where that can happen", async () => {
@@ -186,38 +187,55 @@ describe("the Ledger on real core", () => {
 
     expect(ledger.entries.map((entry) => entry.seq)).toEqual(direct.map((entry) => entry.seq));
     expect(ledger.entries.map((entry) => entry.entry_hash)).toEqual(direct.map((entry) => entry.entry_hash));
-    expect(verify).toEqual(world.h.core.verifyLedger());
+    const chain = world.h.core.verifyLedger();
+    expect(verify).toEqual({ ok: chain.ok, through_seq: chain.count, head: chain.head });
     expect(verify.ok).toBe(true);
-    expect(verify.count).toBe(direct.length);
+    expect(verify.through_seq).toBe(direct.length);
     expect(ledger.names.sam).toBe("Sam");
 
     const html = renderToStaticMarkup(<LedgerTab data={ledger} verify={verify} />);
-    expect(html).toContain(`Chain intact · ${verify.count} entries`);
+    expect(html).toContain(`Chain intact through entry ${verify.through_seq}`);
     expect(html).toContain("To Sam");
     expect(html).toContain("Sam: deny");
   });
 
-  it("serves core's real CSV", async () => {
+  it("exports the same file as core's own route, byte for byte, when there are no drills in it", async () => {
     await holdRefund();
-    const res = await fetch(`${world.base}/api/export.csv`);
-    expect(res.status).toBe(200);
-    expect((await res.text()).split("\n")[0]).toBe("seq,at,type,request_id,payload,prev_hash,entry_hash");
+    const address = world.app.server.address() as AddressInfo;
+    const own = await fetch(`http://127.0.0.1:${address.port}/v1/export.csv?kind=ledger`, { headers: { authorization: `Bearer ${TOKEN}` } });
+    expect(await (await fetch(`${world.base}/api/export.csv`)).text()).toBe(await own.text());
   });
 });
 
 describe("the other tabs on real core", () => {
-  it("Health is core's own", async () => {
-    expect(await read<Health>("/api/health")).toEqual(world.h.core.health());
+  it("Health is core's own, less its open count", async () => {
+    const { open_requests: _open, ...health } = world.h.core.health();
+    expect(await read<Health>("/api/health")).toEqual(health);
   });
 
-  it("People shows core's stats, for everyone in team.yaml", async () => {
+  it("People lists core's roster, and the team's totals are the sum of core's stats", async () => {
     await holdRefund();
     await press(world, "dm-sam", PARTICIPANTS.sam, "deny");
-    const { people } = await read<PeopleView>("/api/people");
-    expect(people.map((person) => person.id)).toEqual(["priya", "sam", "neha", "alex", "dev"]);
-    for (const person of people) expect(person.stats, person.id).toEqual(world.h.core.personStats(person.id));
-    expect(people.find((person) => person.id === "sam")!.stats).toMatchObject({ answers: 1, denials: 1 });
-    expect(renderToStaticMarkup(<PeopleTab data={{ people }} nowMs={NOW} />)).toContain("Sam");
+    const view = await read<PeopleView>("/api/people");
+    expect(view.people).toEqual(world.h.core.listPeople());
+    expect(view.people.map((person) => person.id)).toEqual(["priya", "sam", "neha", "alex", "dev"]);
+    const all = view.people.map((person) => world.h.core.personStats(person.id) as { answers: number; denials: number });
+    expect(view.team.answers).toBe(all.reduce((sum, row) => sum + row.answers, 0));
+    expect(view.team.denials).toBe(1);
+    expect(renderToStaticMarkup(<PeopleTab data={view} viewing="" onView={() => {}} />)).toContain("Sam");
+  });
+
+  it("the admin's view of a person is core's stats, and renders every shape core sends", async () => {
+    await holdRefund();
+    await press(world, "dm-sam", PARTICIPANTS.sam, "deny");
+    const sam = await read<PersonDetail>("/api/people/sam");
+    const { open_cards: _open, drills, ...own } = world.h.core.personStats("sam") as Record<string, unknown> & { drills: { sent: number } };
+    const { sent: _sent, ...finished } = drills;
+    expect(sam.stats).toEqual({ ...own, drills: finished });
+    expect(sam.stats.answers).toBe(1);
+    const html = renderToStaticMarkup(<PersonRecord data={sam} />);
+    expect(html).toContain("Admin&#x27;s view of Sam.");
+    expect(html).toContain('data-testid="person-tier-high-latency"');
   });
 
   it("Coverage parses core's real SQL rows, counts included", async () => {
@@ -232,14 +250,164 @@ describe("the other tabs on real core", () => {
     world.h.core.stores.autonomy.setLevel("refunds-agent", "refund", "small", "L2", NOW);
     const view = await read<AutonomyView>("/api/autonomy");
     expect(view.levels).toEqual(world.h.core.stores.autonomy.all());
-    expect(renderToStaticMarkup(<AutonomyTab data={view} />)).toContain("refunds-agent");
+    expect(renderToStaticMarkup(<AutonomyTab data={view} replay={async () => ({ replays: [] })} />)).toContain("refunds-agent");
+  });
+
+  it("Autonomy reads core's replay and human load, seeded history labelled as such", async () => {
+    seedSyntheticHistory(world.h.core.stores.db, HISTORY_SEED, NOW);
+    const view = await read<AutonomyView>("/api/autonomy");
+    const report = world.h.core.autonomyReport();
+    expect(view.evidence).toEqual(report.history);
+    expect(view.evidence.synthetic).toBeGreaterThan(0);
+    expect(view.human_load).toEqual(world.h.core.humanLoad());
+    const replays = await world.h.core.autonomyReplay();
+    expect(view.buckets.map((row) => row.counted)).toEqual(replays.map((row) => row.counted));
+    expect(view.buckets.map((row) => row.synthetic_events)).toEqual(replays.map((row) => row.synthetic_events));
+    expect(view.buckets.some((row) => row.synthetic_events > 0)).toBe(true);
+    expect(renderToStaticMarkup(<AutonomyTab data={view} replay={async () => ({ replays: [] })} />)).toContain('data-testid="replay-table"');
+  });
+
+  it("A scope's replay is what core's own says, and it writes nothing", async () => {
+    seedSyntheticHistory(world.h.core.stores.db, HISTORY_SEED, NOW);
+    const [first] = (await read<AutonomyView>("/api/autonomy")).buckets;
+    const before = world.h.core.stores.ledger.list().length;
+    const res = await fetch(`${world.base}/api/autonomy/simulate`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ agent: first!.agent, class: first!.class, bucket: first!.bucket }) });
+    expect(res.status).toBe(200);
+    const { replays } = (await res.json()) as { replays: BucketReplay[] };
+    const own = await world.h.core.autonomyReplay({ agent: first!.agent, class: first!.class, bucket: first!.bucket });
+    expect(replays.map((row) => row.counted)).toEqual(own.map((row) => row.counted));
+    expect(replays).toHaveLength(1);
+    expect(world.h.core.stores.ledger.list()).toHaveLength(before);
   });
 
   it("Policy's hash comparison holds: the file on disk hashes to what core loaded", async () => {
     const view = await read<PolicyView>("/api/policy");
     expect(view.core_hash).toBe(world.h.core.health().policy_hash);
-    expect(view.matches).toBe(true);
+    expect(view.relation).toBe("same");
+    expect(view.text).toBe(world.h.core.policyInfo().text);
     expect(renderToStaticMarkup(<PolicyTab data={view} simulate={async () => ({ decision: "hold", reason: "" })} />)).toContain("Core is enforcing this file");
+  });
+});
+
+describe("real drills, sent the real way", () => {
+  const DAY = 24 * 60 * MINUTE;
+  const EVERY_READ = ["/api/health", "/api/queue", "/api/ledger", "/api/ledger/verify", "/api/export.csv", "/api/coverage", "/api/autonomy", "/api/people", "/api/people/sam", "/api/policy"];
+  const snapshot = async () => Object.fromEntries(await Promise.all(EVERY_READ.map(async (path) => [path, await (await fetch(`${world.base}${path}`)).text()] as const)));
+
+  const send = async (person = "sam"): Promise<string> => {
+    const result = await world.h.core.sendDrill(person);
+    if (!result.ok) throw new Error(result.reason);
+    return result.requestId;
+  };
+  const cardFor = (requestId: string, roomId: string) => {
+    const row = world.h.core.stores.routes.forRequest(requestId).find((entry) => entry.card_room === roomId)!;
+    return world.h.chat.cards.find((card) => card.switchRequestId === row.switch_request_id)!;
+  };
+  const answer = (requestId: string, who: string, roomId: string, choice: "allow" | "deny") => {
+    const card = cardFor(requestId, roomId);
+    return world.h.core.onApprovalOutcome({ sessionId: card.sessionId, switchRequestId: card.switchRequestId, kind: "approval", state: "answered", answer: choice, answeredBy: who, answeredAtMs: world.h.clock.nowMs() });
+  };
+
+  it("while one is open, every route answers exactly as before, though core's own routes have all moved", async () => {
+    await holdRefund();
+    const before = await snapshot();
+    const health = world.h.core.health();
+    const raw = world.h.core.stores.ledger.list().length;
+    const id = await send();
+
+    expect(await snapshot()).toEqual(before);
+    // The things that would have given it away are really there, so the test above is testing something.
+    expect(world.h.core.stores.ledger.list().length).toBeGreaterThan(raw);
+    expect(world.h.core.stores.ledger.list().map((entry) => entry.type)).toContain("drill_sent");
+    expect(world.h.core.inbox("sam")!.items.map((item) => item.request_id)).toContain(id);
+    expect(world.h.core.describeRequest(id)).not.toHaveProperty("is_drill");
+    expect(world.h.core.health().open_requests).toBe(health.open_requests);
+  });
+
+  it("holds back a real request that arrives during one, then brings it back", async () => {
+    const id = await send();
+    const real = await world.h.core.check(gateRefund(REFUND_SC4));
+    expect(real.decision).toBe("hold");
+    expect((await read<QueueView>("/api/queue")).requests).toEqual([]);
+    expect(world.h.core.health().open_requests).toBe(1);
+
+    await answer(id, PARTICIPANTS.sam, "dm-sam", "deny");
+    expect(world.h.core.describeRequest(id)?.state).toBe("DENIED");
+    expect((await read<QueueView>("/api/queue")).requests.map((item) => item.id)).toEqual([real.request_id]);
+  });
+
+  it("keeps the numbers whole while it is open, then shows every real entry and none of the drill's", async () => {
+    await holdRefund();
+    const id = await send();
+    await world.h.core.check(gateRefund(REFUND_SC4));
+    const during = (await read<LedgerView>("/api/ledger")).entries.map((entry) => entry.seq);
+    expect(during).toEqual(Array.from({ length: during.length }, (_, index) => index + 1));
+
+    await answer(id, PARTICIPANTS.sam, "dm-sam", "allow");
+    const after = await read<LedgerView>("/api/ledger");
+    const expected = world.h.core.stores.ledger.list().filter((entry) => !entry.type.startsWith("drill_") && entry.request_id !== id);
+    expect(after.entries.map((entry) => entry.seq)).toEqual(expected.map((entry) => entry.seq));
+    expect(JSON.stringify(after)).not.toMatch(/drill_/);
+    expect(JSON.stringify(after)).not.toContain(id);
+    expect(await (await fetch(`${world.base}/api/export.csv`)).text()).not.toContain(id);
+  });
+
+  it("goes back to moving once one expires unanswered", async () => {
+    const id = await send();
+    const real = await world.h.core.check(gateRefund(REFUND_SC4));
+    world.h.clock.advance(26 * MINUTE);
+    await world.h.core.tick();
+    expect(world.h.core.describeRequest(id)?.state).toBe("EXPIRED");
+    expect(JSON.stringify(await read<LedgerView>("/api/ledger"))).toContain(real.request_id!);
+  });
+
+  it("goes back to moving once one is cancelled, which writes no result", async () => {
+    const id = await send();
+    await world.h.core.check(gateRefund(REFUND_SC4));
+    expect(await world.h.core.cancel(id, null)).toBe("cancelled");
+    expect(world.h.core.stores.ledger.list({ requestId: id }).map((entry) => entry.type)).not.toContain("drill_result");
+    expect((await read<QueueView>("/api/queue")).requests).toHaveLength(1);
+  });
+
+  it("gives the team the same totals as the mirror, and the person's own result only on the admin's view", async () => {
+    const results = () => world.h.core.stores.ledger.list().filter((entry) => entry.type === "drill_result").map((entry) => String(entry.payload.result));
+    const words = async () => {
+      const { team } = await read<PeopleView>("/api/people");
+      return team.drills;
+    };
+
+    await answer(await send(), PARTICIPANTS.sam, "dm-sam", "deny");
+    expect((await words()).finished).toBe(0);
+    expect(drillTotals(results())).toContain("Totals appear once 3 have finished");
+
+    world.h.clock.advance(DAY + MINUTE);
+    await answer(await send(), PARTICIPANTS.sam, "dm-sam", "allow");
+    expect((await words()).finished).toBe(0);
+    const afterMiss = await read<PersonDetail>("/api/people/sam");
+    expect(afterMiss.stats.friction).toBe("drill_miss");
+    expect(renderToStaticMarkup(<PersonRecord data={afterMiss} />)).toContain("after a missed drill");
+    expect(JSON.stringify(await read<PeopleView>("/api/people"))).not.toContain("drill_miss");
+
+    world.h.clock.advance(DAY + MINUTE);
+    await send();
+    world.h.clock.advance(26 * MINUTE);
+    await world.h.core.tick();
+    const { finished, caught, missed, expired, group } = await words();
+    expect(drillTotals(results())).toContain(`${finished} finished: ${caught} caught, ${missed} missed, ${expired} not answered. Totals move in steps of ${group}`);
+    expect(finished).toBe(3);
+
+    const sam = await read<PersonDetail>("/api/people/sam");
+    expect(sam.stats.drills).toEqual({ caught: 1, missed: 1, expired: 1, catch_rate: 0.5 });
+  });
+
+  it("does not count a drill in Coverage, human load or the replay, even after it closes", async () => {
+    const coverage = await read<CoverageView>("/api/coverage");
+    const { human_load: load, buckets } = await read<AutonomyView>("/api/autonomy");
+    await answer(await send(), PARTICIPANTS.sam, "dm-sam", "deny");
+    expect(await read<CoverageView>("/api/coverage")).toEqual(coverage);
+    const after = await read<AutonomyView>("/api/autonomy");
+    expect(after.human_load).toEqual(load);
+    expect(after.buckets).toEqual(buckets);
   });
 });
 

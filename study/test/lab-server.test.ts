@@ -177,7 +177,7 @@ describe("a full session", () => {
     expect(JSON.stringify(midway.step)).not.toContain("explanation");
     await post("p01", "confidence", { block: 1, value: 4 });
     await post("p01", "break");
-    const denyAll = (step: Reply["step"]) => ({ label: step.card.typeToConfirm ? "No" : "Deny" });
+    const denyAll = (step: Reply["step"]) => ({ label: step.card.typeToConfirm ? "No, deny" : "Deny" });
     await finishBlock("p01", denyAll);
     await post("p01", "confidence", { block: 2, value: 3 });
     const end = await post("p01", "comment", { text: "" });
@@ -281,6 +281,22 @@ describe("type-to-confirm over HTTP", () => {
     const card = await toTypedCard();
     await post("p03", "answer", { request_id: card.step.request_id, ms: 4000, typed: "nope" });
     expect((await state("p03")).step.attempts).toBe(1);
+  });
+
+  it("shows the card's own code in the how-to, never a literal placeholder", async () => {
+    const card = await toTypedCard();
+    const request = loadSet("X").requests.find((r) => r.id === card.step.request_id)!;
+    expect(card.step.card.text).not.toContain("<handle>");
+    expect(card.step.card.text).toContain(`${request.b.handle} "${request.b.confirm!.expected}"`);
+  });
+
+  it("counts typing exactly what the card shows as the right answer, not as a wrong one", async () => {
+    const card = await toTypedCard();
+    const request = loadSet("X").requests.find((r) => r.id === card.step.request_id)!;
+    // This is what a careful person does, and it must not cost an attempt.
+    await post("p03", "answer", { request_id: card.step.request_id, ms: 4000, typed: `${request.b.handle} "${request.b.confirm!.expected}"` });
+    expect(events("p03").find((e) => e.type === "decision" && e.request_id === card.step.request_id)).toMatchObject({ decision: "approve", option: "typed" });
+    expect(events("p03").filter((e) => e.type === "confirm_wrong")).toEqual([]);
   });
 
   it("the right value approves", async () => {

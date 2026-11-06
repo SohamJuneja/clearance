@@ -139,13 +139,17 @@ tr:last-child td { border-bottom: none; }
 .status .muted { font-weight: 400; }
 
 .warning-line { background: var(--warning-wash); border-radius: 6px; padding: 10px 14px; margin-bottom: 20px; }
+/* Worth reading, and not a problem. */
+.note-line { background: var(--surface); border: 1px solid var(--hairline); border-radius: 6px; padding: 10px 14px; margin-bottom: 20px; }
+.admin-banner { background: var(--warning-wash); border: 1px solid #f0d48a; border-radius: 6px; padding: 12px 16px; margin-bottom: 24px; }
+.after-stats { margin-top: -16px; margin-bottom: 20px; }
+.section-note { margin-bottom: 16px; max-width: 860px; }
+.section-foot { margin-top: 10px; }
+.pending { background: var(--surface); border: 1px solid var(--hairline); border-radius: 8px; padding: 16px 20px; display: grid; gap: 6px; }
 
 /* ── Honest empties and gaps ─────────────────────────────────────────────── */
 .empty { background: var(--surface); border: 1px dashed var(--baseline); border-radius: 8px; padding: 36px; text-align: center; }
 .empty-title { font-weight: 600; margin-bottom: 2px; }
-.not-available-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
-.not-available { background: var(--surface); border: 1px dashed var(--baseline); border-radius: 8px; padding: 14px 18px; font-size: 14px; }
-.not-available-what { font-weight: 600; font-size: 15px; }
 .error-panel { background: var(--critical-wash); border: 1px solid var(--critical); border-radius: 8px; padding: 20px 24px; display: grid; gap: 6px; }
 .error-title { font-weight: 600; color: var(--critical); }
 
@@ -193,6 +197,16 @@ pre {
 .ladder-step:first-child { border-radius: 4px 2px 2px 4px; }
 .ladder-step:last-child { border-radius: 2px 4px 4px 2px; }
 
+/* ── People ──────────────────────────────────────────────────────────────── */
+.person-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 24px; align-items: start; }
+.person-grid .section { margin-top: 0; }
+.tier-chart-label { width: 120px; }
+.bar-cell { padding-top: 10px; padding-bottom: 10px; }
+.bar-row { display: flex; align-items: center; gap: 8px; border-left: 1px solid var(--baseline); min-height: 24px; }
+/* One hue from the palette. The data end is rounded, the end at the baseline is square. */
+.bar { display: block; height: 20px; min-width: 2px; background: var(--accent); border-radius: 0 4px 4px 0; }
+.bar-value { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
 /* ── Policy ──────────────────────────────────────────────────────────────── */
 .tier-line { margin-top: 10px; }
 .simulator { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; }
@@ -211,7 +225,7 @@ dd { margin: 0; overflow-wrap: anywhere; }
   .top-end { margin-left: 0; }
   .tabs { overflow-x: auto; }
   .stats, .ladder-legend, .simulator { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .simulator { grid-template-columns: minmax(0, 1fr); }
+  .simulator, .person-grid { grid-template-columns: minmax(0, 1fr); }
   .page-head { flex-direction: column; gap: 12px; }
   table { display: block; overflow-x: auto; }
   input { width: 100%; }

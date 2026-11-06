@@ -421,7 +421,7 @@ describe("answers", () => {
     expect(buttonDecision("Approve")).toBe("approve");
     expect(buttonDecision("Decline")).toBe("deny");
     expect(buttonDecision("Deny")).toBe("deny");
-    expect(buttonDecision("No")).toBe("deny");
+    expect(buttonDecision("No, deny")).toBe("deny");
     expect(() => buttonDecision("Maybe")).toThrow();
   });
 
@@ -435,5 +435,27 @@ describe("answers", () => {
     expect(confirmMatches("destination_last4", "kfin", "KFIN")).toBe(true);
     expect(confirmMatches("recipient_domain", "freemail.example", "freemail.example")).toBe(true);
     expect(confirmMatches("recipient_domain", "freemail.example", "gmail.com")).toBe(false);
+  });
+
+  it("type-to-confirm accepts the reply form the card itself teaches, because a careful person types exactly that", () => {
+    const accepted = ['A107 "38000"', '"38000"', "“38000”", "A107 38000", '<handle> "38000"', "a107 “₹38,000”", "‘38000’", 'A107"38000"'];
+    for (const typed of accepted) expect(confirmMatches("amount", "38000", typed), typed).toBe(true);
+    expect(confirmMatches("destination_last4", "kfin", 'A106 "kfin"')).toBe(true);
+    expect(confirmMatches("destination_last4", "kfin", "A106 “kfin”")).toBe(true);
+    expect(confirmMatches("service", "refunds-api", 'A109 "Refunds-API"')).toBe(true);
+    expect(confirmMatches("recipient_domain", "freemail.example", 'A111 "freemail.example"')).toBe(true);
+  });
+
+  it("type-to-confirm is still strict about the value: the card's own example and a code alone are not it", () => {
+    for (const typed of ["A107 1", 'A107 "3800"', "A107", '""', "<handle>", 'A107 "38000" extra']) expect(confirmMatches("amount", "38000", typed), typed).toBe(false);
+    // A value that looks like a card's code is still the value.
+    expect(confirmMatches("destination_last4", "A123", "A123")).toBe(true);
+    expect(confirmMatches("destination_last4", "A123", 'A106 "A123"')).toBe(true);
+  });
+
+  it("matches core's option label on a type-to-confirm card", () => {
+    const critical = [...X, ...Y].find((r) => r.b.confirm)!;
+    expect(renderCard(critical, "B").buttons).toEqual(["No, deny"]);
+    expect(readFileSync(resolve(import.meta.dirname, "../../packages/core/src/core.ts"), "utf8")).toContain('label: "No, deny"');
   });
 });

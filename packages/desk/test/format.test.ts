@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatClock, formatCount, formatDuration, formatLatency, formatUntil, shortHash, stateName, summariseEntry } from "../src/web/format";
+import { formatClock, formatCount, formatDuration, formatLatency, formatPercent, formatRate, formatUntil, frictionWords, joinNames, shortHash, stateName, summariseEntry } from "../src/web/format";
 
 describe("durations", () => {
   it.each([
@@ -40,6 +40,28 @@ describe("spelling", () => {
     expect(shortHash("3fa9c1d2e4b7")).toBe("3fa9c1d2");
   });
 
+  it("gives no rate as a dash, because no traffic is not a rate of zero", () => {
+    expect(formatRate(null)).toBe("–");
+    expect(formatRate(0)).toBe("0");
+    expect(formatRate(9.7)).toBe("9.7");
+    expect(formatPercent(null)).toBe("–");
+    expect(formatPercent(0)).toBe("0%");
+    expect(formatPercent(2 / 3)).toBe("67%");
+  });
+
+  it("joins names the way a sentence does", () => {
+    expect(joinNames([])).toBe("");
+    expect(joinNames(["Sam"])).toBe("Sam");
+    expect(joinNames(["Sam", "Alex"])).toBe("Sam and Alex");
+    expect(joinNames(["Sam", "Alex", "Neha"])).toBe("Sam, Alex and Neha");
+  });
+
+  it("says why friction is on, and doesn't invent a reason it doesn't know", () => {
+    expect(frictionWords(null)).toBeNull();
+    expect(frictionWords("drill_miss")).toBe("a missed drill");
+    expect(frictionWords("something_new")).toBe("something new");
+  });
+
   it("names request states in plain words", () => {
     expect(stateName("ROUTED")).toBe("With approver");
     expect(stateName("HELD")).toBe("Held");
@@ -52,7 +74,7 @@ describe("ledger summaries read core's real payloads", () => {
     ["held", { agent: "refunds-agent", class: "refund", tier: "high" }, "refunds-agent · refund · high"],
     ["routed", { chosen: ["sam", "neha"] }, "To sam, neha"],
     ["routed", { chosen: [] }, "To nobody yet"],
-    ["answered", { user_id: "sam", decision: "deny", latency_ms: 62_000 }, "sam: deny in 1m 02s"],
+    ["answered", { user_id: "sam", decision: "deny", latency_ms: 62_000 }, "sam: deny"],
     ["ineligible_answer", { user_id: "priya", reasons: ["requester", "agent_owner"] }, "priya's answer refused: requester, agent owner"],
     ["approved", { approved_by: ["sam"] }, "By sam"],
     ["denied", { denied_by: "sam" }, "By sam"],
@@ -65,6 +87,14 @@ describe("ledger summaries read core's real payloads", () => {
     ["executed", { ok: false, error: "gate down" }, "Failed: gate down"],
     ["expired", { after_ms: 1 }, "Nothing was executed"],
     ["policy_loaded", { hash: "abc123def456" }, "Version abc123de"],
+    ["policy_loaded", { hash: "abc123def456", approved_by: ["sam", "alex"] }, "Version abc123de, signed by sam, alex"],
+    ["policy_proposed", { hash: "abc123def456", quorum: 2 }, "Version abc123de, needs 2 signatures"],
+    ["promotion_proposed", { agent: "refunds-agent", class: "refund", bucket: "small", from: "L1", level: "L2" }, "refunds-agent · refund · small: L1 to L2"],
+    ["promotion_signed", { agent: "refunds-agent", class: "refund", bucket: "small", level: "L2", signed_by: ["sam", "alex"] }, "refunds-agent · refund · small: L2, signed by sam, alex"],
+    ["promotion_rejected", { reason: "evidence_changed", signed_by: ["sam"] }, "Not promoted: evidence changed"],
+    ["demoted", { agent: "ops-agent", class: "deploy", bucket: "staging", from: "L1", to: "L0" }, "ops-agent · deploy · staging: L1 to L0"],
+    ["incident", { reported_by: "neha", note: "wrong customer" }, "Reported by neha: wrong customer"],
+    ["break_glass", { by: "alex", reason: "prod is down" }, "By alex: prod is down"],
     ["something_new", { x: 1 }, ""],
   ] as const)("%s %j", (type, payload, text) => {
     expect(summariseEntry(type, payload as Record<string, unknown>)).toBe(text);

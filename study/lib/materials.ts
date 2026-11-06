@@ -56,12 +56,15 @@ export const switchBlockIntro = (block: number, total: number) => `Block ${block
 export const switchBreakNotice = (seconds: number) => `Take a ${seconds}-second break. The next block starts by itself.`;
 
 /** Switch's own footer shows `A19 1`, which picks the first option. Typing a value takes quotes. */
-export const TYPE_TO_CONFIRM_HOW = 'type your answer in quotes after this card\'s code, like A19 "your answer". To decline, press No.';
-export const TYPE_TO_CONFIRM_HINT = 'That wasn\'t read as an answer. Put it in quotes after the card\'s code, like A19 "your answer", or press No.';
+export const TYPE_TO_CONFIRM_HOW = 'type your answer in quotes after this card\'s code, like A19 "your answer". To decline, press "No, deny".';
+export const TYPE_TO_CONFIRM_HINT = 'That wasn\'t read as an answer. Put it in quotes after the card\'s code, like A19 "your answer", or press "No, deny".';
 
 export const COMMENT_HOW = "Type your answer as a normal message here, or press the button if you'd rather not say.";
 export const NO_COMMENT = "No comment";
 
 export const SWITCH_REPOSTED = "Someone else answered that card, so it doesn't count. Here it is again for you.";
-export const CONFIRM_REASK = "That doesn't match the card. Try once more, or press No.";
+export const CONFIRM_REASK = 'That doesn\'t match the card. Try once more, or press "No, deny".';
+
+/** On a typed card in the Lab, whose box needs only the value where the real card takes a code and quotes. */
+export const LAB_TYPED_HINT = "Just the value is enough here. No code or quotes needed.";
 export const CONFIRM_FAILED = "That didn't match either, so this request was not approved.";

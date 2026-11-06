@@ -171,7 +171,7 @@ async function passConsent(page: Page) {
   await page.press("Start");
 }
 
-const CARD_BUTTON = /^(Allow once|Decline|Approve|Deny|No)$/;
+const CARD_BUTTON = /^(Allow once|Decline|Approve|Deny|No, deny)$/;
 
 describe("the client, driving the real server", () => {
   it("walks a whole session from consent to debrief with real timing", async () => {
@@ -316,6 +316,19 @@ describe("the client, driving the real server", () => {
     page.advanceClock(2000);
     await page.press("Decline");
     expect(log("p01").filter((e) => e.type === "decision").map((e) => (e as { ms: number }).ms)).toEqual([5000, 2000]);
+  });
+
+  it("tells someone at the box that just the value is enough, and only on a typed card", async () => {
+    const page = await open("p03");
+    await passConsent(page);
+    expect(page.text()).not.toContain("No code or quotes needed");
+    await page.press("Continue");
+    await page.press("Approve");
+    await page.press("Allow once");
+    expect(page.text()).not.toContain("No code or quotes needed");
+    while (!page.root.all().some((n) => n.className === "confirm-input")) await page.press("Deny");
+    expect(page.text()).toContain("No code or quotes needed");
+    expect(page.button("No, deny")).toBeTruthy();
   });
 
   it("will not send an empty typed answer", async () => {

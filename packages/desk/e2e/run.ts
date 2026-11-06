@@ -4,6 +4,7 @@
  * Part 1 runs the production build against a fake core and reads every number back off the screen, in
  * Chromium, against the fake core's own data. It also checks there is nothing to approve or deny with,
  * that the chain badge turns when the chain breaks, and that a dead core shows no numbers.
+ * Part 1b opens a drill behind a page that is already up, and checks nothing a browser can see or fetch moves.
  * Part 2 measures how long the page takes to load, cold, at a realistic data size, on the fake core and
  * on the real clearance-core.
  * Part 3 runs fixture mode, checks the SYNTHETIC banner on every tab, and takes the 1920x1080 screenshots.
@@ -17,12 +18,13 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium, type Browser, type Page } from "playwright-core";
 import { buildServer } from "../../core/src/api/server";
+import { HISTORY_SEED, seedSyntheticHistory } from "../../core/src/autonomy/history";
 import { chatMessage, gateRefund, makeHarness, PARTICIPANTS, REFUND_SC3 } from "../../core/test/harness";
 import { httpCore } from "../src/server/core-source";
 import { fixtureCore } from "../src/server/fixture";
 import { createDeskServer } from "../src/server/server";
-import { formatCount, formatLatency } from "../src/web/format";
-import { FAKE_TOKEN, startFakeCore, type FakeCore } from "../test/fake-core";
+import { formatCount, formatLatency, formatPercent, formatRate } from "../src/web/format";
+import { appendEntry, closeFakeDrill, FAKE_TOKEN, openFakeDrill, POLICY_FILE_HASH, startFakeCore, type FakeCore } from "../test/fake-core";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(here, "../../..");
@@ -85,7 +87,8 @@ async function checkNumbers(browser: Browser): Promise<void> {
 
   // Queue
   await visit(page, base, "queue", "queue-table");
-  same("queue: open count is core's", await text(page, "queue-open"), String(data.health.open_requests));
+  same("queue: open count is what core lists", await text(page, "queue-open"), "2");
+  check("queue: says a card still needs an answer, whatever this list shows", (await page.locator(".page-head").innerText()).includes("still needs your answer"));
   same("queue: critical count", await text(page, "queue-critical"), "1");
   same("queue: escalated count", await text(page, "queue-escalated"), "1");
   same("queue: escalation step", await text(page, "queue-escalation-CLR-0011"), "Step 1 of 3");
@@ -99,7 +102,7 @@ async function checkNumbers(browser: Browser): Promise<void> {
   // Ledger
   await page.getByTestId("tab-ledger").click();
   await page.getByTestId("ledger-table").waitFor();
-  check("ledger: chain badge is core's", (await text(page, "chain-badge")).includes(`Chain intact · ${data.verify.count} entries`));
+  check("ledger: chain badge is core's", (await text(page, "chain-badge")).includes(`Chain intact through entry ${data.verify.count}`));
   same("ledger: row count", await text(page, "ledger-count"), `${data.ledger.length} of ${data.ledger.length}`);
   await page.getByTestId("filter-type").selectOption("held");
   same("ledger: filter by type", await text(page, "ledger-count"), `3 of ${data.ledger.length}`);
@@ -138,28 +141,99 @@ async function checkNumbers(browser: Browser): Promise<void> {
   await page.getByTestId("tab-autonomy").click();
   await page.getByTestId("autonomy-table").waitFor();
   for (const row of data.levels) same(`autonomy: ${row.agent}`, await text(page, `autonomy-level-${row.agent}-${row.class}-${row.bucket}`), row.level);
-  check("autonomy: replay says not available yet", (await text(page, "na-replay")).includes("Not available yet"));
+  same("autonomy: decisions per 100", await text(page, "load-per-100"), formatRate(data.humanLoad.per_100));
+  same("autonomy: per 100 governed", await text(page, "load-per-100-governed"), formatRate(data.humanLoad.per_100_governed));
+  same("autonomy: agent actions", await text(page, "load-actions"), formatCount(data.humanLoad.agent_actions));
+  same("autonomy: human decisions", await text(page, "load-decisions"), formatCount(data.humanLoad.human_decisions));
+  for (const row of data.humanLoad.by_class) same(`autonomy: ${row.class} per 100`, await text(page, `load-${row.class}-per-100`), formatRate(row.per_100));
+  same("autonomy: a proposal's signatures", await text(page, "proposal-PRO-0003-signed"), "1 of 2");
+  for (const row of data.buckets) {
+    const id = `replay-${row.agent}-${row.class}-${row.bucket}`;
+    same(`autonomy: ${id} counted`, await text(page, `${id}-counted`), `${row.counted} of ${row.needs.approvals}`);
+    same(`autonomy: ${id} would run alone`, await text(page, `${id}-auto`), String(row.would_auto));
+    same(`autonomy: ${id} denied`, await text(page, `${id}-denied`), String(row.denied));
+  }
+  await page.getByTestId("replay-scope").selectOption("ops-agent/deploy/staging");
+  await page.getByTestId("replay-refunds-agent-refund-small").waitFor({ state: "detached" });
+  same("autonomy: picking a scope replays just that one", await page.locator('[data-testid="replay-table"] tbody tr').count(), 1);
+  same("autonomy: the replay reached core once, with the scope", core.seen.filter((call) => call.path === "/v1/autonomy/simulate").map((call) => call.body).join(), '{"agent":"ops-agent","class":"deploy","bucket":"staging"}');
+  await page.getByTestId("replay-scope").selectOption("");
+  await page.getByTestId("replay-refunds-agent-refund-small").waitFor();
+  same("autonomy: back to every scope", await page.locator('[data-testid="replay-table"] tbody tr').count(), data.buckets.length);
 
-  // People
+  // People: the team view first, which must not even fetch one person's numbers
+  const fetched: string[] = [];
+  page.on("request", (request) => fetched.push(new URL(request.url()).pathname));
   await page.getByTestId("tab-people").click();
   await page.getByTestId("people-table").waitFor();
-  for (const [id, stats] of Object.entries(data.stats)) {
-    same(`people: ${id} answers`, await text(page, `people-${id}-answers`), String(stats.answers));
-    same(`people: ${id} approvals`, await text(page, `people-${id}-approvals`), String(stats.approvals));
-    same(`people: ${id} denials`, await text(page, `people-${id}-denials`), String(stats.denials));
-    same(`people: ${id} open cards`, await text(page, `people-${id}-open`), String(stats.open_cards));
-    same(`people: ${id} latency`, await text(page, `people-${id}-latency`), formatLatency(stats.median_latency_ms));
-  }
+  const stats = Object.values(data.stats);
+  const total = (key: "answers" | "approvals" | "denials" | "fast_approvals" | "flags_ignored" | "batch_approvals" | "streaks") => formatCount(stats.reduce((sum, row) => sum + row[key], 0));
+  same("people: team answers", await text(page, "team-answers"), total("answers"));
+  same("people: team approvals", await text(page, "team-approvals"), total("approvals"));
+  same("people: team denials", await text(page, "team-denials"), total("denials"));
+  same("people: team fast approvals", await text(page, "team-fast"), total("fast_approvals"));
+  same("people: team flags ignored", await text(page, "team-flags"), total("flags_ignored"));
+  same("people: team batch approvals", await text(page, "team-batch"), total("batch_approvals"));
+  same("people: team streaks", await text(page, "team-streaks"), total("streaks"));
+  same("people: everyone is listed", await page.locator('[data-testid^="people-row-"]').count(), data.people.length);
+  same("people: the team view has nobody's own numbers", await page.locator('[data-testid^="person-"]').count(), 0);
+  same("people: the team view has no admin banner", await page.getByTestId("people-admin-banner").count(), 0);
+  same("people: the team view never fetched one person", fetched.filter((path) => /^\/api\/people\/./.test(path)).join(), "");
+
   await page.getByTestId("people-view").selectOption("sam");
-  await page.getByTestId("people-inbox").waitFor();
-  same("people: private view shows one person", await page.locator('[data-testid^="people-row-"]').count(), 1);
-  check("people: private view lists their card", (await page.getByTestId("people-inbox").innerText()).includes("A17"));
-  check("people: drills say not available yet", (await text(page, "na-drills")).includes("Not available yet"));
+  await page.getByTestId("people-admin-banner").waitFor();
+  const banner = await text(page, "people-admin-banner");
+  check("people: the admin's view says so, and who it is about", banner.includes("Admin's view of Sam") && banner.includes("Private to Sam and the team admin") && banner.includes("don't show this screen to the team"));
+  const sam = data.stats.sam!;
+  same("people: sam answers", await text(page, "person-answers"), String(sam.answers));
+  same("people: sam latency", await text(page, "person-latency"), formatLatency(sam.median_latency_ms));
+  same("people: sam fast approvals", await text(page, "person-fast"), String(sam.fast_approvals));
+  same("people: sam flags ignored", await text(page, "person-flags"), String(sam.flags_ignored));
+  same("people: sam batch approvals", await text(page, "person-batch"), String(sam.batch_approvals));
+  same("people: sam streaks", await text(page, "person-streaks"), String(sam.streaks));
+  same("people: sam caught", await text(page, "person-drills-caught"), String(sam.drills.caught));
+  same("people: sam missed", await text(page, "person-drills-missed"), String(sam.drills.missed));
+  same("people: sam catch rate", await text(page, "person-drills-rate"), formatPercent(sam.drills.catch_rate));
+  check("people: sam's friction, in words", (await text(page, "person-friction")).includes("after fast approvals"));
+  for (const [tier, row] of Object.entries(sam.by_tier)) {
+    same(`people: sam ${tier} median`, await text(page, `person-tier-${tier}-latency`), formatLatency(row.median_latency_ms));
+    same(`people: sam ${tier} answers`, await text(page, `person-tier-${tier}-answers`), String(row.answers));
+  }
+  const widths = await page.locator(".bar").evaluateAll((bars) => bars.map((bar) => bar.getBoundingClientRect().width));
+  check("people: bars grow with the value, from one scale", widths.length === 4 && widths.every((width, index) => index === 0 || width >= widths[index - 1]!) && widths[3]! > widths[0]! * 3, JSON.stringify(widths));
+  const barHeight = await page.locator(".bar").first().evaluate((bar) => bar.getBoundingClientRect().height);
+  check("people: a bar is no thicker than 24 px", barHeight <= 24, String(barHeight));
+  await page.getByTestId("tab-queue").click();
+  await page.getByTestId("queue-table").waitFor();
+  await page.getByTestId("tab-people").click();
+  await page.getByTestId("people-table").waitFor();
+  same("people: coming back starts on the team view", await page.getByTestId("people-admin-banner").count(), 0);
 
   // Policy
   await page.getByTestId("tab-policy").click();
   await page.getByTestId("policy-table").waitFor();
-  check("policy: says the file is not what core loaded", (await text(page, "policy-hash")).includes("Core is enforcing abc123de"));
+  check("policy: says core's version", (await text(page, "policy-hash")).includes("Core is enforcing version abc123de"));
+  check("policy: explains the file differs, without an alarm", (await text(page, "policy-relation")).includes("Core's version is the one in force"));
+  same("policy: a difference is not marked as bad", await page.locator(".status-bad").count(), 0);
+  data.policy.hash = POLICY_FILE_HASH;
+  await page.getByText("Core is enforcing this file").waitFor({ timeout: 8000 });
+  same("policy: a match needs no explanation", await page.getByTestId("policy-relation").count(), 0);
+  data.policy.hash = "c0ffee1234567890";
+  const signedEntry = { seq: 13, at: new Date().toISOString(), type: "policy_loaded", request_id: null, payload: { hash: "c0ffee1234567890", source: "proposal", approved_by: ["sam", "alex"] }, prev_hash: "prev13", entry_hash: "hash13" };
+  data.ledger.push(signedEntry);
+  await page.getByText("Core is enforcing a signed version").waitFor({ timeout: 8000 });
+  check("policy: names who signed, and says the file isn't rewritten", /Signed by Sam and Alex\..*doesn't write it back to the file/.test(await text(page, "policy-relation")));
+  same("policy: a signed version is not marked as bad", await page.locator(".status-bad").count(), 0);
+  await page.screenshot({ path: resolve(SHOTS, "state-policy-signed.png") });
+  data.policy.pending = { proposal: "PRO-0005", hash: "ddeeff0011223344", signed_by: ["neha"], quorum: 2, detail: "Raises the refund limit" };
+  await page.getByTestId("policy-pending").waitFor({ timeout: 8000 });
+  same("policy: a pending change's signatures", await text(page, "policy-pending-signed"), "1 of 2 signed: Neha");
+  await page.getByText("What it changes").click();
+  same("policy: a pending change's detail", await text(page, "policy-pending-detail"), "Raises the refund limit");
+  await page.screenshot({ path: resolve(SHOTS, "state-policy-pending.png"), fullPage: false });
+  data.policy.pending = null;
+  data.ledger = data.ledger.filter((entry) => entry !== signedEntry);
+  data.policy.hash = "abc123def456";
   await page.getByTestId("simulator-run").click();
   await page.getByTestId("simulator-decision").waitFor();
   same("policy: simulator shows core's decision", await text(page, "simulator-decision"), "Hold");
@@ -179,7 +253,7 @@ async function checkNumbers(browser: Browser): Promise<void> {
   }
   const acting = actions.filter((action) => /\b(approve|deny|allow|decline|cancel|reject)\b/i.test(action));
   same("no approve, deny or cancel control on any tab", acting.join(" | "), "");
-  same("every core call was a GET but the simulator", core.seen.filter((call) => call.method !== "GET" && call.path !== "/v1/policy/simulate").length, 0);
+  same("every core call was a GET but the two simulations", core.seen.filter((call) => call.method !== "GET" && call.path !== "/v1/policy/simulate" && call.path !== "/v1/autonomy/simulate").length, 0);
 
   // A dead core shows no numbers
   await page.goto(`${base}/#/queue`);
@@ -193,7 +267,7 @@ async function checkNumbers(browser: Browser): Promise<void> {
   await page.screenshot({ path: resolve(SHOTS, "state-core-failing.png") });
   core.forceStatus = null;
   await page.getByTestId("queue-table").waitFor({ timeout: 10000 });
-  same("core back: it recovers by itself", await text(page, "queue-open"), String(data.health.open_requests));
+  same("core back: it recovers by itself", await text(page, "queue-open"), "2");
 
   // The browser logs a line for each 4xx and 5xx this run causes on purpose: bad JSON, and core failing.
   const unexpected = problems.filter((problem) => !/status of (400|502)/.test(problem));
@@ -201,16 +275,96 @@ async function checkNumbers(browser: Browser): Promise<void> {
 
   // What a fresh real run shows first: nothing yet.
   core.data.ledger = [];
-  core.data.health.open_requests = 0;
+  core.data.requests = {};
   core.data.levels = [];
+  core.data.proposals = [];
+  core.data.buckets = [];
   core.data.coverage = [];
+  core.data.evidence = { synthetic: 0, real: 0 };
+  core.data.humanLoad = { agent_actions: 0, governed_actions: 0, human_decisions: 0, per_100: null, per_100_governed: null, by_class: [] };
   await page.goto(`${base}/#/queue`);
-  await page.getByText("Nothing is waiting on a person.").waitFor({ timeout: 8000 });
+  await page.getByText("No open requests listed.").waitFor({ timeout: 8000 });
   await page.screenshot({ path: resolve(SHOTS, "state-empty-queue.png") });
   await page.getByTestId("tab-coverage").click();
   await page.getByTestId("coverage-table").waitFor();
   same("empty coverage: nobody is shown as covered", await text(page, "coverage-vendors-seen"), "0 of 4");
   await page.screenshot({ path: resolve(SHOTS, "state-empty-coverage.png") });
+  await page.getByTestId("tab-autonomy").click();
+  await page.getByText("Every agent is at L0, Always ask.").waitFor();
+  same("empty autonomy: no traffic is a dash, not a rate of zero", await text(page, "load-per-100"), "–");
+  await page.screenshot({ path: resolve(SHOTS, "state-empty-autonomy.png"), fullPage: true });
+  await context.close();
+  await stop(desk);
+  await core.close();
+}
+
+/** An approver with a card in Switch opens the Desk beside it. Nothing here may tell them what that card is. */
+async function checkDrillsInBrowser(browser: Browser): Promise<void> {
+  console.log("\nPart 1b: a drill opens behind a page that is already up");
+  const core = await startFakeCore();
+  const desk = realDesk(core);
+  const base = await listen(desk);
+  const context = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
+  const page = await context.newPage();
+  const problems = watch(page);
+  const { data } = core;
+  const bodies: string[] = [];
+  page.on("response", (response) => {
+    if (new URL(response.url()).pathname.startsWith("/api/")) void response.text().then((body) => bodies.push(body), () => {});
+  });
+  const POLL_WAIT_MS = 3500;
+  /** Everything on screen, without the ages that tick by themselves. */
+  const screen = async () => (await page.locator("main").innerText()).replace(/\b\d+[hm] \d\d[ms]\b|\b\d+s\b/g, "#");
+  const before: Record<string, string> = {};
+  for (const [tab, ready] of [["queue", "queue-table"], ["ledger", "ledger-table"], ["people", "people-table"], ["autonomy", "autonomy-table"]] as const) {
+    await visit(page, base, tab, ready);
+    await page.waitForLoadState("networkidle");
+    before[tab] = await screen();
+  }
+  await visit(page, base, "people", "people-table");
+  await page.getByTestId("people-view").selectOption("sam");
+  await page.getByTestId("people-admin-banner").waitFor();
+  before.admin = await screen();
+
+  openFakeDrill(data);
+  appendEntry(data, "held", "CLR-0014", { agent: "refunds-agent", class: "refund", tier: "high" });
+  data.requests["CLR-0014"] = { ...data.requests["CLR-0011"], id: "CLR-0014" };
+  bodies.length = 0;
+
+  await page.waitForTimeout(POLL_WAIT_MS);
+  same("admin's view: nothing moved, though core's count of Sam's cards did", await screen(), before.admin);
+  await visit(page, base, "queue", "queue-table");
+  await page.waitForTimeout(POLL_WAIT_MS);
+  same("queue: nothing moved", await screen(), before.queue);
+  same("queue: the drill has no row", await page.getByTestId("queue-row-CLR-0013").count(), 0);
+  await visit(page, base, "ledger", "ledger-table");
+  await page.waitForTimeout(POLL_WAIT_MS);
+  same("ledger: nothing moved", await screen(), before.ledger);
+  same("ledger: no row after the last one before the drill", await page.getByTestId("ledger-row-13").count(), 0);
+  same("ledger: core's type filter offers no drills", (await page.getByTestId("filter-type").innerText()).toLowerCase().includes("drill"), false);
+  check("ledger: the badge stands still too", (await text(page, "chain-badge")).includes("Chain intact through entry 12"));
+  await page.screenshot({ path: resolve(SHOTS, "state-ledger-during-drill.png") });
+  await visit(page, base, "people", "people-table");
+  same("people: nothing moved", await screen(), before.people);
+  await visit(page, base, "autonomy", "autonomy-table");
+  await page.waitForLoadState("networkidle");
+  same("autonomy: nothing moved", await screen(), before.autonomy);
+  await page.waitForTimeout(200);
+  const fetched = bodies.join("\n");
+  check("nothing fetched names the drill or its card", !/CLR-0013|A99|91,357/.test(fetched) && bodies.length > 5, `${bodies.length} bodies`);
+  check("nothing fetched mentions a drill entry", !/drill_sent|drill_result/.test(fetched));
+
+  await visit(page, base, "ledger", "ledger-table");
+  // Part 1 clicks the link. This reads what the same link serves, because snap's Chromium keeps its downloads to itself.
+  const csv = await page.evaluate(async () => (await fetch("/api/export.csv")).text());
+  check("the export holds nothing of the drill", !/CLR-0013|drill_/.test(csv) && csv.includes("CLR-0011"), csv.slice(0, 400));
+
+  closeFakeDrill(data);
+  await page.getByTestId("ledger-row-15").waitFor({ timeout: 8000 });
+  same("once it closes: the real entry is back, with the drill's numbers skipped", await page.getByTestId("ledger-row-13").count(), 0);
+  same("once it closes: the drill's rows never appear", (await page.getByTestId("ledger-table").innerText()).includes("CLR-0013"), false);
+  check("once it closes: the page says numbers can skip", (await page.locator(".page-head").innerText()).includes("so the numbers can skip"));
+  same("no console errors", problems.join(" | "), "");
   await context.close();
   await stop(desk);
   await core.close();
@@ -297,6 +451,20 @@ async function measureLoadOnRealCore(browser: Browser): Promise<void> {
   console.log(`  ${times.length} cold loads, real core, ${entries} ledger entries, ${open} open requests`);
   console.log(`  median ${times[3]!.toFixed(0)} ms, worst ${times.at(-1)!.toFixed(0)} ms`);
   check(`real core: worst load is under ${LOAD_BUDGET_MS} ms`, times.at(-1)! < LOAD_BUDGET_MS, `${times.at(-1)!.toFixed(0)} ms`);
+
+  // Autonomy reruns the replay on every poll, so it has to be cheap with the labelled history seeded.
+  seedSyntheticHistory(h.core.stores.db, HISTORY_SEED, h.clock.nowMs());
+  const polls: number[] = [];
+  for (let run = 0; run < 5; run += 1) {
+    const started = performance.now();
+    const res = await fetch(`${base}/api/autonomy`);
+    if (res.status !== 200) throw new Error(`/api/autonomy answered ${res.status}`);
+    await res.text();
+    polls.push(performance.now() - started);
+  }
+  polls.sort((a, b) => a - b);
+  console.log(`  /api/autonomy with seeded history: median ${polls[2]!.toFixed(0)} ms, worst ${polls.at(-1)!.toFixed(0)} ms`);
+  check("real core: an Autonomy poll stays well inside the poll interval", polls.at(-1)! < 1000, `${polls.at(-1)!.toFixed(0)} ms`);
   await stop(desk);
   await app.close();
   h.core.close();
@@ -329,6 +497,19 @@ async function fixtureAndScreenshots(browser: Browser): Promise<void> {
     same(`${tab}: no sideways scroll at 1920 wide`, await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
     await page.screenshot({ path: resolve(SHOTS, `desk-${tab}.png`) });
   }
+  await visit(page, base, "autonomy", first.autonomy);
+  await page.screenshot({ path: resolve(SHOTS, "desk-autonomy-full.png"), fullPage: true });
+  await visit(page, base, "policy", first.policy);
+  await page.screenshot({ path: resolve(SHOTS, "desk-policy-full.png"), fullPage: true });
+  for (const [person, shot] of [["sam", "desk-people-admin-sam.png"], ["neha", "desk-people-admin-neha.png"]] as const) {
+    // Through another tab, because going to the same address changes nothing and would stay on the last person.
+    await visit(page, base, "queue", first.queue);
+    await visit(page, base, "people", first.people);
+    await page.getByTestId("people-view").selectOption(person);
+    await page.getByTestId("people-admin-banner").waitFor();
+    same(`admin's view of ${person}: no sideways scroll`, await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+    await page.screenshot({ path: resolve(SHOTS, shot), fullPage: true });
+  }
   same("the tab title says synthetic too", (await page.title()).startsWith("SYNTHETIC"), true);
   same("the header does not claim a connected core", (await text(page, "core-status")).includes("No core"), true);
   same("fixture mode: no console errors", problems.join(" | "), "");
@@ -344,6 +525,13 @@ async function fixtureAndScreenshots(browser: Browser): Promise<void> {
   }
   await visit(videoPage, base, "queue", first.queue);
   await videoPage.screenshot({ path: resolve(SHOTS, "video-queue.png") });
+  await visit(videoPage, base, "autonomy", first.autonomy);
+  await videoPage.screenshot({ path: resolve(SHOTS, "video-autonomy.png"), fullPage: true });
+  await visit(videoPage, base, "people", first.people);
+  await videoPage.getByTestId("people-view").selectOption("sam");
+  await videoPage.getByTestId("people-admin-banner").waitFor();
+  same("admin's view: no sideways scroll at the video's 1536 wide", await videoPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+  await videoPage.screenshot({ path: resolve(SHOTS, "video-people-admin.png") });
   await video.close();
   await stop(desk);
 }
@@ -357,7 +545,9 @@ async function main(): Promise<void> {
     args: ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
   });
   try {
+    mkdirSync(SHOTS, { recursive: true });
     await checkNumbers(browser);
+    await checkDrillsInBrowser(browser);
     await measureLoad(browser);
     await measureLoadOnRealCore(browser);
     await fixtureAndScreenshots(browser);
@@ -370,5 +560,6 @@ async function main(): Promise<void> {
 
 main().catch((error: unknown) => {
   console.error(error);
-  process.exitCode = 1;
+  // A check that throws leaves its servers listening, and they would keep the process alive.
+  process.exit(1);
 });

@@ -207,7 +207,7 @@ export function boot(env) {
         answer({ typed: input.value });
       });
       lockable.push(send);
-      controls.append(input, send);
+      controls.append(el("p", "typed-hint", copy.typedHint), input, send);
     }
     for (const label of step.card.buttons) {
       const node = button(label, "card-button", () => {

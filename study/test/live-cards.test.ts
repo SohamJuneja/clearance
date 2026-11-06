@@ -91,7 +91,7 @@ describe("condition B, the card the product posts", () => {
     const question = typed.questions[0]!;
     expect(question.allowCustomAnswer).toBe(true);
     expect(question.multiSelect).toBe(false);
-    expect(question.options.map((option) => option.label)).toEqual(["No"]);
+    expect(question.options.map((option) => option.label)).toEqual(["No, deny"]);
     expect(question.title).toContain("in quotes");
     expect(question.prompt.startsWith(critical.b.confirm!.question)).toBe(true);
     for (const line of critical.b.parsed) expect(question.prompt).toContain(line);

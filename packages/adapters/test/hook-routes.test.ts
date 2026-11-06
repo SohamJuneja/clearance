@@ -5,7 +5,29 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ActionSchema, type Action, type CheckResponse } from "@clearance/contracts";
 import { hookRoutes } from "../src/index.js";
 
-const HOOK_TOKEN = "hook-token-value";
+/** One token per agent. "someone-else" holds a token but is not in the team. */
+const HOOK_TOKENS: Record<string, string> = {
+  "tok-spike-s1": "spike-s1",
+  "tok-support": "support-agent",
+  "tok-reviewer": "reviewer",
+  "tok-ops": "ops-agent",
+  "tok-coder": "coder",
+  "tok-refunds": "refunds-agent",
+  "tok-someone-else": "someone-else",
+};
+const tokenOf = (agent: string): string => {
+  const entry = Object.entries(HOOK_TOKENS).find(([, name]) => name === agent);
+  if (!entry) throw new Error(`no token for ${agent}`);
+  return entry[0];
+};
+const as = (agent: string) => ({ authorization: `Bearer ${tokenOf(agent)}` });
+/** Whose calls each vendor's fixtures are, unless a test says otherwise. */
+const FIXTURE_AGENT: Record<string, string> = {
+  claude: "spike-s1",
+  codex: "support-agent",
+  cursor: "reviewer",
+  opencode: "ops-agent",
+};
 const FIXTURES = join(import.meta.dirname, "fixtures");
 const load = (name: string): Record<string, unknown> =>
   JSON.parse(readFileSync(join(FIXTURES, `${name}.json`), "utf8")) as Record<string, unknown>;
@@ -44,7 +66,7 @@ async function build(extra: Partial<Parameters<typeof hookRoutes>[1]> = {}) {
       if (agentType !== undefined) return KNOWN_AGENTS.has(agentType) ? agentType : null;
       return cwd ? (AGENT_DIRS[cwd] ?? null) : null;
     },
-    hookToken: HOOK_TOKEN,
+    hookTokens: HOOK_TOKENS,
     ...extra,
   });
   await app.ready();
@@ -60,8 +82,11 @@ afterEach(async () => {
   await app.close();
 });
 
-const auth = { authorization: `Bearer ${HOOK_TOKEN}` };
-const post = (vendor: string, payload: unknown, headers: Record<string, string> = auth) =>
+const post = (
+  vendor: string,
+  payload: unknown,
+  headers: Record<string, string> = as(FIXTURE_AGENT[vendor] ?? ""),
+) =>
   app.inject({
     method: "POST",
     url: `/v1/hooks/${vendor}`,
@@ -114,11 +139,9 @@ describe.each(ROUTES)("/v1/hooks/%s with %s", (vendor, fixture) => {
     expect(checks[0]!.id.length).toBeGreaterThan(5);
   });
 
-  it("the agent name comes from resolveAgent, not the payload", async () => {
+  it("the agent name comes from the token, not the payload", async () => {
     await post(vendor, { ...load(fixture), agent: { name: "sam" }, agent_name: "sam" });
-    const expected = AGENT_DIRS[checks[0]!.agent.cwd ?? ""];
-    expect(checks[0]!.agent.name).toBe(expected);
-    expect(checks[0]!.agent.name).not.toBe("sam");
+    expect(checks[0]!.agent.name).toBe(FIXTURE_AGENT[vendor]);
   });
 
   it("a hold becomes a deny carrying core's reason verbatim", async () => {
@@ -138,14 +161,14 @@ describe.each(ROUTES)("/v1/hooks/%s with %s", (vendor, fixture) => {
   it.each([
     ["no token", {}],
     ["a wrong token", { authorization: "Bearer wrong" }],
-    ["another scheme", { authorization: `Basic ${HOOK_TOKEN}` }],
+    ["another scheme", { authorization: `Basic ${tokenOf(FIXTURE_AGENT[vendor] ?? "")}` }],
   ])("%s is a deny with a reason, and check never runs", async (_name, headers) => {
     const res = await post(vendor, load(fixture), headers);
     expect(res.statusCode).toBe(200);
     const out = decisionOf(vendor, res.json());
     expect(out.deny).toBe(true);
     expect(out.reason).toMatch(/token/i);
-    expect(res.body).not.toContain(HOOK_TOKEN);
+    expect(res.body).not.toContain(tokenOf(FIXTURE_AGENT[vendor] ?? ""));
     expect(checks).toHaveLength(0);
   });
 
@@ -234,7 +257,7 @@ describe.each(ROUTES)("/v1/hooks/%s with %s", (vendor, fixture) => {
     const res = await app.inject({
       method: "POST",
       url: `/v1/hooks/${vendor}`,
-      headers: auth,
+      headers: as(FIXTURE_AGENT[vendor] ?? ""),
       payload: JSON.stringify(load(fixture)),
     });
     expect(res.statusCode).toBe(200);
@@ -244,20 +267,29 @@ describe.each(ROUTES)("/v1/hooks/%s with %s", (vendor, fixture) => {
 
 describe("agent resolution", () => {
   it("accepts a subdirectory of an agent's directory", async () => {
-    const res = await post("claude", {
-      ...withoutAgentType(load("claude-pretooluse")),
-      cwd: "/home/agent/coder/src/deep",
-    });
+    const res = await post(
+      "claude",
+      {
+        ...withoutAgentType(load("claude-pretooluse")),
+        cwd: "/home/agent/coder/src/deep",
+      },
+      as("coder"),
+    );
     expect(decisionOf("claude", res.json()).deny).toBe(false);
     expect(checks[0]!.agent.name).toBe("coder");
   });
 
   it("does not let .. walk into another agent's directory unnoticed", async () => {
-    await post("claude", {
-      ...withoutAgentType(load("claude-pretooluse")),
-      cwd: "/home/agent/coder/../refunds-agent",
-    });
-    expect(checks[0]!.agent.name).toBe("refunds-agent");
+    const res = await post(
+      "claude",
+      {
+        ...withoutAgentType(load("claude-pretooluse")),
+        cwd: "/home/agent/coder/../refunds-agent",
+      },
+      as("coder"),
+    );
+    expect(decisionOf("claude", res.json()).deny).toBe(true);
+    expect(checks).toHaveLength(0);
   });
 
   it("a resolver that throws is a deny", async () => {
@@ -283,41 +315,182 @@ describe("agent_type, the Switch agent name on real Claude payloads", () => {
     expect(checks[0]!.agent.name).toBe("spike-s1");
   });
 
-  it("an unknown agent is a deny, even from a directory another agent owns", async () => {
-    const res = await post("claude", {
-      ...real(),
-      agent_type: "someone-else",
-      cwd: "/home/agent/coder",
-    });
+  it("an agent holding a token but not in the team is a deny", async () => {
+    const res = await post(
+      "claude",
+      {
+        ...real(),
+        agent_type: "someone-else",
+        cwd: "/somewhere/else",
+      },
+      as("someone-else"),
+    );
     const out = decisionOf("claude", res.json());
     expect(out.deny).toBe(true);
     expect(out.reason).toMatch(/agent/i);
     expect(checks).toHaveLength(0);
   });
 
-  it("falls back to the directory when absent", async () => {
-    await post("claude", { ...withoutAgentType(real()), cwd: "/home/agent/coder" });
+  it("the directory is checked instead when it is absent", async () => {
+    await post("claude", { ...withoutAgentType(real()), cwd: "/home/agent/coder" }, as("coder"));
     expect(checks[0]!.agent.name).toBe("coder");
   });
 
-  it("inside a subagent it names the subagent, so the directory decides", async () => {
-    await post("claude", {
-      ...real(),
-      agent_id: "agent-1",
-      agent_type: "Explore",
-      cwd: "/home/agent/coder",
-    });
+  it("inside a subagent it names the subagent, so it is not compared with the token", async () => {
+    await post(
+      "claude",
+      {
+        ...real(),
+        agent_id: "agent-1",
+        agent_type: "Explore",
+        cwd: "/home/agent/coder",
+      },
+      as("coder"),
+    );
     expect(checks[0]!.agent.name).toBe("coder");
   });
 
   it("is ignored when it is not a string", async () => {
-    await post("claude", { ...real(), agent_type: 5, cwd: "/home/agent/coder" });
+    await post("claude", { ...real(), agent_type: 5, cwd: "/home/agent/coder" }, as("coder"));
     expect(checks[0]!.agent.name).toBe("coder");
   });
 
   it("means nothing on another vendor's payload", async () => {
     await post("codex", { ...load("codex-pretooluse-stubmodel"), agent_type: "coder" });
     expect(checks[0]!.agent.name).toBe("support-agent");
+  });
+});
+
+describe("the token decides the agent (audit F5)", () => {
+  const claude = () => load("claude-pretooluse");
+  const expectForgeryRefused = (
+    vendor: string,
+    res: { statusCode: number; json: () => Record<string, never> },
+    holder: string,
+    claimed: string,
+  ) => {
+    expect(res.statusCode).toBe(200);
+    const out = decisionOf(vendor, res.json());
+    expect(out.deny).toBe(true);
+    expect(out.reason).toContain(holder);
+    expect(out.reason).toContain(claimed);
+    expect(checks).toHaveLength(0);
+  };
+
+  describe.each(ROUTES)("another agent's token on /v1/hooks/%s with %s", (vendor, fixture) => {
+    it("is a deny, and check never runs", async () => {
+      const holder = FIXTURE_AGENT[vendor] === "coder" ? "ops-agent" : "coder";
+      const res = await post(vendor, load(fixture), as(holder));
+      expect(decisionOf(vendor, res.json()).deny).toBe(true);
+      expect(decisionOf(vendor, res.json()).reason).toContain(holder);
+      expect(checks).toHaveLength(0);
+    });
+  });
+
+  it("a forged agent_type is a deny", async () => {
+    const res = await post(
+      "claude",
+      { ...claude(), agent_type: "coder", cwd: undefined },
+      as("ops-agent"),
+    );
+    expectForgeryRefused("claude", res, "ops-agent", "coder");
+  });
+
+  it("a forged agent_type is a deny even from the forger's own directory", async () => {
+    const res = await post(
+      "claude",
+      { ...claude(), agent_type: "coder", cwd: "/home/agent/ops-agent" },
+      as("ops-agent"),
+    );
+    expectForgeryRefused("claude", res, "ops-agent", "coder");
+  });
+
+  it("a true agent_type with a forged cwd is a deny", async () => {
+    const res = await post(
+      "claude",
+      { ...claude(), agent_type: "coder", cwd: "/home/agent/refunds-agent" },
+      as("coder"),
+    );
+    expectForgeryRefused("claude", res, "coder", "refunds-agent");
+  });
+
+  it("a forged cwd behind a subagent's agent_type is a deny", async () => {
+    const res = await post(
+      "claude",
+      { ...claude(), agent_id: "agent-1", agent_type: "Explore", cwd: "/home/agent/coder" },
+      as("ops-agent"),
+    );
+    expectForgeryRefused("claude", res, "ops-agent", "coder");
+  });
+
+  it.each([
+    ["codex", "codex-pretooluse-stubmodel", { cwd: "/home/agent/coder" }],
+    ["codex", "codex-permissionrequest-bash", { cwd: "/home/agent/coder" }],
+    ["opencode", "opencode-tool-execute-before", { cwd: "/home/agent/coder" }],
+    ["cursor", "cursor-before-shell", { workspace_roots: ["/home/agent/coder"] }],
+  ])("a forged cwd on %s (%s) is a deny", async (vendor, fixture, forged) => {
+    const holder = FIXTURE_AGENT[vendor] ?? "";
+    const res = await post(vendor, { ...load(fixture), ...forged });
+    expectForgeryRefused(vendor, res, holder, "coder");
+  });
+
+  it("an unknown token is a deny, whatever the payload claims", async () => {
+    const res = await post(
+      "claude",
+      { ...claude(), agent_type: "coder", cwd: "/home/agent/coder" },
+      { authorization: "Bearer not-a-real-token" },
+    );
+    expect(decisionOf("claude", res.json()).reason).toMatch(/token/i);
+    expect(checks).toHaveLength(0);
+  });
+
+  it("a missing token is a deny, whatever the payload claims", async () => {
+    const res = await post(
+      "claude",
+      { ...claude(), agent_type: "coder", cwd: "/home/agent/coder" },
+      {},
+    );
+    expect(decisionOf("claude", res.json()).reason).toMatch(/token/i);
+    expect(checks).toHaveLength(0);
+  });
+
+  it.each(Object.entries(FIXTURE_AGENT))(
+    "%s: every action reaching check names the token's agent",
+    async (vendor, agent) => {
+      const fixture = ROUTES.find(([v]) => v === vendor)![1];
+      await post(vendor, load(fixture), as(agent));
+      expect(checks.length).toBeGreaterThan(0);
+      for (const action of checks) expect(action.agent.name).toBe(agent);
+    },
+  );
+
+  it("every file of a multi-file patch names the token's agent", async () => {
+    await post("codex", load("codex-pretooluse-apply-patch"), as("support-agent"));
+    expect(checks.map((c) => c.agent.name)).toEqual(Array(5).fill("support-agent"));
+  });
+
+  it("an agent wandering outside any agent's directory keeps its identity", async () => {
+    await post("claude", { ...claude(), cwd: "/tmp/elsewhere" }, as("spike-s1"));
+    expect(checks[0]!.agent.name).toBe("spike-s1");
+  });
+
+  it("an unknown cwd stays a deny where the vendor has no agent_type", async () => {
+    const res = await post("codex", {
+      ...load("codex-pretooluse-stubmodel"),
+      cwd: "/tmp/elsewhere",
+    });
+    expect(decisionOf("codex", res.json()).reason).toMatch(/directory/i);
+    expect(checks).toHaveLength(0);
+  });
+
+  it("does not let one agent reuse another's allow for the same session and call", async () => {
+    await post("codex", load("codex-pretooluse-stubmodel"), as("support-agent"));
+    await post(
+      "codex",
+      { ...load("codex-permissionrequest-bash"), cwd: "/home/agent/reviewer" },
+      as("reviewer"),
+    );
+    expect(checks.map((c) => c.agent.name)).toEqual(["support-agent", "reviewer"]);
   });
 });
 
@@ -430,16 +603,17 @@ describe("registration", () => {
     const other = Fastify();
     await other.register(hookRoutes, {
       check: async () => ({ decision: "allow", reason: "ok" }),
-      resolveAgent: () => "coder",
-      hookToken: HOOK_TOKEN,
+      resolveAgent: () => "spike-s1",
+      hookTokens: HOOK_TOKENS,
     });
     const res = await other.inject({
       method: "POST",
       url: "/v1/hooks/claude",
-      headers: auth,
+      headers: as("spike-s1"),
       payload: JSON.stringify(load("claude-pretooluse")),
     });
     expect(res.statusCode).toBe(200);
+    expect(decisionOf("claude", res.json()).deny).toBe(false);
     await other.close();
   });
 
@@ -449,17 +623,31 @@ describe("registration", () => {
     await hookRoutes(other, {
       check: async () => ({ decision: "allow", reason: "ok" }),
       resolveAgent: () => "coder",
-      hookToken: HOOK_TOKEN,
+      hookTokens: HOOK_TOKENS,
     });
     const res = await other.inject({ method: "POST", url: "/other", payload: { a: 1 } });
     expect(res.json()).toEqual({ a: 1 });
     await other.close();
   });
 
-  it("denies everything when configured with an empty hook token", async () => {
+  it.each([
+    ["no tokens", {}],
+    ["an empty token", { "": "coder" }],
+    ["a token with no agent", { "tok-coder": "" }],
+  ])("denies everything when configured with %s", async (_name, hookTokens) => {
     await app.close();
-    await build({ hookToken: "" });
-    const res = await post("claude", load("claude-pretooluse"), { authorization: "Bearer " });
+    await build({ hookTokens });
+    for (const headers of [{ authorization: "Bearer " }, as("coder"), {}]) {
+      const res = await post("claude", load("claude-pretooluse"), headers);
+      expect(decisionOf("claude", res.json()).deny).toBe(true);
+    }
+    expect(checks).toHaveLength(0);
+  });
+
+  it("denies everything when the old single hookToken option is all it is given", async () => {
+    await app.close();
+    await build({ hookTokens: undefined, hookToken: "tok-coder" } as never);
+    const res = await post("claude", load("claude-pretooluse"), as("coder"));
     expect(decisionOf("claude", res.json()).deny).toBe(true);
     expect(checks).toHaveLength(0);
   });

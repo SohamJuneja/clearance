@@ -3,13 +3,14 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, wri
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished } from "vitest";
 import {
   agentNeedsUpdate,
   gateTokenFor,
   OWNERS,
   planAgents,
   prepareDirectory,
+  setUpAgentDirectory,
   withContainment,
   writeContainment,
 } from "./setup-agents.ts";
@@ -199,6 +200,7 @@ describe("prepareDirectory", () => {
 describe("writeContainment", () => {
   it("writes the gitignored local settings with mode 600 and keeps the tokens in them", () => {
     const dir = mkdtempSync(join(tmpdir(), "setup-agents-"));
+    onTestFinished(() => rmSync(dir, { recursive: true, force: true }));
     mkdirSync(join(dir, ".claude"));
     const file = join(dir, ".claude/settings.local.json");
     writeFileSync(file, '{"env":{"CLEARANCE_HOOK_TOKEN":"x"}}\n');
@@ -207,6 +209,51 @@ describe("writeContainment", () => {
     expect(out.env.CLEARANCE_HOOK_TOKEN).toBe("x");
     expect(out.disableClaudeAiConnectors).toBe(true);
     expect(statSync(file).mode & 0o777).toBe(0o600);
-    rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+describe("setUpAgentDirectory, which is what a rerun applies to a folder set up before", () => {
+  const setUp = (dir: string, tokensPath: string, agent = "coder") =>
+    setUpAgentDirectory(dir, { agent, tokensPath, gateToken: "gate-token", gateUrl: "http://g", plugins: [] });
+  const fresh = () => {
+    const root = mkdtempSync(join(tmpdir(), "setup-agents-"));
+    onTestFinished(() => rmSync(root, { recursive: true, force: true }));
+    mkdirSync(join(root, "coder"));
+    mkdirSync(join(root, "ops-agent"));
+    return { root, tokensPath: join(root, "data/hook-tokens.json") };
+  };
+  const hookFile = (dir: string) => readFileSync(join(dir, ".clearance/hook-token"), "utf8").trim();
+  const local = (dir: string) => JSON.parse(readFileSync(join(dir, ".claude/settings.local.json"), "utf8"));
+
+  it("replaces the old shared token in a kept folder, in both places vendors read it", () => {
+    const { root, tokensPath } = fresh();
+    const dir = join(root, "coder");
+    mkdirSync(join(dir, ".clearance"));
+    mkdirSync(join(dir, ".claude"));
+    writeFileSync(join(dir, ".clearance/hook-token"), "old-shared-token\n");
+    writeFileSync(join(dir, ".claude/settings.local.json"), '{"env":{"CLEARANCE_HOOK_TOKEN":"old-shared-token"}}\n');
+    writeFileSync(join(dir, "work.txt"), "mine\n");
+    setUp(dir, tokensPath);
+    const token = hookFile(dir);
+    expect(token).not.toBe("old-shared-token");
+    expect(local(dir).env.CLEARANCE_HOOK_TOKEN).toBe(token);
+    expect(JSON.parse(readFileSync(tokensPath, "utf8"))).toEqual({ [token]: "coder" });
+    expect(readFileSync(join(dir, "work.txt"), "utf8")).toBe("mine\n");
+  });
+
+  it("gives two agents different tokens, and each keeps its own on a rerun", () => {
+    const { root, tokensPath } = fresh();
+    setUp(join(root, "coder"), tokensPath, "coder");
+    setUp(join(root, "ops-agent"), tokensPath, "ops-agent");
+    const coder = hookFile(join(root, "coder"));
+    expect(coder).not.toBe(hookFile(join(root, "ops-agent")));
+    setUp(join(root, "coder"), tokensPath, "coder");
+    expect(hookFile(join(root, "coder"))).toBe(coder);
+  });
+
+  it("still contains connectors, whatever else it writes", () => {
+    const { root, tokensPath } = fresh();
+    setUp(join(root, "coder"), tokensPath);
+    expect(local(join(root, "coder")).disableClaudeAiConnectors).toBe(true);
   });
 });

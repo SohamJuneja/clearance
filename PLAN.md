@@ -977,7 +977,7 @@ Claude hook config (put in `.claude/settings.json`; **VERIFY** field names again
 }
 ```
 
-`CLEARANCE_HOOK_TOKEN` reaches the agent through the controller's `--env-file` (Switch passes allow-listed inherited variables plus the controller env file; per-agent env is not supported, so one token for all agents and the `cwd` identifies the agent).
+Each agent has its own hook token, written into its directory by `scripts/setup-agents.ts` (`.claude/settings.local.json` for Claude, a file for the others), with the token-to-agent map in `data/hook-tokens.json`. The token decides the agent, and a claim in the request can only deny. (Corrected Nov 6: the controller's env file doesn't reach sessions, and one shared token let any agent spend another's grant.)
 
 ### 8.5 Agent instructions block (append to every Acme agent's `instructions`, ≤32 KiB total)
 

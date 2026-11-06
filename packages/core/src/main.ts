@@ -7,7 +7,7 @@
  */
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { hookRoutes } from "@clearance/adapters";
+import { hookRoutes, loadHookTokens } from "@clearance/adapters";
 import { DEFAULT_PORTS } from "@clearance/contracts";
 import { createGateClient } from "@clearance/gate";
 import { createChatPort, createMattermostHandleResolver, createOwnPosts, createSwitchAgent, createTemplatePort, serviceConnectionId } from "@clearance/switch-agent";
@@ -31,9 +31,18 @@ function secret(name: string): string {
 }
 
 const internalToken = secret("CLEARANCE_INTERNAL_TOKEN");
-const hookToken = secret("CLEARANCE_HOOK_TOKEN");
 const dataDir = resolve(process.env.CLEARANCE_DATA_DIR ?? "data");
 const identitiesPath = resolve(dataDir, "identities.json");
+
+// One token per agent, and it alone says which agent a hook call comes from. Refusing to start here is
+// what keeps a shared token from silently coming back.
+let hookTokens: Record<string, string>;
+try {
+  hookTokens = loadHookTokens(resolve(process.env.CLEARANCE_HOOK_TOKENS_PATH ?? resolve(dataDir, "hook-tokens.json")));
+} catch (error) {
+  console.error((error as Error).message);
+  process.exit(1);
+}
 
 type Identities = {
   people: Record<string, { participantIds: string[]; mattermostUser: string }>;
@@ -168,7 +177,7 @@ await app.register(async (scope) => {
   hookRoutes(scope, {
     check: (action) => core.check(action),
     resolveAgent: (cwd, agentType) => core.resolveAgent(cwd, agentType),
-    hookToken,
+    hookTokens,
   });
 });
 

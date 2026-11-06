@@ -4,16 +4,13 @@ import {
   constants,
   copyFileSync,
   mkdirSync,
-  mkdtempSync,
   readFileSync,
-  rmSync,
   statSync,
   writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { ACME_APP, HOOK_BIN, REPO_ROOT, deadUrl, run } from "./helpers.js";
+import { ACME_APP, HOOK_BIN, REPO_ROOT, deadUrl, run, tempDir } from "./helpers.js";
 
 const read = (path: string) => readFileSync(join(ACME_APP, path), "utf8");
 const json = (path: string) => JSON.parse(read(path));
@@ -77,7 +74,7 @@ describe(".codex/hooks.json", () => {
 
   describe("the wrapper, run as written", () => {
     const withFakeHook = (script: string | null) => {
-      const dir = mkdtempSync(join(tmpdir(), "codex-wrapper-"));
+      const dir = tempDir("codex-wrapper-");
       if (script !== null) {
         mkdirSync(join(dir, "bin"));
         const file = join(dir, "bin", "clearance-hook");
@@ -98,7 +95,6 @@ describe(".codex/hooks.json", () => {
       const out = await wrapped(dir);
       expect(out.code).toBe(2);
       expect(out.stderr).toMatch(/Clearance denied/);
-      rmSync(dir, { recursive: true, force: true });
     });
 
     it("a missing script blocks", async () => {
@@ -106,7 +102,6 @@ describe(".codex/hooks.json", () => {
       const out = await wrapped(dir);
       expect(out.code).toBe(2);
       expect(out.stderr).toMatch(/Clearance denied/);
-      rmSync(dir, { recursive: true, force: true });
     });
 
     it("a hang blocks once the 2 s is up", async () => {
@@ -116,7 +111,6 @@ describe(".codex/hooks.json", () => {
       expect(out.stderr).toMatch(/Clearance denied/);
       expect(out.ms).toBeGreaterThan(1500);
       expect(out.ms).toBeLessThan(6000);
-      rmSync(dir, { recursive: true, force: true });
     });
 
     it("a real deny passes through untouched, so the agent reads the real reason", async () => {
@@ -135,8 +129,10 @@ describe(".codex/hooks.json", () => {
 describe(".cursor/hooks.json", () => {
   const config = json(".cursor/hooks.json");
 
-  it("says it has not been run", () => {
-    expect(read(".cursor/README.md")).toMatch(/untested/i);
+  it("says it has not been run, including its per-agent token route", () => {
+    const readme = read(".cursor/README.md");
+    expect(readme).toMatch(/untested/i);
+    expect(readme).toContain(".clearance/hook-token");
   });
 
   it("has the MCP server, ready for when it can be tried", () => {
@@ -247,7 +243,7 @@ describe(".mcp.json", () => {
 
 describe("bin/mcp-headers", () => {
   const withApp = async (token: string | null) => {
-    const dir = mkdtempSync(join(tmpdir(), "mcp-headers-"));
+    const dir = tempDir("mcp-headers-");
     mkdirSync(join(dir, "bin"));
     const helper = join(dir, "bin", "mcp-headers");
     copyFileSync(join(ACME_APP, "bin", "mcp-headers"), helper);
@@ -256,7 +252,6 @@ describe("bin/mcp-headers", () => {
       writeFileSync(join(dir, ".clearance", "gate-token"), token);
     }
     const out = await run("/bin/sh", [helper], { cwd: "/" });
-    rmSync(dir, { recursive: true, force: true });
     return out;
   };
 
@@ -337,7 +332,7 @@ describe("bin/clearance-hook launcher", () => {
   describe("in an agent's clone outside this repo, where the env does not reach it", () => {
     const REAL_CLI = join(REPO_ROOT, "packages", "hook-cli", "src", "main.ts");
     const inClone = (hookCliFile: string | null) => {
-      const dir = mkdtempSync(join(tmpdir(), "hook-clone-"));
+      const dir = tempDir("hook-clone-");
       mkdirSync(join(dir, "bin"));
       copyFileSync(HOOK_BIN, join(dir, "bin", "clearance-hook"));
       chmodSync(join(dir, "bin", "clearance-hook"), 0o755);
@@ -359,7 +354,6 @@ describe("bin/clearance-hook launcher", () => {
       const reason = JSON.parse(out.stdout).hookSpecificOutput.permissionDecisionReason;
       expect(reason).toMatch(/could not answer/);
       expect(reason).not.toMatch(/could not start/);
-      rmSync(dir, { recursive: true, force: true });
     });
 
     it("denies when that file is missing", async () => {
@@ -368,7 +362,6 @@ describe("bin/clearance-hook launcher", () => {
       expect(JSON.parse(out.stdout).hookSpecificOutput.permissionDecisionReason).toMatch(
         /could not start/,
       );
-      rmSync(dir, { recursive: true, force: true });
     });
 
     it("denies when that file points nowhere", async () => {
@@ -379,7 +372,6 @@ describe("bin/clearance-hook launcher", () => {
       });
       expect(out.code).toBe(2);
       expect(JSON.parse(out.stdout).permission).toBe("deny");
-      rmSync(dir, { recursive: true, force: true });
     });
   });
 

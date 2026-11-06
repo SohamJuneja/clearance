@@ -3,8 +3,12 @@
  * a vendor reads a non-2xx as "the hook broke", and some of them carry on when a hook breaks. A
  * token that fails, a directory no agent owns, a payload that cannot be read and a `check` that
  * throws, hangs or answers nonsense are all denies, never allows.
+ *
+ * Each agent has its own hook token, and the token alone says which agent is calling. What the request
+ * claims (`agent_type`, `cwd`) can only make it a deny, by naming someone else: it is written by the
+ * caller, so it can never make one agent into another and spend that agent's grants.
  */
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash } from "node:crypto";
 import { posix } from "node:path";
 import {
   CheckResponseSchema,
@@ -23,12 +27,13 @@ import { opencodeAdapter } from "./opencode.js";
 export type HookRouteOptions = {
   check: (action: Action) => Promise<CheckResponse>;
   /**
-   * With `agentType`, the vendor named the agent: return that name if it is registered, otherwise
-   * null, and do not fall back to `cwd`, since an unknown agent is a deny. Without it, return the
-   * agent that owns `cwd`, or null.
+   * Cross-checks what the request claims against the team. With `agentType`: return that name if it
+   * is registered, otherwise null, without falling back to `cwd`. Without it: return the agent that
+   * owns `cwd`, or null. It never decides who is calling: that is the token.
    */
   resolveAgent: (cwd?: string, agentType?: string) => string | null;
-  hookToken: string;
+  /** Hook token to agent name, from `data/hook-tokens.json`. See `loadHookTokens`. */
+  hookTokens: Record<string, string>;
   /** Under the hook timeout in `.claude/settings.json`, so the deny arrives before the vendor gives up. */
   checkTimeoutMs?: number;
   now?: () => number;
@@ -52,6 +57,9 @@ const UNREADABLE = `${DENIED} it could not read the hook payload.`;
 const UNKNOWN_DIRECTORY = `${DENIED} this working directory does not belong to a registered agent.`;
 const UNKNOWN_AGENT = `${DENIED} this agent is not registered with Clearance.`;
 const UNAVAILABLE = `${DENIED} the approval service could not answer. Do not try another way.`;
+
+const wrongAgent = (holder: string, claimed: string) =>
+  `${DENIED} this hook token belongs to ${holder}, but the call says it comes from ${claimed}.`;
 
 const deny = (reason: string): HookOutcome => ({ decision: "deny", reason });
 
@@ -92,16 +100,40 @@ function callSubject(actions: Action[]): string {
 }
 
 export async function hookRoutes(app: FastifyInstance, options: HookRouteOptions): Promise<void> {
-  const expected = digest(options.hookToken);
+  // Keyed by digest so a lookup does not compare a guess against a token byte by byte.
+  const agentsByDigest = new Map(
+    Object.entries(options.hookTokens ?? {}).map(([token, agent]) => [
+      digest(token).toString("hex"),
+      agent,
+    ]),
+  );
   const checkTimeoutMs = options.checkTimeoutMs ?? DEFAULT_CHECK_TIMEOUT_MS;
   const now = options.now ?? Date.now;
   const pairedAllows = new Map<string, { event: string; expiresAt: number }>();
 
-  const tokenAccepted = (req: FastifyRequest): boolean => {
-    if (!options.hookToken) return false;
+  const agentOfToken = (req: FastifyRequest): string | undefined => {
     const header = req.headers.authorization;
     const match = header ? /^bearer\s+(\S+)$/i.exec(header) : null;
-    return match?.[1] !== undefined && timingSafeEqual(digest(match[1]), expected);
+    return match?.[1] ? agentsByDigest.get(digest(match[1]).toString("hex")) : undefined;
+  };
+
+  /** A reason to refuse, when the request's own claims don't fit the agent its token proves. */
+  const claimsRefused = (
+    adapter: VendorAdapter,
+    payload: unknown,
+    agent: string,
+  ): string | null => {
+    const cwd = adapter.cwd(payload);
+    const agentType = adapter.agentType?.(payload);
+    if (agentType !== undefined) {
+      if (agentType !== agent) return wrongAgent(agent, agentType);
+      if (options.resolveAgent(cwd, agentType) !== agent) return UNKNOWN_AGENT;
+    }
+    const owner = resolveFrom(options.resolveAgent, cwd);
+    if (owner !== null && owner !== agent) return wrongAgent(agent, owner);
+    // A named agent may wander. With no name, a directory nobody owns is all there is, and it's a deny.
+    if (owner === null && agentType === undefined) return UNKNOWN_DIRECTORY;
+    return null;
   };
 
   const takePairedAllow = (key: string, event: string): boolean => {
@@ -131,21 +163,21 @@ export async function hookRoutes(app: FastifyInstance, options: HookRouteOptions
     return last ? { decision: "allow", reason: last.reason } : deny(UNREADABLE);
   };
 
-  const decide = async (adapter: VendorAdapter, payload: unknown): Promise<HookOutcome> => {
+  const decide = async (
+    adapter: VendorAdapter,
+    payload: unknown,
+    agent: string,
+  ): Promise<HookOutcome> => {
     if (!asRecord(payload)) return deny(UNREADABLE);
-    const agentType = adapter.agentType?.(payload);
-    const agent =
-      agentType !== undefined
-        ? options.resolveAgent(adapter.cwd(payload), agentType)
-        : resolveFrom(options.resolveAgent, adapter.cwd(payload));
-    if (!agent) return deny(agentType !== undefined ? UNKNOWN_AGENT : UNKNOWN_DIRECTORY);
+    const refused = claimsRefused(adapter, payload, agent);
+    if (refused) return deny(refused);
     const actions = adapter.toActions(payload, {
       agent,
       id: ulid(),
       at: new Date(now()).toISOString(),
     });
     const paired = adapter.pairedEvent?.(payload);
-    const key = paired ? `${paired.scope}|${callSubject(actions)}` : undefined;
+    const key = paired ? `${agent}|${paired.scope}|${callSubject(actions)}` : undefined;
     if (paired && key && takePairedAllow(key, paired.event)) {
       return { decision: "allow", reason: "allowed by the check for this same call" };
     }
@@ -162,11 +194,12 @@ export async function hookRoutes(app: FastifyInstance, options: HookRouteOptions
     } catch {
       payload = undefined;
     }
-    if (!tokenAccepted(req)) {
+    const agent = agentOfToken(req);
+    if (!agent) {
       outcome = deny(BAD_TOKEN);
     } else {
       try {
-        outcome = await decide(adapter, payload);
+        outcome = await decide(adapter, payload, agent);
       } catch (err) {
         if (err instanceof PayloadError) {
           outcome = deny(UNREADABLE);

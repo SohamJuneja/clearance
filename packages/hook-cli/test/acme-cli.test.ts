@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { ACME_BIN, deadUrl, run, startServer, type FakeServer } from "./helpers.js";
+import { ACME_BIN, deadUrl, run, startServer, tempDir, type FakeServer } from "./helpers.js";
 
 const TOKEN = "gate-token-for-this-agent";
 const HELD_BODY = JSON.stringify({
@@ -239,33 +239,30 @@ describe("token", () => {
   const noEnvToken = { ACME_GATE_TOKEN: "" };
 
   it("reads .clearance/gate-token when the env has none", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "acme-token-"));
+    const dir = tempDir("acme-token-");
     mkdirSync(join(dir, ".clearance"));
     writeFileSync(join(dir, ".clearance", "gate-token"), "token-from-file\n");
     const out = await acme(["order", "A-1931"], noEnvToken, dir);
     expect(out.code).toBe(0);
     expect(gate.hits[0]!.headers.authorization).toBe("Bearer token-from-file");
-    rmSync(dir, { recursive: true, force: true });
   });
 
   it("finds the file from a subdirectory", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "acme-token-"));
+    const dir = tempDir("acme-token-");
     mkdirSync(join(dir, ".clearance"));
     mkdirSync(join(dir, "src", "deep"), { recursive: true });
     writeFileSync(join(dir, ".clearance", "gate-token"), "token-from-file\n");
     const out = await acme(["order", "A-1931"], noEnvToken, join(dir, "src", "deep"));
     expect(out.code).toBe(0);
     expect(gate.hits[0]!.headers.authorization).toBe("Bearer token-from-file");
-    rmSync(dir, { recursive: true, force: true });
   });
 
   it("prefers the env over the file", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "acme-token-"));
+    const dir = tempDir("acme-token-");
     mkdirSync(join(dir, ".clearance"));
     writeFileSync(join(dir, ".clearance", "gate-token"), "token-from-file\n");
     await acme(["order", "A-1931"], { ACME_GATE_TOKEN: "token-from-env" }, dir);
     expect(gate.hits[0]!.headers.authorization).toBe("Bearer token-from-env");
-    rmSync(dir, { recursive: true, force: true });
   });
 
   it("refuses to call the gate with no token", async () => {

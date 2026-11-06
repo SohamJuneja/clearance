@@ -191,7 +191,7 @@ async function run(
           "codex",
           payload,
           world.urls().core,
-          world.hookToken,
+          world.hookTokenOf("support-agent"),
           nodeCommand,
         );
         if (result.exitCode !== 0 || result.stdout.includes('"deny"')) {
@@ -215,7 +215,11 @@ async function run(
     print(`measuring ${cliCalls} runs of the Codex hook as .codex/hooks.json runs it`);
     const configured: number[] = [];
     for (let i = 0; i < cliCalls; i++) {
-      const result = await runConfiguredCodexHook(payload, world.urls().core, world.hookToken);
+      const result = await runConfiguredCodexHook(
+        payload,
+        world.urls().core,
+        world.hookTokenOf("support-agent"),
+      );
       if (result.exitCode !== 0 || result.stdout.includes('"deny"')) {
         throw new Error(
           `the configured hook didn't allow it: exit ${result.exitCode} ${result.stdout.slice(0, 200)}`,

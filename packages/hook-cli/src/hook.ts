@@ -14,7 +14,9 @@
  * if the JSON is not read.
  *
  * Neither vendor passes our env to hook commands under Switch, so the token comes from
- * `.clearance/hook-token`, which setup writes into the agent's directory.
+ * `.clearance/hook-token`, which setup writes into the agent's directory. It is this agent's own token
+ * and proves who is calling, so it comes before the env, where a stale shared value could otherwise win.
+ * The env is only a fallback for running this by hand.
  */
 import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -169,7 +171,7 @@ export async function runHook(
   const payload = parseOrUndefined(stdin);
   if (!asObject(payload)) return deny(vendorArg, payload, UNREADABLE);
   if (vendorArg === "codex" && isSwitchTool(payload)) return NO_OPINION;
-  const token = env.CLEARANCE_HOOK_TOKEN || tokenFromFile(cwd);
+  const token = tokenFromFile(cwd) || env.CLEARANCE_HOOK_TOKEN;
   if (!token) return deny(vendorArg, payload, NO_TOKEN);
 
   try {

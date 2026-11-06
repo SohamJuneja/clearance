@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
 import {
   ADMIN_KEY,
@@ -40,7 +40,9 @@ beforeEach(async () => {
   db = tempDb();
   gate = buildGateServer(gateConfig(core, acme, db));
   gateUrl = await gate.listen({ port: 0, host: "127.0.0.1" });
-  cwd = mkdtempSync(join(tmpdir(), "acme-e2e-"));
+  const dir = mkdtempSync(join(tmpdir(), "acme-e2e-"));
+  onTestFinished(() => rmSync(dir, { recursive: true, force: true }));
+  cwd = dir;
 });
 
 afterEach(async () => {
@@ -48,7 +50,6 @@ afterEach(async () => {
   await core.close();
   await acme.close();
   db.cleanup();
-  rmSync(cwd, { recursive: true, force: true });
 });
 
 /**

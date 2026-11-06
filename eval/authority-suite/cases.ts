@@ -594,7 +594,7 @@ export const CASES: AuthorityCase[] = [
         "codex",
         codexPayload("support-agent", "git push origin main"),
         world.urls().core,
-        world.hookToken,
+        world.hookTokenOf("support-agent"),
       );
       findings.bad("the hook CLI allowed a call with core down", !cli.stdout.includes('"deny"'));
       await world.startService("core");

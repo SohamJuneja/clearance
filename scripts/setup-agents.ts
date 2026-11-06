@@ -13,6 +13,10 @@
  * from templates/acme-mini.template.yaml, so there is one source of truth. An existing folder is left as it is,
  * so an agent's work survives a rerun; to start one over, delete its folder first.
  *
+ * Every run also writes each agent's own hook token, to data/hook-tokens.json and to its folder, kept or new.
+ * That is how a folder set up with the old shared token moves over. Core loads the file at start, so restart
+ * core after this: until then the hooks of any agent given a new token are denied, which fails closed.
+ *
  * Agents are created directly, not by running the template: a template refuses a machine whose provider has no
  * login, and it creates a whole group or nothing. refunds-agent-vanilla has its own script, scripts/setup-baseline.ts.
  */
@@ -23,7 +27,12 @@ import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { parse } from "yaml";
-import { seedCodexTrust, writeAgentSecrets } from "../packages/hook-cli/src/setup.ts";
+import {
+  defaultHookTokensPath,
+  hookTokenFor,
+  seedCodexTrust,
+  writeAgentSecrets,
+} from "../packages/hook-cli/src/setup.ts";
 import {
   agentIdOf,
   defaultWorkspacesDir,
@@ -139,6 +148,19 @@ export function writeContainment(dir: string, plugins: string[]): void {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, `${JSON.stringify(withContainment(local, plugins), null, 2)}\n`, { mode: 0o600 });
   chmodSync(path, 0o600);
+}
+
+/** Everything a folder gets on every run, kept or new. A rerun over an old folder is what moves it over. */
+export function setUpAgentDirectory(
+  dir: string,
+  options: { agent: string; tokensPath: string; gateToken: string; gateUrl: string; plugins: string[] },
+): void {
+  writeAgentSecrets(dir, {
+    hookToken: hookTokenFor(options.tokensPath, options.agent),
+    gateToken: options.gateToken,
+    gateUrl: options.gateUrl,
+  });
+  writeContainment(dir, options.plugins);
 }
 
 /** The agent's own gate token, by reversing GATE_AGENT_TOKENS. Fails closed. Errors never hold a token. */
@@ -260,8 +282,7 @@ async function main(): Promise<void> {
   const source = resolve(values.source);
   if (!existsSync(source)) throw new Error(`no source directory at ${source}`);
   const env = rootEnv();
-  const hookToken = env.CLEARANCE_HOOK_TOKEN;
-  if (!hookToken) throw new Error("CLEARANCE_HOOK_TOKEN is empty in the root .env");
+  const tokensPath = defaultHookTokensPath(env);
   const gateUrl = env.CLEARANCE_GATE_URL ?? "http://127.0.0.1:7710";
   const wanted = values.agents?.split(",").map((a) => a.trim());
   const plans = planAgents(readFileSync(join(REPO, "templates/acme-mini.template.yaml"), "utf8")).filter(
@@ -289,8 +310,13 @@ async function main(): Promise<void> {
     const folder = prepareDirectory(source, target, join(base, ".origin"));
     // Codex keys hook trust by the real path, so a symlinked base has to be resolved first.
     const dir = realpathSync(target);
-    writeAgentSecrets(dir, { hookToken, gateToken: gateTokenFor(env.GATE_AGENT_TOKENS, plan.name), gateUrl });
-    writeContainment(dir, plugins);
+    setUpAgentDirectory(dir, {
+      agent: name,
+      tokensPath,
+      gateToken: gateTokenFor(env.GATE_AGENT_TOKENS, plan.name),
+      gateUrl,
+      plugins,
+    });
     let trust = "n/a";
     if (plan.provider === "codex") {
       const seeded = await seedCodexTrust(resolve(values["codex-home"]!.replace(/^~/, homedir())), dir);
@@ -316,6 +342,7 @@ async function main(): Promise<void> {
     }
     console.log(`${name}: owner=${plan.owner} machine=${machine.name} provider=${plan.provider} model=${plan.model} folder=${folder} agent=${agent} codex_trust=${trust} dir=${dir}`);
   }
+  console.log(`hook tokens are in ${tokensPath}. Restart core to load them: scripts/services.sh down core && scripts/services.sh up core`);
   if (problems.length > 0) {
     for (const problem of problems) console.error(problem);
     process.exitCode = 1;

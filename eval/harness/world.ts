@@ -136,7 +136,7 @@ export class IsolatedWorld {
   readonly directory: string;
   private readonly adminKey = randomBytes(24).toString("hex");
   private readonly internalToken = randomBytes(24).toString("hex");
-  readonly hookToken = randomBytes(24).toString("hex");
+  private readonly hookTokens: Record<string, string> = {};
   private readonly gateTokens: Record<string, string> = {};
   private readonly processes = new Map<ServiceName, ChildProcess>();
   private readonly chatLog: string;
@@ -158,7 +158,15 @@ export class IsolatedWorld {
     this.keepFiles = options.keepFiles ?? false;
     for (const agent of Object.keys(AGENT_CLASSES)) {
       this.gateTokens[agent] = randomBytes(18).toString("hex");
+      this.hookTokens[agent] = randomBytes(24).toString("hex");
     }
+    writeFileSync(
+      join(this.directory, "hook-tokens.json"),
+      JSON.stringify(
+        Object.fromEntries(Object.entries(this.hookTokens).map(([agent, token]) => [token, agent])),
+      ),
+      { mode: 0o600 },
+    );
     this.extraClasses = options.extraClasses ?? {};
   }
 
@@ -228,7 +236,7 @@ export class IsolatedWorld {
       CLEARANCE_IDENTITIES_PATH: join(this.directory, "identities.json"),
       CLEARANCE_DRILLS_PATH: join(REPO_ROOT, "drills/flaws.yaml"),
       CLEARANCE_INTERNAL_TOKEN: this.internalToken,
-      CLEARANCE_HOOK_TOKEN: this.hookToken,
+      CLEARANCE_HOOK_TOKENS_PATH: join(this.directory, "hook-tokens.json"),
       CLEARANCE_TIME_SCALE: String(this.timeScale),
       EVAL_CHAT_LOG: this.chatLog,
     };
@@ -489,6 +497,13 @@ export class IsolatedWorld {
     return { status: res.status, json: await readJson(res) };
   }
 
+  /** The hook token that proves this agent, as setup writes into its directory. */
+  hookTokenOf(agent: string): string {
+    const token = this.hookTokens[agent];
+    if (!token) throw new Error(`the eval world has no hook token for ${agent}`);
+    return token;
+  }
+
   /** A Claude Code PreToolUse hook call, over HTTP, as `.claude/settings.json` sends it. */
   async claudeHook(
     agent: string,
@@ -497,7 +512,7 @@ export class IsolatedWorld {
   ): Promise<{ allow: boolean; reason: string; status: number }> {
     const res = await fetch(`http://127.0.0.1:${this.ports.core}/v1/hooks/claude`, {
       method: "POST",
-      headers: { authorization: `Bearer ${this.hookToken}`, "content-type": "application/json" },
+      headers: { authorization: `Bearer ${this.hookTokenOf(agent)}`, "content-type": "application/json" },
       body: JSON.stringify({
         session_id: `eval-${agent}`,
         hook_event_name: "PreToolUse",

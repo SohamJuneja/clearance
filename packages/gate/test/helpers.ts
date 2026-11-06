@@ -4,6 +4,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Fastify, { type FastifyInstance } from "fastify";
+import { onTestFinished } from "vitest";
 import type { Action, CheckResponse } from "@clearance/contracts";
 import { buildGateServer, type GateConfig } from "../src/index.js";
 
@@ -210,6 +211,8 @@ export type TempDb = { path: string; cleanup: () => void };
 
 export function tempDb(): TempDb {
   const dir = mkdtempSync(join(tmpdir(), "clearance-gate-"));
+  // /tmp is RAM-backed on the demo host. This runs however the test ends, even if an afterEach throws first.
+  onTestFinished(() => rmSync(dir, { recursive: true, force: true }));
   return {
     path: join(dir, "nested", "gate.sqlite"),
     cleanup: () => rmSync(dir, { recursive: true, force: true }),

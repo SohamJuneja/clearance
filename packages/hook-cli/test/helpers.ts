@@ -1,6 +1,9 @@
 import { spawn } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
 import { createServer, type Server } from "node:http";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { onTestFinished } from "vitest";
 
 export const REPO_ROOT = join(import.meta.dirname, "..", "..", "..");
 export const HOOK_MAIN = join(REPO_ROOT, "packages", "hook-cli", "src", "main.ts");
@@ -9,6 +12,16 @@ export const ACME_BIN = join(ACME_APP, "bin", "acme");
 export const HOOK_BIN = join(ACME_APP, "bin", "clearance-hook");
 
 export type Spawned = { code: number | null; stdout: string; stderr: string; ms: number };
+
+/**
+ * A temp directory that goes when the test does, however the test ends. /tmp is RAM-backed on the demo
+ * host, so cleanup at the end of a test body is not good enough: a failed assertion skips it.
+ */
+export function tempDir(prefix: string): string {
+  const dir = mkdtempSync(join(tmpdir(), prefix));
+  onTestFinished(() => rmSync(dir, { recursive: true, force: true }));
+  return dir;
+}
 
 const SPAWN_LIMIT_MS = 30_000;
 

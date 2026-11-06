@@ -145,6 +145,8 @@ await agent.stop();
 // ── A data folder for this agent, with the real people in it ─────────────────
 const dataDir = join(scratch, "data");
 mkdirSync(dataDir, { recursive: true });
+// Core refuses to start without per-agent hook tokens. Nothing in this spike calls a hook.
+writeFileSync(join(dataDir, "hook-tokens.json"), JSON.stringify({ [randomBytes(24).toString("hex")]: "coder" }), { mode: 0o600 });
 const internalToken = randomBytes(24).toString("hex");
 writeFileSync(
   join(dataDir, "identities.json"),
@@ -190,7 +192,6 @@ const core = spawn(process.execPath, ["--import", "tsx", join(ROOT, "packages/co
   env: {
     ...process.env,
     CLEARANCE_INTERNAL_TOKEN: internalToken,
-    CLEARANCE_HOOK_TOKEN: randomBytes(24).toString("hex"),
     CLEARANCE_DATA_DIR: dataDir,
     CLEARANCE_DB_PATH: join(scratch, "core.sqlite"),
     CLEARANCE_CORE_PORT: String(CORE_PORT),

@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import Fastify, { type FastifyInstance } from "fastify";
 import type { Action, CheckResponse } from "@clearance/contracts";
 import { hookRoutes } from "@clearance/adapters";
@@ -11,9 +11,12 @@ import { deadUrl, startServer } from "./helpers.js";
 const TOKEN = "hook-token-value";
 const AGENT_DIR = "/home/agent/ops-agent";
 
-const TOKEN_DIR = mkdtempSync(join(tmpdir(), "plugin-token-"));
-mkdirSync(join(TOKEN_DIR, ".clearance"));
-writeFileSync(join(TOKEN_DIR, ".clearance", "hook-token"), `${TOKEN}\n`);
+let TOKEN_DIR: string;
+beforeAll(() => {
+  TOKEN_DIR = mkdtempSync(join(tmpdir(), "plugin-token-"));
+  mkdirSync(join(TOKEN_DIR, ".clearance"));
+  writeFileSync(join(TOKEN_DIR, ".clearance", "hook-token"), `${TOKEN}\n`);
+});
 afterAll(() => rmSync(TOKEN_DIR, { recursive: true, force: true }));
 
 const saved = { ...process.env };
@@ -31,7 +34,7 @@ beforeEach(async () => {
       return decide();
     },
     resolveAgent: (cwd) => (cwd === AGENT_DIR || cwd === TOKEN_DIR ? "ops-agent" : null),
-    hookToken: TOKEN,
+    hookTokens: { [TOKEN]: "ops-agent" },
   });
   process.env.CLEARANCE_CORE_URL = await core.listen({ port: 0, host: "127.0.0.1" });
   process.env.CLEARANCE_HOOK_TOKEN = TOKEN;
@@ -83,6 +86,12 @@ describe("OpenCode plugin", () => {
 
   it("reads its token from .clearance/hook-token, since the env does not reach it", async () => {
     delete process.env.CLEARANCE_HOOK_TOKEN;
+    await expect(before("bash", { command: "ls" }, TOKEN_DIR)).resolves.toBeUndefined();
+    expect(checks).toHaveLength(1);
+  });
+
+  it("prefers that file, so a stale shared value in the env can't win", async () => {
+    process.env.CLEARANCE_HOOK_TOKEN = "stale-shared-token";
     await expect(before("bash", { command: "ls" }, TOKEN_DIR)).resolves.toBeUndefined();
     expect(checks).toHaveLength(1);
   });

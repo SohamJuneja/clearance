@@ -2,15 +2,17 @@
 /**
  * Prepares one agent's directory. Run it once per agent, after the clone and before the first session.
  *
- *   CLEARANCE_HOOK_TOKEN=... ACME_GATE_TOKEN=<this agent's gate token> \
- *     node packages/hook-cli/src/setup-agent.ts <agent-dir> [--codex-home <dir>]
+ *   ACME_GATE_TOKEN=<this agent's gate token> \
+ *     node packages/hook-cli/src/setup-agent.ts <agent-dir> --agent <name> \
+ *       [--tokens-file data/hook-tokens.json] [--codex-home <dir>]
  *
- * `--codex-home` also seeds Codex's trust in that home's config.toml. It edits that file, so it is
- * opt-in, and it needs `codex` on PATH. Tokens come from the env and are never printed.
+ * The agent's own hook token comes from the tokens file, which core loads at start: restart core after
+ * adding an agent. `--codex-home` also seeds Codex's trust in that home's config.toml. It edits that
+ * file, so it is opt-in, and it needs `codex` on PATH. Tokens are never printed.
  */
 import { realpathSync, statSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { seedCodexTrust, writeAgentSecrets } from "./setup.ts";
+import { defaultHookTokensPath, hookTokenFor, seedCodexTrust, writeAgentSecrets } from "./setup.ts";
 
 function fail(message: string): never {
   console.error(`setup-agent: ${message}`);
@@ -26,20 +28,33 @@ function isDirectory(path: string): boolean {
 }
 
 const { values, positionals } = parseArgs({
-  options: { "codex-home": { type: "string" } },
+  options: {
+    agent: { type: "string" },
+    "tokens-file": { type: "string" },
+    "codex-home": { type: "string" },
+  },
   allowPositionals: true,
 });
 const target = positionals[0];
-if (!target) fail("usage: setup-agent <agent-dir> [--codex-home <dir>]");
+if (!target) {
+  fail("usage: setup-agent <agent-dir> --agent <name> [--tokens-file <path>] [--codex-home <dir>]");
+}
 if (!isDirectory(target)) fail(`${target} is not a directory`);
 
-const hookToken = process.env.CLEARANCE_HOOK_TOKEN;
+const agent = values.agent;
+if (!agent) fail("--agent is required: a hook token has to prove someone");
 const gateToken = process.env.ACME_GATE_TOKEN;
-if (!hookToken) fail("CLEARANCE_HOOK_TOKEN is not set");
 if (!gateToken) fail("ACME_GATE_TOKEN is not set");
 
 // Codex keys hook trust by the real path, so a symlinked directory has to be resolved first.
 const dir = realpathSync(target);
+const tokensPath = values["tokens-file"] ?? defaultHookTokensPath(process.env);
+let hookToken: string;
+try {
+  hookToken = hookTokenFor(tokensPath, agent);
+} catch (err) {
+  fail(err instanceof Error ? err.message : "could not read the hook tokens file");
+}
 writeAgentSecrets(dir, {
   hookToken,
   gateToken,
@@ -48,6 +63,7 @@ writeAgentSecrets(dir, {
 console.log(
   `${dir}: wrote .clearance/, .claude/settings.local.json and .codex/config.toml (mode 600)`,
 );
+console.log(`${agent}: hook token is in ${tokensPath}. Restart core to load it.`);
 
 const codexHome = values["codex-home"];
 if (codexHome) {

@@ -4,10 +4,14 @@
  *
  * The agent can read all of these. They prove "this is a hook of this agent", and they are not
  * secrets from the agent. The Acme admin key is never among them.
+ *
+ * `data/hook-tokens.json` is the other half: hook token to agent name, which core loads. Each agent has
+ * its own token, and the token alone says who is calling (see packages/adapters/src/hook-routes.ts).
  */
 import { spawn } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { randomBytes } from "node:crypto";
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 
@@ -62,6 +66,42 @@ export function writeAgentSecrets(dir: string, secrets: AgentSecrets): void {
     `[mcp_servers.clearance_gate]\nurl = ${JSON.stringify(`${base}/mcp`)}\n` +
       `http_headers = { Authorization = ${JSON.stringify(`Bearer ${secrets.gateToken}`)} }\n`,
   );
+}
+
+export function defaultHookTokensPath(env: Record<string, string | undefined>): string {
+  if (env.CLEARANCE_HOOK_TOKENS_PATH) return env.CLEARANCE_HOOK_TOKENS_PATH;
+  const repo = fileURLToPath(new URL("../../../", import.meta.url));
+  return join(resolve(repo, env.CLEARANCE_DATA_DIR ?? "data"), "hook-tokens.json");
+}
+
+/**
+ * This agent's hook token, from the file core loads, adding one if it has none. A rerun keeps it, so
+ * setting up again never locks a running agent out; delete the file to rotate them all. Refuses a file
+ * it can't read rather than overwrite it, since that would cut off every other agent.
+ */
+export function hookTokenFor(tokensPath: string, agent: string): string {
+  let tokens: Record<string, string> = {};
+  if (existsSync(tokensPath)) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(readFileSync(tokensPath, "utf8"));
+    } catch {
+      parsed = undefined;
+    }
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error(`${tokensPath} is not a JSON object of hook token to agent name`);
+    }
+    tokens = parsed as Record<string, string>;
+  }
+  const token =
+    Object.keys(tokens).find((candidate) => tokens[candidate] === agent) ??
+    randomBytes(24).toString("hex");
+  mkdirSync(dirname(tokensPath), { recursive: true });
+  // Through a rename, so core restarting at any moment reads a whole file.
+  const next = `${tokensPath}.${process.pid}.tmp`;
+  writePrivate(next, `${JSON.stringify({ ...tokens, [token]: agent }, null, 2)}\n`);
+  renameSync(next, tokensPath);
+  return token;
 }
 
 /** Sets a whole TOML table, replacing any earlier copy and leaving everything else as it was. */

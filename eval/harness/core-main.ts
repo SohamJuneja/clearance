@@ -12,7 +12,7 @@
  */
 import { appendFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { hookRoutes } from "../../packages/adapters/src/index.ts";
+import { hookRoutes, loadHookTokens } from "../../packages/adapters/src/index.ts";
 import type {
   ChatPort,
   Clock,
@@ -32,7 +32,7 @@ function required(name: string): string {
 }
 
 const internalToken = required("CLEARANCE_INTERNAL_TOKEN");
-const hookToken = required("CLEARANCE_HOOK_TOKEN");
+const hookTokens = loadHookTokens(required("CLEARANCE_HOOK_TOKENS_PATH"));
 const port = Number(required("CLEARANCE_CORE_PORT"));
 const chatLog = required("EVAL_CHAT_LOG");
 
@@ -104,7 +104,7 @@ await app.register(async (scope) => {
   hookRoutes(scope, {
     check: (action) => core.check(action),
     resolveAgent: (cwd, agentType) => core.resolveAgent(cwd, agentType),
-    hookToken,
+    hookTokens,
   });
 });
 

@@ -6,12 +6,14 @@
  */
 import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { defaultHookTokensPath } from "../packages/hook-cli/src/setup.ts";
 import { agentIdOf, ownerGateway, rootEnv, type ManagedAgent } from "../scripts/gateway-owner.js";
 
 const [prefix, base, flag] = process.argv.slice(2);
 if (!prefix || !base) throw new Error("usage: setup-agents-check.ts <prefix> <base> [--cleanup]");
 const env = rootEnv();
 const grants = JSON.parse(env.GATE_AGENT_TOKENS ?? "{}") as Record<string, { agent?: string }>;
+const hookTokens = JSON.parse(readFileSync(defaultHookTokensPath(env), "utf8")) as Record<string, string>;
 const mode = (path: string) => (existsSync(path) ? (statSync(path).mode & 0o777).toString(8) : "missing");
 
 for (const owner of ["priya", "alex"]) {
@@ -38,8 +40,8 @@ for (const owner of ["priya", "alex"]) {
         brief_has_rules: String(agent.definition.instructions).includes("Clearance rules"),
         addressing_policy: row.addressing_policy ?? null,
         modes: { local_settings: mode(local), hook_token: mode(hookFile), gate_token: mode(gateFile), clearance_dir: mode(join(dir, ".clearance")) },
-        local_hook_token_matches: settings.env?.CLEARANCE_HOOK_TOKEN === env.CLEARANCE_HOOK_TOKEN,
-        hook_file_matches: existsSync(hookFile) && readFileSync(hookFile, "utf8").trim() === env.CLEARANCE_HOOK_TOKEN,
+        local_hook_token_is_this_agents: hookTokens[settings.env?.CLEARANCE_HOOK_TOKEN] === agent.name,
+        hook_file_is_this_agents: existsSync(hookFile) && hookTokens[readFileSync(hookFile, "utf8").trim()] === agent.name,
         gate_file_is_this_agents: existsSync(gateFile) && grants[readFileSync(gateFile, "utf8").trim()]?.agent === plain,
         containment: { disabled: settings.disableClaudeAiConnectors, deny: settings.permissions?.deny, plugins_off: Object.keys(settings.enabledPlugins ?? {}).length },
       }),

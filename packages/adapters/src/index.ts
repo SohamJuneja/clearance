@@ -22,3 +22,4 @@ export {
   type OpencodeOutput,
 } from "./opencode.js";
 export { hookRoutes, type HookRouteOptions } from "./hook-routes.js";
+export { loadHookTokens } from "./hook-tokens.js";

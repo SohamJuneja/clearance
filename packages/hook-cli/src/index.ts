@@ -1,5 +1,7 @@
 export { hookTimeoutMs, runHook, stdinTimedOut, type HookEnv, type HookResult } from "./hook.ts";
 export {
+  defaultHookTokensPath,
+  hookTokenFor,
   listCodexHooks,
   seedCodexTrust,
   trustHooks,

@@ -9,8 +9,10 @@
  *   F2  git config alias runs an arbitrary command while the classifier sees only "git <alias>": not held.
  *   F3  a destructive rm -rf smuggled through `find -exec` / `xargs` is not classified as a delete: not held.
  *   F4  curl/wget exfiltration is allowed (not held) if the literal ":7710" (the gate) appears anywhere in it.
- *   F5  the hook endpoint's only auth is a shared, agent-readable token, and agent identity is self-asserted
- *       from cwd/agent_type, so any agent can present as another and spend that agent's single-use grant.
+ *
+ * Fixed, so its test below is now a plain `it`:
+ *   F5  the hook endpoint's only auth was a shared, agent-readable token, and agent identity was self-asserted
+ *       from cwd/agent_type, so any agent could present as another and spend that agent's single-use grant.
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
@@ -90,7 +92,9 @@ describe("F4 curl/wget exfiltration dodges the hold with a :7710 decoy", () => {
 
 // ── F5: shared hook token lets an agent spend another agent's grant ─────────────────────────────────────────
 describe("F5 cross-agent grant consumption via the shared hook token", () => {
-  const HOOK = "shared-hook-token";
+  // The attacker holds a real token, its own. There is no shared one left to hold.
+  const HOOK = "ops-agent-hook-token";
+  const CODER_TOKEN = "coder-hook-token";
   let app: FastifyInstance;
   beforeEach(async () => {
     app = buildServer(h.core, { internalToken: "internal-token" });
@@ -98,7 +102,7 @@ describe("F5 cross-agent grant consumption via the shared hook token", () => {
       await hookRoutes(scope, {
         check: (action) => h.core.check(action),
         resolveAgent: (cwd, agentType) => h.core.resolveAgent(cwd, agentType),
-        hookToken: HOOK,
+        hookTokens: { [HOOK]: "ops-agent", [CODER_TOKEN]: "coder" },
       });
     });
     await app.ready();
@@ -107,9 +111,9 @@ describe("F5 cross-agent grant consumption via the shared hook token", () => {
     await app.close();
   });
 
-  it.fails("coder's single-use grant must not be consumable by a caller that only self-asserts agent_type=coder", async () => {
-    const PUSH = "git push --force origin main";
-    // coder earns a grant.
+  const PUSH = "git push --force origin main";
+  /** coder earns a grant. */
+  async function grantToCoder(): Promise<string> {
     const held = await h.core.check(hookShell(PUSH, { agent: { name: "coder" } }));
     const id = held.request_id as string;
     const { requests, grants } = h.core.stores;
@@ -117,10 +121,27 @@ describe("F5 cross-agent grant consumption via the shared hook token", () => {
     requests.transition(id, "APPROVED");
     grants.mint(id, held.call_hash as string, "coder", h.clock.scaledMs(10 * MINUTE));
     requests.transition(id, "GRANTED");
+    return id;
+  }
 
-    // Any holder of the one shared hook token (every agent can read it) presents as coder. There is no per-agent
-    // credential binding the caller to coder, so the grant is spent on a self-asserted identity.
+  it("coder's own token does spend coder's grant, so the fix is not just refusing everything", async () => {
+    const id = await grantToCoder();
     await app.inject({
+      method: "POST",
+      url: "/v1/hooks/claude",
+      headers: { authorization: `Bearer ${CODER_TOKEN}`, "content-type": "application/json" },
+      payload: JSON.stringify({ hook_event_name: "PreToolUse", agent_type: "coder", tool_name: "Bash", tool_input: { command: PUSH } }),
+    });
+    expect(h.core.stores.requests.get(id)?.state).toBe("CONSUMED");
+  });
+
+  it("coder's single-use grant must not be consumable by a caller that only self-asserts agent_type=coder", async () => {
+    const id = await grantToCoder();
+    const { requests } = h.core.stores;
+
+    // Another agent, holding its own valid hook token, presents as coder. Its token binds it to ops-agent, so
+    // the claim is refused and the grant stays unspent.
+    const res = await app.inject({
       method: "POST",
       url: "/v1/hooks/claude",
       headers: { authorization: `Bearer ${HOOK}`, "content-type": "application/json" },
@@ -129,5 +150,10 @@ describe("F5 cross-agent grant consumption via the shared hook token", () => {
     const consumed = requests.get(id)?.state === "CONSUMED";
     // SECURE: a grant "bound to one agent" should not be spendable by a caller proving nothing but the shared token.
     expect(consumed, "coder's grant was spent by a caller that only claimed to be coder").toBe(false);
+    // And the caller is told why, naming who its token really is.
+    const output = res.json().hookSpecificOutput;
+    expect(output.permissionDecision).toBe("deny");
+    expect(output.permissionDecisionReason).toContain("ops-agent");
+    expect(output.permissionDecisionReason).toContain("coder");
   });
 });

@@ -11,12 +11,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  defaultHookTokensPath,
+  hookTokenFor,
   seedCodexTrust,
   trustHooks,
   trustProject,
   writeAgentSecrets,
   type CodexHook,
 } from "../src/setup.ts";
+import { loadHookTokens } from "@clearance/adapters";
 import { REPO_ROOT, run } from "./helpers.js";
 
 const SETUP_MAIN = join(REPO_ROOT, "packages", "hook-cli", "src", "setup-agent.ts");
@@ -88,11 +91,77 @@ describe("writeAgentSecrets", () => {
     expect(mode(file)).toBe(0o600);
   });
 
+  it("tightens files an earlier setup left open", () => {
+    mkdirSync(join(dir, ".clearance"));
+    mkdirSync(join(dir, ".claude"));
+    const left = [
+      join(dir, ".clearance", "hook-token"),
+      join(dir, ".claude", "settings.local.json"),
+    ];
+    for (const file of left) writeFileSync(file, "{}\n", { mode: 0o644 });
+    writeAgentSecrets(dir, opts);
+    for (const file of left) expect(mode(file)).toBe(0o600);
+  });
+
   it("can be run again with new tokens", () => {
     writeAgentSecrets(dir, opts);
     writeAgentSecrets(dir, { ...opts, gateToken: "rotated" });
     expect(readFileSync(join(dir, ".clearance", "gate-token"), "utf8").trim()).toBe("rotated");
     expect(readFileSync(join(dir, ".codex", "config.toml"), "utf8")).not.toContain(GATE_TOKEN);
+  });
+});
+
+describe("hookTokenFor", () => {
+  const file = () => join(dir, "data", "hook-tokens.json");
+  const read = () => JSON.parse(readFileSync(file(), "utf8")) as Record<string, string>;
+
+  it("creates the file, mode 600, with a long random token for the agent", () => {
+    const token = hookTokenFor(file(), "coder");
+    expect(token).toMatch(/^[0-9a-f]{48}$/);
+    expect(read()).toEqual({ [token]: "coder" });
+    expect(mode(file())).toBe(0o600);
+  });
+
+  it("gives each agent its own token", () => {
+    const a = hookTokenFor(file(), "coder");
+    const b = hookTokenFor(file(), "ops-agent");
+    expect(a).not.toBe(b);
+    expect(read()).toEqual({ [a]: "coder", [b]: "ops-agent" });
+  });
+
+  it("keeps an agent's token across reruns, so rerunning setup does not lock it out", () => {
+    const first = hookTokenFor(file(), "coder");
+    expect(hookTokenFor(file(), "coder")).toBe(first);
+    expect(Object.keys(read())).toHaveLength(1);
+  });
+
+  it("tightens a file that was left open", () => {
+    mkdirSync(join(dir, "data"));
+    writeFileSync(file(), JSON.stringify({ "existing-token": "coder" }), { mode: 0o644 });
+    hookTokenFor(file(), "ops-agent");
+    expect(mode(file())).toBe(0o600);
+    expect(read()["existing-token"]).toBe("coder");
+  });
+
+  it.each(["not json", "[]", '"string"'])(
+    "refuses to overwrite a file it can't read: %s",
+    (bad) => {
+      mkdirSync(join(dir, "data"));
+      writeFileSync(file(), bad);
+      expect(() => hookTokenFor(file(), "coder")).toThrow(/hook-tokens\.json/);
+      expect(readFileSync(file(), "utf8")).toBe(bad);
+    },
+  );
+
+  it("writes what core's loader accepts", () => {
+    const token = hookTokenFor(file(), "coder");
+    expect(loadHookTokens(file())).toEqual({ [token]: "coder" });
+  });
+
+  it("defaults to data/hook-tokens.json in the repo, where core looks", () => {
+    expect(defaultHookTokensPath({})).toBe(join(REPO_ROOT, "data", "hook-tokens.json"));
+    expect(defaultHookTokensPath({ CLEARANCE_DATA_DIR: "/d" })).toBe("/d/hook-tokens.json");
+    expect(defaultHookTokensPath({ CLEARANCE_HOOK_TOKENS_PATH: "/x/t.json" })).toBe("/x/t.json");
   });
 });
 
@@ -232,35 +301,72 @@ describe("seedCodexTrust", () => {
 });
 
 describe("setup-agent command", () => {
+  const tokensFile = () => join(dir, "tokens", "hook-tokens.json");
   const setup = (args: string[], env: Record<string, string> = {}) =>
     run("node", ["--disable-warning=ExperimentalWarning", SETUP_MAIN, ...args], { env });
+  const gate = { ACME_GATE_TOKEN: GATE_TOKEN };
 
-  it("writes the secrets and never prints a token", async () => {
-    const out = await setup([dir], {
-      CLEARANCE_HOOK_TOKEN: HOOK_TOKEN,
-      ACME_GATE_TOKEN: GATE_TOKEN,
-    });
-    expect(out.code).toBe(0);
+  it("gives the agent its own token, in its directory and in the file core loads", async () => {
+    const out = await setup([dir, "--agent", "coder", "--tokens-file", tokensFile()], gate);
+    expect(out.code, out.stderr).toBe(0);
+    const inDir = readFileSync(join(dir, ".clearance", "hook-token"), "utf8").trim();
+    expect(loadHookTokens(tokensFile())).toEqual({ [inDir]: "coder" });
+    const local = JSON.parse(readFileSync(join(dir, ".claude", "settings.local.json"), "utf8"));
+    expect(local.env.CLEARANCE_HOOK_TOKEN).toBe(inDir);
     expect(existsSync(join(dir, ".clearance", "gate-token"))).toBe(true);
-    expect(out.stdout + out.stderr).not.toContain(HOOK_TOKEN);
+  });
+
+  it("never prints a token", async () => {
+    const out = await setup([dir, "--agent", "coder", "--tokens-file", tokensFile()], gate);
+    const hookToken = readFileSync(join(dir, ".clearance", "hook-token"), "utf8").trim();
+    expect(out.stdout + out.stderr).not.toContain(hookToken);
     expect(out.stdout + out.stderr).not.toContain(GATE_TOKEN);
   });
 
-  it.each(["CLEARANCE_HOOK_TOKEN", "ACME_GATE_TOKEN"])("refuses without %s", async (name) => {
-    const env: Record<string, string> = {
+  it("ignores a shared CLEARANCE_HOOK_TOKEN, so one can't come back through setup", async () => {
+    await setup([dir, "--agent", "coder", "--tokens-file", tokensFile()], {
+      ...gate,
       CLEARANCE_HOOK_TOKEN: HOOK_TOKEN,
-      ACME_GATE_TOKEN: GATE_TOKEN,
-    };
-    delete env[name];
-    const out = await setup([dir], env);
+    });
+    expect(readFileSync(join(dir, ".clearance", "hook-token"), "utf8")).not.toContain(HOOK_TOKEN);
+    expect(readFileSync(tokensFile(), "utf8")).not.toContain(HOOK_TOKEN);
+  });
+
+  it("replaces the old shared token in a directory set up before", async () => {
+    mkdirSync(join(dir, ".clearance"));
+    writeFileSync(join(dir, ".clearance", "hook-token"), `${HOOK_TOKEN}\n`);
+    await setup([dir, "--agent", "coder", "--tokens-file", tokensFile()], gate);
+    expect(readFileSync(join(dir, ".clearance", "hook-token"), "utf8")).not.toContain(HOOK_TOKEN);
+  });
+
+  it("reads the tokens file's place from CLEARANCE_HOOK_TOKENS_PATH", async () => {
+    const out = await setup([dir, "--agent", "coder"], {
+      ...gate,
+      CLEARANCE_HOOK_TOKENS_PATH: tokensFile(),
+    });
+    expect(out.code, out.stderr).toBe(0);
+    expect(Object.values(loadHookTokens(tokensFile()))).toEqual(["coder"]);
+  });
+
+  it("refuses without --agent, since a token has to prove someone", async () => {
+    const out = await setup([dir, "--tokens-file", tokensFile()], gate);
     expect(out.code).toBe(1);
-    expect(out.stderr).toContain(name);
+    expect(out.stderr).toContain("--agent");
     expect(existsSync(join(dir, ".clearance"))).toBe(false);
+    expect(existsSync(tokensFile())).toBe(false);
+  });
+
+  it("refuses without ACME_GATE_TOKEN", async () => {
+    const out = await setup([dir, "--agent", "coder", "--tokens-file", tokensFile()]);
+    expect(out.code).toBe(1);
+    expect(out.stderr).toContain("ACME_GATE_TOKEN");
+    expect(existsSync(join(dir, ".clearance"))).toBe(false);
+    expect(existsSync(tokensFile())).toBe(false);
   });
 
   it("refuses a directory that does not exist, and no arguments", async () => {
-    const env = { CLEARANCE_HOOK_TOKEN: HOOK_TOKEN, ACME_GATE_TOKEN: GATE_TOKEN };
-    expect((await setup([join(dir, "nope")], env)).code).toBe(1);
-    expect((await setup([], env)).code).toBe(1);
+    const missing = [join(dir, "nope"), "--agent", "coder", "--tokens-file", tokensFile()];
+    expect((await setup(missing, gate)).code).toBe(1);
+    expect((await setup([], gate)).code).toBe(1);
   });
 });

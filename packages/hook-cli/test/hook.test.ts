@@ -1,12 +1,11 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import Fastify, { type FastifyInstance } from "fastify";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { Action, CheckResponse } from "@clearance/contracts";
 import { codexResponse, cursorResponse, hookRoutes } from "@clearance/adapters";
 import { hookTimeoutMs } from "../src/hook.ts";
-import { REPO_ROOT, deadUrl, runHook, startServer, type FakeServer } from "./helpers.js";
+import { REPO_ROOT, deadUrl, runHook, startServer, tempDir, type FakeServer } from "./helpers.js";
 
 const FIXTURES = join(REPO_ROOT, "packages", "adapters", "test", "fixtures");
 const load = (name: string): Record<string, unknown> =>
@@ -33,7 +32,7 @@ describe("through the real hook routes", () => {
         return decide();
       },
       resolveAgent: () => "support-agent",
-      hookToken: TOKEN,
+      hookTokens: { [TOKEN]: "support-agent" },
     });
     url = await core.listen({ port: 0, host: "127.0.0.1" });
   });
@@ -189,10 +188,9 @@ describe("failing closed on its own", () => {
     });
 
     it("no token configured is a deny without calling core", async () => {
-      const empty = mkdtempSync(join(tmpdir(), "hook-no-token-"));
+      const empty = tempDir("hook-no-token-");
       expectDeny(await runHook(vendor, payload, { CLEARANCE_CORE_URL: server.url }, false, empty));
       expect(server.hits).toHaveLength(0);
-      rmSync(empty, { recursive: true, force: true });
     });
 
     it("stdin that never closes is a deny, so the vendor's timeout cannot fail open", async () => {
@@ -241,7 +239,7 @@ describe("failing closed on its own", () => {
 
   describe("token from a file, since Switch does not pass the env to hook commands", () => {
     const withTokenFile = (subdir = "") => {
-      const dir = mkdtempSync(join(tmpdir(), "hook-token-"));
+      const dir = tempDir("hook-token-");
       mkdirSync(join(dir, ".clearance"));
       writeFileSync(join(dir, ".clearance", "hook-token"), "token-from-file\n");
       if (subdir) mkdirSync(join(dir, subdir), { recursive: true });
@@ -253,21 +251,23 @@ describe("failing closed on its own", () => {
       const dir = withTokenFile();
       await runHook("codex", pre, noEnvToken(), false, dir);
       expect(server.hits[0]!.headers.authorization).toBe("Bearer token-from-file");
-      rmSync(dir, { recursive: true, force: true });
     });
 
     it("finds it from a subdirectory", async () => {
       const dir = withTokenFile("src/deep");
       await runHook("codex", pre, noEnvToken(), false, join(dir, "src/deep"));
       expect(server.hits[0]!.headers.authorization).toBe("Bearer token-from-file");
-      rmSync(dir, { recursive: true, force: true });
     });
 
-    it("prefers the env", async () => {
+    it("prefers the agent's own file, so a stale shared value in the env can't win", async () => {
       const dir = withTokenFile();
       await runHook("codex", pre, env(), false, dir);
+      expect(server.hits[0]!.headers.authorization).toBe("Bearer token-from-file");
+    });
+
+    it("falls back to the env when there is no file, for running it by hand", async () => {
+      await runHook("codex", pre, env(), false, tempDir("hook-no-file-"));
       expect(server.hits[0]!.headers.authorization).toBe(`Bearer ${TOKEN}`);
-      rmSync(dir, { recursive: true, force: true });
     });
   });
 

@@ -35,10 +35,20 @@ buildServer(core, opts): FastifyInstance              // PLAN 6.7 routes except 
 `/v1/hooks/*` routes come from `@clearance/adapters` as a Fastify plugin:
 
 ```ts
-hookRoutes(app, { check: (action: Action) => Promise<CheckResponse>, resolveAgent: (cwd?: string, agentType?: string) => string | null, hookToken: string })
+hookRoutes(app, { check: (action: Action) => Promise<CheckResponse>, resolveAgent: (cwd?: string, agentType?: string) => string | null, hookTokens: Record<string, string> })
 ```
 
-An unknown `cwd` is not an error to swallow: hold or deny, never allow. `resolveAgent` reads the `agents` map in `team.yaml`. With `agentType` set, it answers for that name only and never falls back to `cwd`.
+**The token decides the agent.** `hookTokens` is token to agent name, one token per agent, loaded with `loadHookTokens(path)` from `data/hook-tokens.json` (mode 600, gitignored). `scripts/setup-agents.ts` and `packages/hook-cli/src/setup-agent.ts` write it. `packages/core/src/main.ts` refuses to start if it is missing, empty or open to others, so a shared token can't silently come back. Set `CLEARANCE_HOOK_TOKENS_PATH` to keep it elsewhere. Core reads it at start, so restart core after adding an agent.
+
+`action.agent.name` always comes from the token. What a request claims can only make it a deny:
+
+- A missing or unknown token is a deny.
+- `agent_type` or `cwd` naming a different agent is a deny, with a reason naming both.
+- `cwd` in a directory no agent owns is a deny, unless the vendor named the agent (`agent_type`, Claude's main thread only), because a named session may wander. Never an allow on `cwd` alone.
+
+`resolveAgent` reads the `agents` map in `team.yaml` and only cross-checks those claims. With `agentType` set, it answers for that name only and never falls back to `cwd`.
+
+Each vendor reads its own token from its own directory: Claude from the `env` block of `.claude/settings.local.json`, Codex, OpenCode and Cursor from `.clearance/hook-token`. Cursor has never been run. This is not a boundary between agents on one OS user: an agent that can read another agent's directory can read its token. See PLAN 6.6.
 
 Lead wires all of this together in `packages/core/src/main.ts` at integration.
 
@@ -106,6 +116,6 @@ Core merges `team.yaml` with `identities.json`. An answer from a participant id 
 
 ## Agent working directory
 
-Every agent directory needs `packages/hook-cli/src/setup-agent.ts` run on it (`CLEARANCE_HOOK_TOKEN=... ACME_GATE_TOKEN=<token> node packages/hook-cli/src/setup-agent.ts <dir> [--codex-home <dir>]`): OpenCode refuses to start without `.clearance/gate-token`, and hooks deny everything without `.clearance/hook-cli`.
+Every agent directory needs `packages/hook-cli/src/setup-agent.ts` run on it (`ACME_GATE_TOKEN=<token> node packages/hook-cli/src/setup-agent.ts <dir> --agent <name> [--tokens-file <path>] [--codex-home <dir>]`), or `scripts/setup-agents.ts`, which does it for all five: OpenCode refuses to start without `.clearance/gate-token`, and hooks deny everything without `.clearance/hook-cli` and the agent's own `.clearance/hook-token`.
 
 `acme-mini-app/` in this repo (later its own GitHub repo, cloned through a template's `repo:`) holds `.claude/settings.json`, `.codex/hooks.json`, `.opencode/plugins/clearance.ts`, `opencode.json`, `.cursor/hooks.json`, `.mcp.json`, `bin/acme`, and the fake checkout code.

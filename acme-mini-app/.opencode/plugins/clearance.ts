@@ -4,7 +4,8 @@
  *
  * The 1.18 loader requires a local plugin to default-export `{id, server}`. Types are declared here
  * so this file needs nothing installed next to it. The env does not reach a plugin under Switch
- * (measured), so the token comes from `.clearance/hook-token`, which setup writes.
+ * (measured), so the token comes from `.clearance/hook-token`, which setup writes. It is this agent's
+ * own token, so it comes first: a stale shared value in the env must not win.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -16,12 +17,13 @@ const DENIED = "Clearance denied this call and nothing ran:";
 const UNAVAILABLE = `${DENIED} the approval service could not answer. Do not try another way.`;
 
 function hookToken(directory: string): string | undefined {
-  if (process.env.CLEARANCE_HOOK_TOKEN) return process.env.CLEARANCE_HOOK_TOKEN;
   try {
-    return readFileSync(join(directory, ".clearance", "hook-token"), "utf8").trim() || undefined;
+    const token = readFileSync(join(directory, ".clearance", "hook-token"), "utf8").trim();
+    if (token) return token;
   } catch {
-    return undefined;
+    // No file, so fall through to the env, which is only for running this by hand.
   }
+  return process.env.CLEARANCE_HOOK_TOKEN || undefined;
 }
 
 async function ask(directory: string, input: ToolCall, output: ToolOutput): Promise<string | null> {

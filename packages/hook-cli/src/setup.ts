@@ -15,7 +15,13 @@ import { dirname, join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 
-export type AgentSecrets = { hookToken: string; gateToken: string; gateUrl: string };
+export type AgentSecrets = {
+  hookToken: string;
+  gateToken: string;
+  gateUrl: string;
+  /** Where the agent's hooks find this CLI. Defaults to this copy, which a fenced agent cannot see. */
+  hookCli?: string;
+};
 
 function writePrivate(path: string, content: string): void {
   writeFileSync(path, content, { mode: 0o600 });
@@ -36,7 +42,7 @@ export function writeAgentSecrets(dir: string, secrets: AgentSecrets): void {
   // Agents run from clones outside this repo with no env of ours, so bin/clearance-hook reads this.
   writePrivate(
     join(clearance, "hook-cli"),
-    `${fileURLToPath(new URL("./main.ts", import.meta.url))}\n`,
+    `${secrets.hookCli ?? fileURLToPath(new URL("./main.ts", import.meta.url))}\n`,
   );
 
   // Claude reads CLEARANCE_HOOK_TOKEN from here for its http hook header, and ACME_GATE_TOKEN for

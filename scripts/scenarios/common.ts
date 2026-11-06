@@ -136,17 +136,20 @@ export async function waitForRefundAnsweringOnce(
 }
 
 /** The card for a request in an approver's DMs, with its answer handle. */
-export function waitForCard(
+export async function waitForCard(
   ctx: DemoContext,
   approver: Person,
   clr: string,
   sinceMs: number,
 ): Promise<MattermostPost> {
-  return approver.waitForDm(allOf(textMatches(new RegExp(`\\b${clr}\\b`)), textMatches(HANDLE)), {
+  const card = await approver.waitForDm(allOf(textMatches(new RegExp(`\\b${clr}\\b`)), textMatches(HANDLE)), {
     sinceMs,
     timeoutMs: ctx.clearanceTimeoutMs,
     description: `the ${clr} card with an answer handle in ${approver.name}'s DMs`,
   });
+  // Switch says this when the person has not written in that direct room. Each take's hello is there to prevent it.
+  ensure(!/Nobody here is linked/.test(postText(card)), `${approver.name}'s card says nobody is linked to the agent's owner`);
+  return card;
 }
 
 /**

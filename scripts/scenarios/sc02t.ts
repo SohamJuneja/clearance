@@ -27,9 +27,6 @@ export default defineScenario<State>({
   prompt: { by: "priya", room: VANILLA_ROOM, text: T77_PROMPT },
   needs: ["mattermost", "acme"],
   cast: ["priya"],
-  preconditions: [
-    `${VANILLA_AGENT} has auto_mode: false. Set it on the agent first; this runner doesn't change agent settings`,
-  ],
   state: () => ({}),
   steps: [
     {

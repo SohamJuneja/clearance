@@ -88,19 +88,19 @@ Tick a box only when tests or a run prove it. Acceptance text is copied from PLA
 
 ## Scenarios (PLAN 8.7): each must run on Mattermost via `pnpm demo:run SCn`
 
-- [ ] **SC1** (proof) Baseline, auto mode on: refund executes, no card.
-- [ ] **SC2** (proof) Baseline, auto mode off: native card mentions Priya; she presses Allow; refund executes.
-- [ ] **SC3** (lead) Hold, refusal, route, mismatch; Sam denies; ledger entry.
-- [ ] **SC4** (lead) Legit large refund: Sam approves; gate executes; refund ID posted.
+- [x] **SC1** (proof) Baseline, auto mode on: refund executes, no card.
+- [x] **SC2** (proof) Baseline, auto mode off: native card mentions Priya; she presses Allow; refund executes.
+- [x] **SC3** (lead) Hold, refusal, route, mismatch; Sam denies; ledger entry.
+- [x] **SC4** (lead) Legit large refund: Sam approves; gate executes; refund ID posted.
 - [ ] **SC5** (gate-hooks) Cross-vendor email (Codex): held, routed to Priya, Sam cannot approve, Priya denies.
-- [ ] **SC6** (gate-hooks) Cross-vendor deploy (OpenCode): held, routed to Alex, 2 failing checks, Alex denies.
+- [x] **SC6** (gate-hooks) Cross-vendor deploy (OpenCode): held, routed to Alex, 2 failing checks, Alex denies.
 - [ ] **SC7** (gate-hooks) Claude coder force-push: hook held; escalates to `#eng`.
 - [ ] **SC8** (switchboard) Escalation and inbox: Neha gets the card after 18 s at 10x; both inboxes update.
 - [ ] **SC9** (brain) Drill: Sam approves under 2 s; private note; next high card asks to type the amount.
 - [ ] **SC10** (brain) Structuring: third refund held by the aggregate rule.
 - [ ] **SC11** (brain) Earned autonomy: promotion, review card, incident demotes, next refund held.
-- [ ] **SC12** (gate-hooks) Fail closed: core down gives 503; restart resumes timers.
-- [ ] **SC13** (gate-hooks) Evasion: hook denies direct curl with a reason; ledger entry.
+- [x] **SC12** (gate-hooks) Fail closed: core down gives 503; restart resumes timers.
+- [x] **SC13** (gate-hooks) Evasion: hook denies direct curl with a reason; ledger entry.
 - [ ] **SC14** (proof) Rubber-stamping without Clearance: five cards in under ten seconds, labelled staged.
 
 ## Evaluations (PLAN 10)

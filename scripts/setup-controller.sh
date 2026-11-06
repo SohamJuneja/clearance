@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Build, enroll and start a headless Switch agent controller on this host, one per owner: an agent can
-# only run on a machine its owner holds. Repeatable: each step is skipped when it is already done. No sudo.
+# Build, enroll and start a headless Switch agent controller on this host, one per machine: an agent can
+# only run on a machine its owner holds. Each controller runs inside the fence in scripts/fence.sh, and its
+# sessions inherit it. Repeatable: each step is skipped when it is already done. No sudo.
 #
-#   scripts/setup-controller.sh --owner priya            # build + enroll + start
-#   scripts/setup-controller.sh --owner priya --doctor   # doctor only
-#   scripts/setup-controller.sh --owner priya --restart  # stop, rewrite the env file, start
-#   scripts/setup-controller.sh --owner priya --stop     # stop
+#   scripts/setup-controller.sh --owner priya            # clearance-priya: build + enroll + start
+#   scripts/setup-controller.sh --machine clearance-alex-open   # a machine by name, from fence.sh's list
+#   scripts/setup-controller.sh --owner priya --doctor   # doctor only, from inside the fence
+#   scripts/setup-controller.sh --owner priya --restart  # stop, rewrite the env file, start. Ends its sessions
+#   scripts/setup-controller.sh --owner priya --stop     # stop. Ends its sessions
 #   scripts/setup-controller.sh --owner priya --status   # PID and RSS of the controller and its children
-#   scripts/setup-controller.sh --owner priya --isolated-home   # run sessions from the isolated HOME,
-#                                                                 which needs ANTHROPIC_API_KEY in .env
 #
 # --owner defaults to admin, the Gateway admin's machine `clearance-host`. A persona signs in to the
 # Gateway as <owner>@clearance.example with PERSONA_PASSWORD from the root .env.
@@ -16,82 +16,111 @@
 # Secrets are read from .env files by this script and never printed.
 set -euo pipefail
 
-OWNER=admin
+OWNER=""
+MACHINE_NAME=""
 ACTION=up
-ISOLATED=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --owner)
       OWNER="$2"
       shift 2
       ;;
+    --machine)
+      MACHINE_NAME="$2"
+      shift 2
+      ;;
     --doctor | --stop | --restart | --status)
       ACTION="${1#--}"
       shift
       ;;
-    --isolated-home)
-      ISOLATED=1
-      shift
-      ;;
     *)
-      echo "usage: $0 [--owner <name>] [--isolated-home] [--doctor|--stop|--restart|--status]" >&2
+      echo "usage: $0 [--owner <name> | --machine <name>] [--doctor|--stop|--restart|--status]" >&2
       exit 2
       ;;
   esac
 done
 
-REPO_ROOT="${CLEARANCE_ROOT:-/home/prashant/projects/Clearance}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="${CLEARANCE_ROOT:-$(cd "$HERE/.." && pwd)}"
+# shellcheck source=scripts/fence.sh
+source "$HERE/fence.sh"
+if [ -z "$MACHINE_NAME" ]; then
+  case "${OWNER:-admin}" in
+    admin) MACHINE_NAME=clearance-host ;;
+    *) MACHINE_NAME="clearance-$OWNER" ;;
+  esac
+fi
+if ! OWNER="$(fence_owner "$MACHINE_NAME")"; then
+  echo "no machine named $MACHINE_NAME in scripts/fence.sh" >&2
+  exit 2
+fi
+
 SWITCH_DIR="$REPO_ROOT/vendor/switch"
-TOOLS="$HOME/.local/share/clearance-tools"
 SRC="$TOOLS/controller-src/console"
 CLI="$SRC/packages/agent-controller/dist/cli.mjs"
 RUN_DIR="$REPO_ROOT/data"
-if [ "$OWNER" = admin ]; then
-  DATA_DIR="$TOOLS/controller-data"
-  STEM=controller
-  MACHINE_NAME="${CLEARANCE_MACHINE_NAME:-clearance-host}"
-else
-  DATA_DIR="$TOOLS/controller-data-$OWNER"
-  STEM="controller-$OWNER"
-  MACHINE_NAME="${CLEARANCE_MACHINE_NAME:-clearance-$OWNER}"
-fi
-ENV_FILE="$RUN_DIR/$STEM.env"
+DATA_DIR="$(fence_data_dir "$MACHINE_NAME")"
+STEM="$(fence_stem "$MACHINE_NAME")"
+FENCE_HOME="$(fence_home "$MACHINE_NAME")"
+# In the machine's own data folder, because data/ is not visible from inside the fence.
+ENV_FILE="$DATA_DIR/controller.env"
 LOG_FILE="$RUN_DIR/$STEM.log"
 PID_FILE="$RUN_DIR/$STEM.pid"
+TOKEN_PID_FILE="$RUN_DIR/$STEM.token.pid"
+FINGERPRINT_FILE="$RUN_DIR/$STEM.fence"
 BRIDGE_URL="${SWITCH_BRIDGE_URL:-http://127.0.0.1:8000}"
 GATEWAY_URL="${SWITCH_GATEWAY_URL:-http://127.0.0.1:3000}"
 PNPM="npx --yes pnpm@10.28.2"
 
 NODE="$(node -p process.execPath)"
-# The PATH agents get. The pinned OpenCode comes first; the controller appends the login shell's
-# entries after whatever it is given (login-path.ts). Node's own folder is named because Volta's shim
-# cannot find its home under an isolated HOME.
-AGENT_PATH="${CLEARANCE_EXTRA_PATH:+$CLEARANCE_EXTRA_PATH:}$TOOLS/node_modules/.bin:$(dirname "$NODE"):$HOME/.local/bin:$HOME/.volta/bin:/usr/local/bin:/usr/bin:/bin"
+AGENT_PATH="$(fence_path)"
+fence_env
+BWRAP="$(command -v bwrap || true)"
 
-SESSION_HOME="$HOME"
-if [ "$ISOLATED" = 1 ]; then
-  SESSION_HOME="$TOOLS/agent-home"
-fi
-
-# Only these reach the controller, so nothing from the invoking shell (a parent agent's CLAUDE_*
-# variables, say) leaks in. Sessions take HOME from here.
-CLEAN_ENV=(env -i "HOME=$SESSION_HOME" "USER=${USER:-$(id -un)}" "SHELL=${SHELL:-/bin/bash}"
-  "LANG=${LANG:-C.UTF-8}" "PATH=$AGENT_PATH")
+fenced() {
+  "${FENCE_ENV[@]}" "$BWRAP" "${FENCE_ARGS[@]}" "$@"
+}
 
 running_pid() {
   [ -f "$PID_FILE" ] || return 1
   local pid
   pid="$(cat "$PID_FILE")"
   kill -0 "$pid" 2>/dev/null || return 1
-  tr '\0' ' ' <"/proc/$pid/cmdline" | grep -q 'cli.mjs run' || return 1
+  { tr '\0' ' ' <"/proc/$pid/cmdline"; } 2>/dev/null | grep -q 'cli.mjs run' || return 1
   echo "$pid"
 }
 
+# The controller itself: the node under bwrap's two processes, or the pid when it predates the fence.
+inner_pid() {
+  local pid="$1" child
+  case "$(cat "/proc/$pid/comm" 2>/dev/null)" in
+    node) echo "$pid" ;;
+    *)
+      child="$(pgrep -P "$pid" | head -n 1 || true)"
+      if [ -n "$child" ]; then pgrep -P "$child" -x node | head -n 1; fi
+      ;;
+  esac
+}
+
+stop_token_sync() {
+  if [ -f "$TOKEN_PID_FILE" ]; then
+    local pid
+    pid="$(cat "$TOKEN_PID_FILE")"
+    # By what it is: after a reboot that number can belong to anything.
+    if { tr '\0' ' ' <"/proc/$pid/cmdline"; } 2>/dev/null | grep -q fence-claude-token; then
+      kill "$pid" 2>/dev/null || true
+    fi
+    rm -f "$TOKEN_PID_FILE"
+  fi
+}
+
 stop_controller() {
-  local pid
+  local pid inner
+  stop_token_sync
   if pid="$(running_pid)"; then
-    kill -TERM "$pid"
+    inner="$(inner_pid "$pid" || true)"
+    # Stopping the controller ends the sandbox's first process, and with it every session inside.
+    kill -TERM "${inner:-$pid}"
     for _ in $(seq 1 30); do
       kill -0 "$pid" 2>/dev/null || break
       sleep 1
@@ -106,7 +135,7 @@ stop_controller() {
 status() {
   local pid
   if pid="$(running_pid)"; then
-    echo "$MACHINE_NAME pid $pid"
+    echo "$MACHINE_NAME pid $pid, $([ "$(cat "/proc/$pid/comm")" = bwrap ] && echo fenced || echo NOT FENCED)"
     ps -o pid,ppid,rss,etime,comm -p "$pid" --ppid "$pid"
   else
     echo "$MACHINE_NAME not running"
@@ -114,7 +143,7 @@ status() {
 }
 
 doctor() {
-  "${CLEAN_ENV[@]}" "$NODE" "$CLI" doctor --data-dir "$DATA_DIR" --env-file "$ENV_FILE" || true
+  fenced "$NODE" "$CLI" doctor --data-dir "$DATA_DIR" --env-file "$ENV_FILE" || true
 }
 
 build_controller() {
@@ -134,10 +163,10 @@ build_controller() {
   )
 }
 
-# CLEARANCE_HOOK_TOKEN does not go here: the session allowlist drops it (spikes/RESULTS-vendors.md).
-# scripts/setup-agents.ts delivers it per agent directory instead.
+# Hook tokens do not go here: the session allowlist drops them (spikes/RESULTS-vendors.md).
+# scripts/setup-agents.ts delivers each agent's own to its directory instead.
 write_env_file() {
-  mkdir -p "$RUN_DIR"
+  mkdir -p "$RUN_DIR" "$DATA_DIR"
   (
     umask 077
     {
@@ -192,18 +221,29 @@ enroll_if_needed() {
   fi
   local code
   code="$(enrollment_code)"
-  "${CLEAN_ENV[@]}" "$NODE" "$CLI" enroll --server "$BRIDGE_URL" --code "$code" \
+  fenced "$NODE" "$CLI" enroll --server "$BRIDGE_URL" --code "$code" \
     --name "$MACHINE_NAME" --description "Clearance demo machine for $OWNER" \
     --data-dir "$DATA_DIR" --secret-store file
+}
+
+fence_fingerprint() {
+  printf '%s\n' "${FENCE_ARGS[@]}" "${FENCE_ENV[@]}" | sha256sum | cut -d' ' -f1
 }
 
 start_controller() {
   local pid
   if pid="$(running_pid)"; then
-    echo "$MACHINE_NAME already running, pid $pid"
-    return
+    # A login that landed since, or a new tool, changes the arguments. A running controller can't pick that up.
+    if [ "$(cat "$FINGERPRINT_FILE" 2>/dev/null)" = "$(fence_fingerprint)" ]; then
+      echo "$MACHINE_NAME already running, pid $pid"
+      start_token_sync "$pid"
+      return
+    fi
+    echo "$MACHINE_NAME's fence changed, so it restarts. That ends its sessions"
+    stop_controller
   fi
-  nohup setsid "${CLEAN_ENV[@]}" "$NODE" "$CLI" run --data-dir "$DATA_DIR" --env-file "$ENV_FILE" \
+  fence_fingerprint >"$FINGERPRINT_FILE"
+  nohup setsid "${FENCE_ENV[@]}" "$BWRAP" "${FENCE_ARGS[@]}" "$NODE" "$CLI" run --data-dir "$DATA_DIR" --env-file "$ENV_FILE" \
     >>"$LOG_FILE" 2>&1 </dev/null &
   echo $! >"$PID_FILE"
   sleep 5
@@ -212,14 +252,53 @@ start_controller() {
     tail -n 20 "$LOG_FILE" >&2
     exit 1
   }
-  echo "$MACHINE_NAME running, pid $pid, log $LOG_FILE"
+  echo "$MACHINE_NAME running in the fence, pid $pid, log $LOG_FILE"
+  start_token_sync "$pid"
+}
+
+# How Claude authenticates in this machine's home. An API key wins. Otherwise the operator's login, without its
+# refresh token: see scripts/fence-claude-token.sh for why it cannot simply be bound in.
+prepare_claude_login() {
+  fence_has_provider "$MACHINE_NAME" claude || return 0
+  local key=""
+  if [ -f "$REPO_ROOT/.env" ]; then
+    key="$(sed -n 's/^ANTHROPIC_API_KEY=//p' "$REPO_ROOT/.env" | tail -n 1 | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'$/\1/")"
+  fi
+  if [ -n "$key" ]; then
+    rm -f "$FENCE_HOME/.claude/.credentials.json"
+    CLEARANCE_ROOT="$REPO_ROOT" CLEARANCE_AGENT_HOME="$FENCE_HOME" CLEARANCE_AGENT_HOME_INSIDE="$HOME" "$HERE/setup-agent-home.sh"
+    CLAUDE_AUTH=key
+    return 0
+  fi
+  if [ ! -f "$HOME/.claude/.credentials.json" ]; then
+    echo "warning: $MACHINE_NAME runs Claude agents, but .env has no ANTHROPIC_API_KEY and this host has no Claude login. They will not start." >&2
+    CLAUDE_AUTH=none
+    return 0
+  fi
+  cat >"$FENCE_HOME/.claude/settings.json" <<'JSON'
+{
+  "disableClaudeAiConnectors": true,
+  "permissions": { "deny": ["mcp__claude_ai_*"] }
+}
+JSON
+  "$HERE/fence-claude-token.sh" "$FENCE_HOME" --once
+  CLAUDE_AUTH=login
+}
+
+start_token_sync() {
+  [ "${CLAUDE_AUTH:-}" = login ] || return 0
+  stop_token_sync
+  nohup setsid "$HERE/fence-claude-token.sh" "$FENCE_HOME" --follow "$1" >>"$LOG_FILE" 2>&1 </dev/null &
+  echo $! >"$TOKEN_PID_FILE"
+}
+
+# Codex and Cursor hooks run this, and the repo is not visible from inside the fence.
+install_hook_cli() {
+  mkdir -p "$TOOLS/hook-cli"
+  cp "$REPO_ROOT/packages/hook-cli/src/main.ts" "$REPO_ROOT/packages/hook-cli/src/hook.ts" "$TOOLS/hook-cli/"
 }
 
 case "$ACTION" in
-  doctor)
-    doctor
-    exit 0
-    ;;
   stop)
     stop_controller
     exit 0
@@ -231,11 +310,20 @@ case "$ACTION" in
   restart) stop_controller ;;
 esac
 
-if [ "$ISOLATED" = 1 ]; then
-  "$HERE/setup-agent-home.sh"
+if ! fence_supported; then
+  echo "refusing to run $MACHINE_NAME unfenced" >&2
+  exit 1
 fi
 build_controller
+install_hook_cli
+fence_prepare "$MACHINE_NAME"
+fence_args "$MACHINE_NAME"
+if [ "$ACTION" = doctor ]; then
+  doctor
+  exit 0
+fi
 write_env_file
+prepare_claude_login
 enroll_if_needed
 doctor
 start_controller

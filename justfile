@@ -7,6 +7,10 @@ switch_sha := "1fe56227b6e330452ac80d7b7b2ca0a66aaeaeab"
 default:
     @just --list
 
+# Everything a judge needs, from a fresh clone, safe to rerun. `just demo --check` changes nothing in the stack.
+demo *args:
+    bash scripts/demo.sh {{args}}
+
 # Clone Switch at the pinned commit (never modified; see DECISIONS.md)
 switch-fetch:
     #!/usr/bin/env bash
@@ -26,8 +30,14 @@ check:
     pnpm lint
     pnpm test
 
-# Agents' working copies and the Acme rooms, safe to rerun. Needs Switch up and each owner's controller
-# (scripts/setup-controller.sh --owner priya, --owner alex). Codex and Cursor agents need logins first.
+# Agents' working copies and the Acme rooms, safe to rerun. Needs Switch up and each machine's controller.
+# Codex and Cursor agents wait for their logins, and a rerun creates them.
 world:
-    pnpm exec tsx scripts/setup-agents.ts --source acme-mini-app --agents refunds-agent,ops-agent
-    pnpm exec tsx scripts/setup-world.ts
+    pnpm exec tsx --env-file=.env scripts/setup-agents.ts --source acme-mini-app
+    scripts/services.sh down core
+    scripts/services.sh up core
+    pnpm exec tsx --env-file=.env scripts/setup-world.ts
+
+# Prove the fence around agents, with no LLM: what must be hidden is hidden, and what they need still works.
+check-fence:
+    scripts/check-fence.sh --live

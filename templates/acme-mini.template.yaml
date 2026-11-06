@@ -88,6 +88,8 @@ resources:
       - { if: "{repo_url}", value: "{repo_url}" }
     auto_mode: true
     can_manage_agents: false
+    # Only for running this template by hand. scripts/setup-world.ts replaces it with room-limited addressing, by room
+    # id, which a template can't say.
     addressing: anyone
     instructions: |
       You handle customer refunds for Acme. Tickets and orders are reachable through the `acme` CLI in

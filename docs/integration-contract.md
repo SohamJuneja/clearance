@@ -48,7 +48,7 @@ hookRoutes(app, { check: (action: Action) => Promise<CheckResponse>, resolveAgen
 
 `resolveAgent` reads the `agents` map in `team.yaml` and only cross-checks those claims. With `agentType` set, it answers for that name only and never falls back to `cwd`.
 
-Each vendor reads its own token from its own directory: Claude from the `env` block of `.claude/settings.local.json`, Codex, OpenCode and Cursor from `.clearance/hook-token`. Cursor has never been run. This is not a boundary between agents on one OS user: an agent that can read another agent's directory can read its token. See PLAN 6.6.
+Each vendor reads its own token from its own directory: Claude from the `env` block of `.claude/settings.local.json`, Codex, OpenCode and Cursor from `.clearance/hook-token`. Cursor has never been run. The fence hides other machines' folders, but agents on one machine can read each other's tokens: see `docs/threat-model.md`.
 
 Lead wires all of this together in `packages/core/src/main.ts` at integration.
 
@@ -116,6 +116,6 @@ Core merges `team.yaml` with `identities.json`. An answer from a participant id 
 
 ## Agent working directory
 
-Every agent directory needs `packages/hook-cli/src/setup-agent.ts` run on it (`ACME_GATE_TOKEN=<token> node packages/hook-cli/src/setup-agent.ts <dir> --agent <name> [--tokens-file <path>] [--codex-home <dir>]`), or `scripts/setup-agents.ts`, which does it for all five: OpenCode refuses to start without `.clearance/gate-token`, and hooks deny everything without `.clearance/hook-cli` and the agent's own `.clearance/hook-token`.
+Every agent directory needs `packages/hook-cli/src/setup-agent.ts` run on it (`ACME_GATE_TOKEN=<token> node packages/hook-cli/src/setup-agent.ts <dir> --agent <name> [--tokens-file <path>] [--codex-home <dir>]`), or `scripts/setup-agents.ts`, which does it for all five: OpenCode refuses to start without `.clearance/gate-token`, and hooks deny everything without `.clearance/hook-cli` and the agent's own `.clearance/hook-token`. `scripts/setup-agents.ts` points `hook-cli` at a copy in `~/.local/share/clearance-tools/hook-cli`, because the repo is hidden from fenced agents.
 
 `acme-mini-app/` in this repo (later its own GitHub repo, cloned through a template's `repo:`) holds `.claude/settings.json`, `.codex/hooks.json`, `.opencode/plugins/clearance.ts`, `opencode.json`, `.cursor/hooks.json`, `.mcp.json`, `bin/acme`, and the fake checkout code.

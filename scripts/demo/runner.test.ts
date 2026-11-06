@@ -474,9 +474,10 @@ describe("the demo runner", () => {
   describe("SC4, where a careful agent asks for a ticket first", () => {
     const ANSWER = "@refunds-agent no ticket on this one, it's a return. Go ahead.";
 
-    function playTheWorld(behaviour: { asksFirst: boolean }): void {
+    function playTheWorld(behaviour: { asksFirst: boolean; unlinked?: boolean }): void {
       const clearance = people.clearance!;
-      const card = CARD.replaceAll("A-1931", "A-2004").replaceAll("₹4,000", "₹40,000");
+      const shown = behaviour.unlinked ? `${CARD}\nNobody here is linked to this agent's owner.` : CARD;
+      const card = shown.replaceAll("A-1931", "A-2004").replaceAll("₹4,000", "₹40,000");
       const hold = () => {
         const dm = mm.addChannel({ name: "d-sam", type: "D", members: [people.sam!, clearance] });
         mm.addPost(dm, clearance, card);
@@ -523,6 +524,13 @@ describe("the demo runner", () => {
       const typed = [...mm.posts.values()].map((post) => post.message);
       expect(typed.filter((text) => text === ANSWER)).toHaveLength(1);
       expect(output()).toContain("after Priya answered once");
+    });
+
+    it("fails when the card says nobody is linked, because that is what the take's hello prevents", async () => {
+      playTheWorld({ asksFirst: false, unlinked: true });
+      const result = await runScenario(sc04, options);
+      expect(result.verdict).toBe("fail");
+      expect(output()).toContain("says nobody is linked");
     });
 
     it("says nothing extra when the agent goes straight to the hold", async () => {

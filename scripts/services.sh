@@ -8,9 +8,25 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-RUN="$ROOT/data/run"
+RUN="${CLEARANCE_RUN_DIR:-$ROOT/data/run}"
 mkdir -p "$RUN"
 TSX="$ROOT/node_modules/.bin/tsx"
+BOOT_ID="$(cat /proc/sys/kernel/random/boot_id 2>/dev/null || echo unknown)"
+
+# The process group a service started, or nothing if it was started before this boot: that number may now belong to
+# something else, which must not be signalled, and must not pass for the service being up.
+live_pgid() {
+  local name="$1" pgid
+  [ -s "$RUN/$name.pgid" ] || return 1
+  # No boot file means this script's older self started it, so the number is trusted.
+  if [ -f "$RUN/$name.boot" ] && [ "$(cat "$RUN/$name.boot")" != "$BOOT_ID" ]; then
+    : >"$RUN/$name.pgid"
+    return 1
+  fi
+  pgid="$(cat "$RUN/$name.pgid")"
+  kill -0 -- "-$pgid" 2>/dev/null || return 1
+  echo "$pgid"
+}
 
 entry() {
   case "$1" in
@@ -33,7 +49,7 @@ port() {
 
 up_one() {
   local name="$1"
-  if [ -f "$RUN/$name.pgid" ] && kill -0 -- "-$(cat "$RUN/$name.pgid")" 2>/dev/null; then
+  if live_pgid "$name" >/dev/null; then
     echo "$name: already running"
     return 0
   fi
@@ -43,6 +59,7 @@ up_one() {
   cd "$ROOT"
   setsid "$TSX" --env-file=.env "$(entry "$name")" >>"$RUN/$name.log" 2>&1 </dev/null &
   echo $! >"$RUN/$name.pgid"
+  echo "$BOOT_ID" >"$RUN/$name.boot"
   for _ in $(seq 1 40); do
     if curl -s -m 1 -o /dev/null "http://127.0.0.1:$(port "$name")/"; then
       echo "$name: up on $(port "$name")"
@@ -57,19 +74,16 @@ up_one() {
 
 down_one() {
   local name="$1"
-  if [ -f "$RUN/$name.pgid" ]; then
-    local pgid
-    pgid="$(cat "$RUN/$name.pgid")"
-    if kill -0 -- "-$pgid" 2>/dev/null; then
-      kill -TERM -- "-$pgid" 2>/dev/null || true
-      for _ in $(seq 1 20); do
-        kill -0 -- "-$pgid" 2>/dev/null || break
-        sleep 0.25
-      done
-      kill -KILL -- "-$pgid" 2>/dev/null || true
-    fi
-    : >"$RUN/$name.pgid"
+  local pgid
+  if pgid="$(live_pgid "$name")"; then
+    kill -TERM -- "-$pgid" 2>/dev/null || true
+    for _ in $(seq 1 20); do
+      kill -0 -- "-$pgid" 2>/dev/null || break
+      sleep 0.25
+    done
+    kill -KILL -- "-$pgid" 2>/dev/null || true
   fi
+  : >"$RUN/$name.pgid"
   echo "$name: stopped"
 }
 

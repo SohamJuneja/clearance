@@ -13,6 +13,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   defaultWorkspacesDir,
+  moveAgentToMachine,
   ownerGateway,
   ownerMachine,
   rootEnv,
@@ -25,6 +26,8 @@ const REPO = join(HERE, "..");
 export const OWNER = "priya";
 export const AGENT = "refunds-agent-vanilla";
 export const ROOM = "support-vanilla";
+/** Its own machine, because its folder holds the Acme admin key: no fenced agent can see this folder. */
+export const MACHINE = "clearance-priya-base";
 
 export function writeBaselineDirectory(dir: string): void {
   const env = rootEnv();
@@ -53,7 +56,7 @@ type TemplateRun = {
 
 async function main(): Promise<void> {
   const gateway = await ownerGateway(OWNER);
-  const machine = await ownerMachine(gateway, "clearance-priya");
+  const machine = await ownerMachine(gateway, MACHINE);
   const workspaces = machine.status?.machine?.workspaces_dir ?? defaultWorkspacesDir();
   const dir = join(workspaces, AGENT);
   writeBaselineDirectory(dir);
@@ -61,13 +64,18 @@ async function main(): Promise<void> {
 
   const existing = await findAgent(gateway);
   if (existing) {
+    if (existing.controller_id !== machine.id) {
+      await moveAgentToMachine(gateway, existing, machine);
+      console.log(`${AGENT} moved to ${machine.name}`);
+      return;
+    }
     console.log(`${AGENT} already defined, revision ${String(existing.revision)}, model ${String(existing.definition.model)}`);
     return;
   }
   const template = readFileSync(join(REPO, "templates/acme-vanilla.template.yaml"), "utf8");
   const run = await gateway.must<TemplateRun>("POST", "/rooms/from-template-document", {
     template,
-    inputs: { auto_mode: true },
+    inputs: { auto_mode: true, machine: machine.id },
     template_name: "acme-vanilla",
   });
   console.log(`template ran: agents ${JSON.stringify((run.created_agents ?? []).map((a) => ({ name: a.name, machine: a.machine, listening: a.listening })))}`);

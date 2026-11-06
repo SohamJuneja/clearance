@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
-import { policyRoomMap, roomsOf, withRoomMap, worldDocument } from "./setup-world.ts";
+import { groupOf, policyRoomMap, roomLimitedPolicy, roomsOf, roomsOfAgents, withRoomMap, worldDocument } from "./setup-world.ts";
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), "..");
 const template = readFileSync(join(REPO, "templates/acme-mini.template.yaml"), "utf8");
@@ -62,5 +62,29 @@ describe("withRoomMap", () => {
   it("keeps everything else in the identities file", () => {
     const out = withRoomMap({ people: { a: 1 }, rooms: { "#old": "x" } }, { "#support": "r1" });
     expect(out).toEqual({ people: { a: 1 }, rooms: { "#old": "x", "#support": "r1" } });
+  });
+});
+
+describe("groupOf", () => {
+  it("reads the group and its links, so a recreated room can go back in", () => {
+    const group = groupOf(readFileSync(join(REPO, "templates/acme-mini.template.yaml"), "utf8"));
+    expect(group?.name).toBe("Acme Mini");
+    expect(group?.links).toContainEqual(expect.objectContaining({ from: "support", to: "approvals" }));
+  });
+});
+
+describe("room-limited addressing", () => {
+  it("lists the rooms, and leaves people, agents and the owner open within them", () => {
+    expect(roomLimitedPolicy(["b", "a"])).toEqual({ rules: [{ rooms: ["a", "b"], users: "*", agents: "*", owner: true }] });
+  });
+
+  it("gives each agent the rooms the template puts it in, and never one that does not exist yet", () => {
+    const wanted = roomsOf(readFileSync(join(REPO, "templates/acme-mini.template.yaml"), "utf8"));
+    const present = [
+      { id: "room-support", name: "support" },
+      { id: "room-eng", name: "eng" },
+    ];
+    const rooms = roomsOfAgents(wanted, present, ["refunds-agent", "coder", "ops-agent"]);
+    expect(rooms).toEqual({ "refunds-agent": ["room-support"], coder: ["room-eng"], "ops-agent": ["room-eng"] });
   });
 });

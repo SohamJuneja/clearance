@@ -11,8 +11,10 @@
 # CLEARANCE_AGENT_HOME picks another HOME. CLEARANCE_AGENT_API_KEY overrides the key, for tests only.
 set -euo pipefail
 
-REPO_ROOT="${CLEARANCE_ROOT:-/home/prashant/projects/Clearance}"
+REPO_ROOT="${CLEARANCE_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 AGENT_HOME="${CLEARANCE_AGENT_HOME:-$HOME/.local/share/clearance-tools/agent-home}"
+# Where a session sees this home. Inside the fence it is the session's $HOME, wherever it lives on the host.
+AGENT_HOME_INSIDE="${CLEARANCE_AGENT_HOME_INSIDE:-$AGENT_HOME}"
 KEY_FILE="$AGENT_HOME/.claude/api-key"
 SETTINGS="$AGENT_HOME/.claude/settings.json"
 CLAUDE_BIN="$(readlink -f "$HOME/.local/bin/claude")"
@@ -44,7 +46,7 @@ chmod 700 "$AGENT_HOME" "$AGENT_HOME/.claude"
 chmod 600 "$KEY_FILE"
 cat >"$SETTINGS" <<JSON
 {
-  "apiKeyHelper": "cat $KEY_FILE",
+  "apiKeyHelper": "cat $AGENT_HOME_INSIDE/.claude/api-key",
   "disableClaudeAiConnectors": true,
   "permissions": { "deny": ["mcp__claude_ai_*"] }
 }

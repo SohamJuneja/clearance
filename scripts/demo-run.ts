@@ -8,6 +8,8 @@
  *   pnpm demo:run --list         what exists, with prompts
  *   pnpm demo:run SC3 --record   also capture each persona's browser to docs/media/raw/
  *   --no-reset                   skip scripts/demo-reset.ts
+ *   --no-fresh                   keep the room and the agent's memory of it. By default each take starts in a new
+ *                                room with new sessions, and the old channel stays, archived, as <room>-take-<when>
  *   --agent-timeout <seconds>    how long to wait for an agent (default 180)
  *
  * Exit status: 0 all passed, 1 something failed or was blocked, 2 the command itself was wrong.
@@ -26,8 +28,12 @@ import {
   type ServiceControl,
   type WorldSetup,
 } from "./demo/runner.ts";
+import { freshRoom, setBaselineAutoMode } from "./demo/fresh-room.ts";
+import { greetClearance, personaTokens } from "./demo/greet.ts";
+import { archiveStrayRooms } from "./demo/stray-rooms.ts";
 import { serviceCommand } from "./demo/services.ts";
 import { EXTRA_SCENARIOS, findScenario, SCENARIOS } from "./scenarios/index.ts";
+import { OWNERS } from "./setup-agents.ts";
 
 const execShell = promisify(exec);
 
@@ -36,25 +42,27 @@ interface Args {
   list: boolean;
   record: boolean;
   reset: boolean;
+  fresh: boolean;
   agentTimeoutMs?: number;
 }
 
 function usage(message: string): never {
   process.stderr.write(`${message}\n`);
   process.stderr.write(
-    "usage: pnpm demo:run <SC1..SC14|SC2T|all> [--record] [--no-reset] [--agent-timeout <s>] | --list\n",
+    "usage: pnpm demo:run <SC1..SC14|SC2T|all> [--record] [--no-reset] [--no-fresh] [--agent-timeout <s>] | --list\n",
   );
   process.exit(2);
 }
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { ids: [], list: false, record: false, reset: true };
+  const args: Args = { ids: [], list: false, record: false, reset: true, fresh: true };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i] as string;
     if (arg === "--") continue;
     else if (arg === "--list") args.list = true;
     else if (arg === "--record") args.record = true;
     else if (arg === "--no-reset") args.reset = false;
+    else if (arg === "--no-fresh") args.fresh = false;
     else if (arg === "--agent-timeout") {
       const seconds = Number(argv[++i]);
       if (!Number.isFinite(seconds) || seconds <= 0)
@@ -142,6 +150,28 @@ function saveRun(result: ScenarioResult): void {
   );
 }
 
+/** The baseline scenes differ only in this, and changing it restarts the agent, so it comes before the room. */
+const BASELINE_AUTO_MODE: Record<string, boolean> = { SC1: true, SC2: false, SC2T: false };
+
+/**
+ * What every take starts from: a new room and new sessions, then the world reset, then each person's hello to
+ * Clearance. In that order, because the reset restarts core, and core has to be there to hear the room and the hellos.
+ */
+async function startTake(id: string, room: string | undefined, setup: WorldSetup, args: Args): Promise<void> {
+  const log = (line: string) => process.stdout.write(`    ${line}\n`);
+  const autoMode = BASELINE_AUTO_MODE[id];
+  if (autoMode !== undefined) await setBaselineAutoMode(autoMode, log);
+  if (args.fresh && room) await freshRoom(room, log);
+  // Or the agent's next hold needs two approvers: see scripts/demo/stray-rooms.ts.
+  await archiveStrayRooms(Object.keys(OWNERS), log);
+  if (args.reset) await resetWorld(setup);
+  await greetClearance({
+    mattermostUrl: setting("MATTERMOST_URL") ?? "http://127.0.0.1:8065",
+    tokens: personaTokens(REPO_ROOT),
+    log,
+  });
+}
+
 async function main(): Promise<number> {
   const args = parseArgs(process.argv.slice(2));
   if (args.list) {
@@ -167,7 +197,6 @@ async function main(): Promise<number> {
 
   const options: RunOptions = {
     recorder,
-    reset: args.reset ? resetWorld : undefined,
     services: servicesFromEnvironment,
     agentTimeoutMs: args.agentTimeoutMs,
     timeScale: Number(setting("CLEARANCE_TIME_SCALE") ?? 1),
@@ -175,7 +204,10 @@ async function main(): Promise<number> {
 
   const results: ScenarioResult[] = [];
   for (const scenario of chosen) {
-    const result = await runScenario(scenario, options);
+    const result = await runScenario(scenario, {
+      ...options,
+      reset: (setup) => startTake(scenario.id, scenario.prompt?.room, setup, args),
+    });
     results.push(result);
     saveRun(result);
   }

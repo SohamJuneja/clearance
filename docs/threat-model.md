@@ -30,9 +30,40 @@ When we can't tell exactly who asked, we take the cautious reading: everyone who
 
 That reading only covers rooms Clearance is in. Someone can ask the same agent somewhere it isn't, and leave no trace. If nobody at all is on record, two different people must approve, since only one of them can be the person who asked. If someone else is on record, the request looks attributed, so core also asks Switch, each time it holds a new request, whether the agent is in a room Clearance isn't in or has a live session in one. If it is, or if Switch can't say within 1.5 seconds, two people must approve and the card says why. A call that says which room it came from takes its requesters from that room, though anyone who asked elsewhere in the window still can't approve, because the room on a call is only the agent's word.
 
+## Agents run in a fence
+
+Each machine's controller runs in a [bubblewrap](https://github.com/containers/bubblewrap) sandbox, and every session on that machine inherits it (`scripts/fence.sh`). `scripts/check-fence.sh` proves it with no LLM: it runs a probe inside the same arguments, and inside each running controller's own namespaces, and `just demo` calls it.
+
+From inside the fence, an agent cannot see:
+
+- The real home, so no `~/.ssh`, cloud credentials, operator settings or other Claude transcripts. Each machine has a home of its own instead.
+- The repo and `data/`, so no `.env`, Acme admin key, gate token list, Mattermost tokens or gate database.
+- Other machines' agent folders, data folders and homes.
+- The Docker socket, anything else under `/run`, and other processes, including core's and the gate's environments.
+
+Everything else on the host is read-only. Only the machine's own agent folders, data folder and home can be written.
+
+OpenCode's agent has its own machine, with no Claude or Codex login bound, because a third-party model is on the other end. In one run before the fence, that agent read this repo's scenario script and printed two tokens into its tool output, which is why this exists. The baseline has its own machine too, because its folder holds the Acme admin key on purpose.
+
+## Where agents can be addressed
+
+Each protected agent can only be addressed in its own rooms, and Switch enforces it. In a listed room it hears the message. A direct message draws "You're not permitted", and the agent hears nothing. A private chat gets a 403. `scripts/setup-world.ts` sets this, by room id, each time rooms are recreated. Clearance can't check another agent's policy from outside, so `just demo --check` checks it as the owner. If a room that holds the agent and not Clearance still exists, such as one from an old direct message, that agent's requests need two approvers until it is archived, which each take does.
+
 ## Limits
 
-The demo runs agents and the gate on one machine. An agent with shell access could in principle read the gate's files. In the demo the gate and Acme run in Docker, and hooks hold reads of `.env*`, `docker` commands and the gate's directory, but that is a mitigation and not isolation. In production, run the gate on another host or as another OS user.
+**The fence is about files and processes, not the network.** Network stays shared so loopback reaches core and the gate. So an agent can reach anything on loopback, including Mattermost, Switch's API and database, any other local service, and the host's abstract Unix sockets, though it needs credentials it no longer holds to do much with most of them. It can also reach the internet, so anything it can read, it can send.
+
+**A Claude agent can read Claude's credential.** Until an API key exists, Claude agents run on a login, and the agent can read what its own session authenticates with. With a login, that is a copy of the short-lived access token and never the refresh token, so what leaks stops working when it expires, at most about 8 hours later. With an API key in `.env`, the agent can read the key, and it works until someone revokes it. A key with a low spend limit is the better choice for that reason.
+
+**Agents on the same machine are not fenced from each other.** `refunds-agent` and `support-agent` share Priya's machine, and `coder` and `reviewer` share Alex's. Each can read the other's folder, including its hook and gate tokens. Per-agent tokens only separate agents across machines. Running one machine per agent would close this.
+
+**An agent can read its machine's controller credential,** which sits in the data folder the controller needs. With it, the agent could speak to Switch as that machine. We have not measured how far that goes.
+
+**An agent can write its own folder and home,** including the hook configuration in its clone. Hooks stay a guardrail for that reason, and the gate stays the boundary. The bare repository standing in for GitHub is writable too, because a local `git push` needs that, so a held push is a guardrail here. With real GitHub, only the gate holds the token.
+
+**The gate and core run outside the fence as the same OS user.** The fence is what keeps agents from their files. In production, run the gate on another host or as another OS user.
+
+**It relies on the host.** The fence needs Linux and unprivileged user namespaces, so `just demo` refuses to start agents on macOS or where AppArmor blocks bubblewrap. There is no seccomp filter, so a kernel bug is out of scope. Codex and Cursor binds are written but untested, because no login for them exists yet.
 
 Clearance can't stop an agent that has its own unscoped credentials outside the gate. Baseline agent `refunds-agent-vanilla` in our evaluation holds the Acme key directly, on purpose, to show that case.
 

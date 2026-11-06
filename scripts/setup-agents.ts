@@ -2,11 +2,15 @@
  * Prepares the Acme agents of PLAN 8.4 and creates them through the Gateway as their owners. Idempotent.
  * Never prints a secret. Run it from the main checkout: `.clearance/hook-cli` records this copy's path.
  *
- *   pnpm exec tsx scripts/setup-agents.ts --source acme-mini-app --codex-home ~/.codex
+ *   pnpm exec tsx scripts/setup-agents.ts --source acme-mini-app
  *     [--agents refunds-agent,coder]   only these (default: all five)
- *     [--base <dir>]                   where the working copies go (default: the owner's machine's folder)
+ *     [--base <dir>]                   where the working copies go (default: the machine's folder)
+ *     [--codex-home <dir>]             where to seed Codex's hook trust (default: the machine's home in the fence)
  *     [--prefix spike-]                prefix Switch names and folders, for tests
  *     [--no-create]                    prepare the folders only
+ *
+ * An agent whose machine has no login for its provider gets its folder and waits: rerun this once the login exists,
+ * and it is created. So the same command picks up Codex and Cursor when they land.
  *
  * Each agent gets a working copy of --source, with tokens and Codex trust from packages/hook-cli/src/setup.ts,
  * and connector containment in its gitignored .claude/settings.local.json. Models, briefs and addressing come
@@ -21,7 +25,7 @@
  * login, and it creates a whole group or nothing. refunds-agent-vanilla has its own script, scripts/setup-baseline.ts.
  */
 import { execFileSync } from "node:child_process";
-import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -36,8 +40,11 @@ import {
 import {
   agentIdOf,
   defaultWorkspacesDir,
+  type Machine,
+  moveAgentToMachine,
   ownerGateway,
   ownerMachine,
+  providerReady,
   rootEnv,
   type AgentDefinition,
   type ManagedAgent,
@@ -54,6 +61,25 @@ export const OWNERS: Record<string, string> = {
   "ops-agent": "alex",
   reviewer: "alex",
 };
+
+/** Which machine each agent runs on. scripts/fence.sh holds the other half, and a test holds the two together. */
+export const MACHINES: Record<string, string> = {
+  "refunds-agent": "clearance-priya",
+  "support-agent": "clearance-priya",
+  coder: "clearance-alex",
+  "ops-agent": "clearance-alex-open",
+  reviewer: "clearance-alex",
+};
+
+const TOOLS = process.env.CLEARANCE_TOOLS ?? join(homedir(), ".local/share/clearance-tools");
+
+/** A copy of the hook CLI outside the repo, because the repo is hidden from the agents that have to run it. */
+export function installHookCli(tools: string = TOOLS): string {
+  const dir = join(tools, "hook-cli");
+  mkdirSync(dir, { recursive: true });
+  for (const file of ["main.ts", "hook.ts"]) copyFileSync(join(REPO, "packages/hook-cli/src", file), join(dir, file));
+  return join(dir, "main.ts");
+}
 
 export type AgentPlan = {
   name: string;
@@ -153,12 +179,13 @@ export function writeContainment(dir: string, plugins: string[]): void {
 /** Everything a folder gets on every run, kept or new. A rerun over an old folder is what moves it over. */
 export function setUpAgentDirectory(
   dir: string,
-  options: { agent: string; tokensPath: string; gateToken: string; gateUrl: string; plugins: string[] },
+  options: { agent: string; tokensPath: string; gateToken: string; gateUrl: string; plugins: string[]; hookCli?: string },
 ): void {
   writeAgentSecrets(dir, {
     hookToken: hookTokenFor(options.tokensPath, options.agent),
     gateToken: options.gateToken,
     gateUrl: options.gateUrl,
+    ...(options.hookCli ? { hookCli: options.hookCli } : {}),
   });
   writeContainment(dir, options.plugins);
 }
@@ -201,7 +228,8 @@ function copySource(source: string, dir: string): void {
  * `git push` that gets through is visible and can never leave this machine. An existing folder is left alone.
  */
 export function prepareDirectory(source: string, dir: string, originsDir: string): "created" | "kept" {
-  if (existsSync(dir)) return "kept";
+  // An empty folder counts as new: the fence makes every agent's folder, so it can bind them before they are filled.
+  if (existsSync(dir) && readdirSync(dir).length > 0) return "kept";
   mkdirSync(dirname(dir), { recursive: true });
   if (existsSync(join(source, ".git"))) {
     execFileSync("git", ["clone", "-q", "--no-hardlinks", resolve(source), dir], { stdio: "ignore" });
@@ -235,36 +263,31 @@ async function ensureAgent(
   name: string,
   plan: AgentPlan,
   definition: AgentDefinition,
-  controllerId: string,
+  machine: Machine,
 ): Promise<string> {
   const existing = (await gateway.must<ManagedAgent[]>("GET", "/management/agents")).find((a) => a.name === name);
-  let id: string;
-  let state: string;
-  if (existing) {
-    id = agentIdOf(existing);
-    if (agentNeedsUpdate(existing.definition, definition)) {
-      await gateway.must("PATCH", `/management/agents/${id}`, { definition: { ...existing.definition, ...definition } });
-      state = "updated";
-    } else {
-      state = "unchanged";
-    }
-  } else {
-    const created = await gateway.must<ManagedAgent>("POST", "/management/agents", {
+  // Who may address it is set by scripts/setup-world.ts, which knows the room ids. Until that runs, a new agent keeps
+  // Switch's default, which refuses everyone but its owner. That fails closed.
+  if (!existing) {
+    await gateway.must<ManagedAgent>("POST", "/management/agents", {
       name,
       display_name: plan.display_name ?? null,
       description: plan.description,
-      controller_id: controllerId,
+      controller_id: machine.id,
       desired_state: "running",
       definition,
     });
-    id = agentIdOf(created);
-    state = "created";
+    return "created";
   }
-  // `anyone` is a cleared policy. The default, owner-agents, would refuse Clearance: it has its own owner.
-  if (plan.addressing === "anyone") {
-    await gateway.must("PUT", `/agents/${id}/addressing-policy`, { policy: null });
+  const id = agentIdOf(existing);
+  const moving = Boolean(existing.controller_id && existing.controller_id !== machine.id);
+  if (moving) await moveAgentToMachine(gateway, existing, machine);
+  const changed = agentNeedsUpdate(existing.definition, definition);
+  if (changed) {
+    await gateway.must("PATCH", `/management/agents/${id}`, { definition: { ...existing.definition, ...definition } });
   }
-  return state;
+  if (moving) return `moved to ${machine.name}`;
+  return changed ? "updated" : "unchanged";
 }
 
 async function main(): Promise<void> {
@@ -289,11 +312,8 @@ async function main(): Promise<void> {
     (plan) => !wanted || wanted.includes(plan.name),
   );
   if (plans.length === 0) throw new Error(`no agents match ${String(values.agents)}`);
-  if (plans.some((p) => p.provider === "codex") && !values["codex-home"]) {
-    // A Codex agent with no seeded trust silently runs no hooks, so refuse rather than leave one unenforced.
-    throw new Error("--codex-home is required for Codex agents, usually ~/.codex: unseeded hooks silently do nothing");
-  }
   const plugins = operatorPlugins();
+  const hookCli = installHookCli();
   const gateways = new Map<string, OwnerGateway>();
   const problems: string[] = [];
 
@@ -304,7 +324,8 @@ async function main(): Promise<void> {
       gateway = await ownerGateway(plan.owner);
       gateways.set(plan.owner, gateway);
     }
-    const machine = await ownerMachine(gateway, `clearance-${plan.owner}`);
+    const machine = await ownerMachine(gateway, MACHINES[plan.name] ?? `clearance-${plan.owner}`);
+    const ready = providerReady(machine, plan.provider);
     const base = values.base ? resolve(values.base) : (machine.status?.machine?.workspaces_dir ?? defaultWorkspacesDir());
     const target = join(base, name);
     const folder = prepareDirectory(source, target, join(base, ".origin"));
@@ -316,14 +337,19 @@ async function main(): Promise<void> {
       gateToken: gateTokenFor(env.GATE_AGENT_TOKENS, plan.name),
       gateUrl,
       plugins,
+      hookCli,
     });
     let trust = "n/a";
-    if (plan.provider === "codex") {
-      const seeded = await seedCodexTrust(resolve(values["codex-home"]!.replace(/^~/, homedir())), dir);
+    // A Codex agent with no seeded trust silently runs no hooks, so it is never created without it.
+    if (plan.provider === "codex" && ready) {
+      const codexHome = values["codex-home"]?.replace(/^~/, homedir()) ?? join(TOOLS, "homes", machine.name, ".codex");
+      const seeded = await seedCodexTrust(resolve(codexHome), dir);
       trust = `${seeded} hooks trusted`;
     }
     let agent = "skipped";
-    if (!values["no-create"]) {
+    if (!values["no-create"] && !ready) {
+      agent = `waiting: ${machine.name} has no ${plan.provider} login or install. Rerun this once it does`;
+    } else if (!values["no-create"]) {
       const definition: AgentDefinition = {
         provider: plan.provider,
         model: plan.model,
@@ -334,7 +360,7 @@ async function main(): Promise<void> {
         isolation: "shared",
       };
       try {
-        agent = await ensureAgent(gateway, name, plan, definition, machine.id);
+        agent = await ensureAgent(gateway, name, plan, definition, machine);
       } catch (error) {
         agent = "FAILED";
         problems.push(`${name}: ${(error as Error).message}`);

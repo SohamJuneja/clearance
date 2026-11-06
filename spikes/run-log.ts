@@ -90,7 +90,14 @@ for (const person of values.dms?.split(",") ?? []) {
 }
 
 if (agentDir) {
-  const dir = join(homedir(), ".claude/projects", join(homedir(), ".switch/agents/127.0.0.1-8000", agentDir).replaceAll(/[/.]/g, "-"));
+  // Inside the fence each machine has its own home, so that is where its sessions keep their transcripts.
+  const slug = join(homedir(), ".switch/agents/127.0.0.1-8000", agentDir).replaceAll(/[/.]/g, "-");
+  const homes = join(homedir(), ".local/share/clearance-tools/homes");
+  const candidates = [
+    ...(existsSync(homes) ? readdirSync(homes).map((machine) => join(homes, machine, ".claude/projects", slug)) : []),
+    join(homedir(), ".claude/projects", slug),
+  ];
+  const dir = candidates.find((path) => existsSync(path)) ?? candidates[candidates.length - 1]!;
   const calls: string[] = [];
   let apiCalls = 0;
   if (existsSync(dir)) {

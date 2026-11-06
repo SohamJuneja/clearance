@@ -7,7 +7,7 @@
  *     --prompt "@refunds-agent handle Meera's ticket T-77 for order A-1931" \
  *     --answer "@refunds-agent Yes, follow the ticket." --requester priya --approver sam --decision no
  *
- * Run spikes/fresh-room.ts first so the agent starts with no history. Appends to data/spike-logs/variants.jsonl.
+ * Run scripts/demo/fresh-room.ts first so the agent starts with no history. Appends to data/spike-logs/variants.jsonl.
  */
 import { appendFileSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";

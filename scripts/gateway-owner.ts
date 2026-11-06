@@ -4,9 +4,10 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-export const ROOT = resolve(process.env.CLEARANCE_ROOT ?? "/home/prashant/projects/Clearance");
+export const ROOT = resolve(process.env.CLEARANCE_ROOT ?? join(dirname(fileURLToPath(import.meta.url)), ".."));
 export const BRIDGE_URL = (process.env.SWITCH_BRIDGE_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "");
 export const EMAIL_DOMAIN = "clearance.example";
 
@@ -14,8 +15,18 @@ export type Machine = {
   id: string;
   name: string;
   revoked_at?: string | null;
-  status?: { machine?: { workspaces_dir?: string; sessions_running?: number }; agents?: unknown[] };
+  status?: {
+    machine?: { workspaces_dir?: string; sessions_running?: number };
+    agents?: unknown[];
+    providers?: { provider: string; installed?: boolean; auth?: string; reason?: string }[];
+  };
 };
+
+/** The machine says it can run this provider now. A status not reported yet counts as no. */
+export function providerReady(machine: Machine, provider: string): boolean {
+  const entry = machine.status?.providers?.find((p) => p.provider === provider);
+  return Boolean(entry?.installed && entry.auth !== "missing");
+}
 
 export type AgentDefinition = {
   provider: string;
@@ -75,6 +86,20 @@ export type OwnerGateway = {
   must<T = unknown>(method: string, path: string, json?: unknown): Promise<T>;
 };
 
+/**
+ * Switch's server closes an idle kept-alive socket after a few seconds. A request that picks up that socket just as it
+ * closes fails with a TypeError, without Switch having seen it, so it is safe to send once more. A timeout is not a
+ * TypeError, and a second failure is real.
+ */
+export async function fetchOnceMore(url: string, init: RequestInit, doFetch: typeof fetch = fetch): Promise<Response> {
+  try {
+    return await doFetch(url, init);
+  } catch (error) {
+    if (!(error instanceof TypeError)) throw error;
+    return doFetch(url, init);
+  }
+}
+
 export async function ownerGateway(owner: string): Promise<OwnerGateway> {
   let email: string | undefined;
   let password: string | undefined;
@@ -87,7 +112,7 @@ export async function ownerGateway(owner: string): Promise<OwnerGateway> {
     password = rootEnv().PERSONA_PASSWORD;
   }
   if (!email || !password) throw new Error(`no credentials for ${owner}`);
-  const login = await fetch(`${BRIDGE_URL}/gateway/auth/login`, {
+  const login = await fetchOnceMore(`${BRIDGE_URL}/gateway/auth/login`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ email, password }),
@@ -99,7 +124,7 @@ export async function ownerGateway(owner: string): Promise<OwnerGateway> {
     .join("; ");
 
   const call = async (method: string, path: string, json?: unknown): Promise<Res> => {
-    const res = await fetch(`${BRIDGE_URL}/gateway${path}`, {
+    const res = await fetchOnceMore(`${BRIDGE_URL}/gateway${path}`, {
       method,
       headers: { cookie, ...(json === undefined ? {} : { "content-type": "application/json" }) },
       body: json === undefined ? undefined : JSON.stringify(json),
@@ -131,8 +156,13 @@ export async function ownerMachine(gateway: OwnerGateway, name?: string): Promis
   const machine = live[0];
   if (!machine) {
     throw new Error(
-      `${gateway.owner} holds no machine${name ? ` named ${name}` : ""}: run scripts/setup-controller.sh --owner ${gateway.owner}`,
+      `${gateway.owner} holds no machine${name ? ` named ${name}` : ""}: run scripts/setup-controller.sh ${name ? `--machine ${name}` : `--owner ${gateway.owner}`}`,
     );
   }
   return machine;
+}
+
+/** Puts a managed agent on another of its owner's machines. Its id, rooms, folder and tokens all stay. */
+export async function moveAgentToMachine(gateway: OwnerGateway, agent: ManagedAgent, machine: Machine): Promise<void> {
+  await gateway.must("PATCH", `/management/agents/${agentIdOf(agent)}`, { controller_id: machine.id });
 }

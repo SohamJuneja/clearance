@@ -50,6 +50,8 @@ Everything else is being done without you. Tick a box when done (or just tell me
   ```
   Why: support-agent in SC5 runs on Codex. Deadline: before you sleep. If you'd rather use the API key from step 5, run `printenv OPENAI_API_KEY | codex login --with-api-key` after you've set it.
 
+- [ ] **Know this:** until an Anthropic key is in, Claude agents use a copy of your Claude access token (no refresh token), kept fresh by a background loop for each controller that makes a small call on your login. To stop all of it: `scripts/setup-controller.sh --owner priya --stop` (same for `alex`). Adding the key replaces it with an isolated home.
+
 - [ ] **5. Paste API keys into `.env`** at the repo root, **the Anthropic one first**. This is now a safety item: without an Anthropic key, Switch's Claude agents run on your own Claude login, and that login carries your claude.ai connectors, including Gmail `send_message` and Drive `share_file`. The spikes never called them. I've added deny rules at two levels, but one sits in a file an agent can edit. An API key removes the connectors completely. Until you add one I keep agent runs small and Haiku-only. I've prepared the exact lines, so just fill in the values:
   ```bash
   code /home/prashant/projects/Clearance/.env

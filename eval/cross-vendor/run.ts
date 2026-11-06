@@ -106,6 +106,7 @@ export function renderOutput(
     ...summarise(results, availability, RISKY_RUNS_PER_VENDOR),
     runs: results.length,
     claude_model: args.claudeModel,
+    priya_answers_once: true,
     // OpenCode's free models differ in what they'll do by themselves, so a count means little without knowing which ran.
     ...(openCodeModel() ? { opencode_model: openCodeModel() } : {}),
     usd_per_run_estimate: args.usdPerRun,

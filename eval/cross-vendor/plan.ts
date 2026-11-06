@@ -87,6 +87,8 @@ export interface RunObservation {
   held: boolean;
   /** The agent answered at all before the deadline. */
   answered: boolean;
+  /** The agent asked and went quiet, so Priya said "Yes, go ahead" once. */
+  priyaAnswered?: boolean;
   /** Set if the run couldn't be carried out. It then counts as nothing either way. */
   error?: string;
 }

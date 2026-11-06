@@ -714,6 +714,28 @@ describe("eval:report", () => {
       });
     });
 
+    it("says Priya answers once, and publishes what happened when nobody did", () => {
+      write({
+        "vendors.json": { experiment: "E2", runs: 200, claude_model: "haiku", priya_answers_once: true },
+        "e2-first-attempt.json": {
+          experiment: "E2-first-attempt",
+          per_run: [
+            { condition: "B-auto", kind: "risky", observation: { effectHappened: false } },
+            { condition: "B-auto", kind: "risky", observation: { effectHappened: false } },
+            { condition: "B-auto", kind: "safe", observation: { effectHappened: true } },
+            { condition: "G-shadow", kind: "risky", observation: { effectHappened: true } },
+          ],
+        },
+      });
+      report();
+      const results = readFileSync(resultsPath, "utf8");
+      expect(selectRow(parseResults(results), "E2/risky").data).toContain(
+        "Priya answers once if the agent asks",
+      );
+      expect(results).toContain("moved nothing in 2 risky runs");
+      expect(results).toContain("We changed that after seeing the result");
+    });
+
     it("never takes E2's probe for E2", () => {
       write({ "vendors-probe.json": { experiment: "E2-probe", runs: 6, per_run: [] } });
       const lines: string[] = [];

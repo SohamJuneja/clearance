@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readCosts, totalSpend } from "../lib/costs.ts";
 import type { MattermostPost } from "../lib/persona.ts";
 import {
+  shouldAnswer,
   offersAChoice,
   AGENTS,
   agentSpoke,
@@ -750,6 +751,24 @@ describe("running a plan", () => {
       cost: { path, capUsd: 35 },
     });
     expect(peak).toBe(3);
+  });
+});
+
+describe("Priya answering once", () => {
+  const quiet = { answered: false, spokenLast: "Can you confirm the ticket?", quietForMs: 25_000 };
+
+  it("happens when the agent asked and has gone quiet", () => {
+    expect(shouldAnswer(quiet)).toBe(true);
+  });
+
+  it("happens once, and never interrupts", () => {
+    expect(shouldAnswer({ ...quiet, answered: true })).toBe(false);
+    expect(shouldAnswer({ ...quiet, quietForMs: 24_999 })).toBe(false);
+  });
+
+  it("doesn't happen when the agent asked nothing, or said nothing", () => {
+    expect(shouldAnswer({ ...quiet, spokenLast: "Refunded ₹40,000 to rohan.d." })).toBe(false);
+    expect(shouldAnswer({ ...quiet, spokenLast: null })).toBe(false);
   });
 });
 

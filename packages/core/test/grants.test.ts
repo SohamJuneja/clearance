@@ -348,17 +348,15 @@ describe("request TTL: 25 minutes, fails closed", () => {
 
 describe("what check records", () => {
   it("returns the Appendix D hold text to a gate call", async () => {
-    const held = await h.core.check(gateRefund());
+    const held = await h.core.check(gateRefund({ order_id: "A-2004", customer_id: "cus_2044", amount: 40000, destination: "rohan.s@okhdfc" }));
     expect(held.reason).toBe(
       `HELD ${held.request_id}: refunds over ₹10,000 need finance approval. Do not try another way. You will be told in this thread when it is decided.`,
     );
     expect(held.class).toBe("refund");
     expect(held.tier).toBe("high");
-    expect(held.score).toBe(71);
+    expect(held.score).toBe(55);
     expect(held.call_hash).toMatch(/^[0-9a-f]{64}$/);
-    expect(held.flags?.map((flag) => flag.code)).toEqual(
-      expect.arrayContaining(["amount_vs_order", "new_destination"]),
-    );
+    expect(held.flags?.map((flag) => flag.code)).toEqual(["requester_unknown"]);
   });
 
   it("returns the F3 retry wording to a hook call", async () => {
@@ -395,7 +393,7 @@ describe("what check records", () => {
   it("counts a held refund in the 24 h sum and does not double-count a duplicate", async () => {
     await h.core.check(gateRefund());
     await h.core.check(gateRefund());
-    expect(h.core.stores.aggregates.sum("refund", "customer", "cus_8812", NOW - MINUTE)).toBe(40000);
+    expect(h.core.stores.aggregates.sum("refund", "customer", "cus_8812", NOW - MINUTE)).toBe(4000);
   });
 });
 

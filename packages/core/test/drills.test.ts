@@ -152,12 +152,12 @@ describe("a drill looks like a real request", () => {
   async function pair(): Promise<{ real: OpenedCard; drill: OpenedCard }> {
     // The same shape as the drill: an order paid in full, to a destination added minutes ago.
     h.lookup.world = {
-      orders: { "A-9": { id: "A-9", total: 15000 } },
+      orders: { "A-9": { id: "A-9", total: 8500 } },
       customers: { cus_1: { id: "cus_1", name: "Real Customer" } },
       destinations: { "real@okaxis": { id: "real@okaxis", age_hours: 0.1 } },
     };
     await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@refunds-agent refund it"));
-    await h.core.check(gateRefund({ order_id: "A-9", customer_id: "cus_1", amount: 15000, destination: "real@okaxis" }));
+    await h.core.check(gateRefund({ order_id: "A-9", customer_id: "cus_1", amount: 8500, destination: "real@okaxis" }));
     const real = h.chat.cardIn("dm-sam");
     await send("sam", "new_destination");
     const drill = h.chat.cards.filter((card) => card.roomId === "dm-sam")[1] as OpenedCard;
@@ -262,7 +262,7 @@ describe("approving a drill", () => {
 
   it("works through a typed card too, when that is what they were owed", async () => {
     h.core.people.store.setFriction("sam", "fast_approval");
-    const id = await send("sam", "new_destination");
+    const id = await send("sam", "text_mismatch");
     const card = h.chat.cardIn("dm-sam");
     expect(card.kind).toBe("questions");
     await h.core.onApprovalOutcome({
@@ -271,7 +271,7 @@ describe("approving a drill", () => {
       kind: "questions",
       state: "answered",
       answer: null,
-      answers: [{ question_id: card.questions[0]?.id, custom_text: "12500", selected_option_ids: [] }],
+      answers: [{ question_id: card.questions[0]?.id, custom_text: card.questions[0]?.id === "amount" ? "24000" : "hdfc", selected_option_ids: [] }],
       answeredBy: PARTICIPANTS.sam,
       answeredAtMs: h.clock.nowMs(),
     });

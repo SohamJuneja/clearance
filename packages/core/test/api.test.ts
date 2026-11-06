@@ -125,7 +125,7 @@ describe("GET /v1/requests/:id", () => {
       id: "CLR-0001",
       state: "ROUTED",
       class: "refund",
-      tier: "high",
+      tier: "medium",
       agent: "refunds-agent",
       origin_room: "#support",
       origin_thread: "t-77",
@@ -133,8 +133,8 @@ describe("GET /v1/requests/:id", () => {
       approvals: [],
     });
     expect(body.call_hash).toMatch(/^[0-9a-f]{64}$/);
-    expect(body.flags.map((flag: { code: string }) => flag.code)).toContain("amount_vs_order");
-    expect(body.evidence.extracted.amount).toBe(40000);
+    expect(body.flags.map((flag: { code: string }) => flag.code)).toContain("new_destination");
+    expect(body.evidence.extracted.amount).toBe(4000);
     expect(body.expires_at).toBe(new Date(h.core.stores.requests.require("CLR-0001").expiresAtMs).toISOString());
   });
 

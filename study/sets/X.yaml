@@ -107,8 +107,8 @@ requests:
     b:
       clr: CLR-0103
       handle: A103
-      score: 28
-      tier: LOW
+      score: 45
+      tier: MEDIUM
       reversible: false
       headline: REFUND ₹7,400
       parsed:

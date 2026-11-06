@@ -42,7 +42,7 @@ describe("two requests from two rooms", () => {
     const [head, newest, older] = inboxPosts("dm-sam")[0]!.split("\n");
     expect(head).toBe("**Needs your response (2)**");
     expect(newest).toBe("CLR-0002 refund ₹40,000 · #finance · 0 s");
-    expect(older).toBe("CLR-0001 refund ₹40,000 · #support · 2 min");
+    expect(older).toBe("CLR-0001 refund ₹4,000 · #support · 2 min");
   });
 
   it("puts the codes in when Switch gave them, which is what someone replies with", async () => {
@@ -513,7 +513,7 @@ describe("a drill in the inbox looks like any other request", () => {
     expect(Object.keys(asDrill!)).toEqual(Object.keys(asReal!));
     const lines = inboxPosts("dm-sam").at(-1)!.split("\n");
     expect(lines[0]).toBe("**Needs your response (2)**");
-    expect(lines[1]).toBe(`${drill.request_id} refund ₹40,000 · #support · 0 s`);
+    expect(lines[1]).toBe(`${drill.request_id} refund ₹4,000 · #support · 0 s`);
     expect(lines[2]).toBe(`CLR-0001 refund ₹40,000 · #support · 0 s`);
     expect(JSON.stringify(h.core.inbox("sam"))).not.toMatch(/drill/i);
     expect(inboxPosts("dm-sam").join()).not.toMatch(/drill|practice/i);

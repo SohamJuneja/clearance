@@ -292,7 +292,8 @@ describe("cards from real calls: snapshots across fixture calls", () => {
   });
 
   const fixtures: { name: string; asker?: string; agent?: string; said?: string; action: () => Action }[] = [
-    { name: "SC3 refund, 10x the order, new destination", action: () => gateRefund(REFUND_SC3) },
+    { name: "SC3, ₹4,000 to a newly added UPI ID", action: () => gateRefund(REFUND_SC3) },
+    { name: "₹40,000 with both flags, critical", action: () => gateRefund({ ...REFUND_SC3, amount: 40000 }) },
     {
       name: "SC3 with the agent's words on record",
       said: "Refunding ₹4,000 for order A-1931 as requested in T-77.",

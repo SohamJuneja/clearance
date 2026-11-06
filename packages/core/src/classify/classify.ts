@@ -6,6 +6,7 @@ import { posix } from "node:path";
 import type { Action } from "@clearance/contracts";
 import type { CompiledClass, CompiledMatch, CompiledPolicy, MatchKind } from "../policy/load.js";
 import { fetchStaysOnGate } from "./fetch.js";
+import { readsOutside } from "./reads.js";
 import type { SubCommand } from "./shell.js";
 
 export type NormalCall = {
@@ -202,6 +203,11 @@ function reachesGate(call: NormalCall, policy: CompiledPolicy): boolean {
   if (call.kind === "shell") return true; // The entry's pattern is anchored to the CLI itself, by load.ts.
   if (call.kind === "mcp") return policy.defaults.gate_mcp_servers.map(serverName).includes(call.server ?? "");
   return false;
+}
+
+/** A read that leaves the agent's own directory, by the words of the path. It outranks the safe list. */
+export function leavesAgentDir(call: NormalCall, cwd: string | undefined, policy: CompiledPolicy): boolean {
+  return call.kind === "file_read" && readsOutside(call.rawSubject ?? call.subject, cwd, policy.defaults.readable_outside ?? []);
 }
 
 /** PLAN 7.3 step 6. Every gate write is protected by construction; the rest comes from the policy. */

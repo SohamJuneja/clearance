@@ -17,7 +17,7 @@ export type SubCommand = {
   canonical: string;
   /** Paths this command writes to, through redirects, tee, sed -i, cp, mv or dd. */
   writes: string[];
-  /** Paths it reads through a `<` redirect. */
+  /** Paths it reads through a `<` redirect, and, for commands known to read their arguments, those that leave the tree. */
   reads: string[];
   /** Words whose value only the shell knows: `$BRANCH`, `$(...)`. */
   dynamic: string[];
@@ -97,6 +97,17 @@ const GIT_RISKY_ENVIRONMENT = /^GIT_(CONFIG_(COUNT|PARAMETERS|GLOBAL|SYSTEM|KEY_
 const FIND_RUNS = new Set(["-exec", "-execdir", "-ok", "-okdir"]);
 /** Given a target only known at run time, these are a delete or an overwrite of who knows what. */
 const DESTROYS_ITS_TARGET = new Set(["rm", "rmdir", "unlink", "shred", "truncate", "mv", "dd"]);
+
+/** Commands that read the files they're given. Others might too, but a word like `/x` is only a path if something reads it. */
+const READS_ITS_ARGUMENTS = new Set([
+  "cat", "tac", "head", "tail", "less", "more", "nl", "wc", "stat", "file", "ls", "tree", "du", "sort", "uniq", "cut", "diff",
+  "cmp", "strings", "xxd", "hexdump", "od", "base64", "md5sum", "sha1sum", "sha256sum", "sha512sum", "tar", "zip", "unzip",
+  "cp", "rsync", "cd", "pushd", "realpath", "readlink",
+]);
+/** The first argument is a pattern, which is free to look like a path: `grep "/api/" src`. */
+const READS_AFTER_A_PATTERN = new Set(["grep", "egrep", "fgrep", "rg", "ag", "ack", "sed", "awk", "gawk", "jq", "yq"]);
+const NAMES_ITS_PATTERN = new Set(["-e", "--regexp", "-f", "--file", "--expression"]);
+const LEAVES_THE_TREE = /^(\/|~|\$HOME\b|\$\{HOME\})|(^|\/)\.\.(\/|$)/;
 
 /** A command run by `find` or `xargs`: its arguments come from what those read, and so might the command itself. */
 type Carried = { by: "find" | "xargs"; placeholder: string; prefix: string[] };
@@ -512,7 +523,7 @@ class ShellParser {
       effective: effectiveWords.join(" "),
       canonical,
       writes: [...writes, ...writtenBy],
-      reads,
+      reads: [...reads, ...pathsReadBy(rest)],
       dynamic: all.filter((word) => word.dynamic).map((word) => word.text),
       words: effectiveWords,
       wrappers: kept,
@@ -591,6 +602,28 @@ function hasScript(words: Word[]): boolean {
     if (!word.text.startsWith("-")) return true;
   }
   return false;
+}
+
+/** What this command reads that's outside the tree, going by its arguments. Inside it, a path needs no looking at. */
+function pathsReadBy(words: Word[]): string[] {
+  const name = baseName((words[0] as Word).text);
+  const args = words.slice(1);
+  const texts = (from: Word[]) => from.map((word) => word.text).filter((text) => LEAVES_THE_TREE.test(text));
+  if (name === "git") {
+    const at = args.findIndex((word) => word.text === "-C");
+    return at === -1 ? [] : texts(args.slice(at + 1, at + 2));
+  }
+  if (name === "dd") {
+    return texts(args.filter((word) => word.text.startsWith("if=")).map((word) => ({ ...word, text: word.text.slice("if=".length) })));
+  }
+  if (name === "find") {
+    const end = args.findIndex((word) => /^[-(!]/.test(word.text));
+    return texts(end === -1 ? args : args.slice(0, end));
+  }
+  const positional = args.filter((word) => !word.text.startsWith("-"));
+  if (READS_ITS_ARGUMENTS.has(name)) return texts(positional);
+  if (!READS_AFTER_A_PATTERN.has(name)) return [];
+  return texts(args.some((word) => NAMES_ITS_PATTERN.has(word.text)) ? positional : positional.slice(1));
 }
 
 /** The word `xargs` replaces with what it reads. It only has one with -I, -i or --replace; otherwise it appends. */

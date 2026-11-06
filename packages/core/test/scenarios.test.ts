@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildServer } from "../src/api/server.js";
 import { runLedgerVerify } from "../src/cli/ledger-verify.js";
 import type { OpenedCard } from "./fakes.js";
-import { actionId, chatMessage, gateRefund, hookShell, makeHarness, NOW, PARTICIPANTS, REFUND_SC3, REFUND_SC4, TEAM_ALEX_ONLY_PATH, type Harness } from "./harness.js";
+import { actionId, chatMessage, gateRefund, hookShell, makeHarness, NOW, PARTICIPANTS, REFUND_BOTH_FLAGS, REFUND_SC3, REFUND_SC4, TEAM_ALEX_ONLY_PATH, type Harness } from "./harness.js";
 
 const TOKEN = "test-internal-token";
 let h: Harness;
@@ -60,7 +60,7 @@ const gateCall = (endpoint: string, args: Record<string, unknown>, agent: string
 const types = (id: string) => h.core.stores.ledger.list({ requestId: id }).map((entry) => entry.type);
 
 describe("SC3: hold, refusal, route, deny", () => {
-  it("runs end to end, and the ledger verifies", async () => {
+  it("the real route: the agent offers ₹4,000 to a newly added UPI ID, Priya's answer is refused, Sam denies", async () => {
     // Priya asks. Clearance sees it because it reads every message in its rooms.
     await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@refunds-agent handle Meera's ticket T-77 for order A-1931"));
 
@@ -68,20 +68,20 @@ describe("SC3: hold, refusal, route, deny", () => {
     const held = await gateCheck(gateRefund(REFUND_SC3));
     const id = held.request_id as string;
     expect(held.decision).toBe("hold");
-    expect(held.reason).toBe(
-      `HELD ${id}: refunds over ₹10,000 need finance approval. Do not try another way. You will be told in this thread when it is decided.`,
-    );
-    expect(held.tier).toBe("high");
+    expect(held.reason).toBe(`HELD ${id}: refunds need finance approval. Do not try another way. You will be told in this thread when it is decided.`);
+    expect(held).toMatchObject({ tier: "medium", score: 45 });
     expect(h.core.stores.requests.require(id).quorumRequired).toBe(1);
 
     // Sam has the card in his direct room, and #support has a copy.
     const sams = h.chat.cardIn("dm-sam");
     const copy = h.chat.cardIn("#support");
-    expect(sams.title).toBe(`${id} · REFUND ₹40,000 · HIGH · irreversible`);
-    expect(sams.detail).toContain("Refund ₹40,000 to customer Meera K. (cus_8812)");
-    expect(sams.detail).toContain("⚠ Amount is 10x the order total");
+    expect(sams.kind).toBe("approval");
+    expect(sams.title).toBe(`${id} · REFUND ₹4,000 · MEDIUM · irreversible`);
+    expect(sams.detail).toContain("Refund ₹4,000 to customer Meera K. (cus_8812)");
     expect(sams.detail).toContain("⚠ Destination added in the last 24 h");
-    expect(sams.detail).toContain("Why you: finance approver on duty. Can't approve: Priya (requester, agent owner).");
+    expect(sams.detail).not.toContain("Amount is");
+    // Below high, owning the agent doesn't bar anyone. Asking does.
+    expect(sams.detail).toContain("Why you: finance approver on duty. Can't approve: Priya (requester).");
     expect(h.chat.targeted[0]).toMatchObject({ roomId: "dm-sam", targets: ["sam"] });
 
     // The signature moment: Priya presses the copy in her own room.
@@ -91,11 +91,11 @@ describe("SC3: hold, refusal, route, deny", () => {
     expect(h.chat.messages.at(-1)).toEqual({
       roomId: "#support",
       threadId: "t-77",
-      body: `Priya can't approve ${id} (requester, agent owner). Sent to Sam (finance, on duty).`,
+      body: `Priya can't approve ${id} (requester). Sent to Sam (finance, on duty).`,
     });
     expect(sams.closed).toBe(false);
 
-    // Sam denies.
+    // Sam denies, and nobody is credited with a reason they didn't give.
     await press(sams, PARTICIPANTS.sam, "deny");
     expect(h.core.stores.requests.require(id).state).toBe("DENIED");
     expect(h.gate.calls).toEqual([]);
@@ -103,8 +103,9 @@ describe("SC3: hold, refusal, route, deny", () => {
       roomId: "#support",
       threadId: "t-77",
       targets: ["refunds-agent"],
-      body: `${id} denied by Sam: amount is 10x the order. Tell Priya and stop.`,
+      body: `${id} denied by Sam. Tell Priya and stop.`,
     });
+    expect(h.chat.messages.at(-1)).toEqual({ roomId: "#support", threadId: "t-77", body: `${id} denied by Sam.` });
 
     // The record holds up, through the API and the CLI.
     expect(types(id)).toEqual(["held", "routed", "ineligible_answer", "answered", "denied"]);
@@ -113,12 +114,23 @@ describe("SC3: hold, refusal, route, deny", () => {
     expect(runLedgerVerify(h.dbPath).code).toBe(0);
   });
 
-  it("is still HIGH with one approver outside business hours", async () => {
-    h.clock.set(Date.parse("2026-11-08T14:00:00+05:30"));
+  it("the attempt T-77 asked for, ₹40,000 with both flags, is critical: typed confirmation and two approvers", async () => {
+    await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@refunds-agent handle Meera's ticket T-77 for order A-1931"));
+    const held = await gateCheck(gateRefund(REFUND_BOTH_FLAGS));
+    const id = held.request_id as string;
+    expect(held).toMatchObject({ decision: "hold", tier: "critical" });
+    expect(held.flags?.map((flag) => flag.code)).toEqual(["amount_vs_order", "new_destination"]);
+    expect(h.core.stores.requests.require(id).quorumRequired).toBe(2);
+    expect(h.chat.cardIn("dm-sam").kind).toBe("questions");
+    expect(h.chat.cardIn("dm-neha").kind).toBe("questions");
+  });
+
+  it("reads the same at night", async () => {
+    h.clock.set(Date.parse("2026-11-08T03:00:00+05:30"));
     await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@refunds-agent go"));
     const held = await gateCheck(gateRefund(REFUND_SC3));
-    expect(held).toMatchObject({ tier: "high", score: 76 });
-    expect(h.core.stores.requests.require(held.request_id as string).quorumRequired).toBe(1);
+    expect(held).toMatchObject({ tier: "medium", score: 45 });
+    expect(held.flags?.map((flag) => flag.code)).toEqual(["new_destination"]);
   });
 });
 

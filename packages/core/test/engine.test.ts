@@ -242,7 +242,7 @@ describe("scores stay inside the tier table", () => {
 
   it("keeps the flags whatever points they carried", async () => {
     const result = await evaluateAction(refund(big), deps());
-    expect(result.tier).toBe("high");
+    expect(result.tier).toBe("critical");
     expect(result.flags.map((flag) => flag.code).sort()).toEqual(["amount_vs_order", "new_destination"]);
   });
 });

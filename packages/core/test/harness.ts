@@ -135,7 +135,10 @@ export function hookShell(command: string, overrides: Partial<Action> = {}): Act
   };
 }
 
-export const REFUND_SC3 = { order_id: "A-1931", customer_id: "cus_8812", amount: 40000, destination: "meera.k@okaxis" };
+/** The spine scene: the agent offers the correct ₹4,000, to a newly added UPI ID. */
+export const REFUND_SC3 = { order_id: "A-1931", customer_id: "cus_8812", amount: 4000, destination: "meera.k@okaxis" };
+/** What T-77 asked for at first: ₹40,000, ten times the order, to that new UPI ID. Both flags, so critical. */
+export const REFUND_BOTH_FLAGS = { order_id: "A-1931", customer_id: "cus_8812", amount: 40000, destination: "meera.k@okaxis" };
 export const REFUND_SC4 = { order_id: "A-2004", customer_id: "cus_2044", amount: 40000, destination: "rohan.s@okhdfc" };
 /** Over ₹1,00,000: reaches critical, so it needs two people. */
 export const REFUND_CRITICAL = { order_id: "A-2004", customer_id: "cus_2044", amount: 150000, destination: "rohan.s@okhdfc" };

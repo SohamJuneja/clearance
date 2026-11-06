@@ -99,7 +99,7 @@ describe("the Queue on real core", () => {
       class: "refund",
       tier: described.tier,
       score: described.score,
-      headline: "REFUND ₹40,000",
+      headline: "REFUND ₹4,000",
       agent: "refunds-agent",
       vendor: "Claude Code",
       asked_by: ["Priya"],
@@ -109,7 +109,7 @@ describe("the Queue on real core", () => {
       escalation: { fired: 0, of: 3, last: null },
     });
     expect(item!.flags).toEqual(described.flags);
-    expect(item!.flags.map((flag) => flag.code)).toEqual(expect.arrayContaining(["amount_vs_order", "new_destination"]));
+    expect(item!.flags.map((flag) => flag.code)).toEqual(["new_destination"]);
   });
 
   it("names who holds the card, with the handle core's inbox gives", async () => {
@@ -172,8 +172,8 @@ describe("the Queue on real core", () => {
     const id = await holdRefund();
     const html = renderToStaticMarkup(<QueueTab data={await read<QueueView>("/api/queue")} nowMs={NOW + 5000} />);
     expect(html).toContain(id);
-    expect(html).toContain("REFUND ₹40,000");
-    expect(html).toContain("Amount is 10x the order total");
+    expect(html).toContain("REFUND ₹4,000");
+    expect(html).toContain("Destination added in the last 24 h");
   });
 });
 
@@ -428,7 +428,7 @@ describe("the simulator on real core", () => {
   it("the refund example shows the flags and tier the policy really gives", async () => {
     const result = (await (await simulate(presetAction("refund"))).json()) as SimulationResult;
     expect(result.class).toBe("refund");
-    expect(result.tier).toBe("high");
+    expect(result.tier).toBe("critical");
     expect(result.flags?.map((flag) => flag.code)).toEqual(expect.arrayContaining(["amount_vs_order", "new_destination"]));
   });
 

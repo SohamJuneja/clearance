@@ -64,6 +64,10 @@ export function missingDataFlag(fields: string[]): Flag {
 
 export const NO_RULE_FLAG: Flag = { code: "no_rule", text: "No policy rule covers this protected resource" };
 export const MALFORMED_FLAG: Flag = { code: "malformed", text: "The call could not be read" };
+export function outsideAgentDirFlag(path: string): Flag {
+  return { code: "outside_agent_dir", text: `Reads outside this agent's own directory: ${oneLine(path, 160)}` };
+}
+
 const COUNT_WORDS = ["zero", "one", "two", "three", "four", "five"];
 
 export function requesterUnknownFlag(quorum: number): Flag {
@@ -83,12 +87,4 @@ export function dynamicArgsFlag(words: string[]): Flag {
 
 export function authorUnknownFlag(field: string): Flag {
   return { code: `${field}_unknown`, text: `Could not tell who the ${field} is, so nobody was excluded for it` };
-}
-
-/** Lower-case and short, for "CLR-0042 denied by Sam: amount is 10x the order". */
-export function denialReason(flags: Flag[]): string | null {
-  const top = flags[0];
-  if (!top) return null;
-  if (top.code === "amount_vs_order") return top.text.replace(/^Amount/, "amount").replace(" total", "");
-  return top.text.charAt(0).toLowerCase() + top.text.slice(1);
 }

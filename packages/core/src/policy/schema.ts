@@ -174,6 +174,8 @@ export const PolicyFileSchema = z
         unknown_requester_quorum: z.number().int().min(2).optional(),
         /** host:port of clearance-gate. A curl or wget whose every URL is one of these isn't protected. */
         gate_hosts: z.array(z.string()).optional(),
+        /** Reads outside the agent's own directory hold, except under these. With none here, all of them do. */
+        readable_outside: z.array(z.string()).optional(),
         unknown_protected_action: z.enum(["hold", "deny"]),
         business_hours: z.object({ days: z.string(), hours: z.string(), tz: z.string() }).strict(),
         fallback: FallbackSchema,

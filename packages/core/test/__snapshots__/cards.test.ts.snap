@@ -55,7 +55,7 @@ exports[`cards from real calls: snapshots across fixture calls > 'SC3 with the a
 [
   {
     "detail": "The call (parsed from what the agent ran, not from its words)
-  Refund ₹40,000 to customer Meera K. (cus_8812)
+  Refund ₹4,000 to customer Meera K. (cus_8812)
   Destination: UPI meera.k@okaxis
   Order A-1931 · total ₹4,000
 
@@ -65,23 +65,21 @@ Context
   refunds-agent refunds today: 0
 
 Flags
-  ⚠ Amount is 10x the order total
   ⚠ Destination added in the last 24 h
-  ⚠ The agent wrote "₹4,000" in the thread; the call says ₹40,000
 
 Agent's claim (unverified): "Refunding ₹4,000 for order A-1931 as requested in T-77."
 
 Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
-Why you: finance approver on duty. Can't approve: Priya (requester, agent owner).
-Policy: refunds over ₹10,000 need 1 finance approver · expires 14:25 IST
+Why you: finance approver on duty. Can't approve: Priya (requester).
+Policy: refunds need 1 finance approver · expires 14:25 IST
 
 @clearance why CLR-0001",
     "roomId": "dm-sam",
-    "title": "CLR-0001 · REFUND ₹40,000 · HIGH · irreversible",
+    "title": "CLR-0001 · REFUND ₹4,000 · MEDIUM · irreversible",
   },
   {
     "detail": "The call (parsed from what the agent ran, not from its words)
-  Refund ₹40,000 to customer Meera K. (cus_8812)
+  Refund ₹4,000 to customer Meera K. (cus_8812)
   Destination: UPI meera.k@okaxis
   Order A-1931 · total ₹4,000
 
@@ -91,19 +89,66 @@ Context
   refunds-agent refunds today: 0
 
 Flags
-  ⚠ Amount is 10x the order total
   ⚠ Destination added in the last 24 h
-  ⚠ The agent wrote "₹4,000" in the thread; the call says ₹40,000
 
 Agent's claim (unverified): "Refunding ₹4,000 for order A-1931 as requested in T-77."
 
 Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
-Why here: copy for this room; Sam (finance, on duty) decides. Can't approve: Priya (requester, agent owner).
-Policy: refunds over ₹10,000 need 1 finance approver · expires 14:25 IST
+Why here: copy for this room; Sam (finance, on duty) decides. Can't approve: Priya (requester).
+Policy: refunds need 1 finance approver · expires 14:25 IST
 
 @clearance why CLR-0001",
     "roomId": "#support",
-    "title": "CLR-0001 · REFUND ₹40,000 · HIGH · irreversible",
+    "title": "CLR-0001 · REFUND ₹4,000 · MEDIUM · irreversible",
+  },
+]
+`;
+
+exports[`cards from real calls: snapshots across fixture calls > 'SC3, ₹4,000 to a newly added UPI ID' 1`] = `
+[
+  {
+    "detail": "The call (parsed from what the agent ran, not from its words)
+  Refund ₹4,000 to customer Meera K. (cus_8812)
+  Destination: UPI meera.k@okaxis
+  Order A-1931 · total ₹4,000
+
+Context
+  Refunds to this customer in 24 h: ₹0
+  Destination added 4 minutes ago
+  refunds-agent refunds today: 0
+
+Flags
+  ⚠ Destination added in the last 24 h
+
+Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
+Why you: finance approver on duty. Can't approve: Priya (requester).
+Policy: refunds need 1 finance approver · expires 14:25 IST
+
+@clearance why CLR-0001",
+    "roomId": "dm-sam",
+    "title": "CLR-0001 · REFUND ₹4,000 · MEDIUM · irreversible",
+  },
+  {
+    "detail": "The call (parsed from what the agent ran, not from its words)
+  Refund ₹4,000 to customer Meera K. (cus_8812)
+  Destination: UPI meera.k@okaxis
+  Order A-1931 · total ₹4,000
+
+Context
+  Refunds to this customer in 24 h: ₹0
+  Destination added 4 minutes ago
+  refunds-agent refunds today: 0
+
+Flags
+  ⚠ Destination added in the last 24 h
+
+Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
+Why here: copy for this room; Sam (finance, on duty) decides. Can't approve: Priya (requester).
+Policy: refunds need 1 finance approver · expires 14:25 IST
+
+@clearance why CLR-0001",
+    "roomId": "#support",
+    "title": "CLR-0001 · REFUND ₹4,000 · MEDIUM · irreversible",
   },
 ]
 `;
@@ -572,7 +617,7 @@ Policy: refunds need 1 finance approver · expires 14:25 IST
 
 @clearance why CLR-0001",
     "roomId": "dm-sam",
-    "title": "CLR-0001 · REFUND ₹2,000 · LOW · irreversible",
+    "title": "CLR-0001 · REFUND ₹2,000 · MEDIUM · irreversible",
   },
   {
     "detail": "The call (parsed from what the agent ran, not from its words)
@@ -594,7 +639,7 @@ Policy: refunds need 1 finance approver · expires 14:25 IST
 
 @clearance why CLR-0001",
     "roomId": "#support",
-    "title": "CLR-0001 · REFUND ₹2,000 · LOW · irreversible",
+    "title": "CLR-0001 · REFUND ₹2,000 · MEDIUM · irreversible",
   },
 ]
 `;
@@ -634,6 +679,80 @@ Policy: deploys need 1 eng approver · expires 14:25 IST
 @clearance why CLR-0001",
     "roomId": "#support",
     "title": "CLR-0001 · DEPLOY checkout v2.13.2 staging · LOW · reversible",
+  },
+]
+`;
+
+exports[`cards from real calls: snapshots across fixture calls > '₹40,000 with both flags, critical' 1`] = `
+[
+  {
+    "prompt": "CLR-0001 is high risk. To approve, type the refund amount in rupees, in quotes, after the request code. Or choose No, deny.
+
+The call (parsed from what the agent ran, not from its words)
+  Refund ₹40,000 to customer Meera K. (cus_8812)
+  Destination: UPI meera.k@okaxis
+  Order A-1931 · total ₹4,000
+
+Context
+  Refunds to this customer in 24 h: ₹0
+  Destination added 4 minutes ago
+  refunds-agent refunds today: 0
+
+Flags
+  ⚠ Amount is 10x the order total
+  ⚠ Destination added in the last 24 h
+
+Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
+Why you: finance approver on duty. Can't approve: Priya (requester, agent owner).
+Policy: refunds over ₹10,000 need 2 finance approvers · expires 14:25 IST",
+    "roomId": "dm-sam",
+    "title": "CLR-0001 · REFUND ₹40,000 · CRITICAL · irreversible",
+  },
+  {
+    "prompt": "CLR-0001 is high risk. To approve, type the refund amount in rupees, in quotes, after the request code. Or choose No, deny.
+
+The call (parsed from what the agent ran, not from its words)
+  Refund ₹40,000 to customer Meera K. (cus_8812)
+  Destination: UPI meera.k@okaxis
+  Order A-1931 · total ₹4,000
+
+Context
+  Refunds to this customer in 24 h: ₹0
+  Destination added 4 minutes ago
+  refunds-agent refunds today: 0
+
+Flags
+  ⚠ Amount is 10x the order total
+  ⚠ Destination added in the last 24 h
+
+Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
+Why you: backup finance approver. Can't approve: Priya (requester, agent owner).
+Policy: refunds over ₹10,000 need 2 finance approvers · expires 14:25 IST",
+    "roomId": "dm-neha",
+    "title": "CLR-0001 · REFUND ₹40,000 · CRITICAL · irreversible",
+  },
+  {
+    "prompt": "CLR-0001 is high risk. To approve, type the refund amount in rupees, in quotes, after the request code. Or choose No, deny.
+
+The call (parsed from what the agent ran, not from its words)
+  Refund ₹40,000 to customer Meera K. (cus_8812)
+  Destination: UPI meera.k@okaxis
+  Order A-1931 · total ₹4,000
+
+Context
+  Refunds to this customer in 24 h: ₹0
+  Destination added 4 minutes ago
+  refunds-agent refunds today: 0
+
+Flags
+  ⚠ Amount is 10x the order total
+  ⚠ Destination added in the last 24 h
+
+Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
+Why here: copy for this room; Sam (finance, on duty) and Neha (finance, backup) decide. Can't approve: Priya (requester, agent owner).
+Policy: refunds over ₹10,000 need 2 finance approvers · expires 14:25 IST",
+    "roomId": "#support",
+    "title": "CLR-0001 · REFUND ₹40,000 · CRITICAL · irreversible",
   },
 ]
 `;

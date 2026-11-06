@@ -35,14 +35,14 @@ export class PeopleStore {
     }
   }
 
-  noteActive(userId: string, room: string): void {
+  noteActive(userId: string, room: string, messageId?: string): void {
     const at = this.clock.nowMs();
     this.db
       .prepare(
-        `INSERT INTO activity (user_id, room, at) VALUES (?, ?, ?)
-         ON CONFLICT (user_id, room) DO UPDATE SET at = excluded.at`,
+        `INSERT INTO activity (user_id, room, at, last_message_id) VALUES (?, ?, ?, ?)
+         ON CONFLICT (user_id, room) DO UPDATE SET at = excluded.at, last_message_id = COALESCE(excluded.last_message_id, last_message_id)`,
       )
-      .run(userId, room, at);
+      .run(userId, room, at, messageId ?? null);
     this.db.prepare(`UPDATE people SET last_active_at = ? WHERE user_id = ?`).run(at, userId);
   }
 
@@ -67,6 +67,14 @@ export class PeopleStore {
       | undefined;
     if (!row?.away_until || row.away_until <= this.clock.nowMs()) return null;
     return { untilMs: row.away_until, delegateTo: row.delegate_to };
+  }
+
+  /** The last thing this person wrote in this room: what a card can mention so that Switch names them. */
+  lastMessageIn(userId: string, room: string): string | null {
+    const row = this.db.prepare(`SELECT last_message_id FROM activity WHERE user_id = ? AND room = ?`).get(userId, room) as
+      | { last_message_id: string | null }
+      | undefined;
+    return row?.last_message_id ?? null;
   }
 
   /** Set by a rubber-stamp signal: their next high-tier card asks for a typed value. Null when there is none. */

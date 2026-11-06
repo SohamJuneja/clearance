@@ -23,6 +23,8 @@ import {
   type Flag,
   type GatePort,
   type LookupPort,
+  type OpenCardInput,
+  type OpenCardResult,
   type RequestState,
 } from "@clearance/contracts";
 import { ulid } from "ulid";
@@ -61,7 +63,7 @@ import { loadPolicy, loadTeam, parseDuration, parsePolicy, PolicyLoadError, type
 import type { TeamFile } from "./policy/schema.js";
 import { OPEN_STATES, RequestStore, type NewRequest, type RequestRecord } from "./requests/store.js";
 import { AggregateStore } from "./risk/aggregates.js";
-import { authorUnknownFlag, denialReason, requesterUnknownFlag } from "./risk/flags.js";
+import { authorUnknownFlag, requesterUnknownFlag } from "./risk/flags.js";
 import {
   evidenceLines,
   ignoredFlags,
@@ -186,6 +188,9 @@ const DEFAULT_GLASS_REVIEW = "24h";
 /** How many recent actions a proposed policy is replayed over on its card. */
 const POLICY_CARD_REPLAY = 100;
 
+/** A command that arrives later than this, because core was down, is history rather than a request. */
+const STALE_COMMAND_MS = 10 * 60_000;
+
 /** The hash of the policy file when it was last acted on. Only a file that differs from this is news. */
 const POLICY_FILE_SEEN = "policy_file_seen";
 
@@ -210,7 +215,7 @@ type Verdict =
   | { kind: "needs_typed"; person: Person }
   | { kind: "drill"; person: Person; caught: boolean; latencyMs: number };
 
-type CardPlace = { roomId: string; threadId?: string | undefined };
+type CardPlace = { roomId: string; threadId?: string | undefined; named?: boolean };
 
 type ReviewVerdict =
   | { kind: "closed" }
@@ -904,7 +909,7 @@ export class Clearance implements ClearanceCore {
     const { directory, store, requesters } = this.people;
     if (directory.isSelf(evt.sender, evt.senderName)) return;
     const person = directory.personByParticipant(evt.sender);
-    if (person) store.noteActive(person.id, evt.roomId);
+    if (person) store.noteActive(person.id, evt.roomId, evt.messageId);
     requesters.observe(evt);
     await this.handleCommand(evt, person?.id ?? null);
   }
@@ -1447,7 +1452,7 @@ export class Clearance implements ClearanceCore {
     const trace = this.traces.latest(request.id);
     const hasCard = this.stores.routes.openForRequest(request.id).some((row) => row.card_room === roomId);
     if (!hasCard && trace) {
-      const place = await this.tryOpen(request, trace, { kind: "room" }, async () => ({ roomId }), "group", null);
+      const place = await this.tryOpen(request, trace, { kind: "room" }, async () => ({ roomId }), "group", null, []);
       if (!place) return null;
     }
     const eligible = route(this.routeContext(request), 0).ranked.map((entry) => entry.id);
@@ -1643,11 +1648,13 @@ export class Clearance implements ClearanceCore {
         return;
       case "denied":
         await this.closeOpenCards(request);
+        await this.tellOriginCopy(request, `${request.id} denied by ${verdict.person.name}.`);
         await this.notifyDenied(request, verdict.person);
         if (verdict.demotion) await this.announce(verdict.demotion);
         return;
       case "approved":
         await this.closeOpenCards(request);
+        await this.tellOriginCopy(request, `${request.id} approved by ${this.approverNames(verdict.people)}.`);
         if (request.source === "hook") {
           const names = this.approverNames(verdict.people);
           await this.notifyAgent(request, `${request.id} approved by ${names}. Run the exact same command once.`);
@@ -1759,9 +1766,8 @@ export class Clearance implements ClearanceCore {
   }
 
   private async notifyDenied(request: RequestRecord, person: Person): Promise<void> {
-    const reason = denialReason(request.flags);
-    const because = reason ? `: ${reason}` : "";
-    await this.notifyAgent(request, `${request.id} denied by ${person.name}${because}. Tell ${this.requesterWords(request)} and stop.`);
+    // Only what happened. Switch has no reason field, so anything more would be credited to someone who never said it.
+    await this.notifyAgent(request, `${request.id} denied by ${person.name}. Tell ${this.requesterWords(request)} and stop.`);
   }
 
   // ── Execution ──────────────────────────────────────────────────────────────
@@ -1930,17 +1936,19 @@ export class Clearance implements ClearanceCore {
       const place = await this.tryOpen(request, trace, { kind: "person", id }, async () => {
         const { roomId } = await this.deps.chat.ensureDirectRoom({ userName: person.userName });
         return { roomId };
-      }, step, id);
+      }, step, id, [id]);
       if (!place) continue;
       opened += 1;
       const body = personBody?.(person) ?? `${request.id} needs your decision: ${headline}. The card is just above.`;
-      if (personBody || !this.deps.runningInbox) await this.notifyCard(place, [person.userName], body);
+      // A card that names them has told them. personBody says something the card doesn't, like why they were brought in.
+      if (personBody || !(this.deps.runningInbox || place.named)) await this.notifyCard(place, [person.userName], body);
     }
     const fallbackRoom = trace.fallback ? directory.roomId(trace.fallback.room) : null;
     const fallbackNames = userNames(trace.fallback?.eligible ?? []);
     if (trace.fallback && fallbackRoom && !openFallback) {
       const { group } = trace.fallback;
-      const place = await this.tryOpen(request, trace, { kind: "fallback" }, async () => ({ roomId: fallbackRoom }), "fallback", null);
+      // A group is being asked, so the note stays whoever the card names.
+      const place = await this.tryOpen(request, trace, { kind: "fallback" }, async () => ({ roomId: fallbackRoom }), "fallback", null, trace.fallback.eligible);
       if (place) {
         opened += 1;
         await this.notifyCard(place, fallbackNames, `${request.id} needs a decision from ${group}: ${headline}. The card is just above.`);
@@ -1951,14 +1959,32 @@ export class Clearance implements ClearanceCore {
     if (opened > 0 && !request.isDrill && request.originRoom && !hasCopy && request.originRoom !== fallbackRoom) {
       const originRoom = request.originRoom;
       const threadId = request.originThread ?? undefined;
-      const place = await this.tryOpen(request, trace, { kind: "room" }, async () => ({ roomId: originRoom, threadId }), "origin_copy", null);
+      const place = await this.tryOpen(request, trace, { kind: "room" }, async () => ({ roomId: originRoom, threadId }), "origin_copy", null, [...request.requesterIds, ...trace.chosen]);
       const targets = trace.chosen.length > 0 ? userNames(trace.chosen) : fallbackNames;
-      if (place) await this.notifyCard(place, targets, `${request.id} is waiting for a decision: ${headline}. The card is just above.`);
+      if (place && !place.named) await this.notifyCard(place, targets, `${request.id} is waiting for a decision: ${headline}. The card is just above.`);
     }
     return opened;
   }
 
-  /** Cards mention nobody, so whoever must decide is told by name. Targets are names Switch knows, not ids. */
+  /**
+   * Opens a card that names the first of these people who has written in the room: Switch names the sender of the message
+   * it's given, which is what notifies them, and without one the card says it notified nobody. If Switch won't take the
+   * mention, the card opens without it, because nobody should lose a card over a line at the top.
+   */
+  private async openNaming(input: OpenCardInput, people: string[]): Promise<{ result: OpenCardResult; named: boolean }> {
+    const { store } = this.people;
+    const message = people.map((id) => store.lastMessageIn(id, input.roomId)).find((id) => id !== null);
+    if (message) {
+      try {
+        return { result: await this.deps.chat.openCard({ ...input, mentionMessageId: message }), named: true };
+      } catch {
+        // Tried again below, as a plain card.
+      }
+    }
+    return { result: await this.deps.chat.openCard(input), named: false };
+  }
+
+  /** Whoever must decide and isn't named on the card is told by name. Targets are names Switch knows, not ids. */
   private async notifyCard(place: CardPlace, targets: string[], body: string): Promise<void> {
     if (targets.length === 0) return;
     try {
@@ -1980,6 +2006,7 @@ export class Clearance implements ClearanceCore {
     where: () => Promise<CardPlace>,
     step: RouteStep,
     userId: string | null,
+    nameOneOf: string[],
   ): Promise<CardPlace | null> {
     const evidence = this.evidenceOf(request);
     const view = buildCardView({
@@ -2014,13 +2041,16 @@ export class Clearance implements ClearanceCore {
         : { kind: "approval" as const, detail, options: CARD_OPTIONS, questions: [] };
     try {
       const { roomId, threadId } = await where();
-      const result = await this.deps.chat.openCard({
-        roomId,
-        ...(threadId ? { threadId } : {}),
-        title,
-        ...form,
-        expiresAtMs: request.expiresAtMs,
-      });
+      const { result, named } = await this.openNaming(
+        {
+          roomId,
+          ...(threadId ? { threadId } : {}),
+          title,
+          ...form,
+          expiresAtMs: request.expiresAtMs,
+        },
+        nameOneOf,
+      );
       this.stores.routes.add({
         requestId: request.id,
         userId,
@@ -2032,10 +2062,21 @@ export class Clearance implements ClearanceCore {
         confirmField: typedField ?? undefined,
       });
       if (typedField && userId) this.people.store.clearFriction(userId);
-      return { roomId, threadId };
+      return { roomId, threadId, named };
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Switch can only close the room's copy of a card as "Cancelled before it was answered", even when someone answered in
+   * their direct room. So the room is told what really happened, in the thread the copy was in. No timing in it.
+   */
+  private async tellOriginCopy(request: RequestRecord, body: string): Promise<void> {
+    const copy = this.stores.routes.forRequest(request.id).find((row) => row.step === "origin_copy");
+    if (!copy) return;
+    const threadId = request.originThread ?? undefined;
+    await this.deps.chat.postMessage({ roomId: copy.card_room, ...(threadId ? { threadId } : {}), body }).catch(() => undefined);
   }
 
   private async closeOpenCards(request: RequestRecord): Promise<void> {
@@ -2181,15 +2222,10 @@ export class Clearance implements ClearanceCore {
     const { title, detail } = renderReviewCard(view, level, note);
     try {
       const roomId = person ? (await this.deps.chat.ensureDirectRoom({ userName: person.userName })).roomId : (fallbackRoom as string);
-      const result = await this.deps.chat.openCard({
-        roomId,
-        kind: "approval",
-        title,
-        detail,
-        options: REVIEW_OPTIONS,
-        questions: [],
-        expiresAtMs: request.expiresAtMs,
-      });
+      const { result, named } = await this.openNaming(
+        { roomId, kind: "approval", title, detail, options: REVIEW_OPTIONS, questions: [], expiresAtMs: request.expiresAtMs },
+        person ? [person.id] : (trace.fallback?.eligible ?? []),
+      );
       routes.add({
         requestId: request.id,
         userId: person?.id ?? null,
@@ -2205,7 +2241,7 @@ export class Clearance implements ClearanceCore {
       });
       write.immediate();
       const targets = person ? [person.userName] : (trace.fallback?.eligible ?? []).flatMap((id) => directory.person(id)?.userName ?? []);
-      await this.notifyCard({ roomId }, targets, `${request.id} ran on its own and is up for review: ${evidence.description.headline}. The card is just above.`);
+      if (!named || !person) await this.notifyCard({ roomId }, targets, `${request.id} ran on its own and is up for review: ${evidence.description.headline}. The card is just above.`);
     } catch {
       // It already ran. The tick opens the review as soon as Switch answers.
     }
@@ -2493,15 +2529,18 @@ export class Clearance implements ClearanceCore {
       if (voted.includes(person.id) || open.some((row) => row.user_id === person.id)) continue;
       try {
         const { roomId } = await this.deps.chat.ensureDirectRoom({ userName: person.userName });
-        const result = await this.deps.chat.openCard({
-          roomId,
-          kind: "approval",
-          title: `${proposal.id} · ${proposal.payload.title}`.slice(0, TITLE_MAX),
-          detail: clipToBudget(proposal.payload.detail),
-          options: CARD_OPTIONS,
-          questions: [],
-          expiresAtMs: proposal.expiresAtMs,
-        });
+        const { result, named } = await this.openNaming(
+          {
+            roomId,
+            kind: "approval",
+            title: `${proposal.id} · ${proposal.payload.title}`.slice(0, TITLE_MAX),
+            detail: clipToBudget(proposal.payload.detail),
+            options: CARD_OPTIONS,
+            questions: [],
+            expiresAtMs: proposal.expiresAtMs,
+          },
+          [person.id],
+        );
         routes.add({
           requestId: proposal.id,
           userId: person.id,
@@ -2511,7 +2550,7 @@ export class Clearance implements ClearanceCore {
           switchRequestId: result.switchRequestId,
           handle: result.handle,
         });
-        await this.notifyCard({ roomId }, [person.userName], `${proposal.id} needs your signature: ${proposal.payload.title}. The card is just above.`);
+        if (!named) await this.notifyCard({ roomId }, [person.userName], `${proposal.id} needs your signature: ${proposal.payload.title}. The card is just above.`);
       } catch {
         // Switch is down. The next answer, or asking again, covers it.
       }
@@ -2635,6 +2674,8 @@ export class Clearance implements ClearanceCore {
   private async handleCommand(evt: ChatMessageEvent, askerId: string | null): Promise<void> {
     const command = parseCommand(evt);
     if (!command) return;
+    // Delivered late, after a restart. Break-glass hours after someone asked for it isn't what they asked for.
+    if (evt.timestampMs > 0 && this.deps.clock.nowMs() - evt.timestampMs > STALE_COMMAND_MS) return;
     const reply = await this.commandReply(command, evt, askerId);
     if (!reply) return;
     await this.deps.chat.postMessage({
@@ -2784,6 +2825,7 @@ export class Clearance implements ClearanceCore {
     await this.closeOpenCards(request);
     const dueMs = this.deps.clock.nowMs() + this.glassReviewWindow();
     const name = actor?.name ?? actorId;
+    await this.tellOriginCopy(request, `${request.id} let through by break-glass by ${name}.`);
     const tz = this.currentPolicy.defaults.business_hours.tz;
     const headline = this.evidenceOf(request).description.headline;
     const others = directory.all().filter((person) => person.id !== actorId).map((person) => person.userName);
@@ -2828,7 +2870,7 @@ export class Clearance implements ClearanceCore {
       if (open.some((row) => row.user_id === person.id)) continue;
       try {
         const { roomId } = await this.deps.chat.ensureDirectRoom({ userName: person.userName });
-        const result = await this.deps.chat.openCard({
+        const { result, named } = await this.openNaming({
           roomId,
           kind: "approval",
           title: `${request.id} · BREAK-GLASS REVIEW · ${evidence.description.headline}`.slice(0, TITLE_MAX),
@@ -2842,7 +2884,7 @@ export class Clearance implements ClearanceCore {
           options: GLASS_REVIEW_OPTIONS,
           questions: [],
           expiresAtMs,
-        });
+        }, [person.id]);
         routes.add({
           requestId: request.id,
           userId: person.id,
@@ -2852,7 +2894,7 @@ export class Clearance implements ClearanceCore {
           switchRequestId: result.switchRequestId,
           handle: result.handle,
         });
-        await this.notifyCard({ roomId }, [person.userName], `${request.id} needs your review: ${actor} broke glass on it. The card is just above.`);
+        if (!named) await this.notifyCard({ roomId }, [person.userName], `${request.id} needs your review: ${actor} broke glass on it. The card is just above.`);
       } catch {
         // The page has gone out. The overdue chase is what finally surfaces a review nobody could be shown.
       }

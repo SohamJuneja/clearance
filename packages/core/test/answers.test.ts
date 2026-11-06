@@ -100,21 +100,22 @@ describe("on hold", () => {
     expect(h.chat.cards.map((card) => card.roomId)).toEqual(["dm-sam", "dm-neha"]);
   });
 
-  it("tells the approver by name after opening each card, since a card mentions nobody", async () => {
+  it("tells the approver by name when the card can't, and the copy names whoever asked", async () => {
     const { id } = await heldSc4();
-    expect(h.chat.targeted).toEqual([
-      { roomId: "dm-sam", targets: ["sam"], body: `${id} needs your decision: REFUND ₹40,000. The card is just above.` },
-      {
-        roomId: "#support",
-        threadId: "t-77",
-        targets: ["sam"],
-        body: `${id} is waiting for a decision: REFUND ₹40,000. The card is just above.`,
-      },
+    expect(h.chat.targeted).toEqual([{ roomId: "dm-sam", targets: ["sam"], body: `${id} needs your decision: REFUND ₹40,000. The card is just above.` }]);
+    expect(h.chat.cardIn("#support").mentionMessageId).toBeDefined();
+  });
+
+  it("tells each person with a card", async () => {
+    await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@refunds-agent go"));
+    await h.core.check(gateRefund(REFUND_CRITICAL));
+    expect(h.chat.targeted.map((message) => [message.roomId, message.targets])).toEqual([
+      ["dm-sam", ["sam"]],
+      ["dm-neha", ["neha"]],
     ]);
   });
 
-  it("tells each person with a card, and everyone chosen on the origin copy", async () => {
-    await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@refunds-agent go"));
+  it("tells everyone chosen on the origin copy when nobody there can be named on it", async () => {
     await h.core.check(gateRefund(REFUND_CRITICAL));
     expect(h.chat.targeted.map((message) => [message.roomId, message.targets])).toEqual([
       ["dm-sam", ["sam"]],
@@ -338,11 +339,11 @@ describe("an eligible denial", () => {
     expect(h.chat.cardIn("#support").closed).toBe(true);
   });
 
-  it("names the top flag as the reason, in the Appendix D words", async () => {
+  it("gives no reason: Switch has no reason field, so anything here would be credited to Sam", async () => {
     await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@refunds-agent go"));
     const held = await h.core.check(gateRefund());
     await press(h.chat.cardIn("dm-sam"), PARTICIPANTS.sam, "deny");
-    expect(h.chat.targeted.at(-1)?.body).toBe(`${held.request_id} denied by Sam: amount is 10x the order. Tell Priya and stop.`);
+    expect(h.chat.targeted.at(-1)?.body).toBe(`${held.request_id} denied by Sam. Tell Priya and stop.`);
   });
 
   it("leaves the 24 h sum, since no money moved", async () => {
@@ -792,6 +793,6 @@ describe("what the agent claimed", () => {
     await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@refunds-agent go"));
     const held = await h.core.check(gateRefund(REFUND_SC3, { agentClaim: "Refunding ₹4 only" }));
     expect(held.decision).toBe("hold");
-    expect(h.chat.cardIn("dm-sam").title).toContain("₹40,000");
+    expect(h.chat.cardIn("dm-sam").title).toContain("₹4,000");
   });
 });

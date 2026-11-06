@@ -18,6 +18,7 @@ import {
   isKnownMcpServer,
   isProtected,
   isSafe,
+  leavesAgentDir,
   normaliseCall,
   subCommandCall,
   type NormalCall,
@@ -27,6 +28,7 @@ import { toNumber } from "../format.js";
 import { callHash } from "../hash.js";
 import type { AggregateStore } from "../risk/aggregates.js";
 import {
+  outsideAgentDirFlag,
   aboveNormalRangeFlag,
   aggregateFlag,
   overCapFlag,
@@ -72,6 +74,7 @@ export type Step =
   | "aggregate_deny"
   | "autonomy"
   | "class_hold"
+  | "outside_read"
   | "unknown_protected"
   | "unmatched";
 
@@ -171,6 +174,24 @@ function unknownProtected(identity: Identity, policy: CompiledPolicy): Evaluatio
   };
 }
 
+/** A read past the agent's own directory: a person looks, because nothing in the policy is about this particular path. */
+function outsideRead(identity: Identity, policy: CompiledPolicy, path: string): Evaluation {
+  const subject = "reads outside the agent's own directory";
+  return {
+    ...EMPTY,
+    ...identity,
+    decision: "hold",
+    step: "outside_read",
+    cls: null,
+    tier: "high",
+    score: highScore(policy),
+    flags: [outsideAgentDirFlag(path)],
+    reason: "HELD: reading outside the agent's own directory needs approval",
+    policySubject: subject,
+    holdSummary: "reading outside the agent's own directory needs approval",
+  };
+}
+
 export async function evaluateAction(action: Action, deps: EngineDeps): Promise<Evaluation> {
   const { policy } = deps;
   const call = normaliseCall(action, policy);
@@ -211,6 +232,14 @@ async function evaluateCall(action: Action, call: NormalCall, deps: EngineDeps):
     };
   }
 
+  // A read that leaves the agent's own directory isn't safe, whatever the safe list says about reads.
+  if (leavesAgentDir(call, action.agent.cwd, policy)) {
+    const identity = identityOf(call, UNKNOWN_PROTECTED_CLASS);
+    const requestId = takeGrants([identity.callHash], action, deps);
+    if (requestId) return granted(identity, null, requestId);
+    return outsideRead(identity, policy, call.rawSubject ?? call.subject);
+  }
+
   // 3. Safe list: pass silently.
   if (isSafe(call, policy)) return { ...EMPTY, ...identityOf(call, "safe"), decision: "allow", step: "safe", cls: null, reason: "safe" };
 
@@ -239,7 +268,7 @@ function takeGrants(hashes: string[], action: Action, deps: EngineDeps): string 
   return deps.grants.consumeAll(hashes, action)?.requestIds[0] ?? null;
 }
 
-type Risky = { call: NormalCall; cls: CompiledClass | null; identity: Identity; dynamic: string[] };
+type Risky = { call: NormalCall; cls: CompiledClass | null; identity: Identity; dynamic: string[]; outside?: string };
 
 /** The deny classes get the whole line too when it could not be read: `eval 'curl ...:7800'` says what it says. */
 function shellDeny(parsed: ParsedShell, line: NormalCall, action: Action, policy: CompiledPolicy): CompiledClass | null {
@@ -287,6 +316,12 @@ function classifySubCommand(
     if (isProtected(call, policy)) {
       risky.push({ call, cls: null, identity: identityOf(call, UNKNOWN_PROTECTED_CLASS), dynamic: [] });
     }
+  }
+  for (const path of command.reads) {
+    const call = fileCall("file_read", path, action.agent.cwd);
+    if (!leavesAgentDir(call, action.agent.cwd, policy)) continue;
+    safe = false;
+    risky.push({ call, cls: null, identity: identityOf(call, UNKNOWN_PROTECTED_CLASS), dynamic: [], outside: path });
   }
   return { safe, viaGateClass, risky };
 }
@@ -357,7 +392,9 @@ async function mostSevere(action: Action, parts: Risky[], deps: EngineDeps): Pro
   for (const part of parts) {
     const evaluation = part.cls
       ? await assessClass(action, part.call, part.cls, part.identity, deps)
-      : unknownProtected(part.identity, deps.policy);
+      : part.outside !== undefined
+        ? outsideRead(part.identity, deps.policy, part.outside)
+        : unknownProtected(part.identity, deps.policy);
     results.push({ evaluation, part });
   }
   const order: Decision[] = ["deny", "hold", "allow"];

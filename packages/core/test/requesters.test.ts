@@ -1,6 +1,6 @@
 /** S4 fallback: every human who addressed an agent in the last 10 minutes is a requester. */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { chatMessage, gateRefund, hookShell, makeHarness, MINUTE, PARTICIPANTS, type Harness } from "./harness.js";
+import { chatMessage, gateRefund, hookShell, makeHarness, MINUTE, PARTICIPANTS, REFUND_SC4, type Harness } from "./harness.js";
 
 let h: Harness;
 beforeEach(() => {
@@ -258,7 +258,7 @@ describe("hold time", () => {
 describe("@clearance why and status", () => {
   it("answers why with the same trace the router made", async () => {
     await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@refunds-agent go"));
-    const held = await h.core.check(gateRefund());
+    const held = await h.core.check(gateRefund(REFUND_SC4));
     const id = held.request_id as string;
     await h.core.onMessage(chatMessage(PARTICIPANTS.alex, `@clearance why ${id}`, { roomId: "#eng", threadId: null, addressed: true }));
     const reply = h.chat.messages.at(-1);
@@ -270,7 +270,7 @@ describe("@clearance why and status", () => {
 
   it("gives the requester the plain-language line first", async () => {
     await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@refunds-agent go"));
-    const held = await h.core.check(gateRefund());
+    const held = await h.core.check(gateRefund(REFUND_SC4));
     await h.core.onMessage(chatMessage(PARTICIPANTS.priya, `@clearance why ${held.request_id}`, { addressed: true }));
     expect(h.chat.messages.at(-1)?.body).toMatch(/^Held because refunds over ₹10,000 need finance approval\. Sam \(finance, on duty\) has it\. You can't approve your own request\./);
   });

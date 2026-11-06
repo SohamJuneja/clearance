@@ -200,8 +200,8 @@ requests:
     b:
       clr: CLR-0205
       handle: A205
-      score: 28
-      tier: LOW
+      score: 45
+      tier: MEDIUM
       reversible: false
       headline: REFUND ₹8,600
       parsed:

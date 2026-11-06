@@ -74,14 +74,13 @@ describe("mismatch at hold time", () => {
   it("puts the flag on the request and the card, after the risk flags, as Appendix D shows", async () => {
     await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@refunds-agent handle T-77"));
     await said("Refunding ₹4,000 for order A-1931 as requested in T-77.");
-    const held = await h.core.check(gateRefund(REFUND_SC3));
+    const held = await h.core.check(gateRefund({ ...REFUND_SC3, amount: 9000 }));
     const request = h.core.stores.requests.require(held.request_id as string);
-    expect(request.flags.map((flag) => flag.code)).toEqual(["amount_vs_order", "new_destination", "mismatch"]);
+    expect(request.flags.map((flag) => flag.code)).toEqual(["new_destination", "mismatch"]);
     const { detail } = h.chat.cardIn("dm-sam");
     expect(detail).toContain(`Flags
-  ⚠ Amount is 10x the order total
   ⚠ Destination added in the last 24 h
-  ⚠ The agent wrote "₹4,000" in the thread; the call says ₹40,000`);
+  ⚠ The agent wrote "₹4,000" in the thread; the call says ₹9,000`);
     expect(detail).toContain(`Agent's claim (unverified): "Refunding ₹4,000 for order A-1931 as requested in T-77."`);
   });
 

@@ -15,6 +15,8 @@ import { buildServer } from "./api/server.js";
 import { systemClock } from "./clock.js";
 import { OperatorCommands } from "./commands/operator.js";
 import { createClearanceCore } from "./core.js";
+import { openDatabase } from "./db/index.js";
+import { readStreamPosition, streamHandlers } from "./stream.js";
 import { drillRateFromEnv } from "./drills/library.js";
 import { isInboxMessage } from "./inbox/inbox.js";
 import { createInboxKeeper, INBOX_SYNC_EVERY_MS } from "./inbox/keeper.js";
@@ -75,12 +77,19 @@ for (const person of Object.values(identities.people)) {
   for (const id of person.participantIds) participantNames[id] = person.mattermostUser;
 }
 
+const dbPath = resolve(process.env.CLEARANCE_DB_PATH ?? resolve(dataDir, "clearance.sqlite"));
+// Read before the agent exists, so what was said while core was down is delivered rather than skipped.
+const positionDb = openDatabase(dbPath);
+const initialPosition = readStreamPosition(positionDb);
+positionDb.close();
+
 const agent = createSwitchAgent({
   bridgeUrl: process.env.SWITCH_BRIDGE_URL ?? "http://127.0.0.1:8000",
   agentId: clearance.switchAgentId,
   apiKey,
   // One core per Switch: services.sh refuses a second, and a restart must not leave the rooms deaf for 30 s.
   connectionId: serviceConnectionId(clearance.switchAgentId),
+  ...(initialPosition ? { initialPosition } : {}),
 });
 // Clearance's own Mattermost account can read its real direct rooms, which the reader account can't.
 const ownToken = secrets.mattermostTokens.clearance;
@@ -109,7 +118,7 @@ const clock = systemClock(Number(process.env.CLEARANCE_TIME_SCALE ?? 1));
 const logLine = (message: string) => console.error(message);
 
 const core = createClearanceCore({
-  dbPath: resolve(process.env.CLEARANCE_DB_PATH ?? resolve(dataDir, "clearance.sqlite")),
+  dbPath,
   policyPath: resolve(process.env.CLEARANCE_POLICY_PATH ?? "policy/clearance.policy.yaml"),
   teamPath: resolve(process.env.CLEARANCE_TEAM_PATH ?? "policy/team.yaml"),
   identitiesPath,
@@ -201,11 +210,5 @@ process.on("SIGINT", () => void stop());
 
 const port = Number(process.env.CLEARANCE_CORE_PORT ?? DEFAULT_PORTS.core);
 await app.listen({ port, host: "127.0.0.1" });
-await agent.start({
-  message: async (event) => {
-    await core.onMessage(event);
-    operator.start(event);
-  },
-  approvalOutcome: (event) => core.onApprovalOutcome(event),
-});
+await agent.start(streamHandlers(core, { afterMessage: (event) => operator.start(event) }));
 console.log(`clearance-core listening on 127.0.0.1:${port}, Switch agent connected`);

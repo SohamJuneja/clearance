@@ -445,6 +445,13 @@ describe("createMattermostHandleResolver", () => {
     expect((init.headers as Record<string, string>).authorization).toBe("Bearer reader-token");
   });
 
+  it("reads the handle the same when the card opens by naming someone", async () => {
+    // Switch draws the mention on the line above the heading, and the handle stays where it was.
+    const named = `@sam\n${card.message}`;
+    const { resolve } = resolver((async () => postsResponse([named])) as unknown as typeof fetch);
+    await expect(resolve({ roomId: "room-a", title: "CLR-S21 refund ₹40,000 to meera.k@okaxis · HIGH" })).resolves.toBe("A1");
+  });
+
   it("waits for a card that is not drawn yet", async () => {
     let calls = 0;
     const { resolve } = resolver((async () => {

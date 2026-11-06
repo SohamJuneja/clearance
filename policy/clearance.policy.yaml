@@ -17,8 +17,9 @@ defaults:
   exclude_agent_owner_from: high      # tier at or above which the agent's owner cannot approve
   unknown_requester_quorum: 2         # nobody can tell who asked: two different people decide, and only one can be them
   gate_hosts: ["127.0.0.1:7710", "localhost:7710"]     # a curl or wget that only goes here is left to the gate
+  readable_outside: ["/usr", "/bin", "/sbin", "/lib", "/lib64", "/tmp", "/dev/null", "/etc/hosts", "/etc/hostname", "/etc/os-release", "/etc/resolv.conf", "/etc/timezone"]   # reads outside the agent's own directory hold, except these
   unknown_protected_action: hold
-  business_hours: { days: Mon-Fri, hours: "09:00-19:00", tz: Asia/Kolkata }
+  business_hours: { days: Mon-Sun, hours: "00:00-24:00", tz: Asia/Kolkata }   # always on, so a take at night reads like one by day
   fallback: { group: eng-leads, room: "#approvals" }   # nobody eligible: card goes here, and the room is told why
   gate_mcp_servers: [clearance_gate]                   # MCP servers that are the gate itself
   known_mcp_servers: [clearance_gate, switch, builtin] # any other MCP server is denied; builtin is the adapters' name for a vendor's own tools
@@ -61,8 +62,8 @@ classes:
       add:
         - { when: 'amount > 10000', points: 35, why: 'refunds over ₹10,000' }
         - { when: 'amount > 100000', points: 40 }   # very large refunds reach critical
-        - { when: 'amount > 3 * order_total', points: 8, flag: amount_vs_order }    # a flag shows whatever its points
-        - { when: 'destination_age_hours < 24', points: 8, flag: new_destination }
+        - { when: 'amount > 3 * order_total', points: 30, flag: amount_vs_order }
+        - { when: 'destination_age_hours < 24', points: 25, flag: new_destination }
         - { when: 'outside_hours()', points: 5, flag: outside_hours }
     aggregate:                         # anti-structuring: ten small refunds do not slip under the threshold
       - { sum: amount, by: customer, window: 24h, over: 10000, then: hold, why: 'refunds to one customer over ₹10,000 in 24 h' }
@@ -240,6 +241,25 @@ classes:
       - { file_write: '(^|/)\.env' }
       - { file_read: '(^|/)\.env' }
       - { file_read: '(^|/)secrets/' }
+      # Token files. A real agent ran `cat .clearance/*` and sent its tokens to a hosted model. The CLI reading its own
+      # token isn't a tool call, so none of this touches it.
+      - { file_read: '(^|/)\.clearance(/|$)' }
+      - { file_write: '(^|/)\.clearance(/|$)' }
+      - { file_read: '(^|/)(hook-tokens|gate-tokens|secrets|identities)\.json$' }
+      - { file_write: '(^|/)(hook-tokens|gate-tokens|secrets|identities)\.json$' }
+      - { shell: '(^|[\s/"''=<])\.clearance(/|\s|$)' }
+      - { shell: '(^|[\s/"''=<])(hook-tokens|gate-tokens|secrets|identities)\.json(\s|$)' }
+      # Credentials.
+      - { file_read: '(^|/)\.(ssh|aws|gnupg|netrc)(/|$)' }
+      - { file_read: '(^|/)\.claude/\.credentials' }
+      - { file_read: '(^|/)\.codex/auth' }
+      - { file_read: '(^|/)\.config/gh(/|$)' }
+      - { file_read: '\.(pem|key|p12|pfx|ppk)$' }
+      - { file_read: '(^|/)id_(rsa|dsa|ecdsa|ed25519)$' }
+      - { shell: '(^|[\s/"''=<])\.(ssh|aws|gnupg|netrc)(/|\s|$)' }
+      - { shell: '(^|[\s/"''=<])\.config/gh(/|\s|$)' }
+      - { shell: '\.(pem|key|p12|pfx|ppk)(\s|$)' }
+      - { shell: '(^|[\s/"''=<])id_(rsa|dsa|ecdsa|ed25519)(\s|$)' }
       - { shell: '(^|/)docker(\s|$)' }
       - { shell: '(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]):7800' }
       - { shell: '(^|[\s/"''=<])\.env(\b|\.)' }

@@ -3,10 +3,11 @@
 cases:
   # git's global options
   - { name: git -C matches merge, vendor: claude, agent: coder, shell: "git -C /x push --force origin main", expect: { decision: hold, class: merge, tier: high } }
-  - { name: a git -c setting that runs a command can't be read, vendor: codex, agent: coder, shell: "git -c core.sshCommand=x push origin main", expect: { decision: hold, step: unparsed } }
+  - { name: "a git -c setting that runs a command can't be read", vendor: codex, agent: coder, shell: "git -c core.sshCommand=x push origin main", expect: { decision: hold, step: unparsed } }
   - { name: git -c matches merge, vendor: codex, agent: coder, shell: "git -c color.ui=never push origin main", expect: { decision: hold, class: merge } }
   - { name: git --git-dir matches merge, vendor: opencode, agent: coder, shell: "git --git-dir=/x/.git push origin main", expect: { decision: hold, class: merge } }
-  - { name: git -C on a safe subcommand stays safe, vendor: claude, agent: coder, shell: "git -C /x status", expect: { decision: allow, step: safe } }
+  - { name: git -C on a safe subcommand stays safe, vendor: claude, agent: coder, shell: "git -C /agents/refunds-agent/x status", expect: { decision: allow, step: safe } }
+  - { name: "git -C somewhere else reads outside the agent's directory", vendor: claude, agent: coder, shell: "git -C /x status", expect: { decision: hold, step: outside_read } }
 
   # a push whose branch the text does not settle may well be main
   - { name: a bare push is held, vendor: claude, agent: coder, shell: "git push", expect: { decision: hold, class: merge } }

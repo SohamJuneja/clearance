@@ -17,6 +17,7 @@ const ADDED_COLUMNS: [table: string, column: string, definition: string][] = [
   ["actions", "would_decide", "TEXT"],
   ["actions", "action_json", "TEXT"],
   ["policy_versions", "text", "TEXT"],
+  ["activity", "last_message_id", "TEXT"],
 ];
 
 function addMissingColumns(db: Database.Database): void {

@@ -2,6 +2,7 @@ export { buildServer, type ServerOptions } from "./api/server.js";
 export { systemClock } from "./clock.js";
 export { Clearance, createClearanceCore, type ClearanceCore, type CoreDeps, type Evidence } from "./core.js";
 export { drillRateFromEnv } from "./drills/library.js";
+export { readStreamPosition, streamHandlers, writeStreamPosition } from "./stream.js";
 export { callHash } from "./hash.js";
 export { runLedgerVerify } from "./cli/ledger-verify.js";
 export { verifyLedger, type LedgerEntry, type LedgerVerification } from "./ledger/ledger.js";

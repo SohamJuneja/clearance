@@ -1,17 +1,17 @@
 # Gate-shaped Actions: the business calls an agent makes through clearance-gate.
 # Scores are worked out by hand from clearance.policy.yaml. Tiers: low < 30, medium < 55, high < 80, critical.
 cases:
-  - name: SC3 refund, 10x the order, new destination
+  - name: the ₹40,000 T-77 asked for, 10x the order to a new destination, is critical
     gate:
       endpoint: POST /acme/refunds
       args: { order_id: A-1931, customer_id: cus_8812, amount: 40000, destination: meera.k@okaxis }
-    expect: { decision: hold, class: refund, tier: high, score: 71, flags: [amount_vs_order, new_destination] }
-  - name: SC3 outside hours is still high
+    expect: { decision: hold, class: refund, tier: critical, score: 100, flags: [amount_vs_order, new_destination] }
+  - name: the same on a Sunday, since the demo policy's hours are always on
     at: "2026-11-08T14:00:00+05:30"
     gate:
       endpoint: POST /acme/refunds
       args: { order_id: A-1931, customer_id: cus_8812, amount: 40000, destination: meera.k@okaxis }
-    expect: { decision: hold, class: refund, tier: high, score: 76, flags: [amount_vs_order, new_destination, outside_hours] }
+    expect: { decision: hold, class: refund, tier: critical, score: 100, flags: [amount_vs_order, new_destination] }
   - name: a very large refund reaches critical
     gate:
       endpoint: POST /acme/refunds
@@ -32,44 +32,44 @@ cases:
       endpoint: POST /acme/refunds
       args: { order_id: A-1931, customer_id: cus_8812, amount: 2000, destination: rohan.s@okhdfc }
     expect: { decision: hold, class: refund, tier: low, score: 20, flags: [], step: class_hold }
-  - name: small refund to a new destination
+  - name: the spine scene, ₹4,000 to a newly added UPI ID, is medium
     gate:
       endpoint: POST /acme/refunds
       args: { order_id: A-1931, customer_id: cus_8812, amount: 4000, destination: meera.k@okaxis }
-    expect: { decision: hold, class: refund, tier: low, score: 28, flags: [new_destination] }
-  - name: over the order by more than 3x and over the limit
+    expect: { decision: hold, class: refund, tier: medium, score: 45, flags: [new_destination] }
+  - name: over the order by more than 3x and over the limit is critical
     gate:
       endpoint: POST /acme/refunds
       args: { order_id: A-1931, customer_id: cus_8812, amount: 15000, destination: rohan.s@okhdfc }
-    expect: { decision: hold, class: refund, tier: high, score: 63, flags: [amount_vs_order] }
-  - name: outside business hours adds points and a flag
+    expect: { decision: hold, class: refund, tier: critical, score: 85, flags: [amount_vs_order] }
+  - name: a Sunday adds nothing, since the demo policy's hours are always on
     at: "2026-11-08T14:00:00+05:30"
     gate:
       endpoint: POST /acme/refunds
       args: { order_id: A-1931, customer_id: cus_8812, amount: 2000, destination: rohan.s@okhdfc }
-    expect: { decision: hold, class: refund, tier: low, score: 25, flags: [outside_hours] }
-  - name: evening on a weekday is outside hours
+    expect: { decision: hold, class: refund, tier: low, score: 20, flags: [] }
+  - name: nor does a weekday evening
     at: "2026-11-04T21:30:00+05:30"
     gate:
       endpoint: POST /acme/refunds
       args: { order_id: A-1931, customer_id: cus_8812, amount: 2000, destination: rohan.s@okhdfc }
-    expect: { decision: hold, class: refund, score: 25, flags: [outside_hours] }
+    expect: { decision: hold, class: refund, score: 20, flags: [] }
   - name: unknown order cannot lower risk, adds the points and flags missing data
     gate:
       endpoint: POST /acme/refunds
       args: { order_id: A-404, customer_id: cus_8812, amount: 2000, destination: rohan.s@okhdfc }
-    expect: { decision: hold, class: refund, tier: low, score: 28, flags: [missing_data] }
+    expect: { decision: hold, class: refund, tier: medium, score: 50, flags: [missing_data] }
   - name: unknown destination is treated as new
     gate:
       endpoint: POST /acme/refunds
       args: { order_id: A-1931, customer_id: cus_8812, amount: 2000, destination: fresh@oksbi }
-    expect: { decision: hold, class: refund, tier: low, score: 28, flags: [missing_data] }
+    expect: { decision: hold, class: refund, tier: medium, score: 45, flags: [missing_data] }
   - name: lookups down, everything unknown still holds and takes the points it could have earned
     lookups_down: true
     gate:
       endpoint: POST /acme/refunds
       args: { order_id: A-1931, customer_id: cus_8812, amount: 2000, destination: rohan.s@okhdfc }
-    expect: { decision: hold, class: refund, tier: medium, score: 36, flags: [missing_data] }
+    expect: { decision: hold, class: refund, tier: high, score: 75, flags: [missing_data] }
   - name: non-numeric amount cannot slip under the threshold
     gate:
       endpoint: POST /acme/refunds

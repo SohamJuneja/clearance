@@ -23,6 +23,7 @@ import type {
   PolicyView,
   QueueItem,
   QueueView,
+  RoiView,
 } from "../shared/api";
 import { CoreUnavailable, type CoreSource } from "./core-source";
 import {
@@ -38,6 +39,7 @@ import {
   PolicyFileSchema,
   PolicyInfoSchema,
   ReplaySchema,
+  RoiSchema,
   RosterSchema,
   TeamFileSchema,
   VerifySchema,
@@ -98,6 +100,8 @@ const named = (ids: string[], names: Record<string, string>) => ids.map((id) => 
 
 export const readHealth = (core: CoreSource): Promise<Health> => read(core, "/v1/health", HealthSchema);
 export const readCoverage = (core: CoreSource): Promise<CoverageView> => read(core, "/v1/coverage", CoverageSchema);
+/** Core's one report, with its rules for a room already applied. It is the only thing this reads, so no person's record comes near it. */
+export const readRoi = (core: CoreSource): Promise<RoiView> => read(core, "/v1/roi", RoiSchema);
 
 /**
  * The ledger as the team may read it (team-view.ts). A drill can close without a result, as a cancelled one does, and

@@ -278,6 +278,7 @@ Priority sets the **order** of work, not what gets dropped: P0 first (the submit
 | F20 | Approve with edits (counter-offer) | P2 | A + C | optional |
 | F21 | Switch Trust endpoint that flags pressure messages | P2 | B | blog |
 | F22 | Daily digest and audit export (NIST AC-5 / PCI mapping) | P2 | C | README |
+| F23 | The report: what the approval layer did this week, for a team lead | P2 | C | optional |
 
 ### F1. One policy file for every agent and vendor (P0)
 
@@ -437,6 +438,18 @@ A small React app (read-mostly) at http://localhost:7900. Tabs: **Queue** (open 
 - **F20 Approve with edits.** An eligible approver types `@clearance counter CLR-0042 4000`, which opens a question card "Approve ₹4,000 instead?". On a yes, Clearance creates a new call with the edited amount and executes that through the gate. It's a command so that ordinary cards keep their buttons. Only the amount, only down, only gate calls, and the edited call goes through the normal policy path.
 - **F21 Switch Trust endpoint.** Clearance implements `POST /guardrails/check` (the schema Switch's Trust client calls, `trust/client.py`) and returns `ALERTED` for agent messages that pressure approvers ("urgent, CEO says approve now"). Switch calls it with a 2 s timeout and fails open, so it is advisory only.
 - **F22 Digest and audit export.** Daily digest message in `#approvals`; `GET /v1/export.csv` with columns that map to NIST AC-5 and PCI DSS 6.x evidence (who requested, who approved, separation proof, timestamps, hash).
+
+### F23. The report (P2)
+
+Switch's pitch is "Share Rooms • Earn Trust • Prove ROI". F11 makes earning trust literal. This answers the rest for a team lead: what did the approval layer do for us this week? `@clearance roi` answers in any room Clearance is in, for a person on the team. The same words go to a `clearance-roi` room document in `#approvals` once a day, at `digest.at`, and core serves them at `GET /v1/roi`. The Desk shows them as a tile on the Queue page. All of it comes from one function, `buildRoiReport` in `packages/core/src/reports/roi.ts`, which shares its counting with the digest.
+**What it shows, for today and the six days before it on the team's calendar.** Money held and money denied, by class, in rupees. Risky actions that ran without a person, which should be zero outside earned autonomy, and how many ran under it. Human decisions per 100 agent actions, as `GET /v1/metrics/human-load` counts them, and the share of tool calls with no card. Median time from hold to decision, and how many cards escalated or expired. Drill catch rate as a team total, all time, in whole groups of 3.
+**What it doesn't.** No figure for hours or money saved, because nothing on record could prove one. No estimates of any kind.
+**It only reports.** It writes nothing but its own document, and no decision reads it. No LLM.
+**Too little data.** It says so in words. A rate needs 20 actions. A median needs 5 decisions from 3 people. A count of zero appears only over real traffic. A section it can't compute says so, an amount it can't read stays out of the total and is counted as unreadable, and if the ledger's chain doesn't verify it shows no numbers at all.
+**Privacy.** A room reads it, and the Desk has no login, so the mirror's rules apply. No names and nothing per person. No time of day, and a median to the nearest 10 s. The 3 people must be behind the decisions the median reads, so it can't be one person's timing.
+**Drills.** It counts only what has closed, so neither a real card nor a drill moves it while it's open, and an approver can't tell which they're holding by asking for the report. Drill totals stand still while one is open, as the team view's do. They're all time because a sliding window could isolate one result. For the same reason the document goes out on time with a drill open: its words don't change, and holding it back would be the tell.
+**Synthetic.** Seeded history stays out of every number, as it stays out of the ledger. When some is on record the report says so, labels it synthetic, and says how many earned-autonomy runs stand on it.
+**Acceptance.** [ ] A room never sees per-person data (test). [ ] It reads the same as the digest and human load where they overlap (test). [ ] A drill or a real card, open, changes nothing byte for byte (test). [ ] SCRO runs on Mattermost.
 
 ---
 
@@ -605,6 +618,7 @@ Vendor adapters (`packages/adapters/{claude,codex,opencode,cursor}.ts`) turn eac
 | `GET /v1/inbox?user=` | Open requests for a person |
 | `GET /v1/ledger`, `GET /v1/ledger/verify`, `GET /v1/export.csv` | Ledger |
 | `GET /v1/people/:id/stats` | Latency, flags, drill results (private) |
+| `GET /v1/roi` | F23's report, fit for a room: team totals only |
 | `GET /v1/autonomy`, `POST /v1/autonomy/simulate` | Ladder state and replay |
 | `POST /v1/policy/simulate` | Shadow replay of a policy change |
 | `GET /v1/coverage` | Vendor × enforcement point status |
@@ -622,6 +636,7 @@ Gate (port 7710): `POST /acme/refunds`, `POST /acme/deploys`, `POST /acme/emails
 | `@clearance away until 18:00 delegate @alex` / `back` | approvers | Away and delegation |
 | `@clearance incident CLR-0042 <note>` | anyone | Marks an incident, demotes autonomy |
 | `@clearance autonomy [agent]` | anyone | Ladder and proposals |
+| `@clearance roi` | people on the team | F23: what the approval layer did in the last 7 days |
 | `@clearance policy` / `policy test <text>` | anyone | Summary; dry-run classification of a described action |
 | `@clearance breakglass CLR-0042 <reason>` | emergency approvers | F18 |
 | `@clearance drills on/off` | team admin | F9 |

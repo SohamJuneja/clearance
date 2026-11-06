@@ -10,7 +10,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { extname, resolve, sep } from "node:path";
 import type { Meta } from "../shared/api";
-import { composeAutonomy, composeLedger, composePeople, composePerson, composePolicy, composeQueue, composeVerify, CoreRefused, CoreShapeError, readCoverage, readHealth, replayScope, type WorldFiles } from "./compose";
+import { composeAutonomy, composeLedger, composePeople, composePerson, composePolicy, composeQueue, composeVerify, CoreRefused, CoreShapeError, readCoverage, readHealth, readRoi, replayScope, type WorldFiles } from "./compose";
 import { CoreUnavailable, type CoreSource } from "./core-source";
 import { ReplayScopeSchema, SimulationSchema } from "./schemas";
 import { ledgerCsv } from "./team-view";
@@ -79,6 +79,7 @@ export function createDeskServer(options: DeskOptions): Server {
     "/api/autonomy": () => composeAutonomy(core),
     "/api/people": () => composePeople(core),
     "/api/policy": () => composePolicy(core, options),
+    "/api/roi": () => readRoi(core),
   };
 
   const serveFile = (res: ServerResponse, path: string): void => {

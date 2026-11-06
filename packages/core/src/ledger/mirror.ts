@@ -23,6 +23,9 @@
  * two entries can't say it either. Entries keep their real hashes, which show the order. They can't be re-verified
  * from this copy, and don't have to be: SQLite keeps everything, and `GET /v1/ledger/verify` checks the whole chain.
  *
+ * The daily report (F23) is the one write that doesn't stand still. It says nothing a drill can move, since it counts
+ * only what has closed, and it goes out at a set time, so holding it back would be the thing that pointed at a drill.
+ *
  * A person sees it as the notice in the room and on the room's page in the Gateway. `!list-documents`
  * crashes at Switch's pin (DECISIONS 03:20).
  */
@@ -30,7 +33,7 @@ import { type ChatPort, type Clock } from "@clearance/contracts";
 import type { Clearance } from "../core.js";
 import type { Db } from "../db/index.js";
 import { OPEN_STATES } from "../requests/store.js";
-import { formatClockWithZone } from "../time.js";
+import { formatClockWithZone, zonedParts } from "../time.js";
 import { sha256Hex } from "../hash.js";
 import type { Ledger, LedgerEntry } from "./ledger.js";
 
@@ -40,12 +43,15 @@ const RETRY_AFTER_MS = 60_000;
 export const MAX_DOCUMENT_BYTES = 1_000_000;
 const DAY_MS = 24 * 60 * 60_000;
 export const STATE_DOCUMENT = "clearance-state";
+/** F23: what `@clearance roi` says, rewritten once a day. */
+export const ROI_DOCUMENT = "clearance-roi";
 /** Totals move in steps of this, so that comparing two of them can't isolate one person's result. */
 export const DRILL_RESULT_GROUP = 3;
 
 const META_SEQ = "ledger_mirror_seq";
 const META_AT = "ledger_mirror_at";
 const META_STATE = "ledger_mirror_state";
+const META_REPORT_DAY = "ledger_mirror_report_day";
 
 const FENCE = "```";
 
@@ -188,6 +194,8 @@ export type LedgerMirrorDeps = {
   tz: () => string;
   /** The body of `clearance-state`, with nothing in it that changes on its own. */
   state: () => string;
+  /** F23's daily document: when it's due, as the digest's "18:30", and its words. No time set, no document. */
+  report?: { at: () => string | undefined; body: () => string };
   maxBytes?: number;
   log?: (message: string) => void;
 };
@@ -196,11 +204,14 @@ export class LedgerMirror {
   private running: Promise<MirrorReport> | null = null;
   private retryAt = 0;
   private lastError: string | null = null;
+  private writingReport = false;
+  private reportRetryAt = 0;
 
   constructor(private readonly deps: LedgerMirrorDeps) {}
 
   /** Called often. Starts a copy if one is due and returns at once: nothing waits on the mirror. */
   tick(): void {
+    void this.writeReportIfDue();
     if (this.running) return;
     const now = this.deps.clock.nowMs();
     if (now < this.retryAt || now < this.readNumber(META_AT) + MIRROR_EVERY_MS) return;
@@ -223,6 +234,40 @@ export class LedgerMirror {
       last_mirrored_at: at > 0 ? new Date(at).toISOString() : null,
       last_error: this.lastError,
     };
+  }
+
+  /**
+   * Once a day at the digest's time, and never for a time that had already gone by when this first looked. Its own day is
+   * remembered only once Switch has taken it, so a failure is tried again. Apart from the ledger's copy, and never waited on.
+   */
+  private async writeReportIfDue(): Promise<void> {
+    const { report, clock, chat } = this.deps;
+    if (!report || this.writingReport) return;
+    const now = clock.nowMs();
+    if (now < this.reportRetryAt) return;
+    this.writingReport = true;
+    try {
+      const at = report.at();
+      if (!at) return;
+      const tz = this.deps.tz();
+      const day = dayOf(new Date(now).toISOString(), tz);
+      const [hours, minutes] = at.split(":").map(Number) as [number, number];
+      const due = zonedParts(now, tz).minutes >= hours * 60 + minutes;
+      const last = this.readText(META_REPORT_DAY);
+      if (last === null) {
+        this.writeMeta(META_REPORT_DAY, due ? day : "");
+        return;
+      }
+      if (!due || last === day) return;
+      await chat.upsertDocument({ roomId: this.deps.roomId(), name: ROI_DOCUMENT, content: reportDocument(report.body()) });
+      this.writeMeta(META_REPORT_DAY, day);
+      this.reportRetryAt = 0;
+    } catch (caught) {
+      this.reportRetryAt = now + RETRY_AFTER_MS;
+      this.deps.log?.(`report document: ${(caught as Error).message}. It will try again.`);
+    } finally {
+      this.writingReport = false;
+    }
   }
 
   private async copy(): Promise<MirrorReport> {
@@ -328,6 +373,11 @@ export class LedgerMirror {
   }
 }
 
+/** The command's own words, under a heading. It has no time of day, like everything else in the report. */
+function reportDocument(body: string): string {
+  return `# Clearance report\n\nWritten once a day by Clearance, in the same words as \`@clearance roi\`. The SQLite ledger is the truth.\n\n${body}\n`;
+}
+
 /** What `clearance-state` says. Times are absolute, so it only changes when the facts do. */
 export function renderClearanceState(input: {
   policyHash: string;
@@ -363,11 +413,17 @@ export function renderClearanceState(input: {
  * one person. Always the same section, so that its being there says nothing. A drill nobody saw isn't one.
  */
 export function drillTotals(results: string[]): string {
+  const { finished, caught, missed, expired } = wholeDrillGroups(results);
+  if (finished === 0) return `Totals appear once ${DRILL_RESULT_GROUP} have finished, so that nobody's own result can be worked out.`;
+  return `${finished} finished: ${caught} caught, ${missed} missed, ${expired} not answered. Totals move in steps of ${DRILL_RESULT_GROUP}, so that nobody's own result can be worked out.`;
+}
+
+/** The counts behind `drillTotals`, which is the only way a room gets them. */
+export function wholeDrillGroups(results: string[]): { finished: number; caught: number; missed: number; expired: number } {
   const finished = results.filter((result) => result !== "not_sent");
   const counted = finished.slice(0, finished.length - (finished.length % DRILL_RESULT_GROUP));
-  if (counted.length === 0) return `Totals appear once ${DRILL_RESULT_GROUP} have finished, so that nobody's own result can be worked out.`;
   const count = (result: string) => counted.filter((entry) => entry === result).length;
-  return `${counted.length} finished: ${count("caught")} caught, ${count("missed")} missed, ${count("expired")} not answered. Totals move in steps of ${DRILL_RESULT_GROUP}, so that nobody's own result can be worked out.`;
+  return { finished: counted.length, caught: count("caught"), missed: count("missed"), expired: count("expired") };
 }
 
 function stateOf(core: Clearance): string {
@@ -410,5 +466,6 @@ export function createLedgerMirror(
     roomId: () => core.people.directory.roomId(policyRoom),
     tz: () => core.policy().defaults.business_hours.tz,
     state: () => stateOf(core),
+    report: { at: () => core.policy().file.digest?.at, body: () => core.roiReport().text },
   });
 }

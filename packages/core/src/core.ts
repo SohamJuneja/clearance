@@ -81,6 +81,8 @@ import {
 } from "./rubberstamp/signals.js";
 import { AgentReachCheck, type AgentReach } from "./router/reach.js";
 import { DRILL_RESULT_GROUP } from "./ledger/mirror.js";
+import { buildRoiReport, type RoiReport } from "./reports/roi.js";
+import { medianDecisionMs, OPEN_STATES_SQL, readRequestFacts, tallyRequests } from "./reports/tally.js";
 import { mentionedNames, RequesterTracker, REQUESTER_WINDOW_MS, withoutRequestFragments } from "./router/requesters.js";
 import { assessAnswer, barsThatMoveTheDecision, route, type Refusal, type RouteContext, type RouteTrace } from "./router/router.js";
 import { RouteStore, type RouteRow, type RouteStep } from "./router/routes.js";
@@ -166,6 +168,16 @@ export type BucketReplay = {
   needs: { approvals: number; min_distinct_approvers: number };
   synthetic_events: number;
   real_events: number;
+};
+
+/** GET /v1/metrics/human-load. */
+export type HumanLoad = {
+  agent_actions: number;
+  governed_actions: number;
+  human_decisions: number;
+  per_100: number | null;
+  per_100_governed: number | null;
+  by_class: { class: string; agent_actions: number; human_decisions: number; per_100: number | null }[];
 };
 
 const CARD_OPTIONS: (CardOption & { decision: "accept" | "decline" })[] = [
@@ -694,25 +706,11 @@ export class Clearance implements ClearanceCore {
     const now = this.deps.clock.nowMs();
     const since = now - DAY_MS;
     const { currency } = this.currentPolicy;
-    const requests = db.prepare(`SELECT state, created_at, decided_at FROM requests WHERE is_drill = 0 AND created_at > ?`).all(since) as {
-      state: RequestState;
-      created_at: number;
-      decided_at: number | null;
-    }[];
-    const inState = (...states: RequestState[]) => requests.filter((row) => states.includes(row.state)).length;
-    const held = requests.filter((row) => row.state !== "AUTO");
-    const waits = held.flatMap((row) => (row.decided_at === null ? [] : [row.decided_at - row.created_at])).sort((a, b) => a - b);
-    const medianDecisionMs = waits.length > 0 ? (waits[Math.floor((waits.length - 1) / 2)] as number) : null;
+    const requests = readRequestFacts(db, since);
+    const median = medianDecisionMs(requests);
     const tally = {
-      held: held.length,
-      approved: inState("APPROVED", "EXECUTED", "GRANTED", "CONSUMED"),
-      denied: inState("DENIED"),
-      expired: inState("EXPIRED"),
-      cancelled: inState("CANCELLED"),
+      ...tallyRequests(requests),
       break_glass: (db.prepare(`SELECT COUNT(*) AS n FROM ledger WHERE type = 'break_glass' AND at > ?`).get(new Date(since).toISOString()) as { n: number }).n,
-      ran_alone: inState("AUTO"),
-      edited: inState("EDITED"),
-      outcome_unknown: inState("OUTCOME_UNKNOWN"),
     };
     const groups = new Map<string, { agent: string; cls: string; bucket: string; ran: number; spent: number }>();
     for (const event of events.autoRuns(since)) {
@@ -745,7 +743,7 @@ export class Clearance implements ClearanceCore {
       `Clearance digest, last 24 h: ${tally.held} held, ${tally.approved} approved, ${tally.denied} denied, ${tally.expired} expired, ${tally.break_glass} break-glass, ${tally.ran_alone} ran alone.`,
       tally.edited === 0 ? null : `${tally.edited} edited: an approver said yes to a smaller amount, as a new request.`,
       tally.outcome_unknown === 0 ? null : `${tally.outcome_unknown} with an unknown outcome: sent, and nobody can say whether it ran. A person has to check.`,
-      medianDecisionMs === null ? null : `Median time to a decision: ${Math.round(medianDecisionMs / 1000)} s.`,
+      median === null ? null : `Median time to a decision: ${Math.round(median / 1000)} s.`,
       ...autonomy.map((row) => {
         const spent = row.cap !== null ? `, ${money(row.spent)} of its ${money(row.cap)} daily cap` : "";
         return `${row.agent} ran ${row.ran} of ${row.label} on its own${spent}.`;
@@ -761,13 +759,28 @@ export class Clearance implements ClearanceCore {
       since: new Date(since).toISOString(),
       until: new Date(now).toISOString(),
       requests: tally,
-      median_decision_ms: medianDecisionMs,
+      median_decision_ms: median,
       autonomy,
       incidents,
       drills,
       text: summary(` Drills: ${drills.sent} sent, ${drills.caught} caught, ${drills.missed} missed.`),
       room_text: summary(whole.length > 0 ? ` Drills: ${whole.length} finished, ${wholeCount("caught")} caught, ${wholeCount("missed")} missed.` : ""),
     };
+  }
+
+  /** GET /v1/roi, `@clearance roi` and the daily document (F23). It reads and reports, and nothing that decides looks at it. */
+  roiReport(): RoiReport {
+    const policy = this.currentPolicy;
+    return buildRoiReport({
+      db: this.stores.db,
+      nowMs: this.deps.clock.nowMs(),
+      tz: policy.defaults.business_hours.tz,
+      currency: policy.currency,
+      amountClasses: new Set(policy.classes.filter((cls) => cls.extract.some((field) => field.name === "amount")).map((cls) => cls.name)),
+      humanLoad: (closedSinceMs) => this.humanLoad({ closedSinceMs }),
+      chainOk: () => this.verifyLedger().ok,
+      syntheticRows: () => this.stores.events.counts().synthetic,
+    });
   }
 
   /** Once a day at the policy's time, and never for a time that had already gone by when this first looked. */
@@ -802,18 +815,30 @@ export class Clearance implements ClearanceCore {
   /**
    * GET /v1/metrics/human-load: human decisions per 100 agent actions, from real traffic only. A decision is an
    * eligible answer on a real request. "Governed" leaves out the work policy lets through without a thought.
+   * With `closedSinceMs` (F23) it counts only from then on, and only what has closed, for a report a room reads.
    */
-  humanLoad(): Record<string, unknown> {
+  humanLoad(options: { closedSinceMs?: number } = {}): HumanLoad {
     const { db } = this.stores;
+    const since = options.closedSinceMs;
     const known = new Set(this.currentPolicy.classes.map((cls) => cls.name));
     const per100 = (decisions: number, actions: number) => (actions === 0 ? null : Math.round((decisions / actions) * 1000) / 10);
-    const actions = db.prepare(`SELECT class, step, COUNT(*) AS n FROM actions GROUP BY class, step`).all() as { class: string | null; step: string; n: number }[];
+    const closed = `r.state NOT IN (${OPEN_STATES_SQL})`;
+    const actions = (
+      since === undefined
+        ? db.prepare(`SELECT class, step, COUNT(*) AS n FROM actions GROUP BY class, step`).all()
+        : db
+            .prepare(
+              `SELECT a.class, a.step, COUNT(*) AS n FROM actions a LEFT JOIN requests r ON r.id = a.request_id
+               WHERE julianday(a.at) >= julianday(?) AND (r.id IS NULL OR ${closed}) GROUP BY a.class, a.step`,
+            )
+            .all(new Date(since).toISOString())
+    ) as { class: string | null; step: string; n: number }[];
     const decisions = db
       .prepare(
         `SELECT r.class AS class, COUNT(*) AS n FROM answers a JOIN requests r ON r.id = a.request_id
-         WHERE a.eligible = 1 AND a.decision IS NOT NULL AND r.is_drill = 0 GROUP BY r.class`,
+         WHERE a.eligible = 1 AND a.decision IS NOT NULL AND r.is_drill = 0 ${since === undefined ? "" : `AND a.at >= ? AND ${closed}`} GROUP BY r.class`,
       )
-      .all() as { class: string; n: number }[];
+      .all(...(since === undefined ? [] : [since])) as { class: string; n: number }[];
     const governed = (row: { class: string | null; step: string }) => row.class !== null && known.has(row.class) && row.step !== "via_gate";
     const total = actions.reduce((sum, row) => sum + row.n, 0);
     const governedTotal = actions.filter(governed).reduce((sum, row) => sum + row.n, 0);
@@ -3101,6 +3126,8 @@ export class Clearance implements ClearanceCore {
         return askerId && this.people.directory.person(askerId) ? inboxMessage(this.inboxItems(askerId), { roomId: evt.roomId }) : null;
       case "autonomy":
         return this.autonomyReply(first);
+      case "roi":
+        return askerId ? this.roiReport().text : null;
       case "policy":
         return first?.toLowerCase() === "test" ? this.policyTestReply(after) : this.policyReply();
       case "incident":

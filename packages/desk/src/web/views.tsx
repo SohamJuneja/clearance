@@ -16,12 +16,15 @@ import type {
   PolicyView,
   QueueItem,
   QueueView,
+  RoiClassMoney,
+  RoiView,
   SimulationResult,
   TeamDrills,
 } from "../shared/api";
 import {
   formatAge,
   formatCount,
+  formatMoney,
   formatDateTime,
   formatLatency,
   formatPercent,
@@ -152,6 +155,102 @@ export function QueueTab({ data, nowMs }: { data: QueueView; nowMs: number }) {
         </table>
       )}
     </>
+  );
+}
+
+// ── What it did this week (F23) ──────────────────────────────────────────────
+
+function roiMoney(requests: number, amount: number | null, unreadable: number, data: RoiClassMoney, currency: string): string {
+  if (requests === 0) return "None";
+  if (!data.has_amount) return formatCount(requests);
+  if (amount === null) return `${formatCount(requests)}, no readable amount`;
+  return `${formatMoney(amount, currency)} on ${formatCount(requests)}${unreadable > 0 ? `, ${formatCount(unreadable)} with no readable amount` : ""}`;
+}
+
+/**
+ * F23's tile: core's report, as a team lead would ask for it. Team totals only, because anyone who opens the Desk counts
+ * as the team. A dash is too little to go on, or a figure that couldn't be computed, and the note under it says which. It's never a zero.
+ */
+export function RoiTile({ data }: { data: RoiView }) {
+  const head = `${data.from} to ${data.to}. It counts what has closed: a card still open joins once it closes. Nothing here is estimated.`;
+  if (!data.chain_ok) {
+    return (
+      <Section title={`What Clearance did, last ${data.days} days`}>
+        <p className="muted small after-stats">{head}</p>
+        <Status kind="bad" id="roi-chain">
+          The ledger's hash chain doesn't verify, so this shows no numbers.
+        </Status>
+      </Section>
+    );
+  }
+  const { money, ran_alone: ran, load, speed, drills, synthetic } = data;
+  const tooLittle = [
+    ...(ran && ran.risky_outside_autonomy === null ? ["what ran without a person"] : []),
+    ...(load && load.per_100 === null ? ["human decisions per 100"] : []),
+    ...(load && load.no_card_share === null ? ["tool calls with no card"] : []),
+    ...(speed && speed.median_seconds === null ? ["the median, which needs enough decisions from enough people to not be one person's timing"] : []),
+    ...(speed && speed.closed === 0 ? ["escalations and expiries"] : []),
+  ];
+  const failed = [...(money ? [] : ["money"]), ...(ran ? [] : ["what ran without a person"]), ...(load ? [] : ["human load"]), ...(speed ? [] : ["speed"]), ...(drills ? [] : ["drills"])];
+  return (
+    <Section title={`What Clearance did, last ${data.days} days`}>
+      <p className="muted small after-stats">{head}</p>
+      {synthetic && synthetic.history_rows > 0 ? (
+        <p className="warning-line" data-testid="roi-synthetic">
+          Synthetic: {formatCount(synthetic.history_rows)} rows of seeded history are on record, labelled synthetic. None are counted here.
+          {synthetic.runs_on_history > 0 ? ` ${formatCount(synthetic.runs_on_history)} of the earned-autonomy runs here stand on a level whose evidence includes it.` : ""}
+        </p>
+      ) : null}
+      {synthetic === null ? <p className="warning-line">Synthetic: couldn't check for seeded history just now, so treat these numbers with care.</p> : null}
+      <div className="stats">
+        <Stat label="Risky actions run with no person, outside earned autonomy" value={ran?.risky_outside_autonomy == null ? "–" : formatCount(ran.risky_outside_autonomy)} id="roi-outside" />
+        <Stat label="Run under earned autonomy" value={ran?.under_autonomy == null ? "–" : formatCount(ran.under_autonomy)} id="roi-under" />
+        <Stat label="Human decisions per 100 agent actions" value={formatRate(load?.per_100 ?? null)} id="roi-per-100" />
+        <Stat label="Tool calls with no card" value={load?.no_card_share == null ? "–" : `${load.no_card_share}%`} id="roi-no-card" />
+        <Stat label="Median from hold to decision, to the nearest 10 s" value={speed?.median_seconds == null ? "–" : speed.median_seconds === 0 ? "under 5 s" : `${speed.median_seconds} s`} id="roi-median" />
+        <Stat label="Escalated" value={speed?.escalated == null ? "–" : formatCount(speed.escalated)} id="roi-escalated" />
+        <Stat label="Expired with no decision" value={speed?.expired == null ? "–" : formatCount(speed.expired)} id="roi-expired" />
+        <Stat label="Drill catch rate, team total" value={drills?.catch_rate_percent == null ? "–" : `${drills.catch_rate_percent}%`} id="roi-catch-rate" />
+      </div>
+      {tooLittle.length > 0 ? <p className="muted small after-stats">Too little data so far for {tooLittle.join("; ")}.</p> : null}
+      {failed.length > 0 ? <p className="warning-line">Couldn't be computed just now: {failed.join(", ")}.</p> : null}
+      {drills ? (
+        <p className="muted small after-stats" data-testid="roi-drills">
+          {teamDrillsText(drills)}
+        </p>
+      ) : null}
+      {ran && ran.risky_outside_autonomy !== null && ran.risky_outside_autonomy > 0 ? (
+        <p className="warning-line" data-testid="roi-outside-note">
+          That should be zero, so it's worth a look.{ran.shadow_would_hold > 0 ? ` ${formatCount(ran.shadow_would_hold)} of them because the policy is in shadow mode, which holds nothing.` : ""}
+        </p>
+      ) : null}
+      {money && money.by_class.length === 0 ? <Empty title="No held request has closed in these days." /> : null}
+      {money && money.by_class.length > 0 ? (
+        <table className="fits" data-testid="roi-money">
+          <thead>
+            <tr>
+              <th>Class</th>
+              <th>Held</th>
+              <th>Denied</th>
+              <th className="num">Denied by a rule, before any card</th>
+            </tr>
+          </thead>
+          <tbody>
+            {money.by_class.map((row) => (
+              <tr key={row.class}>
+                <td className="strong">{sentenceCase(row.class)}</td>
+                <td data-testid={`roi-${row.class}-held`}>{roiMoney(row.held_requests, row.held_amount, row.held_unreadable, row, data.currency)}</td>
+                <td data-testid={`roi-${row.class}-denied`}>{roiMoney(row.denied_requests, row.denied_amount, row.denied_unreadable, row, data.currency)}</td>
+                <td className="num" data-testid={`roi-${row.class}-rule`}>
+                  {row.rule_denied === 0 ? "None" : `${formatCount(row.rule_denied)}, amounts not on record`}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : null}
+      {money && money.edited > 0 ? <p className="muted small after-stats">{formatCount(money.edited)} approved for a smaller amount, as a new request that isn't counted as held again.</p> : null}
+    </Section>
   );
 }
 

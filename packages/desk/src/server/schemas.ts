@@ -159,6 +159,43 @@ export const HumanLoadSchema = z.object({
   by_class: z.array(z.object({ class: z.string(), agent_actions: z.number().int(), human_decisions: z.number().int(), per_100: z.number().nullable() })),
 });
 
+const count = z.number().int().nonnegative();
+
+/**
+ * F23's report, which core has already made fit for a room. Anything else core might add stops here, at every level, so
+ * nothing about one person can reach a page with no login. The words stay with core: the tile has its own.
+ */
+export const RoiSchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  days: count,
+  currency: z.string(),
+  chain_ok: z.boolean(),
+  money: z
+    .object({
+      by_class: z.array(
+        z.object({
+          class: z.string(),
+          has_amount: z.boolean(),
+          held_requests: count,
+          held_amount: z.number().nonnegative().nullable(),
+          held_unreadable: count,
+          denied_requests: count,
+          denied_amount: z.number().nonnegative().nullable(),
+          denied_unreadable: count,
+          rule_denied: count,
+        }),
+      ),
+      edited: count,
+    })
+    .nullable(),
+  ran_alone: z.object({ tool_calls: count, risky_outside_autonomy: count.nullable(), shadow_would_hold: count, under_autonomy: count.nullable(), outcome_unknown: count }).nullable(),
+  load: z.object({ agent_actions: count, human_decisions: count, per_100: z.number().nonnegative().nullable(), tool_calls: count, no_card: count, no_card_share: z.number().min(0).max(100).nullable() }).nullable(),
+  speed: z.object({ closed: count, median_seconds: count.nullable(), escalated: count.nullable(), expired: count.nullable() }).nullable(),
+  drills: z.object({ finished: count, caught: count, missed: count, expired: count, catch_rate_percent: count.nullable(), group: count }).nullable(),
+  synthetic: z.object({ history_rows: count, runs_on_history: count }).nullable(),
+});
+
 /** Reads only what is safe to hold: `open_cards` and `drills.sent` both count a drill still open, so they stop here. */
 export const PersonStatsSchema = z.object({
   user: z.string(),

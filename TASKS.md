@@ -85,6 +85,7 @@ Tick a box only when tests or a run prove it. Acceptance text is copied from PLA
 - [x] **F20** Approve with edits (gate-hooks + brain). Live as SCCO: one refund, for the edited amount.
 - [x] **F21** Switch Trust endpoint that flags pressure messages (switchboard). Live: flagged in the room, no card or decision changed, about 10 ms per agent send. Off by default.
 - [x] **F22** Daily digest and audit export (brain)
+- [ ] **F23** The report: `@clearance roi`, the daily `clearance-roi` document and the Desk tile (brain, world-ui). Tests pass. Open until `pnpm demo:run SCRO` runs on Mattermost and the document's notice is seen in `#approvals`.
 
 ## Scenarios (PLAN 8.7): each must run on Mattermost via `pnpm demo:run SCn`
 

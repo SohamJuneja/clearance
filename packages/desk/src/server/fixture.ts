@@ -419,6 +419,29 @@ export function fixtureCore(options: { policyPath: string; startedAtMs?: number 
         ],
       });
     }
+    if (url.pathname === "/v1/roi") {
+      return json({
+        from: iso(6 * 24 * HOUR).slice(0, 10),
+        to: iso(0).slice(0, 10),
+        days: 7,
+        currency: "INR",
+        chain_ok: true,
+        money: {
+          by_class: [
+            { class: "deploy", has_amount: false, held_requests: 9, held_amount: null, held_unreadable: 0, denied_requests: 2, denied_amount: null, denied_unreadable: 0, rule_denied: 0 },
+            { class: "refund", has_amount: true, held_requests: 21, held_amount: 412_500, held_unreadable: 0, denied_requests: 3, denied_amount: 91_000, denied_unreadable: 0, rule_denied: 1 },
+          ],
+          edited: 1,
+        },
+        ran_alone: { tool_calls: 498, risky_outside_autonomy: 0, shadow_would_hold: 0, under_autonomy: 14, outcome_unknown: 0 },
+        load: { agent_actions: 512, human_decisions: 38, per_100: 7.4, tool_calls: 498, no_card: 455, no_card_share: 91.4 },
+        speed: { closed: 30, median_seconds: 90, escalated: 4, expired: 1 },
+        drills: { finished: 6, caught: 4, missed: 1, expired: 1, catch_rate_percent: 80, group: 3 },
+        synthetic: { history_rows: 76, runs_on_history: 14 },
+        needs: { actions_for_rate: 20, decisions_for_median: 5, people_for_median: 3 },
+        text: "SYNTHETIC. Fixture data for screenshots.",
+      });
+    }
     if (url.pathname === "/v1/autonomy") {
       return json({
         levels: [

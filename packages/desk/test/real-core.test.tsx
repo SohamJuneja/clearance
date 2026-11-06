@@ -16,7 +16,7 @@ import { drillTotals } from "../../core/src/ledger/mirror";
 import { actionId, chatMessage, gateRefund, makeHarness, MINUTE, NOW, PARTICIPANTS, REFUND_SC3, REFUND_SC4, TEAM_ALEX_ONLY_PATH, type Harness } from "../../core/test/harness";
 import { httpCore } from "../src/server/core-source";
 import { createDeskServer } from "../src/server/server";
-import type { AutonomyView, BucketReplay, CoverageView, Health, LedgerVerification, LedgerView, PeopleView, PersonDetail, PolicyView, QueueView, SimulationResult } from "../src/shared/api";
+import type { AutonomyView, BucketReplay, CoverageView, Health, LedgerVerification, LedgerView, PeopleView, PersonDetail, PolicyView, QueueView, RoiView, SimulationResult } from "../src/shared/api";
 import { AutonomyTab, CoverageTab, LedgerTab, PeopleTab, PersonRecord, PolicyTab, QueueTab, SIMULATOR_PRESETS, presetAction } from "../src/web/views";
 
 const TOKEN = "real-core-test-token";
@@ -291,7 +291,7 @@ describe("the other tabs on real core", () => {
 
 describe("real drills, sent the real way", () => {
   const DAY = 24 * 60 * MINUTE;
-  const EVERY_READ = ["/api/health", "/api/queue", "/api/ledger", "/api/ledger/verify", "/api/export.csv", "/api/coverage", "/api/autonomy", "/api/people", "/api/people/sam", "/api/policy"];
+  const EVERY_READ = ["/api/health", "/api/queue", "/api/ledger", "/api/ledger/verify", "/api/export.csv", "/api/coverage", "/api/autonomy", "/api/people", "/api/people/sam", "/api/policy", "/api/roi"];
   const snapshot = async () => Object.fromEntries(await Promise.all(EVERY_READ.map(async (path) => [path, await (await fetch(`${world.base}${path}`)).text()] as const)));
 
   const send = async (person = "sam"): Promise<string> => {
@@ -398,6 +398,27 @@ describe("real drills, sent the real way", () => {
 
     const sam = await read<PersonDetail>("/api/people/sam");
     expect(sam.stats.drills).toEqual({ caught: 1, missed: 1, expired: 1, catch_rate: 0.5 });
+  });
+
+  it("F23's tile holds what core's report holds, less the words, and a closed drill doesn't move it", async () => {
+    await holdRefund();
+    const { text: _words, needs: _needs, ...report } = world.h.core.roiReport();
+    expect(await read<RoiView>("/api/roi")).toEqual(report);
+    const before = await read<RoiView>("/api/roi");
+    await answer(await send(), PARTICIPANTS.sam, "dm-sam", "deny");
+    expect(await read<RoiView>("/api/roi")).toEqual(before);
+  });
+
+  it("F23's drill total is the team view's", async () => {
+    for (const person of ["sam", "neha", "alex"]) {
+      await send(person);
+      world.h.clock.advance(26 * MINUTE);
+      await world.h.core.tick();
+    }
+    const { team } = await read<PeopleView>("/api/people");
+    const { drills } = await read<RoiView>("/api/roi");
+    expect(team.drills.finished).toBeGreaterThan(0);
+    expect(drills).toMatchObject({ finished: team.drills.finished, caught: team.drills.caught, missed: team.drills.missed, expired: team.drills.expired, group: team.drills.group });
   });
 
   it("does not count a drill in Coverage, human load or the replay, even after it closes", async () => {

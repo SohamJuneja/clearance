@@ -33,6 +33,9 @@ export function formatDateTime(ms: number): string {
 
 export const formatCount = (value: number): string => new Intl.NumberFormat("en-IN").format(value);
 
+/** The way core spells money on a card. */
+export const formatMoney = (amount: number, currency: string): string => (currency === "INR" ? `₹${formatCount(amount)}` : `${currency} ${new Intl.NumberFormat("en-US").format(amount)}`);
+
 /** Whole seconds for latency, because that is what a person feels. */
 export function formatLatency(ms: number | null): string {
   return ms === null ? "–" : formatDuration(ms);

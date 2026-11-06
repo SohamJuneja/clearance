@@ -10,6 +10,7 @@ export { loadPolicy, loadTeam, parsePolicy, parseTeam, PolicyLoadError, type Com
 export { DETAIL_BUDGET, PROMPT_BUDGET, renderCard, renderedCost, renderPrompt, type CardView } from "./cards/render.js";
 export { inboxMessage, isInboxMessage, listInbox, type InboxItem } from "./inbox/inbox.js";
 export { createInboxKeeper, InboxKeeper, INBOX_SYNC_EVERY_MS, type InboxKeeperDeps } from "./inbox/keeper.js";
-export { createLedgerMirror, dayOf, drillTotals, ledgerDocuments, LedgerMirror, MIRROR_EVERY_MS, renderClearanceState, STATE_DOCUMENT, type MirrorReport, type MirrorStatus } from "./ledger/mirror.js";
+export { createLedgerMirror, dayOf, drillTotals, ledgerDocuments, LedgerMirror, MIRROR_EVERY_MS, renderClearanceState, ROI_DOCUMENT, STATE_DOCUMENT, type MirrorReport, type MirrorStatus } from "./ledger/mirror.js";
+export { RoiReportSchema, type RoiReport } from "./reports/roi.js";
 export { Installer, installReply, type InstallConfig, type InstallResult, type TemplatePort } from "./install/install.js";
 export { OperatorCommands, type OperatorDeps } from "./commands/operator.js";

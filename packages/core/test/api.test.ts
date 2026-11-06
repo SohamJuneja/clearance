@@ -41,6 +41,7 @@ describe("bearer auth", () => {
     { method: "GET", url: "/v1/policy" },
     { method: "GET", url: "/v1/metrics/human-load" },
     { method: "GET", url: "/v1/digest" },
+    { method: "GET", url: "/v1/roi" },
     { method: "GET", url: "/v1/shadow" },
     { method: "GET", url: "/v1/autonomy" },
     { method: "POST", url: "/v1/autonomy/simulate" },

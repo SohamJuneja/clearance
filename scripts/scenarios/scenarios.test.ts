@@ -93,6 +93,7 @@ describe("the scenarios", () => {
       "SCST",
       "SCCC",
       "SCRI",
+      "SCRO",
     ]);
   });
 
@@ -122,6 +123,17 @@ describe("the scenarios", () => {
   it("keeps the live checks for F20, file writes, an unknown outcome and the third review out of the video", () => {
     for (const id of ["SCCO", "SCFW", "SCOU", "SCST", "SCCC", "SCRI"])
       expect(findScenario(id)?.inVideo, id).toBe(false);
+  });
+
+  it("SCRO asks for the report in a room, after something real has been decided, and stays out of the video", () => {
+    const scene = findScenario("SCRO");
+    expect(scene?.inVideo).toBe(false);
+    expect(scene?.world).toEqual({ env: {}, afterReset: [] });
+    const steps = scene?.stepNames.join("\n") ?? "";
+    for (const expected of [/held/i, /Sam denies/i, /@clearance roi/, /names nobody/i, /too little/i]) {
+      expect(steps).toMatch(expected);
+    }
+    expect(steps.indexOf("Sam denies")).toBeLessThan(steps.indexOf("@clearance roi"));
   });
 
   it("SC9 runs with no surprise drills", () => {

@@ -35,7 +35,7 @@ Missing data never lowers risk. A lookup that found nothing, or a field of the w
 | `classes` | The risky kinds of call, in the order they're tried |
 | `drills` | Practice requests with a planted flaw |
 | `rubber_stamp` | When an approval counts as too fast, and what happens then |
-| `digest` | A daily summary in the fallback room, as `{ at: "18:30" }` |
+| `digest` | A daily summary in the fallback room, as `{ at: "18:30" }`. The same time rewrites the `clearance-roi` document, which says what `@clearance roi` says. Leave `digest` out and neither is written, though the command still answers |
 | `policy_owners`, `policy_change_quorum` | Who signs a policy change, and how many |
 | `break_glass` | Who may run something urgent first, and how soon it must be reviewed |
 

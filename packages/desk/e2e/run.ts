@@ -96,6 +96,7 @@ async function checkNumbers(browser: Browser): Promise<void> {
   same("queue: open count is what core lists", await text(page, "queue-open"), "2");
   check("queue: says a card still needs an answer, whatever this list shows", (await page.locator(".page-head").innerText()).includes("still needs your answer"));
   same("queue: critical count", await text(page, "queue-critical"), "1");
+  same("queue: the report's tile holds core's number", await text(page, "roi-per-100"), String(data.roi.load.per_100));
   same("queue: escalated count", await text(page, "queue-escalated"), "1");
   same("queue: escalation step", await text(page, "queue-escalation-CLR-0011"), "Step 1 of 3");
   same("queue: score", await text(page, "queue-score-CLR-0011"), "Score 71");
@@ -268,6 +269,7 @@ async function checkNumbers(browser: Browser): Promise<void> {
   core.forceStatus = 500;
   await page.getByTestId("error-panel").waitFor({ timeout: 10000 });
   same("core failing: the numbers are gone, not stale", await page.getByTestId("queue-open").count(), 0);
+  same("core failing: the report's numbers go with them", await page.getByTestId("roi-per-100").count(), 0);
   // The header has its own poll, so it can follow the panel by a few seconds.
   await page.getByText("Core not reachable").waitFor({ timeout: 10000 });
   check("core failing: the header says so", true);

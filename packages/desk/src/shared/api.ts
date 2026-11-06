@@ -167,6 +167,37 @@ export type PeopleView = { people: PersonRow[]; team: TeamTotals };
 /** One person's record, for the admin's view. A separate route, so the team view never has it to leak. */
 export type PersonDetail = PersonRow & { stats: PersonStats };
 
+/** One class in F23's report. A null amount is one nobody could read, or a class that has none. It is never zero rupees. */
+export type RoiClassMoney = {
+  class: string;
+  has_amount: boolean;
+  held_requests: number;
+  held_amount: number | null;
+  held_unreadable: number;
+  denied_requests: number;
+  denied_amount: number | null;
+  denied_unreadable: number;
+  rule_denied: number;
+};
+
+/**
+ * F23: what the approval layer did in the last 7 days, as core's report has it. What a room may read and no more: team
+ * totals, no names, no time of day. A null section couldn't be computed, and a null figure inside one has too little behind it.
+ */
+export type RoiView = {
+  from: string;
+  to: string;
+  days: number;
+  currency: string;
+  chain_ok: boolean;
+  money: { by_class: RoiClassMoney[]; edited: number } | null;
+  ran_alone: { tool_calls: number; risky_outside_autonomy: number | null; shadow_would_hold: number; under_autonomy: number | null; outcome_unknown: number } | null;
+  load: { agent_actions: number; human_decisions: number; per_100: number | null; tool_calls: number; no_card: number; no_card_share: number | null } | null;
+  speed: { closed: number; median_seconds: number | null; escalated: number | null; expired: number | null } | null;
+  drills: (TeamDrills & { catch_rate_percent: number | null }) | null;
+  synthetic: { history_rows: number; runs_on_history: number } | null;
+};
+
 export type PolicyClass = {
   name: string;
   base: number | null;

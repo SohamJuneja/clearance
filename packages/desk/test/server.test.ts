@@ -67,7 +67,7 @@ function raw(path: string, host?: string): Promise<{ status: number; body: strin
   });
 }
 
-const READ_ROUTES = ["/api/health", "/api/queue", "/api/ledger", "/api/ledger/verify", "/api/coverage", "/api/autonomy", "/api/people", "/api/people/sam", "/api/policy", "/api/export.csv"];
+const READ_ROUTES = ["/api/health", "/api/queue", "/api/ledger", "/api/ledger/verify", "/api/coverage", "/api/autonomy", "/api/people", "/api/people/sam", "/api/policy", "/api/roi", "/api/export.csv"];
 
 describe("the token stays on the server", () => {
   it("sends core's token on every call", async () => {

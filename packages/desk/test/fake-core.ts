@@ -79,6 +79,21 @@ export type FakeData = {
   coverage: { vendor: string; source: string; calls: number; allowed: number; held: number; denied: number; last_at: string | null }[];
   policy: { hash: string; mode: string; source: string; error: string | null; text: string; classes: string[]; shadow_would_hold: number; pending: { proposal: string; hash: string; signed_by: string[]; quorum: number; detail: string } | null };
   simulation: Record<string, unknown>;
+  roi: {
+    from: string;
+    to: string;
+    days: number;
+    currency: string;
+    chain_ok: boolean;
+    money: { by_class: { class: string; has_amount: boolean; held_requests: number; held_amount: number | null; held_unreadable: number; denied_requests: number; denied_amount: number | null; denied_unreadable: number; rule_denied: number }[]; edited: number };
+    ran_alone: { tool_calls: number; risky_outside_autonomy: number | null; shadow_would_hold: number; under_autonomy: number | null; outcome_unknown: number };
+    load: { agent_actions: number; human_decisions: number; per_100: number | null; tool_calls: number; no_card: number; no_card_share: number | null };
+    speed: { closed: number; median_seconds: number | null; escalated: number | null; expired: number | null };
+    drills: { finished: number; caught: number; missed: number; expired: number; catch_rate_percent: number | null; group: number };
+    synthetic: { history_rows: number; runs_on_history: number };
+    needs: { actions_for_rate: number; decisions_for_median: number; people_for_median: number };
+    text: string;
+  };
 };
 
 const person = (user: string, numbers: Partial<Stats>): Stats => ({
@@ -311,6 +326,27 @@ export function fakeData(nowMs: number): FakeData {
     ],
     policy: { hash: "abc123def456", mode: "enforce", source: "file", error: null, text: POLICY_TEXT, classes: ["refund", "deploy", "merge"], shadow_would_hold: 0, pending: null },
     simulation: { decision: "hold", reason: "HELD: refunds over ₹10,000 need finance approval", class: "refund", tier: "high", score: 71, flags: [{ code: "amount_vs_order", text: "Amount is 10x the order total" }], step: "class_hold" },
+    roi: {
+      from: "2026-10-31",
+      to: "2026-11-06",
+      days: 7,
+      currency: "INR",
+      chain_ok: true,
+      money: {
+        by_class: [
+          { class: "deploy", has_amount: false, held_requests: 7, held_amount: null, held_unreadable: 0, denied_requests: 2, denied_amount: null, denied_unreadable: 0, rule_denied: 0 },
+          { class: "refund", has_amount: true, held_requests: 17, held_amount: 314_250, held_unreadable: 1, denied_requests: 3, denied_amount: 87_500, denied_unreadable: 0, rule_denied: 2 },
+        ],
+        edited: 1,
+      },
+      ran_alone: { tool_calls: 431, risky_outside_autonomy: 0, shadow_would_hold: 0, under_autonomy: 11, outcome_unknown: 0 },
+      load: { agent_actions: 447, human_decisions: 31, per_100: 6.9, tool_calls: 431, no_card: 397, no_card_share: 92.1 },
+      speed: { closed: 24, median_seconds: 70, escalated: 5, expired: 2 },
+      drills: { finished: 6, caught: 4, missed: 1, expired: 1, catch_rate_percent: 80, group: 3 },
+      synthetic: { history_rows: 0, runs_on_history: 0 },
+      needs: { actions_for_rate: 20, decisions_for_median: 5, people_for_median: 3 },
+      text: "The report's words, which the Desk doesn't show.",
+    },
   };
 }
 
@@ -419,6 +455,7 @@ export async function startFakeCore(nowMs = Date.now()): Promise<FakeCore> {
       if (url.pathname === "/v1/coverage") return send(200, { vendors: data.coverage });
       if (url.pathname === "/v1/autonomy") return send(200, { levels: data.levels, proposals: data.proposals, history: data.evidence, buckets: data.buckets });
       if (url.pathname === "/v1/metrics/human-load") return send(200, data.humanLoad);
+      if (url.pathname === "/v1/roi") return send(200, data.roi);
       if (url.pathname === "/v1/policy") return send(200, data.policy);
       if (url.pathname === "/v1/people") return send(200, { people: data.people });
       // Core's real export holds everything, drills included. The Desk must not pass it on.

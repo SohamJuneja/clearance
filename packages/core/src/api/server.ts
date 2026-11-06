@@ -170,6 +170,7 @@ export function buildServer(core: Clearance, options: ServerOptions): FastifyIns
     });
 
     scope.get("/v1/digest", async () => core.digest());
+    scope.get("/v1/roi", async () => core.roiReport());
 
     scope.get<{ Params: { id: string } }>("/v1/people/:id/stats", async (request, reply) => {
       const stats = core.personStats(request.params.id);

@@ -50,7 +50,7 @@ const text = async (path: string) => {
 const json = async <T,>(path: string) => JSON.parse(await text(path)) as T;
 
 /** Everything the page can ask for. The admin's view of the person holding the drill is on the list on purpose. */
-const EVERY_READ = ["/api/health", "/api/queue", "/api/ledger", "/api/ledger/verify", "/api/export.csv", "/api/coverage", "/api/autonomy", "/api/people", "/api/people/sam", "/api/policy"];
+const EVERY_READ = ["/api/health", "/api/queue", "/api/ledger", "/api/ledger/verify", "/api/export.csv", "/api/coverage", "/api/autonomy", "/api/people", "/api/people/sam", "/api/policy", "/api/roi"];
 
 const snapshot = async () => Object.fromEntries(await Promise.all(EVERY_READ.map(async (path) => [path, await text(path)] as const)));
 

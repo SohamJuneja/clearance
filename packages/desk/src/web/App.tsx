@@ -1,16 +1,18 @@
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
-import type { AutonomyView, CoverageView, Health, LedgerVerification, LedgerView, Meta, PeopleView, PersonDetail, PolicyView, QueueView } from "../shared/api";
+import type { AutonomyView, CoverageView, Health, LedgerVerification, LedgerView, Meta, PeopleView, PersonDetail, PolicyView, QueueView, RoiView } from "../shared/api";
 import { getJson, replay, simulate } from "./api";
 import { shortHash } from "./format";
 import { ErrorPanel } from "./parts";
-import { AutonomyTab, CoverageTab, LedgerTab, PeopleTab, PersonRecord, PolicyTab, QueueTab } from "./views";
+import { AutonomyTab, CoverageTab, LedgerTab, PeopleTab, PersonRecord, PolicyTab, QueueTab, RoiTile } from "./views";
 
 const TABS = ["queue", "ledger", "people", "autonomy", "coverage", "policy"] as const;
 type TabId = (typeof TABS)[number];
 const TAB_NAMES: Record<TabId, string> = { queue: "Queue", ledger: "Ledger", people: "People", autonomy: "Autonomy", coverage: "Coverage", policy: "Policy" };
 
 const POLL_MS = 3000;
+/** The report checks the whole ledger's chain each time, and it only moves when a card closes. */
+const ROI_POLL_MS = 30_000;
 
 function tabFromHash(): TabId {
   const name = window.location.hash.replace(/^#\/?/, "");
@@ -37,8 +39,28 @@ function Loaded<T>({ query, children }: { query: UseQueryResult<T>; children: (d
   return <>{children(query.data)}</>;
 }
 
+/** Apart from the Queue, so that this failing never takes the Queue down with it. It shows no numbers rather than old ones. */
+function RoiPanel() {
+  const roi = useQuery<RoiView>({ queryKey: ["/api/roi"], queryFn: () => getJson<RoiView>("/api/roi"), refetchInterval: ROI_POLL_MS });
+  if (roi.isError) {
+    return (
+      <p className="warning-line" data-testid="roi-error">
+        The report can't be shown right now. It shows no numbers rather than old ones, and it retries by itself.
+      </p>
+    );
+  }
+  return roi.data === undefined ? null : <RoiTile data={roi.data} />;
+}
+
 function QueuePage({ nowMs }: { nowMs: number }) {
-  return <Loaded query={useApi<QueueView>("/api/queue")}>{(data) => <QueueTab data={data} nowMs={nowMs} />}</Loaded>;
+  const queue = useApi<QueueView>("/api/queue");
+  return (
+    <>
+      <Loaded query={queue}>{(data) => <QueueTab data={data} nowMs={nowMs} />}</Loaded>
+      {/* It polls slowly, so it goes when the Queue's faster poll finds core has: nothing here outlives core answering. */}
+      {queue.isError ? null : <RoiPanel />}
+    </>
+  );
 }
 
 function LedgerPage() {

@@ -17,6 +17,10 @@ const AGENT = "refunds-agent";
 /** Priya accepts the offer once, if there is one. Her line, never the agent's. */
 const PRIYA_ACCEPTS = "@refunds-agent Yes, ₹4,000 to meera.k@okaxis.";
 
+/** The voice-over has Sam see the call and then deny it, and this is the time that takes. On camera only. */
+const SAM_READS_MS = 8_000;
+const PRIYA_READS_MS = 2_000;
+
 interface State {
   before?: AcmeState;
   prompt?: MattermostPost;
@@ -132,6 +136,9 @@ export default defineScenario<State>({
           /Sam/.test(postText(refusal)),
           `the refusal doesn't say where it went: ${postText(refusal)}`,
         );
+        // The moment the opening is built around: on screen, and for long enough to read.
+        await ctx.people.priya.reveal(refusal);
+        await ctx.people.priya.readFor(PRIYA_READS_MS);
       },
     },
     {
@@ -143,13 +150,14 @@ export default defineScenario<State>({
     {
       name: "Sam denies",
       run: async (ctx, state) => {
+        await ctx.people.sam.readFor(SAM_READS_MS);
         await answerCard(ctx.people.sam, state.card!, "no");
       },
     },
     {
       name: "The room hears it was denied by Sam",
       run: async (ctx, state) => {
-        await ctx.people.priya.waitForPost(
+        const denied = await ctx.people.priya.waitForPost(
           ROOM,
           allOf(textMatches(new RegExp(state.clr!)), textMatches(/denied by Sam/i)),
           {
@@ -158,6 +166,7 @@ export default defineScenario<State>({
             description: `word that ${state.clr} was denied by Sam`,
           },
         );
+        await ctx.people.priya.reveal(denied);
       },
     },
     {

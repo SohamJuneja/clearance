@@ -105,10 +105,10 @@ Tick a box only when tests or a run prove it. Acceptance text is copied from PLA
 
 ## Evaluations (PLAN 10)
 
-- [ ] **E1** (proof, brain) Authority suite, 25 cases, B-auto, B-ask, C. `pnpm eval:authority`. Target >= 23/25 by G3.
+- [x] **E1** (proof, brain) Authority suite, 25 cases, B-auto, B-ask, C. `pnpm eval:authority`. Target >= 23/25 by G3.
 - [ ] **E2** (proof) Cross-vendor holds, 360 runs. `pnpm eval:vendors`. Respect the spend cap.
 - [ ] **E3** (proof, brain) Quiet on safe work and recall, held-out split at Fri 20:00. `pnpm eval:classifier`.
-- [ ] **E4** (proof) Latency 1,000 calls each; 2 h soak; three chaos restarts. `pnpm eval:latency`, `pnpm eval:soak`.
+- [x] **E4** (proof) Latency 1,000 calls each; 2 h soak; three chaos restarts. `pnpm eval:latency`, `pnpm eval:soak`.
 - [ ] **E5** (world-ui, proof) Human study, Switch card vs Clearance card. `pnpm eval:study`.
 - [x] **E6** (brain) Earned autonomy, labelled synthetic week. `pnpm eval:autonomy`.
 - [ ] **Report** (proof) `pnpm eval:report` writes RESULTS.md, including a negative result.

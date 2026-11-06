@@ -68,7 +68,7 @@ export function overCapFlag(spent: number, cap: number, money: boolean, currency
 export function missingDataFlag(fields: string[]): Flag {
   return {
     code: "missing_data",
-    text: `Could not verify ${fields.join(", ")} from systems of record: treated as risky`,
+    text: `Could not verify ${fields.map((field) => field.replace(/_/g, " ")).join(", ")} from systems of record: treated as risky`,
   };
 }
 

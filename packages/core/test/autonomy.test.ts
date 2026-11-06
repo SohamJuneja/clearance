@@ -2,7 +2,7 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   BucketEventStore,
   generateSyntheticHistory,
@@ -239,6 +239,46 @@ describe("in core", () => {
       expect(proposals[0]?.id).toMatch(/^PROP-\d{4}$/);
       expect(ledger("promotion_proposed")).toHaveLength(1);
       expect(level()).toBe("L0");
+    });
+
+    it("gives a signer one card when the next tick comes while that card is still opening", async () => {
+      seed();
+      let release!: () => void;
+      const slow = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const realOpen = h.chat.openCard.bind(h.chat);
+      vi.spyOn(h.chat, "openCard").mockImplementation(async (input) => {
+        if (input.roomId === "dm-alex") await slow;
+        return realOpen(input);
+      });
+      const asked = say(PARTICIPANTS.sam, "@clearance autonomy refunds-agent");
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      await h.core.tick();
+      release();
+      await asked;
+      expect(h.chat.cards.filter((card) => card.roomId === "dm-alex")).toHaveLength(1);
+    });
+
+    it("gives a signer one card when another signer answers while that card is still opening", async () => {
+      seed();
+      let release!: () => void;
+      const slow = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const realOpen = h.chat.openCard.bind(h.chat);
+      vi.spyOn(h.chat, "openCard").mockImplementation(async (input) => {
+        if (input.roomId === "dm-alex") await slow;
+        return realOpen(input);
+      });
+      const asked = say(PARTICIPANTS.sam, "@clearance autonomy refunds-agent");
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      const pressed = press(lastCard("dm-sam"), PARTICIPANTS.sam);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      release();
+      await Promise.all([asked, pressed]);
+      expect(h.chat.cards.filter((card) => card.roomId === "dm-alex")).toHaveLength(1);
+      expect(report().proposals[0]).toMatchObject({ state: "open", signed_by: ["sam"] });
     });
 
     it("says why the others did not earn one", async () => {

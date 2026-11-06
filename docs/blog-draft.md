@@ -1,6 +1,6 @@
 # In Switch, the person who asks for a refund can approve it. Here's how we fixed that.
 
-<!-- Draft for Prashant to post. {{E1}} and friends are filled from RESULTS.md by hand at the end, and must match it exactly. Add the SC2 screenshot under the first paragraph. -->
+<!-- Draft for Prashant to post. `pnpm numbers:fill` writes docs/blog.md from this file, with the numbers and repo link filled in. Add the SC2 screenshot under the first paragraph. -->
 
 In our test setup, a demo persona called Priya asked an agent in Switch to refund a ₹40,000 order. The approval cards appeared, and they mentioned Priya. Priya pressed Allow on all four, and the money went out. Nobody else was involved, because the card goes to whoever may address the agent, and that was the person who had asked.
 
@@ -82,7 +82,7 @@ It doesn't judge whether a decision is right. It makes sure the right person dec
 ## Try it
 
 ```bash
-git clone https://github.com/Prashant-thakur77/clearance && cd clearance
+git clone {{REPO_URL}} && cd clearance
 cp .env.example .env   # add one Anthropic key
 just demo
 ```

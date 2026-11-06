@@ -17,7 +17,6 @@ cited:
   - { value: "93%", source: "Anthropic, Claude Code auto mode, Mar 2026. Its notice is on sc14" }
   - { value: "Mar 2026", source: "the date of that Anthropic figure" }
   - { value: "₹40,000", source: "seeded order A-2004, synthetic: packages/acme" }
-  - { value: "four minutes", source: "seeded: the age of T-77's new UPI ID, packages/acme" }
   - { value: "of 25", source: "the size of E1's suite, PLAN 10.2" }
   - { value: "Two humans", source: "policy: a promotion takes two signatures" }
   - { value: "7-day", source: "the synthetic history's length, scripts/seed-history.ts" }
@@ -77,7 +76,7 @@ scenes:
               from: "Clearance refuses Priya, says why, and says Sam has it",
               to: "Acme: no money moved at all",
             }
-    voiceover: "It goes to Sam in finance. Sam sees the real call, not the agent's story: a payment ID added four minutes ago. Sam denies it."
+    voiceover: "It goes to Sam in finance. Sam sees the real call, not the agent's story: a payment ID added minutes ago. Sam denies it."
 
   - id: sc5-sc6
     kind: split
@@ -110,7 +109,7 @@ scenes:
     planned_s: 20
     source: { clip: takes/SC9/latest/sam.mp4 }
     # The only place the 10x flag appears: no agent attempted that amount, so it's shown as what it is, a planted flaw.
-    callouts: ["A drill: the flaw is planted, an amount 10x the order total"]
+    callouts: ["Sam's first card is a drill: its planted flaw is an amount 10x the order total"]
     voiceover: "People rubber-stamp. So Clearance runs drills, like phishing tests, and adds friction when approvals get too fast."
 
   - id: sc11

@@ -243,7 +243,7 @@ Context
   Rewrites the branch's history
 
 Flags
-  ⚠ Could not verify diff_lines, touches_auth from systems of record: treated as risky
+  ⚠ Could not verify diff lines, touches auth from systems of record: treated as risky
   ⚠ Could not tell who the author is, so nobody was excluded for it
 
 Asked by Priya (support) through coder (Claude Code, owned by Alex)
@@ -262,7 +262,7 @@ Context
   Rewrites the branch's history
 
 Flags
-  ⚠ Could not verify diff_lines, touches_auth from systems of record: treated as risky
+  ⚠ Could not verify diff lines, touches auth from systems of record: treated as risky
   ⚠ Could not tell who the author is, so nobody was excluded for it
 
 Asked by Priya (support) through coder (Claude Code, owned by Alex)
@@ -558,7 +558,7 @@ Context
   refunds-agent refunds today: 0
 
 Flags
-  ⚠ Could not verify order_total from systems of record: treated as risky
+  ⚠ Could not verify order total from systems of record: treated as risky
 
 Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
 Why you: finance approver on duty. Can't approve: Priya (requester).
@@ -580,7 +580,7 @@ Context
   refunds-agent refunds today: 0
 
 Flags
-  ⚠ Could not verify order_total from systems of record: treated as risky
+  ⚠ Could not verify order total from systems of record: treated as risky
 
 Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
 Why here: copy for this room; Sam (finance, on duty) decides. Can't approve: Priya (requester).
@@ -716,7 +716,7 @@ Context
   Rewrites the branch's history
 
 Flags
-  ⚠ Could not verify diff_lines, touches_auth from systems of record: treated as risky
+  ⚠ Could not verify diff lines, touches auth from systems of record: treated as risky
   ⚠ Could not tell who the author is, so nobody was excluded for it
 
 Asked by Priya (support) through coder (Claude Code, owned by Alex)
@@ -735,7 +735,7 @@ Context
   Rewrites the branch's history
 
 Flags
-  ⚠ Could not verify diff_lines, touches_auth from systems of record: treated as risky
+  ⚠ Could not verify diff lines, touches auth from systems of record: treated as risky
   ⚠ Could not tell who the author is, so nobody was excluded for it
 
 Asked by Priya (support) through coder (Claude Code, owned by Alex)

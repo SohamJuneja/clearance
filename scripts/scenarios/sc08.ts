@@ -7,6 +7,8 @@ const ROOM = "support";
 const AGENT = "refunds-agent";
 const ESCALATE_AFTER_MS = 180_000;
 
+const NEHA_READS_MS = 6_000;
+
 interface State {
   before?: AcmeState;
   prompt?: MattermostPost;
@@ -105,6 +107,8 @@ export default defineScenario<State>({
       name: "Acme: nothing has moved while nobody answered",
       run: async (ctx, state) => {
         ensureNoNewRefund(state.before!, await ctx.acme.state());
+        // Neha's card lands in the take's last moment. Without this, a viewer never sees it.
+        await ctx.people.neha.readFor(NEHA_READS_MS);
       },
     },
   ],

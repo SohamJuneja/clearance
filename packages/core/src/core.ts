@@ -272,6 +272,7 @@ export class Clearance implements ClearanceCore {
   private policyError: string | null = null;
   private ticking = false;
   private readonly lastExecuteAttempt = new Map<string, number>();
+  private readonly coveringProposals = new Map<string, Promise<void>>();
   private readonly executing = new Set<string>();
   /** Requests whose first cards are being opened right now. They are HELD meanwhile, which the tick's retry reads as failed. */
   private readonly opening = new Set<string>();
@@ -974,7 +975,10 @@ export class Clearance implements ClearanceCore {
       for (const row of routes.staleReviews(now)) await this.closeOpenCards(requests.require(row.request_id));
       for (const request of requests.awaitingReview(now)) await this.openReview(request);
       await this.expireProposals(now);
-      for (const proposal of this.stores.proposals.allOpen()) await this.coverProposal(proposal);
+      // A pass already running covers it, and the clock shouldn't wait on a card that's slow to open.
+      for (const proposal of this.stores.proposals.allOpen()) {
+        if (!this.coveringProposals.has(proposal.id)) await this.coverProposal(proposal);
+      }
       await this.openMissingGlassReviews();
       await this.chaseGlassReviews(now);
       await this.sendDigestIfDue(now);
@@ -2538,9 +2542,25 @@ export class Clearance implements ClearanceCore {
     return { eligible, chosen };
   }
 
-  /** Everyone chosen who hasn't answered holds a live card. Run after opening, and after a card is used up. */
-  private async coverProposal(proposal: Proposal): Promise<void> {
+  /**
+   * Everyone chosen who hasn't answered holds a live card. Run after opening, and after a card is used up. One at a time
+   * per proposal: a card takes seconds to open and is only on record afterwards, so a pass during that would open another.
+   */
+  private coverProposal(proposal: Proposal): Promise<void> {
+    const previous = this.coveringProposals.get(proposal.id) ?? Promise.resolve();
+    const running = previous.catch(() => undefined).then(() => this.coverProposalNow(proposal));
+    this.coveringProposals.set(proposal.id, running);
+    const done = () => {
+      if (this.coveringProposals.get(proposal.id) === running) this.coveringProposals.delete(proposal.id);
+    };
+    running.then(done, done);
+    return running;
+  }
+
+  private async coverProposalNow(proposal: Proposal): Promise<void> {
     const { proposals, routes } = this.stores;
+    // It may have closed while this pass was waiting for the last one.
+    if (proposals.get(proposal.id)?.state !== "open") return;
     const voted = proposals.voters(proposal.id);
     const open = routes.openForRequest(proposal.id);
     for (const person of this.signers(proposal.exclude, proposal.quorum).chosen) {

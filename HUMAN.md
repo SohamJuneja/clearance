@@ -21,6 +21,20 @@ Everything else is being done without you. Tick a box when done (or just tell me
   ```
   Never add `--force`. If the push is rejected, he pushed something new, so tell me. Dry-run on a copy: files match ours, both histories are kept, secret scan clean.
 
+- [ ] **Study recruitment: send this morning** to classmates, community groups and Discord servers. Target 20 sign-ups to land 12 to 16 people. Why: the human study is one of the things only we have, and I can't recruit people. Copy this:
+  > Hi! We're building Clearance for the Flip the Switch hackathon: it decides who should approve what an AI agent wants to do. We need 15 minutes of your time on Fri Nov 6 (21:00-23:30 IST) or Sat Nov 7 (09:30-12:30 IST). You'll approve or deny 24 short requests in a chat window in your browser. No install, no personal data, no real money. Reply to this message and I'll send you your link. Thank you!
+
+  Consent is inside the link, so there's no form to set up. Tell me how many people replied. Each person gets their own, and participants must be 18 or older.
+
+- [ ] **Open the study to people, and look at it on your phone first (5 minutes).** My permission check refused the public tunnel, so this one is yours. It only exposes the Lab, and each link is signed. For your own look, use rehearsal mode so nothing counts:
+  ```bash
+  cd /home/prashant/projects/Clearance
+  STUDY_DRY_RUN=1 STUDY_RESULTS_DIR=/tmp/lab-rehearsal pnpm study:start      # terminal 1, leave it running
+  cloudflared tunnel --no-autoupdate --url http://127.0.0.1:7950             # terminal 2, prints an https://...trycloudflare.com address
+  pnpm study:links https://THAT-ADDRESS 20                                   # terminal 3, prints the links and sends nothing
+  ```
+  Open any link on your phone and go at least as far as a practice card. I checked consent, the briefing, both kinds of card and the end of a block at phone size in Chromium: no sideways scrolling, and buttons are large enough to tap. I haven't checked a real phone, Safari, a typed-confirm card or the debrief. For the real sessions, stop terminal 1 and run plain `pnpm study:start`, then send one link per person from what `study:links` printed. Keep both terminals open during sessions (Fri 21:00-23:30, Sat 09:30-12:30). If the tunnel restarts, its address changes, so rerun `study:links` with the new one.
+
 - [ ] **1. Free RAM: close what you don't need.** The machine has 14 GB, about 12 GB in use and 11 GB already in swap, which is the OOM risk we've hit before. Switch, Mattermost and four agents need 4 to 6 GB free.
   - Close Chrome (or most tabs), Discord and Claude desktop if you don't need them tonight.
   - Optional: your other project containers and Redis use memory too. I won't touch them, because they aren't mine. If you're fine with it:
@@ -98,16 +112,11 @@ Everything else is being done without you. Tick a box when done (or just tell me
 
 ## LATER (not needed tonight; I'll mark these NOW when their time comes)
 
-- [ ] **Study recruitment: send on Friday morning** to classmates, community groups and Discord servers. Target 20 sign-ups to land 12 to 16 people. Why: the human study is one of the things only we have, and I can't recruit people. Copy this:
-  > Hi! We're building Clearance for the Flip the Switch hackathon: it decides who should approve what an AI agent wants to do. We need 15 minutes of your time on Fri Nov 6 (21:00-23:30 IST) or Sat Nov 7 (09:30-12:30 IST). You'll approve or deny 24 short requests in a chat window in your browser. No install, no personal data, no real money. Reply to this message and I'll send you your link. Thank you!
-
-  Consent is inside the link, so there's no form to set up. Tell me how many people replied and I'll generate that many links. Each person gets their own, and participants must be 18 or older.
-- [ ] **Look at the study on your phone** before the first participant (2 minutes). No real browser has rendered it on a phone yet. I'll mark this NOW and send the link when it's up.
 - [ ] **Make the repos public** (needs your OK; I run the command after you tick). Must happen before submission.
 - [ ] **Track 03, your call (15 minutes first).** #803 is crowded (3 PRs following the maintainer's direction). My recommendation is **#833 Canva**: one open PR, with no video. It needs you to make a Canva developer app that accepts a loopback redirect; nobody has reported that working, so it's a real gate. If it fails and you have no Factory login for #783, I'd drop Track 03 rather than file a weak PR. Steps, comment text and design are in `docs/track03.md`, and nothing is posted. You'd also sign the CLA. A maintainer ruled on Oct 29 that everyone is assigned, PRs are reviewed after the window, and one PR is selected per issue, which also answers your Discord question 2. Tell me "go" or "drop".
 - [ ] **Voice-over (optional, 15 minutes).** The offline TTS (Piper) version works, but I can't hear audio, so please listen to it once when the first cut exists. Your voice is better if you have time: drop files at `scripts/video/voice/<scene>.wav` and they win over TTS. Script will be here.
 - [ ] **Optional, stronger anti-evasion:** needs sudo for `/etc/claude-code/managed-settings.json`, which agents can't edit. Not tested yet. I'd only use it if you want it for the demo host.
 - [ ] **Skip: the `!list-documents` crash** is already reported, with PR #1286 open upstream. Nothing to do.
 - [ ] **Blog:** draft at `docs/blog-draft.md`, written as you, in first person. Please read it, since it speaks for you, and change anything that isn't how you'd say it. I fill the `{{...}}` numbers from RESULTS.md at the end. Post on dev.to or Hashnode when I say it's final.
-- [ ] **Three #HowISwitch posts.** Ready to post here with clips once the takes exist.
-- [ ] **Submission form.** `SUBMISSION.md` will have every field filled in.
+- [ ] **Three #HowISwitch posts.** Text is in `docs/social-draft.md`, written as you, so change what isn't how you'd say it. I'll add the clips once the takes exist. Nothing gets posted until you do it or tick this.
+- [ ] **Submission form.** Text is in `docs/submission-draft.md`. `pnpm numbers:fill` turns it into `SUBMISSION.md` with numbers and links filled in, once the repo has a remote. You add the team members, video link, blog link and Wispr screenshots.

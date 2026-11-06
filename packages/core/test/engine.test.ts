@@ -134,7 +134,7 @@ describe("evaluateAction", () => {
     );
     expect(result.decision).toBe("hold");
     const missing = result.flags.find((flag) => flag.code === "missing_data");
-    expect(missing?.text).toContain("order_total");
+    expect(missing?.text).toContain("order total");
   });
 
   it("names a rule by its flag, not its source, when a helper could not tell", async () => {
@@ -152,7 +152,7 @@ describe("evaluateAction", () => {
       deps(),
     );
     const missing = result.flags.find((flag) => flag.code === "missing_data");
-    expect(missing?.text).toBe("Could not verify diff_lines, touches_auth from systems of record: treated as risky");
+    expect(missing?.text).toBe("Could not verify diff lines, touches auth from systems of record: treated as risky");
   });
 
   it("treats a lookup that throws the same as missing data: still held, never lower", async () => {

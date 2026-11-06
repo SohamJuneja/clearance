@@ -1,0 +1,51 @@
+<!-- Three #HowISwitch posts for LinkedIn and X. `pnpm numbers:fill` writes docs/social-posts.md from this file. Tag WeMakeDevs, DevTools Academy and Switch by hand on each post, since each site has its own handles. -->
+# #HowISwitch posts
+
+## 1. Teaser, Friday 19:00
+
+Clip: SC2 then SC3, under 45 seconds, cut from the recorded takes.
+
+In Switch, an agent's approval card goes to whoever may address the agent. On a team, that's often the person who asked.
+
+In this clip, Priya asks an agent for a ₹40,000 refund and approves every card. The money goes out, and nobody else was involved.
+
+Then the same team with Clearance. Priya's press is refused in the room, and the card goes to Sam in finance.
+
+Switch runs the room, the agents and the cards. Clearance decides who may answer them. The data is synthetic and the people's clicks are scripted. The agents' words aren't.
+
+{{REPO_URL}}
+
+#HowISwitch
+
+## 2. Drill, Saturday 10:00
+
+Clip: SC9, under 45 seconds.
+
+People stop reading approval cards. Anthropic's post on auto mode says users accept 93% of permission prompts.
+
+So we borrowed from phishing tests. Now and then, Clearance sends an approver a practice request with a planted flaw. In this clip the amount is ten times the order. Sam approves it without reading.
+
+Nothing runs. Sam gets a private note, and the next high-risk card asks Sam to type a detail from the call before it can be approved.
+
+Sam is a scripted persona, so read this as how drills work and not as a measurement. Switch carries the cards and tells us who answered, which is the part an agent can't fake.
+
+{{REPO_URL}}
+
+#HowISwitch
+
+## 3. Launch, Saturday 20:00
+
+Clip: the full video.
+
+Clearance is our entry to Flip the Switch: one approval policy across agent vendors, the right other person, the real call in front of them, and a way to tell whether approvers are still reading.
+
+We scored {{E1}} on our own authority suite. Then an independent review found {{AUDIT_BREAKS}} breaks the suite had missed, including a way to approve your own refund. We fixed them, and they're re-checked on their own line.
+
+Our first autonomy rule gave {{E6_ORIGINAL}} human decisions per 100 agent actions on a synthetic week, against {{E6_BEFORE}} before promotion. We changed the rule after seeing that, and it now gives {{E6_AFTER}}. Both numbers are published.
+
+Every number comes from a script you can run.
+
+Code: {{REPO_URL}}
+Blog: BLOG_URL, after it's published
+
+#HowISwitch

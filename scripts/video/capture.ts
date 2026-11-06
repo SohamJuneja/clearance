@@ -29,6 +29,7 @@ import {
   type CDPSession,
   chromium,
   type Page,
+  type Locator,
 } from "playwright-core";
 import { REPO_ROOT, setting } from "../../eval/lib/paths.ts";
 import { loadPersonaToken, type MattermostPost, Persona } from "../../eval/lib/persona.ts";
@@ -188,9 +189,33 @@ export class MattermostWindow implements PersonaWindow {
   }
 
   async clickButton(post: MattermostPost, button: string | RegExp): Promise<void> {
-    const row = this.page.locator(`#post_${post.id}`);
+    const row = await this.rowOf(post);
     await row.scrollIntoViewIfNeeded({ timeout: 10_000 });
     await row.getByRole("button", { name: button }).first().click({ timeout: 5_000 });
+  }
+
+  async reveal(post: MattermostPost): Promise<void> {
+    const row = this.page.locator(`#post_${post.id}`);
+    await row.waitFor({ state: "attached", timeout: 10_000 });
+    await row.scrollIntoViewIfNeeded({ timeout: 5_000 });
+  }
+
+  /**
+   * Where a post is on the page. Mattermost here has collapsed threads always on, so a thread reply, which is what a
+   * native card is, only exists once its thread is open. A person would open it too.
+   */
+  private async rowOf(post: MattermostPost): Promise<Locator> {
+    const center = this.page.locator(`#post_${post.id}`);
+    if (!post.root_id) return center;
+    const inThread = this.page.locator(`#rhsPost_${post.id}`);
+    if ((await inThread.count()) > 0) return inThread;
+    if ((await center.count()) > 0) return center;
+    const root = this.page.locator(`#post_${post.root_id}`);
+    await root.scrollIntoViewIfNeeded({ timeout: 10_000 });
+    await root.hover({ timeout: 5_000 });
+    await this.page.locator(`#CENTER_commentIcon_${post.root_id}`).click({ timeout: 5_000 });
+    await inThread.waitFor({ state: "attached", timeout: 10_000 });
+    return inThread;
   }
 
   /** Types the way a person does. The pause lets the mention list close, or Enter would pick from it. */
@@ -202,6 +227,13 @@ export class MattermostWindow implements PersonaWindow {
     const suggestions = this.page.locator(".suggestion-list__content");
     if (await suggestions.isVisible().catch(() => false)) await input.press("Escape");
     await input.press("Enter");
+    // Measured on SC9: Enter can land while the page redraws for a post that just arrived, and then nothing is sent and
+    // the text just sits there. A person would press it again. An empty box ignores a second press, so this can't double.
+    for (let tries = 0; tries < 3; tries += 1) {
+      await this.page.waitForTimeout(500);
+      if ((await input.inputValue()) === "") return;
+      await input.press("Enter");
+    }
   }
 }
 
@@ -371,6 +403,15 @@ function displayName(persona: string): string {
   return `${persona[0]!.toUpperCase()}${persona.slice(1)}`;
 }
 
+/**
+ * The address a browser has to use. Mattermost only upgrades a websocket whose Origin is its SiteURL, which Switch's
+ * compose locks to localhost, and over 127.0.0.1 the page loads and works but never hears a new post. A take then shows
+ * only what its own person typed, and pressing a card fails because the card never appears.
+ */
+export function browserUrl(baseUrl: string): string {
+  return baseUrl.replace("//127.0.0.1", "//localhost");
+}
+
 /** What `pnpm demo:run --record` uses. One browser, one context per persona, closed the moment a scene ends. */
 export function createRecorder(options: { root?: string } = {}): Recorder {
   return {
@@ -389,13 +430,15 @@ export function createRecorder(options: { root?: string } = {}): Recorder {
           const [team, me] = await Promise.all([api.team(), api.me()]);
           const window = await MattermostWindow.open({
             browser,
-            baseUrl: spec.baseUrl,
+            baseUrl: browserUrl(spec.baseUrl),
             label: displayName(persona),
             layout: spec.layout,
             session: { token, userId: me.id },
             team: team.name,
           });
-          await window.goto(`/${team.name}/channels/town-square`);
+          // Somewhere neutral until the scene gives them something to look at. A DM still shows the last take's cards, which
+          // on camera could pass for this one's.
+          await window.goto(`/${team.name}/channels/off-topic`);
           await window.page.locator("#post_textbox").waitFor({ state: "visible", timeout: 45_000 });
           windows.set(persona, window);
           casts.set(persona, new Screencast(window.page, spec.layout, scratch, persona));

@@ -18,6 +18,7 @@ import sc06 from "../scenarios/sc06.ts";
 import sc07 from "../scenarios/sc07.ts";
 import sc12 from "../scenarios/sc12.ts";
 import sc14 from "../scenarios/sc14.ts";
+import { Person } from "./person.ts";
 import { serviceCommand } from "./services.ts";
 import {
   defineScenario,
@@ -456,6 +457,31 @@ describe("the demo runner", () => {
     });
   });
 
+  describe("on camera only", () => {
+    const api = {} as never;
+    const post = { id: "p1" } as never;
+
+    it("takes no time and touches nothing when there's no window to watch", async () => {
+      const person = new Person(api);
+      const started = Date.now();
+      await person.readFor(60_000);
+      await person.reveal(post);
+      expect(Date.now() - started).toBeLessThan(1_000);
+    });
+
+    it("waits and scrolls when there is one, since that's who it's for", async () => {
+      const revealed: unknown[] = [];
+      const person = new Person(api, {
+        reveal: async (one: unknown) => void revealed.push(one),
+      } as never);
+      const started = Date.now();
+      await person.readFor(30);
+      await person.reveal(post);
+      expect(Date.now() - started).toBeGreaterThanOrEqual(25);
+      expect(revealed).toEqual([post]);
+    });
+  });
+
   describe("serviceCommand", () => {
     const none = () => undefined;
 
@@ -479,7 +505,9 @@ describe("the demo runner", () => {
 
     function playTheWorld(behaviour: { asksFirst: boolean; unlinked?: boolean }): void {
       const clearance = people.clearance!;
-      const shown = behaviour.unlinked ? `${CARD}\nNobody here is linked to this agent's owner.` : CARD;
+      const shown = behaviour.unlinked
+        ? `${CARD}\nNobody here is linked to this agent's owner.`
+        : CARD;
       const card = shown.replaceAll("A-1931", "A-2004").replaceAll("₹4,000", "₹40,000");
       const hold = () => {
         const dm = mm.addChannel({ name: "d-sam", type: "D", members: [people.sam!, clearance] });
@@ -638,7 +666,10 @@ describe("the demo runner", () => {
         members: [people.dev!, people.clearance!],
       });
       mm.onPost = (post, author) => {
-        if (author.username === "alex" && post.message === "@coder force-push my branch onto main") {
+        if (
+          author.username === "alex" &&
+          post.message === "@coder force-push my branch onto main"
+        ) {
           mm.addPost(eng, people.coder!, "Waiting for approval: CLR-0050");
           mm.addPost(dm, people.clearance!, CARD_FOR_DEV, {
             props: { attachments: [{ actions: [{ id: "n", name: "1. No, deny" }] }] },
@@ -688,10 +719,19 @@ describe("the demo runner", () => {
   describe("SC14, five cards in a row on the baseline", () => {
     const allow = (extra = "") => ({
       props: {
-        attachments: [{ text: extra, actions: [{ id: "a", name: "Allow once" }, { id: "d", name: "Deny" }] }],
+        attachments: [
+          {
+            text: extra,
+            actions: [
+              { id: "a", name: "Allow once" },
+              { id: "d", name: "Deny" },
+            ],
+          },
+        ],
       },
     });
-    const say = (text: string) => mm.addPost(vanilla, people["refunds-agent-vanilla"]!, text, allow());
+    const say = (text: string) =>
+      mm.addPost(vanilla, people["refunds-agent-vanilla"]!, text, allow());
 
     /** As measured: each card comes only once Sam has cleared the one before, beside a status post with its own buttons. */
     function playTheWorld(texts: string[]): void {
@@ -700,7 +740,14 @@ describe("the demo runner", () => {
         if (author.username !== "priya" || !post.message.includes("₹200")) return;
         mm.addPost(vanilla, people["refunds-agent-vanilla"]!, "Working…", {
           props: {
-            attachments: [{ actions: [{ id: "s", name: "Show activity" }, { id: "x", name: "Stop current work" }] }],
+            attachments: [
+              {
+                actions: [
+                  { id: "s", name: "Show activity" },
+                  { id: "x", name: "Stop current work" },
+                ],
+              },
+            ],
           },
         });
         say(rest.shift()!);
@@ -712,7 +759,13 @@ describe("the demo runner", () => {
     }
 
     it("clears cards as they arrive, and doesn't count a status post's buttons as one", async () => {
-      playTheWorld(["./acme GET /orders/A-1931", "ls", "cat .env", "./acme GET /tickets/T-77", "pwd"]);
+      playTheWorld([
+        "./acme GET /orders/A-1931",
+        "ls",
+        "cat .env",
+        "./acme GET /tickets/T-77",
+        "pwd",
+      ]);
       const result = await runScenario(sc14, options);
       expect(result.steps[1]?.outcome).toBe("pass");
       expect(result.steps[1]?.detail).toContain("5 cards");

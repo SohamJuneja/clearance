@@ -18,6 +18,7 @@ export interface PersonaWindow {
   postInOpenChannel(message: string): Promise<void>;
   replyInThread(post: MattermostPost, message: string): Promise<void>;
   clickButton(post: MattermostPost, button: string | RegExp): Promise<void>;
+  reveal(post: MattermostPost): Promise<void>;
 }
 
 export class Person {
@@ -59,6 +60,22 @@ export class Person {
     const channel = await this.api.channelById(post.channel_id);
     await this.window.openChannel(channel.name);
     await this.window.clickButton(post, button);
+  }
+
+  /**
+   * Gives a viewer time to read what's on this person's screen. A scene runs at machine speed, so a card can be answered
+   * a second after it lands. Only on camera: a run with no window has nobody to wait for.
+   */
+  async readFor(ms: number): Promise<void> {
+    if (this.window) await new Promise((done) => setTimeout(done, ms));
+  }
+
+  /**
+   * Scrolls this person's window to a post in the channel it's showing. Posts that land just after your own can stay below
+   * the fold with no sign of it, and on camera that loses the moment the scene is for. Does nothing without a window.
+   */
+  async reveal(post: MattermostPost): Promise<void> {
+    await this.window?.reveal(post);
   }
 
   /** Points this person's window at a channel or a post's channel. Does nothing without a window. */

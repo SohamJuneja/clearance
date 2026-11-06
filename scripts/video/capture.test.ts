@@ -2,7 +2,15 @@ import { existsSync, mkdtempSync, readlinkSync, rmSync, statSync } from "node:fs
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { frameDurations, nextTakeDirectory, OUTPUT, pointLatest } from "./capture.ts";
+import { browserUrl, frameDurations, nextTakeDirectory, OUTPUT, pointLatest } from "./capture.ts";
+
+describe("browserUrl", () => {
+  it("points a browser at Mattermost's site URL, or it never hears a new post", () => {
+    expect(browserUrl("http://127.0.0.1:8065")).toBe("http://localhost:8065");
+    expect(browserUrl("http://localhost:8065")).toBe("http://localhost:8065");
+    expect(browserUrl("https://chat.example.com")).toBe("https://chat.example.com");
+  });
+});
 
 describe("frameDurations", () => {
   const frames = [

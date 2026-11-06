@@ -6,12 +6,20 @@ Everything else is being done without you. Tick a box when done (or just tell me
 
 ## NOW (about 15 minutes, then go to sleep)
 
-- [ ] **0. Do this first: put our repo on GitHub and give Soham access.** He started a separate Clearance repo and can't see any of this work, because ours has never been pushed. I recommend one codebase, this one. Run:
+- [ ] **0a. Get on the team page.** Sign in on wemakedevs.org and have Soham add you to the team, star `sandbox-quantum/switch` through the event link, and join the WeMakeDevs Discord. Why: only listed members count, and this is on his plan as B-0. I can't check it from here. Deadline: now.
+
+- [ ] **0b. Agree one codebase with Soham, on a 10-minute call.** Message is in the chat. Don't run anything on his repo until he says yes. Then:
   ```bash
-  cd /home/prashant/projects/Clearance && gh repo create clearance --private --source . --remote origin --push
-  gh api -X PUT repos/Prashant-thakur77/clearance/collaborators/SohamJuneja -f permission=push
+  cd /home/prashant/projects/Clearance
+  git remote add origin git@github.com:SohamJuneja/clearance.git
+  git fetch origin master
+  git tag soham-python-first-cut origin/master
+  git merge -s ours --allow-unrelated-histories origin/master -m "chore: build on the full implementation, keeping Soham's first commits in history"
+  gitleaks detect --source . --redact --no-banner
+  git push origin main:master
+  git push origin soham-python-first-cut
   ```
-  Then send him the message I gave you. The gitleaks scan on all commits is clean. Stays private until you say otherwise.
+  Never add `--force`. If the push is rejected, he pushed something new, so tell me. Dry-run on a copy: files match ours, both histories are kept, secret scan clean.
 
 - [ ] **1. Free RAM: close what you don't need.** The machine has 14 GB, about 12 GB in use and 11 GB already in swap, which is the OOM risk we've hit before. Switch, Mattermost and four agents need 4 to 6 GB free.
   - Close Chrome (or most tabs), Discord and Claude desktop if you don't need them tonight.

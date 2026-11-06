@@ -6,6 +6,13 @@ Everything else is being done without you. Tick a box when done (or just tell me
 
 ## NOW (about 15 minutes, then go to sleep)
 
+- [ ] **0. Do this first: put our repo on GitHub and give Soham access.** He started a separate Clearance repo and can't see any of this work, because ours has never been pushed. I recommend one codebase, this one. Run:
+  ```bash
+  cd /home/prashant/projects/Clearance && gh repo create clearance --private --source . --remote origin --push
+  gh api -X PUT repos/Prashant-thakur77/clearance/collaborators/SohamJuneja -f permission=push
+  ```
+  Then send him the message I gave you. The gitleaks scan on all commits is clean. Stays private until you say otherwise.
+
 - [ ] **1. Free RAM: close what you don't need.** The machine has 14 GB, about 12 GB in use and 11 GB already in swap, which is the OOM risk we've hit before. Switch, Mattermost and four agents need 4 to 6 GB free.
   - Close Chrome (or most tabs), Discord and Claude desktop if you don't need them tonight.
   - Optional: your other project containers and Redis use memory too. I won't touch them, because they aren't mine. If you're fine with it:
@@ -79,10 +86,6 @@ Everything else is being done without you. Tick a box when done (or just tell me
 - [ ] **Voice-over (optional, 15 minutes).** The offline TTS (Piper) version works, but I can't hear audio, so please listen to it once when the first cut exists. Your voice is better if you have time: drop files at `scripts/video/voice/<scene>.wav` and they win over TTS. Script will be here.
 - [ ] **Optional, stronger anti-evasion:** needs sudo for `/etc/claude-code/managed-settings.json`, which agents can't edit. Not tested yet. I'd only use it if you want it for the demo host.
 - [ ] **Skip: the `!list-documents` crash** is already reported, with PR #1286 open upstream. Nothing to do.
-- [ ] **Optional, frees about 1 GB of RAM: clear leftover test temp directories.** A permission check refused this for my subagent, so it's yours. `/tmp` is RAM-backed here, and new test runs now use disk instead. They're only leftovers from our own test runs, safe to delete once tests aren't running:
-  ```bash
-  rm -rf /tmp/clearance-gate-* /tmp/acme-cli-* /tmp/acme-token-* /tmp/acme-e2e-* /tmp/hook-token-* /tmp/hook-no-token-* /tmp/plugin-token-* /tmp/setup-agent-* /tmp/mcp-headers-* /tmp/codex-wrapper-* /tmp/real-acme-*
-  ```
 - [ ] **Blog:** draft at `docs/blog-draft.md`, written as you, in first person. Please read it, since it speaks for you, and change anything that isn't how you'd say it. I fill the `{{...}}` numbers from RESULTS.md at the end. Post on dev.to or Hashnode when I say it's final.
 - [ ] **Three #HowISwitch posts.** Ready to post here with clips once the takes exist.
 - [ ] **Submission form.** `SUBMISSION.md` will have every field filled in.

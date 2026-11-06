@@ -136,7 +136,9 @@ describe("eval:report", () => {
       write({ "e1.json": fixtures["e1.json"] });
       report();
       const rows = parseResults(readFileSync(resultsPath, "utf8"));
-      expect(selectRow(rows, "E1").data).toBe("25 scripted cases (synthetic)");
+      expect(selectRow(rows, "E1").data).toBe(
+        "25 scripted cases; a managed agent in a private chat isn't covered by these 25 (synthetic)",
+      );
     });
 
     it("fills per-vendor numbers, and blanks a vendor that has none", () => {
@@ -216,6 +218,93 @@ describe("eval:report", () => {
       const filled = parseResults(readFileSync(resultsPath, "utf8"));
       const template = parseResults(renderResults({}));
       expect(filled.map((row) => row.id)).toEqual(template.map((row) => row.id));
+    });
+  });
+
+  describe("what E1's count doesn't cover", () => {
+    const authority = {
+      experiment: "E1",
+      fixture: true,
+      b_auto: { prevented: 1, total: 25 },
+      b_ask: { prevented: 2, total: 25 },
+      clearance: { prevented: 25, total: 25 },
+      cases: 25,
+    };
+    const live = (outcome: string) => ({
+      "authority-live.json": {
+        experiment: "E1-live",
+        fixture: true,
+        results: [
+          { id: 1, outcome: "prevented", why: "her press was refused" },
+          { id: "1-private-chat", outcome, why: "the agent heard it" },
+        ],
+      },
+    });
+    const e1Row = () => selectRow(parseResults(readFileSync(resultsPath, "utf8")), "E1");
+
+    it("says so in the Data cell before --live has run, and leaves the count alone", () => {
+      write({ "authority.json": authority });
+      report();
+      expect(e1Row().data).toContain("a managed agent in a private chat isn't covered by these 25");
+      expect(e1Row().clearance).toBe("25");
+      expect(e1Row().metric).toBe("Bad outcomes prevented (of 25)");
+    });
+
+    it("says so even with no E1 result at all, since the template is what the table starts from", () => {
+      expect(selectRow(parseResults(renderTable({})), "E1").data).toContain(
+        "isn't covered by these 25",
+      );
+    });
+
+    it.each(["blocked", "not prevented"])(
+      "still says so when the live check came back %s",
+      (outcome) => {
+        write({ "authority.json": authority, ...live(outcome) });
+        report();
+        expect(e1Row().data).toContain("isn't covered by these 25");
+        expect(e1Row().clearance).toBe("25");
+      },
+    );
+
+    it("says it was checked once the live check passes, and the count still doesn't move", () => {
+      write({ "authority.json": authority, ...live("prevented") });
+      report();
+      expect(e1Row().data).toContain("private-chat path checked live");
+      expect(e1Row().data).not.toContain("isn't covered");
+      expect(e1Row().clearance).toBe("25");
+    });
+
+    it("doesn't take another live case passing for the private-chat check", () => {
+      write({
+        "authority.json": authority,
+        "authority-live.json": {
+          experiment: "E1-live",
+          fixture: true,
+          results: [{ id: 1, outcome: "prevented", why: "her press was refused" }],
+        },
+      });
+      report();
+      expect(e1Row().data).toContain("isn't covered by these 25");
+    });
+
+    it("puts a failed live check first among the negative results", () => {
+      write({ "authority.json": authority, ...live("not prevented") });
+      report();
+      const written = readFileSync(resultsPath, "utf8");
+      expect(selectRow(parseResults(written), "NEG").clearance).toContain(
+        "live check of a managed agent in a private chat failed: the agent heard it",
+      );
+    });
+
+    it("reads an older live file with only numbered cases", () => {
+      write({
+        "authority-live.json": {
+          experiment: "E1-live",
+          fixture: true,
+          results: [{ id: 22, outcome: "blocked", why: "no key" }],
+        },
+      });
+      expect(() => report()).not.toThrow();
     });
   });
 
@@ -424,7 +513,9 @@ describe("eval:report", () => {
       });
       report();
       const row = selectRow(parseResults(readFileSync(resultsPath, "utf8")), "E1");
-      expect(row.data).toBe("25 scripted cases; baselines read from code, not run");
+      expect(row.data).toBe(
+        "25 scripted cases; baselines read from code, not run; a managed agent in a private chat isn't covered by these 25",
+      );
     });
 
     it("shows a blocked vendor as blocked, never as a zero, and names Claude's model", () => {

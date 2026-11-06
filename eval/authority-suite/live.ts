@@ -3,6 +3,10 @@
  * Mattermost presses as real personas, a real Switch agent key for what an agent tries, and real core, gate
  * and Acme on their usual ports. The agent's call itself is scripted, as in scripts/smoke-spine.ts.
  *
+ * It also checks the path those 25 can't reach, a managed agent in a private Switch chat (private-chat.ts). That runs
+ * last, because a direct message can leave a room that puts the agent at two approvals, which would change what the
+ * cases before it see. It targets refunds-agent unless CLEARANCE_EVAL_LIVE_AGENT names another protected agent.
+ *
  * This touches the shared stack and core's real database, so it refuses to run unless
  * CLEARANCE_EVAL_LIVE_OK=1 says someone has checked the stack is quiet. Results go to
  * eval/out/authority-live.json, separate from the isolated run, so one can't be mistaken for the other.
@@ -12,18 +16,15 @@ import { join } from "node:path";
 import { createSwitchAgent } from "../../packages/switch-agent/src/agent.ts";
 import { dataDir, REPO_ROOT, secretsPath, setting } from "../lib/paths.ts";
 import { buttonsOf, type MattermostPost, Persona, postText } from "../lib/persona.ts";
-import { type Outcome } from "./scene.ts";
+import { httpPrivateChatWorld, PRIVATE_CHAT_CHECK, privateChatCheck } from "./private-chat.ts";
+import type { LiveResult } from "./scene.ts";
 
 export const LIVE_CASES = [1, 4, 5, 22] as const;
+/** Everything `--live` runs, in order. The last isn't one of the 25: it's what they don't cover. */
+export const LIVE_CHECKS = [...LIVE_CASES, PRIVATE_CHAT_CHECK] as const;
 
 export function liveAllowed(env: NodeJS.ProcessEnv = process.env): boolean {
   return env.CLEARANCE_EVAL_LIVE_OK === "1";
-}
-
-export interface LiveResult {
-  id: number;
-  outcome: Outcome | "blocked";
-  why: string;
 }
 
 interface LiveWorld {
@@ -270,6 +271,36 @@ async function caseTwentyTwo(world: LiveWorld): Promise<LiveResult> {
   };
 }
 
+async function privateChat(world: LiveWorld): Promise<LiveResult> {
+  const agent = setting("CLEARANCE_EVAL_LIVE_AGENT") ?? "refunds-agent";
+  const blocked = (why: string): LiveResult => ({
+    id: PRIVATE_CHAT_CHECK,
+    outcome: "blocked",
+    why,
+  });
+  const password = setting("PERSONA_PASSWORD");
+  if (!password) return blocked("PERSONA_PASSWORD is not set, so Sam can't try to start a chat");
+  const { agents } = JSON.parse(readFileSync(join(dataDir(), "identities.json"), "utf8")) as {
+    agents: Record<string, { switchAgentId?: string }>;
+  };
+  const { switchAgentKeys } = JSON.parse(readFileSync(secretsPath(), "utf8")) as {
+    switchAgentKeys?: Record<string, string>;
+  };
+  const viewerId = agents.clearance?.switchAgentId;
+  const viewerKey = switchAgentKeys?.clearance;
+  if (!viewerId || !viewerKey) return blocked("no Switch key for Clearance in data/secrets.json");
+  return privateChatCheck({
+    agent,
+    sam: world.people.sam,
+    ...httpPrivateChatWorld({
+      bridgeUrl: world.bridgeUrl,
+      viewer: { id: viewerId, key: viewerKey },
+      agent,
+      sam: { email: "sam@clearance.example", password },
+    }),
+  });
+}
+
 export async function runLive(print: (line: string) => void): Promise<number> {
   if (!liveAllowed()) {
     print(
@@ -284,6 +315,7 @@ export async function runLive(print: (line: string) => void): Promise<number> {
     [4, caseFour],
     [5, caseFive],
     [22, caseTwentyTwo],
+    [PRIVATE_CHAT_CHECK, privateChat],
   ] as const) {
     try {
       results.push(await run(world));
@@ -296,6 +328,7 @@ export async function runLive(print: (line: string) => void): Promise<number> {
     }
     const last = results.at(-1) as LiveResult;
     print(`${String(last.id).padStart(2)}  ${last.outcome.padEnd(16)} ${last.why}`);
+    for (const warning of last.warnings ?? []) print(`    warning: ${warning}`);
   }
   const directory = join(REPO_ROOT, "eval/out");
   mkdirSync(directory, { recursive: true });

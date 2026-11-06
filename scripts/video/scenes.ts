@@ -90,6 +90,11 @@ const StoryboardSchema = z
     max_duration_s: z.number().positive(),
     default_notices: z.array(z.string()).default([]),
     cited: z.array(CitedSchema).default([]),
+    /** The scene that ends on Clearance's refusal, and how early that has to be. */
+    first_refusal: z
+      .object({ scene: z.string(), within_s: z.number().positive() })
+      .strict()
+      .optional(),
     scenes: z.array(SceneSchema).min(1),
   })
   .strict();
@@ -108,6 +113,43 @@ export function parseStoryboard(yamlText: string): Storyboard {
   if (repeated.length > 0)
     throw new Error(`the storyboard repeats scene ids: ${repeated.join(", ")}`);
   return parsed.data;
+}
+
+/** Seconds into the video a scene starts. Planned lengths unless told what each scene really came to. */
+export function sceneOffset(
+  board: Storyboard,
+  sceneId: string,
+  durationOf: (scene: Scene) => number = (scene) => scene.planned_s,
+): number {
+  const index = board.scenes.findIndex((scene) => scene.id === sceneId);
+  if (index < 0) throw new Error(`the storyboard has no scene ${sceneId}`);
+  return board.scenes.slice(0, index).reduce((sum, scene) => sum + durationOf(scene), 0);
+}
+
+/**
+ * How far into the video the refusal is on screen at the latest: where its scene ends, since that scene ends on it. Its
+ * real moment is a little earlier, but this is the number that can be promised before there's footage.
+ */
+export function refusalOnScreenBy(
+  board: Storyboard,
+  durationOf: (scene: Scene) => number = (scene) => scene.planned_s,
+): number | undefined {
+  const wanted = board.first_refusal;
+  if (!wanted) return undefined;
+  const scene = board.scenes.find((one) => one.id === wanted.scene);
+  if (!scene) throw new Error(`first_refusal names ${wanted.scene}, which isn't a scene`);
+  return sceneOffset(board, wanted.scene, durationOf) + durationOf(scene);
+}
+
+/** What's wrong with when the refusal appears, or undefined if nothing is. */
+export function refusalProblem(
+  board: Storyboard,
+  durationOf?: (scene: Scene) => number,
+): string | undefined {
+  const by = refusalOnScreenBy(board, durationOf);
+  const limit = board.first_refusal?.within_s;
+  if (by === undefined || limit === undefined || by <= limit) return undefined;
+  return `Clearance's refusal is on screen by ${by.toFixed(1)} s, past the ${limit} s limit. Tighten the voice-over before it`;
 }
 
 export function loadStoryboard(path: string): Storyboard {

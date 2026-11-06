@@ -7,18 +7,34 @@ import { REPO_ROOT } from "../../eval/lib/paths.ts";
 import { renderResults, renderTable } from "../../eval/report.ts";
 import { buildVideo } from "./build.ts";
 import { cardHtml, numbersHtml, slateHtml } from "./cards.ts";
+import { findScenario } from "../scenarios/index.ts";
 import { unsourcedNumbers } from "./numbers.ts";
 import { parseResults, resolveTemplate, scriptedWords, slideRows } from "./results.ts";
-import { loadStoryboard, parseStoryboard, recordingHint, resolvePoint } from "./scenes.ts";
+import {
+  loadStoryboard,
+  parseStoryboard,
+  recordingHint,
+  refusalOnScreenBy,
+  refusalProblem,
+  resolvePoint,
+  sceneOffset,
+  sourcesOf,
+} from "./scenes.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
 /** The PLAN 12 table: scene, seconds, and the voice-over word for word. */
-function planTable(): { scene: string; seconds: number; voiceover: string }[] {
+function planTable(): {
+  scene: string;
+  startS: number;
+  endS: number;
+  seconds: number;
+  voiceover: string;
+}[] {
   const plan = readFileSync(join(REPO_ROOT, "PLAN.md"), "utf8");
   const start = plan.indexOf("## 12. Demo video script");
   const end = plan.indexOf("## 13.", start);
-  const rows: { scene: string; seconds: number; voiceover: string }[] = [];
+  const rows: ReturnType<typeof planTable> = [];
   for (const line of plan.slice(start, end).split("\n")) {
     const match = line.match(/^\| (\d):(\d\d)–(\d):(\d\d) \| ([^|]+) \| .* \| "(.*)" \|$/);
     if (!match) continue;
@@ -33,6 +49,8 @@ function planTable(): { scene: string; seconds: number; voiceover: string }[] {
     ];
     rows.push({
       scene: scene.trim(),
+      startS: Number(m1) * 60 + Number(s1),
+      endS: Number(m2) * 60 + Number(s2),
       seconds: Number(m2) * 60 + Number(s2) - (Number(m1) * 60 + Number(s1)),
       voiceover,
     });
@@ -167,8 +185,84 @@ describe("scenes.yaml", () => {
 
   it("plans under the three-minute limit", () => {
     const total = board.scenes.reduce((sum, scene) => sum + scene.planned_s, 0);
-    expect(total).toBe(170);
+    expect(total).toBe(153);
     expect(board.max_duration_s).toBe(180);
+    expect(total).toBeLessThan(board.max_duration_s);
+  });
+
+  it("has PLAN's clock add up: each row starts where the last ended, at the storyboard's offsets", () => {
+    plan.forEach((row, index) => {
+      expect(row.startS, row.scene).toBe(index === 0 ? 0 : plan[index - 1]?.endS);
+      expect(row.startS, row.scene).toBe(sceneOffset(board, board.scenes[index]?.id ?? ""));
+    });
+  });
+
+  it("has Clearance's refusal of Priya on screen by 0:20, by the storyboard and by PLAN's clock", () => {
+    expect(board.first_refusal).toEqual({ scene: "sc3-refused", within_s: 20 });
+    expect(sceneOffset(board, "sc3-refused")).toBeLessThanOrEqual(20);
+    expect(refusalOnScreenBy(board)).toBeLessThanOrEqual(20);
+    expect(refusalProblem(board)).toBeUndefined();
+    const row = plan.find((one) => one.scene === "SC3, refused");
+    expect(row?.endS).toBeLessThanOrEqual(20);
+  });
+
+  it("really ends that scene on the refusal: its footage runs past the step where Clearance refuses", () => {
+    const scene = board.scenes.find((one) => one.id === "sc3-refused");
+    const steps = findScenario("SC3")?.stepNames ?? [];
+    const refuses = steps.indexOf("Clearance refuses Priya, says why, and says Sam has it");
+    expect(refuses).toBeGreaterThan(0);
+    for (const source of scene ? sourcesOf(scene) : []) {
+      const end = source.segments?.at(-1)?.to as string;
+      expect(steps.indexOf(end)).toBe(refuses + 1);
+    }
+    expect(sourcesOf(scene as NonNullable<typeof scene>).length).toBe(2);
+  });
+
+  it("counts what scenes really came to, so a long voice-over can't push the refusal late unnoticed", () => {
+    const long = refusalProblem(board, (one) => (one.id === "sc2" ? 9 : one.planned_s));
+    expect(long).toContain("on screen by 21.0 s, past the 20 s limit");
+    expect(refusalProblem(board, (one) => (one.id === "sc2" ? 7 : one.planned_s))).toBeUndefined();
+    const noLimit = parseStoryboard(
+      "max_duration_s: 180\nscenes: [{ id: a, kind: card, planned_s: 40, headline: x }]",
+    );
+    expect(refusalOnScreenBy(noLimit)).toBeUndefined();
+    expect(refusalProblem(noLimit)).toBeUndefined();
+  });
+
+  it("refuses a first_refusal naming a scene that doesn't exist", () => {
+    const wrong = parseStoryboard(
+      "max_duration_s: 180\nfirst_refusal: { scene: nope, within_s: 20 }\nscenes: [{ id: a, kind: card, planned_s: 1, headline: x }]",
+    );
+    expect(() => refusalOnScreenBy(wrong)).toThrow(/names nope/);
+  });
+
+  it("opens with no title card, and has SC14 set up the drill instead of opening the video", () => {
+    const ids = board.scenes.map((scene) => scene.id);
+    expect(ids.slice(0, 2)).toEqual(["sc2", "sc3-refused"]);
+    expect(ids).not.toContain("title");
+    expect(ids.indexOf("sc9")).toBe(ids.indexOf("sc14") + 1);
+    const caption = board.scenes.find((scene) => scene.id === "sc3-refused")?.callouts?.join(" ");
+    expect(caption).toContain("Clearance: the approval layer, built on Switch");
+  });
+
+  it("says the 93% once, on the scene with its source", () => {
+    const with93 = board.scenes.filter((scene) => /93%/.test(scene.voiceover ?? ""));
+    expect(with93.map((scene) => scene.id)).toEqual(["sc14"]);
+    expect(with93[0]?.notices?.join(" ")).toContain("Anthropic");
+  });
+
+  it("names only real steps of the recorded scenario wherever a segment names one", () => {
+    for (const scene of board.scenes) {
+      for (const source of sourcesOf(scene)) {
+        const id = /takes\/(SC\d+)\//.exec(source.clip)?.[1] ?? "";
+        const steps = findScenario(id)?.stepNames ?? [];
+        for (const segment of source.segments ?? []) {
+          for (const point of [segment.from, segment.to]) {
+            if (typeof point === "string") expect(steps, `${scene.id}: ${point}`).toContain(point);
+          }
+        }
+      }
+    }
   });
 
   it("reads the plan's voice-over as written, except the numbers line that pulls from RESULTS.md", () => {
@@ -256,7 +350,7 @@ describe("scenes.yaml", () => {
   });
 
   it("says on screen in SC3 that the agent caught the amount, and credits it first", () => {
-    const sc3 = board.scenes.find((scene) => scene.id === "sc3");
+    const sc3 = board.scenes.find((scene) => scene.id === "sc3-refused");
     expect(sc3?.callouts?.join(" ")).toMatch(/agent caught the wrong amount/i);
     expect(sc3?.voiceover).toMatch(/^The agent caught the wrong amount/);
   });

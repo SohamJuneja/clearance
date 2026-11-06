@@ -14,10 +14,7 @@ default_notices:
 
 # Every number that isn't one of our results, and where it comes from.
 cited:
-  - {
-      value: "93%",
-      source: "Anthropic, Claude Code auto mode, Mar 2026. Its notice is on sc14 and sc9",
-    }
+  - { value: "93%", source: "Anthropic, Claude Code auto mode, Mar 2026. Its notice is on sc14" }
   - { value: "Mar 2026", source: "the date of that Anthropic figure" }
   - { value: "₹40,000", source: "seeded order A-2004, synthetic: packages/acme" }
   - { value: "four minutes", source: "seeded: the age of T-77's new UPI ID, packages/acme" }
@@ -31,37 +28,56 @@ cited:
       only_in: [sc9],
     }
 
+# A judge skims. The build fails if Clearance's refusal of Priya isn't on screen by this time. `scene` ends on the
+# refusal, so where that scene ends is the latest it can appear.
+first_refusal: { scene: sc3-refused, within_s: 20 }
+
 scenes:
   - id: sc2
     kind: clip
     planned_s: 8
     source: { clip: takes/SC2/latest/priya.mp4 }
-    voiceover: "This is Switch today. Priya asks an agent to refund a ₹40,000 order, and every approval card goes to Priya, who approves them."
+    voiceover: "This is Switch today. Priya asks an agent for a ₹40,000 refund, and Priya approves every card."
 
-  - id: sc14
-    kind: clip
-    planned_s: 9
-    source: { clip: takes/SC14/latest/sam.mp4 }
-    callouts: ["staged illustration, real clicks"]
-    notices: ["93%: Anthropic, Claude Code auto mode, Mar 2026"]
-    voiceover: "And when someone else approves, people approve 93% of what they're shown. Approval gates are everywhere in this hackathon. They don't stay meaningful on their own."
-
-  - id: title
-    kind: card
-    planned_s: 9
-    headline: "Clearance: the approval layer that keeps approvals meaningful, across every room and every agent."
-    lines: ["Built on Switch."]
-    voiceover: "Clearance is the approval layer for the whole team, for every room and every agent vendor, with no changes to Switch."
-
-  - id: sc3
+  - id: sc3-refused
     kind: split
-    planned_s: 34
+    planned_s: 12
     sources:
-      - { clip: takes/SC3/latest/priya.mp4 }
-      - { clip: takes/SC3/latest/sam.mp4 }
+      - clip: takes/SC3/latest/priya.mp4
+        segments:
+          - {
+              from: "Priya asks refunds-agent to handle ticket T-77 in #support",
+              to: "Acme: Priya's approval moved no money",
+            }
+      - clip: takes/SC3/latest/sam.mp4
+        segments:
+          - {
+              from: "Priya asks refunds-agent to handle ticket T-77 in #support",
+              to: "Acme: Priya's approval moved no money",
+            }
     # No recorded run attempted the amount the ticket asks for (`pnpm eval:baseline`), and the take's own step says whether this one did.
-    callouts: ["The agent caught the wrong amount in this ticket"]
-    voiceover: "The agent caught the wrong amount in this ticket. It still offered to pay a brand-new payment ID. Clearance holds it, refuses Priya's own approval, and sends it to Sam in finance. Sam sees the real call, not the agent's story: a payment ID added four minutes ago. Sam denies it."
+    callouts:
+      - "The agent caught the wrong amount in this ticket"
+      - "Clearance: the approval layer, built on Switch"
+    voiceover: "The agent caught the wrong amount in this ticket, but offered to pay a brand-new payment ID. Clearance holds it, and refuses Priya's own approval."
+
+  - id: sc3-sam
+    kind: split
+    planned_s: 14
+    sources:
+      - clip: takes/SC3/latest/priya.mp4
+        segments:
+          - {
+              from: "Clearance refuses Priya, says why, and says Sam has it",
+              to: "Acme: no money moved at all",
+            }
+      - clip: takes/SC3/latest/sam.mp4
+        segments:
+          - {
+              from: "Clearance refuses Priya, says why, and says Sam has it",
+              to: "Acme: no money moved at all",
+            }
+    voiceover: "It goes to Sam in finance. Sam sees the real call, not the agent's story: a payment ID added four minutes ago. Sam denies it."
 
   - id: sc5-sc6
     kind: split
@@ -69,7 +85,7 @@ scenes:
     sources:
       - { clip: takes/SC5/latest/priya.mp4 }
       - { clip: takes/SC6/latest/alex.mp4 }
-    voiceover: "Same policy file, different vendors. A Codex agent's customer export and an OpenCode agent's production deploy are held the same way, even though OpenCode's auto mode would have asked no one."
+    voiceover: "Clearance covers every room and every agent vendor, with no changes to Switch. One policy file: a Codex agent's customer export and an OpenCode agent's production deploy are held the same way, even though OpenCode's auto mode would have asked no one."
 
   - id: sc8
     kind: split
@@ -80,14 +96,22 @@ scenes:
       - { clip: takes/SC8/latest/neha.mp4 }
     voiceover: "If nobody answers, Clearance escalates on a timer, and every approver has one inbox across rooms."
 
+  # Here rather than in the opening: it sets up the drill that follows, and the refusal comes first.
+  - id: sc14
+    kind: clip
+    planned_s: 9
+    source: { clip: takes/SC14/latest/sam.mp4 }
+    callouts: ["staged illustration, real clicks"]
+    notices: ["93%: Anthropic, Claude Code auto mode, Mar 2026"]
+    voiceover: "And when someone else approves, people approve 93% of what they're shown. Approval gates are everywhere in this hackathon. They don't stay meaningful on their own."
+
   - id: sc9
     kind: clip
     planned_s: 20
     source: { clip: takes/SC9/latest/sam.mp4 }
     # The only place the 10x flag appears: no agent attempted that amount, so it's shown as what it is, a planted flaw.
     callouts: ["A drill: the flaw is planted, an amount 10x the order total"]
-    notices: ["93%: Anthropic, Claude Code auto mode, Mar 2026"]
-    voiceover: "People rubber-stamp. Claude Code users approve 93% of prompts. So Clearance runs drills, like phishing tests, and adds friction when approvals get too fast."
+    voiceover: "People rubber-stamp. So Clearance runs drills, like phishing tests, and adds friction when approvals get too fast."
 
   - id: sc11
     kind: split

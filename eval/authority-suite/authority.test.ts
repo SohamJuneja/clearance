@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { findUpwards, REPO_ROOT } from "../lib/paths.ts";
 import { BASELINE_BASIS, BASELINES, verifyBaselines } from "./baselines.ts";
 import { CASES } from "./cases.ts";
-import { LIVE_CASES, liveAllowed, runLive } from "./live.ts";
+import { LIVE_CASES, LIVE_CHECKS, liveAllowed, runLive } from "./live.ts";
 import { countPrevented, Findings, StopCase, verdictOf } from "./scene.ts";
 
 /** The rows of PLAN 10.2's table. */
@@ -122,6 +122,15 @@ describe("--live", () => {
 
   it("covers the cases where chat is the point", () => {
     expect(LIVE_CASES).toEqual([1, 4, 5, 22]);
+  });
+
+  it("checks the private-chat path too, last, so a room it leaves can't change the cases before it", () => {
+    expect(LIVE_CHECKS).toEqual([1, 4, 5, 22, "1-private-chat"]);
+  });
+
+  it("says in case 1 what the 25 don't cover, and doesn't count the live check as a case", () => {
+    expect(CASES.find((one) => one.id === 1)?.chat).toMatch(/private Switch chat isn't covered/);
+    expect(CASES).toHaveLength(25);
   });
 });
 

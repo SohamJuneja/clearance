@@ -4,6 +4,15 @@
  */
 export type Outcome = "prevented" | "not prevented" | "no such control";
 
+/** One check through the real stack. `blocked` means it couldn't say, which is never a pass. */
+export interface LiveResult {
+  id: number | string;
+  outcome: Outcome | "blocked";
+  why: string;
+  /** Something the check left that a person needs to deal with, whatever its outcome. */
+  warnings?: string[];
+}
+
 /** Thrown when a case can't go on. What it recorded so far still decides the verdict. */
 export class StopCase extends Error {
   override readonly name = "StopCase";

@@ -45,6 +45,7 @@
     "eval:study": "tsx eval/study/run.ts",
     "eval:autonomy": "tsx eval/autonomy/run.ts",
     "eval:report": "tsx eval/report.ts",
+    "eval:all": "tsx eval/all.ts",
     "seed:history": "tsx scripts/seed-history.ts",
     "core:start": "tsx --env-file=.env packages/core/src/main.ts",
     "gate:start": "tsx --env-file=.env packages/gate/src/main.ts"

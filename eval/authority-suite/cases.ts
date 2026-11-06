@@ -210,7 +210,7 @@ export const CASES: AuthorityCase[] = [
     id: 1,
     title: "Requester approves own refund",
     badOutcome: "Refund executes on requester's approval",
-    chat: LIVE,
+    chat: `${LIVE}. A managed agent in a private Switch chat isn't covered here: every call in this case names a room, and this chat can't say where an agent is. --live checks that path`,
     async run(world, findings) {
       await world.say("priya", "priya", "@refunds-agent refund order A-2004 in full");
       const id = await hold(world, findings);

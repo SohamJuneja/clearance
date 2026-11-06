@@ -59,6 +59,15 @@ const E1 = z.object({
     .optional(),
 });
 
+/** What `--live` found. Only the private-chat check reaches the table, in E1's Data cell. */
+const E1Live = z.object({
+  ...Flags,
+  experiment: z.literal("E1-live"),
+  results: z.array(
+    z.object({ id: z.union([z.number(), z.string()]), outcome: z.string(), why: z.string() }),
+  ),
+});
+
 const E2 = z.object({
   ...Flags,
   experiment: z.literal("E2"),
@@ -229,12 +238,12 @@ function studyToE5(study: z.infer<typeof Study>): z.infer<typeof E5> {
 /** Real output that isn't a result for this table, and why, so it can't look like it was lost. */
 const NOT_FOR_THIS_TABLE: Record<string, string> = {
   "E4-soak-smoke": "it's a smoke test of the soak, not the 2 hour result",
-  "E1-live": "the table reports the isolated run; live results are read separately",
   "E1-mutations": "it's evidence that E1's cases test what they say, not a result of its own",
 };
 
 const SCHEMAS = {
   E1,
+  "E1-live": E1Live,
   E2,
   "E2-behaviour": E2Behaviour,
   E3,
@@ -249,6 +258,7 @@ type ExperimentId = keyof typeof SCHEMAS;
 
 export interface Inputs {
   E1?: z.infer<typeof E1>;
+  "E1-live"?: z.infer<typeof E1Live>;
   E2?: z.infer<typeof E2>;
   "E2-behaviour"?: z.infer<typeof E2Behaviour>;
   E3?: z.infer<typeof E3>;
@@ -304,6 +314,21 @@ function e6Data(e6: Inputs["E6"]): string {
   const original = e6?.original_rule?.human_decisions_per_100?.after;
   if (original === undefined) return "synthetic week, labelled";
   return `synthetic week, labelled; the anomaly rule was changed after seeing the first result, and the original rule gives ${num(original)}`;
+}
+
+/** The one in eval/authority-suite/private-chat.ts. Named here so reading a result needn't load the live stack's code. */
+const PRIVATE_CHAT_CHECK = "1-private-chat";
+
+function privateChatResult(inputs: Inputs): z.infer<typeof E1Live>["results"][number] | undefined {
+  return inputs["E1-live"]?.results.find((row) => String(row.id) === PRIVATE_CHAT_CHECK);
+}
+
+/** So nobody reads the count as closed: this says so until a live run shows otherwise. */
+function e1Coverage(inputs: Inputs): string {
+  if (privateChatResult(inputs)?.outcome === "prevented") {
+    return "private-chat path checked live, with room-limited addressing on";
+  }
+  return `a managed agent in a private chat isn't covered by these ${inputs.E1?.cases ?? 25}`;
 }
 
 function auditCell(e1: Inputs["E1"]): string {
@@ -380,6 +405,15 @@ export function negativeResults(inputs: Inputs): NegativeResult[] {
   const results: NegativeResult[] = [];
   const { E1: e1, E6: e6, BL: bl } = inputs;
   // Where Clearance itself loses comes first, as long as it's true.
+  const privateChat = privateChatResult(inputs);
+  if (privateChat?.outcome === "not prevented") {
+    results.push({
+      id: "private-chat",
+      text: `The live check of a managed agent in a private chat, the path E1's count doesn't cover, failed: ${privateChat.why}.`,
+      short: `the live check of a managed agent in a private chat failed: ${privateChat.why}`,
+      source: "`pnpm eval:authority --live`",
+    });
+  }
   for (const row of e1?.per_case ?? []) {
     if (row.clearance.outcome === "prevented") continue;
     const why = row.clearance.why.replace(/^bad outcome: /, "");
@@ -447,7 +481,7 @@ export function renderTable(inputs: Inputs): string {
   const rows = [
     HEADER,
     "|---|---|---|---|---|---|",
-    `| E1 | Bad outcomes prevented (of ${e1?.clearance?.total ?? e1?.b_auto?.total ?? 25}) | B-auto: ${prevented(e1?.b_auto)} / B-ask: ${prevented(e1?.b_ask)} | ${prevented(e1?.clearance)} | ${synthetic(e1, `${e1?.cases ?? 25} scripted cases${e1?.baseline_basis ? "; baselines read from code, not run" : ""}`)} | \`pnpm eval:authority\` |`,
+    `| E1 | Bad outcomes prevented (of ${e1?.clearance?.total ?? e1?.b_auto?.total ?? 25}) | B-auto: ${prevented(e1?.b_auto)} / B-ask: ${prevented(e1?.b_ask)} | ${prevented(e1?.clearance)} | ${synthetic(e1, `${e1?.cases ?? 25} scripted cases${e1?.baseline_basis ? "; baselines read from code, not run" : ""}; ${e1Coverage(inputs)}`)} | \`pnpm eval:authority\` |`,
     `| AUDIT | Breaks an independent review found, re-checked apart from the 25 | n/a | ${auditCell(e1)} | F1 to F5, each fixed after the review | \`pnpm eval:authority\` |`,
     `| E2 | Risky actions executed without an eligible human (of 20 per vendor) | ${vendors(e2?.risky_unapproved?.baseline)} | ${vendors(e2?.risky_unapproved?.clearance)} | ${synthetic(e2, `${num(e2?.runs ?? 360)} agent runs${e2?.claude_model ? `, Claude on ${e2.claude_model}` : ""}`)} | \`pnpm eval:vendors\` |`,
     `| E2 | Safe actions interrupted (of 20 per vendor) | ${vendorsOrBlank(e2?.safe_interrupted?.baseline)} | ${vendorsOrBlank(e2?.safe_interrupted?.clearance)} | same | same |`,

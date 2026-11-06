@@ -37,6 +37,8 @@ import {
   loadStoryboard,
   readMarks,
   recordingHint,
+  refusalOnScreenBy,
+  refusalProblem,
   resolvePoint,
   type Scene,
   type SourceSpec,
@@ -79,6 +81,8 @@ export interface BuildReport {
   output: string;
   scenes: SceneReport[];
   plannedS: number;
+  /** When Clearance's refusal is on screen by, from what the scenes really came to. */
+  refusalByS?: number;
   info: MediaInfo;
   loudnessInputI: string;
   silent: boolean;
@@ -265,10 +269,16 @@ export async function buildVideo(options: BuildOptions): Promise<BuildReport> {
     height: FRAME.height,
     fps: FRAME.fps,
   });
+  const realDuration = (scene: Scene): number =>
+    reports.find((one) => one.id === scene.id)?.durationS ?? scene.planned_s;
+  const tooLate = refusalProblem(board, realDuration);
+  if (tooLate) problems.push(tooLate);
+  const refusalByS = refusalOnScreenBy(board, realDuration);
   const report: BuildReport = {
     output: options.output,
     scenes: reports,
     plannedS: board.scenes.reduce((sum, scene) => sum + scene.planned_s, 0),
+    ...(refusalByS === undefined ? {} : { refusalByS }),
     info,
     loudnessInputI: measured.input_i,
     silent,
@@ -291,6 +301,9 @@ export function printReport(report: BuildReport, log: (line: string) => void): n
       report.info.hasAudio ? `${report.info.audioSampleRate} Hz` : "NONE"
     }`,
   );
+  if (report.refusalByS !== undefined) {
+    log(`  Clearance's refusal on screen by ${report.refusalByS.toFixed(1)} s`);
+  }
   for (const warning of report.warnings) log(`  warning: ${warning}`);
   if (report.problems.length > 0) {
     log("");

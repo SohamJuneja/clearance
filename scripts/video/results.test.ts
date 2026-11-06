@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { REPO_ROOT } from "../../eval/lib/paths.ts";
-import { parseResults, resolveTemplate, selectRow, showCell } from "./results.ts";
+import { measuredParts, parseResults, resolveTemplate, selectRow, showCell } from "./results.ts";
 
 /** Marked as a fixture: these figures are made up to exercise the parser and appear nowhere else. */
 const SYNTHETIC_FIXTURE = `# RESULTS (synthetic test fixture)
@@ -92,8 +92,45 @@ describe("selectRow", () => {
   });
 });
 
+describe("measuredParts", () => {
+  it("leaves out what has no number, and keeps the rest of the cell", () => {
+    expect(measuredParts("B-auto: 3 / B-ask: _")).toBe("B-auto: 3");
+    expect(measuredParts("Claude _, Codex 0, OpenCode _, Cursor _")).toBe("Codex 0");
+    expect(measuredParts("n = _ people, 4 flawed each")).toBe("4 flawed each");
+  });
+
+  it("is empty when nothing is measured", () => {
+    for (const cell of ["", "  ", "_", "_ / _ / _", "approval-required: _", "Claude _, Codex _"]) {
+      expect(measuredParts(cell), cell).toBe("");
+    }
+  });
+
+  it("doesn't touch a measured cell, or an underscore inside a word", () => {
+    expect(measuredParts("hook 0.92 / 1.9 / 3.08")).toBe("hook 0.92 / 1.9 / 3.08");
+    expect(measuredParts("amount_vs_order")).toBe("amount_vs_order");
+    expect(measuredParts("**Negative result**")).toBe("Negative result");
+  });
+});
+
 describe("resolveTemplate", () => {
   const rows = parseResults(SYNTHETIC_FIXTURE);
+
+  it("says only the measured part of a cell", () => {
+    const partly = parseResults(
+      "| ID | Metric | Baseline | Clearance | Data | Script |\n|---|---|---|---|---|---|\n| E2 | Risky | Claude _, Codex 2 | | | |\n",
+    );
+    expect(resolveTemplate("Risky: {{E2.baseline}}.", partly)).toBe("Risky: Codex 2.");
+  });
+
+  it("keeps a guarded negative line only once it has words", () => {
+    expect(resolveTemplate("[[if NEG.text]]We lose: {{NEG.text}}.[[/if]]", rows)).toBe(
+      "We lose: Cards take longer to decide.",
+    );
+    const blank = parseResults(
+      "| ID | Metric | Baseline | Clearance | Data | Script |\n|---|---|---|---|---|---|\n| NEG | **Negative result** | | | | |\n",
+    );
+    expect(resolveTemplate("[[if NEG.text]]We lose: {{NEG.text}}.[[/if]]", blank)).toBe("");
+  });
 
   it("fills numbers from the table", () => {
     expect(resolveTemplate("We prevented {{E1.clearance}} of 25.", rows)).toBe(

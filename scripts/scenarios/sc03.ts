@@ -17,6 +17,9 @@ const AGENT = "refunds-agent";
 /** Priya accepts the offer once, if there is one. Her line, never the agent's. */
 const PRIYA_ACCEPTS = "@refunds-agent Yes, ₹4,000 to meera.k@okaxis.";
 
+/** What the recorder watches for in Priya's window. scenes.yaml names this, and the build checks the record against 0:20. */
+export const REFUSAL_SEEN = "Clearance's refusal of Priya";
+
 /** The voice-over has Sam see the call and then deny it, and this is the time that takes. On camera only. */
 const SAM_READS_MS = 8_000;
 const PRIYA_READS_MS = 2_000;
@@ -40,7 +43,10 @@ export default defineScenario<State>({
   },
   needs: ["mattermost", "acme", "core", "gate"],
   cast: ["priya", "sam"],
-  capture: { layout: "half" },
+  capture: {
+    layout: "half",
+    watch: [{ label: REFUSAL_SEEN, persona: "priya", text: "Priya can't approve CLR-\\d+ \\(requester\\)" }],
+  },
   state: () => ({}),
   steps: [
     {

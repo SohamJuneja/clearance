@@ -241,6 +241,26 @@ describe("in core", () => {
       expect(level()).toBe("L0");
     });
 
+    it("gives one review card when the next tick comes while it is still opening", async () => {
+      setLevel("L2");
+      let release!: () => void;
+      const slow = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const realOpen = h.chat.openCard.bind(h.chat);
+      vi.spyOn(h.chat, "openCard").mockImplementation(async (input) => {
+        await slow;
+        return realOpen(input);
+      });
+      const ran = smallRefund();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      const ticked = h.core.tick();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      release();
+      await Promise.all([ran, ticked]);
+      expect(h.chat.cards).toHaveLength(1);
+    });
+
     it("gives a signer one card when the next tick comes while that card is still opening", async () => {
       seed();
       let release!: () => void;

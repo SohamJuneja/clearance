@@ -70,11 +70,20 @@ export interface Prompt {
   text: string;
 }
 
+/** Text the recorder watches for in a persona's page. It notes when that text is really visible, in `seen.json`. */
+export interface WatchSpec {
+  label: string;
+  persona: PersonName;
+  /** A regular expression, as text, for what the page shows. */
+  text: string;
+}
+
 export interface CaptureSpec {
   /** Whose windows to record. Default: the whole cast. */
   personas?: PersonName[];
   /** `half` records at 960x1080 for a split screen, so text stays legible once composed. */
   layout?: "full" | "half";
+  watch?: WatchSpec[];
 }
 
 export interface ScenarioDefinition<S> {
@@ -227,6 +236,7 @@ export interface Recorder {
     personas: PersonName[];
     layout: "full" | "half";
     baseUrl: string;
+    watch?: WatchSpec[];
   }): Promise<CaptureSession>;
 }
 
@@ -236,6 +246,8 @@ export interface RunOptions {
   urls?: WorldUrls;
   print?: (line: string) => void;
   recorder?: Recorder;
+  /** Records in this layout whatever the scene asks. */
+  layout?: "full" | "half";
   /** Puts the world in its starting state, as this scene asks. Absent means don't reset. */
   reset?: (setup: WorldSetup) => Promise<void>;
   services?: ServiceControl;
@@ -326,8 +338,9 @@ export async function runScenario(
       session = await options.recorder.begin({
         scenarioId: scenario.id,
         personas: scenario.capture.personas ?? scenario.cast,
-        layout: scenario.capture.layout ?? "full",
+        layout: options.layout ?? scenario.capture.layout ?? "full",
         baseUrl: urls.mattermost,
+        watch: scenario.capture.watch,
       });
       print("    PASS  capture running");
     } catch (error) {

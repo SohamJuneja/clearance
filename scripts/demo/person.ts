@@ -19,6 +19,7 @@ export interface PersonaWindow {
   replyInThread(post: MattermostPost, message: string): Promise<void>;
   clickButton(post: MattermostPost, button: string | RegExp): Promise<void>;
   reveal(post: MattermostPost): Promise<void>;
+  closeThread(): Promise<void>;
 }
 
 export class Person {
@@ -76,6 +77,11 @@ export class Person {
    */
   async reveal(post: MattermostPost): Promise<void> {
     await this.window?.reveal(post);
+  }
+
+  /** Closes the thread this person's window has open, so the channel gets its width back. Does nothing without a window. */
+  async closeThread(): Promise<void> {
+    await this.window?.closeThread();
   }
 
   /** Points this person's window at a channel or a post's channel. Does nothing without a window. */

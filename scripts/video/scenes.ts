@@ -3,7 +3,7 @@
  * rather than quietly dropping a caption or a label.
  */
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { parse } from "yaml";
 import { z } from "zod";
 
@@ -17,6 +17,8 @@ const SourceSchema = z
     clip: z.string().min(1),
     /** Which parts to keep, in seconds or by the name of a scenario step (see marks.json). Default: all. */
     segments: z.array(SegmentSchema).optional(),
+    /** Play at this speed and hold the last frame for the rest. Default: whatever speed fills the scene. */
+    speed: z.number().positive().optional(),
   })
   .strict();
 export type SourceSpec = z.infer<typeof SourceSchema>;
@@ -29,6 +31,14 @@ const Common = {
   voiceover: z.string().optional(),
   notices: z.array(z.string()).optional(),
   callouts: z.array(z.string()).optional(),
+  /** A callout for part of a scene, between two steps of its first clip. No `from` is the scene's start, no `to` its end. */
+  timed_callouts: z
+    .array(
+      z
+        .object({ text: z.string().min(1), from: z.string().min(1).optional(), to: z.string().min(1).optional() })
+        .strict(),
+    )
+    .optional(),
   clock10x: z.boolean().optional(),
 };
 
@@ -48,6 +58,19 @@ const SplitScene = z
     kind: z.literal("split"),
     sources: z.tuple([SourceSchema, SourceSchema]),
     max_speed: z.number().positive().optional(),
+    /**
+     * What this scene is while `missing` has no footage: one clip at full width, with its own caption and voice-over, so
+     * neither says what wasn't recorded. The split comes back by itself once the footage exists.
+     */
+    alone: z
+      .object({
+        missing: z.string().min(1),
+        source: SourceSchema,
+        callouts: z.array(z.string()).optional(),
+        voiceover: z.string().min(1),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 
@@ -90,9 +113,12 @@ const StoryboardSchema = z
     max_duration_s: z.number().positive(),
     default_notices: z.array(z.string()).default([]),
     cited: z.array(CitedSchema).default([]),
-    /** The scene that ends on Clearance's refusal, and how early that has to be. */
+    /**
+     * The scene that ends on Clearance's refusal, and how early that has to be. `seen` is the label the recorder writes
+     * when the refusal's text is really visible in the page: see `watch` in scripts/demo/runner.ts.
+     */
     first_refusal: z
-      .object({ scene: z.string(), within_s: z.number().positive() })
+      .object({ scene: z.string(), within_s: z.number().positive(), seen: z.string().min(1).optional() })
       .strict()
       .optional(),
     scenes: z.array(SceneSchema).min(1),
@@ -113,6 +139,28 @@ export function parseStoryboard(yamlText: string): Storyboard {
   if (repeated.length > 0)
     throw new Error(`the storyboard repeats scene ids: ${repeated.join(", ")}`);
   return parsed.data;
+}
+
+/** The board as it can be built today: a split with an `alone` and no footage for one side becomes that clip. */
+export function settleScenes(board: Storyboard, hasFootage: (clip: string) => boolean): Storyboard {
+  return {
+    ...board,
+    scenes: board.scenes.map((scene) => {
+      if (scene.kind !== "split" || !scene.alone || hasFootage(scene.alone.missing)) return scene;
+      const { id, planned_s, notices, clock10x, max_speed, alone } = scene;
+      return {
+        id,
+        kind: "clip",
+        planned_s,
+        notices,
+        clock10x,
+        max_speed,
+        source: alone.source,
+        callouts: alone.callouts,
+        voiceover: alone.voiceover,
+      };
+    }),
+  };
 }
 
 /** Seconds into the video a scene starts. Planned lengths unless told what each scene really came to. */
@@ -159,6 +207,95 @@ export function loadStoryboard(path: string): Storyboard {
 export interface Mark {
   label: string;
   t: number;
+}
+
+/** The recorder's own record that some text was visible in a persona's page, in seconds into that persona's clip. */
+export const SeenRecord = z.object({ label: z.string(), persona: z.string(), t: z.number() });
+export type SeenRecord = z.infer<typeof SeenRecord>;
+
+export function readSeen(clipPath: string): SeenRecord[] {
+  const file = join(dirname(clipPath), "seen.json");
+  if (!existsSync(file)) return [];
+  return z.array(SeenRecord).parse(JSON.parse(readFileSync(file, "utf8")));
+}
+
+/** Where a moment of a clip lands in its scene, or undefined if the scene's segments cut it. */
+export function clipToScene(
+  t: number,
+  segments: { fromS: number; toS: number }[],
+  speed: number,
+): number | undefined {
+  let kept = 0;
+  for (const segment of segments) {
+    if (t >= segment.fromS && t <= segment.toS) return (kept + t - segment.fromS) / speed;
+    kept += segment.toS - segment.fromS;
+  }
+  return undefined;
+}
+
+export interface TimedCallout {
+  text: string;
+  startS: number;
+  endS: number;
+}
+
+/** When each timed callout shows in its scene. A step the scene's segments cut is an error, not a callout at the wrong time. */
+export function timeCallouts(
+  callouts: { text: string; from?: string; to?: string }[],
+  footage: { segments: { fromS: number; toS: number }[]; speed: number; marks: Mark[]; clip: string },
+  durationS: number,
+): TimedCallout[] {
+  const inScene = (step: string): number => {
+    const at = clipToScene(resolvePoint(step, footage.marks, footage.clip), footage.segments, footage.speed);
+    if (at === undefined) throw new Error(`a callout names "${step}", which this scene's segments cut`);
+    return at;
+  };
+  return callouts.map(({ text, from, to }) => ({
+    text,
+    startS: from === undefined ? 0 : inScene(from),
+    endS: to === undefined ? durationS : inScene(to),
+  }));
+}
+
+export interface SeenFootage {
+  path: string;
+  segments: { fromS: number; toS: number }[];
+  speed: number;
+}
+
+/**
+ * When the video really shows the refusal, from the recorder's record of it, and what's wrong with that if anything. A
+ * take with no record fails: without one this is only a guess from where the scene ends, and that guess has been wrong.
+ */
+export function seenInVideo(options: {
+  label: string;
+  withinS: number;
+  sceneStartS: number;
+  footage: SeenFootage[];
+  readRecords?: (path: string) => SeenRecord[];
+}): { atS?: number; problem?: string } {
+  const read = options.readRecords ?? readSeen;
+  const records = options.footage.flatMap((source) =>
+    read(source.path)
+      .filter((record) => record.label === options.label && `${record.persona}.mp4` === basename(source.path))
+      .map((record) => ({ record, source })),
+  );
+  const where = options.footage.map((source) => dirname(source.path)).join(", ");
+  if (records.length === 0) {
+    return { problem: `${where} has no record of "${options.label}" being visible. Re-record that take.` };
+  }
+  const mapped = records.flatMap(({ record, source }) => {
+    const inScene = clipToScene(record.t, source.segments, source.speed);
+    return inScene === undefined ? [] : [options.sceneStartS + inScene];
+  });
+  if (mapped.length === 0) {
+    const at = records[0]?.record.t.toFixed(1);
+    return { problem: `"${options.label}" was visible ${at} s into its clip, which this scene's segments cut.` };
+  }
+  const atS = Math.min(...mapped);
+  return atS > options.withinS
+    ? { atS, problem: `"${options.label}" is visible at ${atS.toFixed(2)} s, past the ${options.withinS} s limit.` }
+    : { atS };
 }
 
 /** A point in a clip: seconds as given, or the moment a scenario step began, from the take's marks. */

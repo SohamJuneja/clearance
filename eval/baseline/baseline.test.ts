@@ -12,7 +12,7 @@ import {
   t77FromRunnerOutput,
   t77FromSc3Log,
 } from "./parse.ts";
-import { buildResult, modelsIn } from "./run.ts";
+import { buildResult, callsIn, keepRecord, leaveOut, modelsIn, readKeptRecords, readLeftOut } from "./run.ts";
 
 /** SYNTHETIC: a made-up run record, shaped like the raw log, to exercise the counting. */
 function record(overrides: Partial<RunRecord> = {}): RunRecord {
@@ -179,6 +179,86 @@ describe("appending", () => {
     expect(modelsIn(join(dir, "missing"))).toEqual([]);
     writeFileSync(join(dir, "a.jsonl"), '{"message":{"model":"claude-test-1"}}\n');
     expect(modelsIn(dir)).toEqual(["claude-test-1"]);
+  });
+});
+
+describe("takes the run records itself", () => {
+  const dirs: string[] = [];
+  afterEach(() => {
+    for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+  });
+  const scratch = (): string => {
+    const dir = mkdtempSync(join(tmpdir(), "baseline-takes-"));
+    dirs.push(dir);
+    return dir;
+  };
+  const rawLog = (dir: string): void =>
+    writeFileSync(join(dir, "baseline-runs.jsonl"), `${JSON.stringify(record())}\n`);
+  const t77Logs = (dir: string): void => {
+    for (const id of ["sc3-run1", "sc3-run2", "sc3-run3"]) {
+      writeFileSync(join(dir, `${id}.json`), JSON.stringify({ agent_calls: [], acme: { money_out: 0 } }));
+    }
+  };
+
+  it("counts every kept take, and how many ran each way", () => {
+    const dir = scratch();
+    rawLog(dir);
+    t77Logs(dir);
+    const extra = join(dir, "extra.jsonl");
+    keepRecord(record({ scenario: "SC2", run: 3, setup: "a new room each take" }), extra);
+    keepRecord(record({ scenario: "SC1", run: 1, auto_mode: true, setup: "a new room each take", refunds: [] }), extra);
+    expect(readKeptRecords(extra).length).toBe(2);
+    const result = buildResult(dir, extra);
+    expect(result.recorded_runs).toBe(3);
+    expect(result.setups).toEqual([
+      { what: "outside the fence", runs: 1 },
+      { what: "a new room each take", runs: 2 },
+    ]);
+  });
+
+  it("has one setup when no take changed it", () => {
+    const dir = scratch();
+    rawLog(dir);
+    t77Logs(dir);
+    expect(buildResult(dir).setups).toEqual([{ what: "outside the fence", runs: 1 }]);
+  });
+
+  it("names a take that stayed out, with its reason, and doesn't count it", () => {
+    const dir = scratch();
+    rawLog(dir);
+    t77Logs(dir);
+    const out = join(dir, "left-out.jsonl");
+    leaveOut({ scenario: "SC2", take: 1, at: "2026-01-01T00:00:00.000Z", reason: "the recorder failed" }, out);
+    expect(readLeftOut(out).length).toBe(1);
+    const result = buildResult(dir, undefined, undefined, out);
+    expect(result.recorded_runs).toBe(1);
+    expect(result.left_out.map((take) => `${take.scenario} ${take.take} ${take.reason}`)).toEqual([
+      "SC2 1 the recorder failed",
+    ]);
+  });
+
+  it("refuses a record that isn't a run", () => {
+    const dir = scratch();
+    expect(() => keepRecord({ scenario: "SC2" } as never, join(dir, "extra.jsonl"))).toThrow();
+  });
+
+  it("reads the agent's calls only from the take's own time, scrubbed, in the raw log's shape", () => {
+    const dir = scratch();
+    const lines = [
+      { timestamp: "2026-01-01T00:00:00.000Z", message: { content: [{ type: "tool_use", name: "Bash", input: { command: "too early" } }] } },
+      { timestamp: "2026-01-01T00:01:00.000Z", message: { content: [{ type: "tool_use", name: "Bash", input: { command: "./acme POST /refunds SECRET" } }] } },
+      { timestamp: "2026-01-01T00:01:01.000Z", message: { content: [{ type: "tool_result", is_error: true, content: "denied SECRET" }] } },
+      { timestamp: "2026-01-01T00:09:00.000Z", message: { content: [{ type: "tool_use", name: "Bash", input: { command: "too late" } }] } },
+    ];
+    writeFileSync(join(dir, "a.jsonl"), `${lines.map((line) => JSON.stringify(line)).join("\n")}\nnot json\n`);
+    const calls = callsIn(
+      dir,
+      Date.parse("2026-01-01T00:00:30.000Z"),
+      Date.parse("2026-01-01T00:05:00.000Z"),
+      (text) => text.split("SECRET").join("***"),
+    );
+    expect(calls).toEqual(['call Bash {"command":"./acme POST /refunds ***"}', "ERROR denied ***"]);
+    expect(attemptedAmounts(['call Bash {"command":"./acme POST /refunds \'{\\"amount\\":40000}\'"}'])).toEqual([40000]);
   });
 });
 

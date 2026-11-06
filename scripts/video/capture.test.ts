@@ -1,8 +1,68 @@
 import { existsSync, mkdtempSync, readlinkSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { runInNewContext } from "node:vm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { browserUrl, frameDurations, nextTakeDirectory, OUTPUT, pointLatest } from "./capture.ts";
+import {
+  browserUrl,
+  frameDurations,
+  nextTakeDirectory,
+  OUTPUT,
+  pointLatest,
+  VISIBLE_TEXT_PROBE,
+} from "./capture.ts";
+
+describe("whether text is really on screen", () => {
+  const VIEW = { width: 960, height: 1080 };
+  const PATTERN = "Priya can't approve CLR-\\d+ \\(requester\\)";
+  type Box = { left: number; top: number; right: number; bottom: number; width: number; height: number };
+  const at = (top: number, height = 20): Box => ({ left: 100, top, right: 700, bottom: top + height, width: 600, height });
+  const probe = runInNewContext(`(${VISIBLE_TEXT_PROBE})`) as (
+    doc: unknown,
+    view: { width: number; height: number },
+    pattern: string,
+  ) => boolean;
+
+  /** SYNTHETIC: just enough of a page. `covered` is whatever a real page would hit-test on top of the text. */
+  function page(text: string, box: Box, covered = false) {
+    const block = {
+      innerText: text,
+      getBoundingClientRect: () => box,
+      contains: (other: unknown) => other === block,
+    };
+    return {
+      querySelectorAll: () => [block],
+      elementFromPoint: () => (covered ? {} : block),
+    };
+  }
+  const REFUSAL = "Priya can't approve CLR-0001 (requester). Sent to Sam (finance, on duty).";
+
+  it("sees the refusal inside the window with nothing over it", () => {
+    expect(probe(page(REFUSAL, at(780)), VIEW, PATTERN)).toBe(true);
+  });
+
+  it("doesn't count it below the fold, where it once sat all through a take", () => {
+    expect(probe(page(REFUSAL, at(1200)), VIEW, PATTERN)).toBe(false);
+    expect(probe(page(REFUSAL, at(1070)), VIEW, PATTERN)).toBe(false);
+  });
+
+  it("doesn't count it scrolled off the top", () => {
+    expect(probe(page(REFUSAL, at(-30)), VIEW, PATTERN)).toBe(false);
+  });
+
+  it("doesn't count it with something over it, such as the message box", () => {
+    expect(probe(page(REFUSAL, at(780), true), VIEW, PATTERN)).toBe(false);
+  });
+
+  it("doesn't take the card's own line, which also says who can't approve", () => {
+    const card = "Why here: copy for this room; Sam (finance, on duty) decides. Can't approve: Priya (requester).";
+    expect(probe(page(card, at(780)), VIEW, PATTERN)).toBe(false);
+  });
+
+  it("doesn't count text with no size", () => {
+    expect(probe(page(REFUSAL, { ...at(780), width: 0 }), VIEW, PATTERN)).toBe(false);
+  });
+});
 
 describe("browserUrl", () => {
   it("points a browser at Mattermost's site URL, or it never hears a new post", () => {

@@ -1,6 +1,7 @@
 /**
  * Reads the numbers table out of RESULTS.md. The video never holds a number of its own: a slide or a
- * voice-over line names a cell, and a cell with no number yet reads "pending".
+ * voice-over line names a cell. What has no number yet is left out, so nothing on screen or in the voice-over is a
+ * promise. A placeholder nobody guarded still reads "pending", and the build refuses that.
  */
 export const PENDING = "pending";
 
@@ -53,6 +54,21 @@ export function showCell(cell: string): string {
   return plain.replace(/(^|[\s(:,/])_(?=$|[\s),/])/g, `$1${PENDING}`);
 }
 
+const BLANK_PART = /(^|[\s(:,/])_(?=$|[\s),/])/;
+
+/**
+ * A cell with everything unmeasured taken out: `Claude 0, Codex _` is `Claude 0`, and `_ / _` is nothing at all. What's
+ * left is what a slide or a voice-over may say.
+ */
+export function measuredParts(cell: string): string {
+  const plain = cell.replace(/\*\*/g, "").replace(/`/g, "").trim();
+  const separator = plain.includes(" / ") ? " / " : ", ";
+  return plain
+    .split(separator)
+    .filter((part) => part.trim() !== "" && !BLANK_PART.test(part.trim()))
+    .join(separator);
+}
+
 /**
  * Finds a row. `E1` is enough when the id has one row; `E2/risky` narrows by a word in the metric, and
  * an id with several rows and no narrowing is an error, because guessing here puts a wrong number on
@@ -90,7 +106,7 @@ export function scriptedWords(text: string): string {
 
 /** Whether a cell holds a result yet. `Claude _, Codex _` doesn't; `Claude 0, Codex blocked` does. */
 function holdsANumber(cell: string): boolean {
-  return /\d/.test(cell);
+  return /\d/.test(measuredParts(cell));
 }
 
 const OPTIONAL_PART =
@@ -104,28 +120,28 @@ function cellOf(rows: ResultRow[], selector: string, column: string): string {
   return row[column as ResultColumn];
 }
 
-/**
- * The rows a slide should show. `E2/risky?` is a row only worth a place once it has a result, so a slide isn't made of
- * promises. Anything else stays, and a blank reads "pending".
- */
+/** The rows a slide should show: only those with a result, or words if it's the negative row. A slide isn't made of promises. */
 export function slideRows(rows: ResultRow[], selectors: string[]): ResultRow[] {
   return selectors.flatMap((selector) => {
-    const optional = selector.endsWith("?");
-    const row = selectRow(rows, optional ? selector.slice(0, -1) : selector);
-    return optional && !holdsANumber(row.baseline + row.clearance) ? [] : [row];
+    const row = selectRow(rows, selector);
+    const hasResult =
+      row.id === "NEG" ? rowText(row) !== PENDING : holdsANumber(row.baseline) || holdsANumber(row.clearance);
+    return hasResult ? [row] : [];
   });
 }
 
 /**
- * Fills `{{E1.clearance}}` and `{{NEG.text}}` from the table, and keeps `[[if E2/risky.clearance]]...[[/if]]` only once
- * that cell holds a result. An unknown cell name is an error rather than a "pending": it's a typo in the script, not a
- * result that hasn't arrived.
+ * Fills `{{E1.clearance}}` and `{{NEG.text}}` from the table, leaving out any part of a cell with no number yet, and keeps
+ * `[[if E2/risky.clearance]]...[[/if]]` only once that cell holds a result, or for `.text`, any words. An unknown cell
+ * name is an error rather than a "pending": it's a typo in the script, not a result that hasn't arrived.
  */
 export function resolveTemplate(text: string, rows: ResultRow[]): string {
   const kept = text.replace(
     OPTIONAL_PART,
-    (_all, selector: string, column: string, body: string) =>
-      holdsANumber(cellOf(rows, selector, column)) ? body : "",
+    (_all, selector: string, column: string, body: string) => {
+      if (column === "text") return rowText(selectRow(rows, selector)) === PENDING ? "" : body;
+      return holdsANumber(cellOf(rows, selector, column)) ? body : "";
+    },
   );
   return kept.replace(
     /\{\{\s*([A-Za-z0-9]+(?:\/[^.}\s]+)?)\.([a-z]+)\s*\}\}/g,
@@ -135,7 +151,7 @@ export function resolveTemplate(text: string, rows: ResultRow[]): string {
       if (!(COLUMNS as readonly string[]).includes(column)) {
         throw new Error(`RESULTS.md has no column "${column}" (in {{${selector}.${column}}})`);
       }
-      return showCell(row[column as ResultColumn]);
+      return measuredParts(row[column as ResultColumn]) || PENDING;
     },
   );
 }

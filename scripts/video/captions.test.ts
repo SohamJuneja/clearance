@@ -119,6 +119,33 @@ describe("assDocument", () => {
   });
 
   it("omits what isn't asked for", () => {
+    const timed = assDocument({
+      durationS: 30,
+      cues: [],
+      notices: [],
+      callouts: [],
+      timedCallouts: [
+        { text: "first", startS: 0, endS: 7.1 },
+        { text: "then", startS: 7.1, endS: 30 },
+      ],
+      corner: [],
+    });
+    expect(timed).toContain("Dialogue: 2,0:00:00.00,0:00:07.10,Callout,,0,0,24,,first");
+    expect(timed).toContain("Dialogue: 2,0:00:07.10,0:00:30.00,Callout,,0,0,24,,then");
+    const noCallout = assDocument({ durationS: 3, cues: [], notices: [], callouts: [], corner: [] });
+    expect(noCallout).not.toMatch(/^Dialogue: .*,Callout,/m);
+    const two = assDocument({
+      durationS: 3,
+      cues: [],
+      notices: [],
+      callouts: ["The agent caught the wrong amount in this ticket", "Clearance: the approval layer, built on Switch"],
+      corner: [],
+    });
+    // One row, on Mattermost's header bar. A second row used to sit on the agent's sentence the first was about.
+    const rows = two.split("\n").filter((line) => /^Dialogue: .*,Callout,/.test(line));
+    expect(rows.length).toBe(1);
+    expect(rows[0]).toContain(",Callout,,0,0,24,,{\\fs30}The agent caught");
+    expect(rows[0]).toContain("in this ticket  ·  Clearance: the approval layer");
     const text = assDocument({ durationS: 3, cues: [], notices: [], callouts: [], corner: [] });
     expect(text).not.toContain("Dialogue:");
   });

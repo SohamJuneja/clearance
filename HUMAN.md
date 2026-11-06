@@ -77,7 +77,7 @@ Everything else is being done without you. Tick a box when done (or just tell me
   ```
   Why: agents can't run without a provider. `.env` is gitignored and I never print it. Deadline: before you sleep, because S5 and S9 need these keys.
 
-- [ ] **5a. Start E2, the cross-vendor run, when you're ready.** It's the one big number still blank in RESULTS.md, and two things stop me starting it: my permission check refused its test run, and I said I'd wait for your API key before spending on Claude. After step 5, and after I tell you recording is done, because E2 holds the shared stack for hours:
+- [ ] **5a. Start E2, the cross-vendor run, when you're ready.** It's the one big number still blank in RESULTS.md, and two things stop me starting it: my permission check refused its test run, and I said I'd wait for your API key before spending on Claude. After step 5. Recording is done, so the stack is free, and E2 holds it for hours once it starts:
   ```bash
   cd /home/prashant/projects/Clearance
   bash scripts/services.sh down && bash scripts/services.sh up
@@ -114,9 +114,11 @@ Everything else is being done without you. Tick a box when done (or just tell me
 
 - [ ] **Make the repos public** (needs your OK; I run the command after you tick). Must happen before submission.
 - [ ] **Track 03, your call (15 minutes first).** #803 is crowded (3 PRs following the maintainer's direction). My recommendation is **#833 Canva**: one open PR, with no video. It needs you to make a Canva developer app that accepts a loopback redirect; nobody has reported that working, so it's a real gate. If it fails and you have no Factory login for #783, I'd drop Track 03 rather than file a weak PR. Steps, comment text and design are in `docs/track03.md`, and nothing is posted. You'd also sign the CLA. A maintainer ruled on Oct 29 that everyone is assigned, PRs are reviewed after the window, and one PR is selected per issue, which also answers your Discord question 2. Tell me "go" or "drop".
+- [ ] **Listen to the video once, 3 minutes.** `docs/media/raw/clearance-demo.mp4`. I can read every frame but I can't hear anything, so the offline voice is unchecked by anyone. Tell me if a word is mispronounced, or if it sounds too robotic to use. The agents' words are real, so tell me about anything that reads wrong too, and I'll fix it or say why not.
+
 - [ ] **Voice-over (optional, 15 minutes).** The offline TTS (Piper) version works, but I can't hear audio, so please listen to it once when the first cut exists. Your voice is better if you have time: drop files at `scripts/video/voice/<scene>.wav` and they win over TTS. Script will be here.
 - [ ] **Optional, stronger anti-evasion:** needs sudo for `/etc/claude-code/managed-settings.json`, which agents can't edit. Not tested yet. I'd only use it if you want it for the demo host.
 - [ ] **Skip: the `!list-documents` crash** is already reported, with PR #1286 open upstream. Nothing to do.
 - [ ] **Blog:** draft at `docs/blog-draft.md`, written as you, in first person. Please read it, since it speaks for you, and change anything that isn't how you'd say it. I fill the `{{...}}` numbers from RESULTS.md at the end. Post on dev.to or Hashnode when I say it's final.
-- [ ] **Three #HowISwitch posts.** Text is in `docs/social-draft.md`, written as you, so change what isn't how you'd say it. I'll add the clips once the takes exist. Nothing gets posted until you do it or tick this.
+- [ ] **Three #HowISwitch posts.** Text is in `docs/social-draft.md`, written as you, so change what isn't how you'd say it. The clips are `docs/media/social/post-1.mp4` and `post-2.mp4`. They're rebuilding with the third cut, so wait for my word. Nothing gets posted until you do it or tick this.
 - [ ] **Submission form.** Text is in `docs/submission-draft.md`. `pnpm numbers:fill` turns it into `SUBMISSION.md` with numbers and links filled in, once the repo has a remote. You add the team members, video link, blog link and Wispr screenshots.

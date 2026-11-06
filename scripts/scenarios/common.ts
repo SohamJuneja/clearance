@@ -80,6 +80,10 @@ export async function waitForHoldAnsweringOnce(
     },
   );
   if (await isHold(first)) return { held: first, answered: false };
+  // What it asked can be a thread reply, which the channel doesn't show, and a person reads before answering. On camera only.
+  await person.reveal(first);
+  await person.readFor(READS_THE_QUESTION_MS);
+  await person.closeThread();
   const said = await person.say(room, answer);
   const held = await person.waitForPost(room, isHold, {
     after: said,
@@ -89,7 +93,9 @@ export async function waitForHoldAnsweringOnce(
   return { held, answered: true };
 }
 
-const ASKED = /\?|\bconfirm\b|\bwhich\b|\blet me know\b|\btell me\b|\breply\b/i;
+const ASKED = /\?|\bconfirm\b|\bwhich\b|\blet me know\b|\btell me\b|\breply\b|\bsend (?:it|me)\b/i;
+/** SC3's voice-over is about this sentence: it's where the agent catches the wrong amount. */
+const READS_THE_QUESTION_MS = 8_000;
 
 /** The agent's own post waiting on someone. Reacts to whatever it says, and is never a claim about what it must say. */
 export function agentAsked(person: Person, agent: string): PostPredicate {
@@ -262,6 +268,9 @@ export interface PromotionState {
  * The promotion flow, from a seeded history to the signed ledger entry: Sam asks about the agent's autonomy, the card
  * reaches both signers, and both approve. The steps are a person's actions and what then has to be true.
  */
+/** The card's replay numbers are what the promotion rests on, so they stay up long enough to read. On camera only. */
+const PROPOSAL_READS_MS = 6_000;
+
 export function promotionSteps<S extends PromotionState>(agent: string, room: string): Step<S>[] {
   const proposal = allOf(textMatches(/Proposal/), textMatches(/Replay/i));
   return [
@@ -292,6 +301,7 @@ export function promotionSteps<S extends PromotionState>(agent: string, room: st
           description: "the promotion card in Alex's DMs",
         });
         await ctx.people.alex.look(state.alexProposal);
+        await ctx.people.alex.readFor(PROPOSAL_READS_MS);
       },
     },
     {

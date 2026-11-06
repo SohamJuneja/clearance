@@ -4,6 +4,9 @@ import { answerCard, clrOf, handleOf, waitForCard, waitForHoldAnsweringOnce } fr
 
 const ROOM = "eng";
 const AGENT = "ops-agent";
+/** Alex's pane is the whole scene while SC5 is missing, so what's on it has to stay long enough to read. On camera only. */
+const ALEX_READS_ROOM_MS = 4_000;
+const ALEX_READS_CARD_MS = 7_000;
 
 interface State {
   prompt?: MattermostPost;
@@ -19,7 +22,8 @@ export default defineScenario<State>({
   prompt: { by: "priya", room: ROOM, text: "@ops-agent ship checkout v2.14.0 to prod" },
   needs: ["mattermost", "acme", "core", "gate"],
   cast: ["priya", "alex"],
-  capture: { layout: "half", personas: ["alex"] },
+  // Full while it runs alone. Once SC5 exists the scene is a split again: record this with `--layout half` then.
+  capture: { layout: "full", personas: ["alex"] },
   state: () => ({}),
   steps: [
     {
@@ -48,8 +52,14 @@ export default defineScenario<State>({
     {
       name: "The card reaches Alex (service owner) and shows 2 failing checks",
       run: async (ctx, state) => {
-        state.card = await waitForCard(ctx, ctx.people.alex, state.clr!, state.prompt!.create_at);
-        await ctx.people.alex.look(state.card);
+        const alex = ctx.people.alex;
+        await alex.look(ROOM);
+        await alex.reveal(state.held!);
+        await alex.readFor(ALEX_READS_ROOM_MS);
+        state.card = await waitForCard(ctx, alex, state.clr!, state.prompt!.create_at);
+        await alex.look(state.card);
+        await alex.reveal(state.card);
+        await alex.readFor(ALEX_READS_CARD_MS);
         const text = postText(state.card);
         ensure(
           // What the product really prints: "Checks: failing (2 failing: e2e/..., integration/...)".

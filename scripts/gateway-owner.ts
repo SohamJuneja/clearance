@@ -49,6 +49,11 @@ export type ManagedAgent = {
   definition: AgentDefinition;
 };
 
+/** Switch names a bridged room after its channel, and some of its answers put the platform in front. */
+export function roomLabel(name: string): string {
+  return name.replace(/^Mattermost: /, "");
+}
+
 export const agentIdOf = (agent: ManagedAgent): string => {
   const id = agent.agent_id ?? agent.id;
   if (!id) throw new Error(`agent ${agent.name} came back with no id`);

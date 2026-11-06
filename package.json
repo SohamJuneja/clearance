@@ -35,6 +35,7 @@
     "video:build": "tsx scripts/video/build.ts",
     "video:smoke": "tsx scripts/video/smoke.ts",
     "video:desk": "tsx scripts/video/desk-shots.ts",
+    "video:social": "tsx scripts/video/social.ts",
     "eval:authority": "tsx eval/authority-suite/run.ts",
     "eval:mutations": "tsx eval/authority-suite/mutations/run.ts",
     "eval:baseline": "tsx eval/baseline/run.ts",

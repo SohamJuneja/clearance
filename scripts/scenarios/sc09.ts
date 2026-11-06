@@ -15,6 +15,16 @@ import {
 const ROOM = "support";
 const AGENT = "refunds-agent";
 
+/**
+ * On camera only. Nothing waits before Sam approves the drill, since rubber-stamping is what it catches. After that, each
+ * of these has to be readable in the video: the typed card is why this scene exists, and its ask takes about ten seconds
+ * to read out loud.
+ */
+const READS_NOTE_MS = 5_000;
+const READS_TYPED_CARD_MS = 10_000;
+const READS_MISMATCH_MS = 5_000;
+const READS_RESULT_MS = 5_000;
+
 /** What a typed card asks for, read off the card the way a person would. The field it asks for rotates. */
 function answersFor(card: MattermostPost): { right: string; wrong: string } {
   const text = postText(card).replaceAll("\u200b", "");
@@ -107,11 +117,13 @@ export default defineScenario<State>({
     {
       name: "Sam gets the private practice-request note",
       run: async (ctx, state) => {
-        await ctx.people.sam.waitForDm(textMatches(/practice request/i), {
+        const note = await ctx.people.sam.waitForDm(textMatches(/practice request/i), {
           after: state.answer!,
           timeoutMs: ctx.clearanceTimeoutMs,
           description: "the practice-request note in Sam's DMs",
         });
+        await ctx.people.sam.reveal(note);
+        await ctx.people.sam.readFor(READS_NOTE_MS);
       },
     },
     {
@@ -148,13 +160,15 @@ export default defineScenario<State>({
           description: "a type-to-confirm card in Sam's DMs",
         });
         await ctx.people.sam.look(state.typed);
+        await ctx.people.sam.reveal(state.typed);
+        await ctx.people.sam.readFor(READS_TYPED_CARD_MS);
       },
     },
     {
       name: "Sam types the wrong value, and Clearance asks once more",
       run: async (ctx, state) => {
         const wrong = await tryToApprove(ctx.people.sam, state.typed!, answersFor(state.typed!).wrong);
-        await ctx.people.sam.waitForDm(textMatches(/didn't match/i), {
+        const mismatch = await ctx.people.sam.waitForDm(textMatches(/didn't match/i), {
           after: wrong,
           timeoutMs: ctx.clearanceTimeoutMs,
           description: "word that the typed value didn't match",
@@ -165,6 +179,8 @@ export default defineScenario<State>({
           timeoutMs: ctx.clearanceTimeoutMs,
           description: "a new typed card in Sam's DMs",
         });
+        await ctx.people.sam.reveal(mismatch);
+        await ctx.people.sam.readFor(READS_MISMATCH_MS);
         return handleOf(state.typedAgain);
       },
     },
@@ -181,6 +197,33 @@ export default defineScenario<State>({
           },
         );
         return `refund ${refund.id}`;
+      },
+    },
+    {
+      name: "The room hears it was approved by Sam and ran",
+      run: async (ctx, state) => {
+        const sam = ctx.people.sam;
+        await sam.look(ROOM);
+        const result = await sam.waitForPost(
+          ROOM,
+          textMatches(new RegExp(`${clrOf(state.held!)} approved by Sam and executed`)),
+          {
+            sinceMs: state.prompt!.create_at,
+            timeoutMs: ctx.clearanceTimeoutMs,
+            description: "word in the room that the request was approved and ran",
+          },
+        );
+        await sam.reveal(result);
+        await sam.readFor(READS_RESULT_MS);
+        return postText(result).split("\n")[0];
+      },
+    },
+    {
+      name: "Acme: one refund went out, the real one",
+      run: async (ctx, state) => {
+        const known = new Set(state.before!.refunds.map((refund) => refund.id));
+        const fresh = (await ctx.acme.state()).refunds.filter((refund) => !known.has(refund.id));
+        ensure(fresh.length === 1, `${fresh.length} refunds went out`);
       },
     },
   ],

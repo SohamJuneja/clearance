@@ -6,11 +6,15 @@
  *   pnpm demo:run all            every numbered scenario
  *   pnpm demo:run SC2T           ticket T-77 on the baseline, which isn't a numbered row of PLAN 8.7
  *   pnpm demo:run --list         what exists, with prompts
- *   pnpm demo:run SC3 --record   also capture each persona's browser to docs/media/raw/
+ *   pnpm demo:run SC3 --record   also capture each persona's browser to docs/media/raw/, starting from clean direct
+ *                                messages with Clearance and a clean #approvals. A plain run leaves those as they are
+ *   --layout <full|half>         record in this layout, whatever the scene asks: SC6 is full while SC5 is missing
  *   --no-reset                   skip scripts/demo-reset.ts
  *   --no-fresh                   keep the room and the agent's memory of it. By default each take starts in a new
  *                                room with new sessions, and the old channel stays, archived, as <room>-take-<when>
  *   --agent-timeout <seconds>    how long to wait for an agent (default 180)
+ *
+ * A baseline take that reached an outcome is counted by `pnpm eval:baseline` from then on: see scripts/demo/baseline-take.ts.
  *
  * Exit status: 0 all passed, 1 something failed or was blocked, 2 the command itself was wrong.
  */
@@ -19,7 +23,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { REPO_ROOT, setting } from "../eval/lib/paths.ts";
-import { SERVICE_LABEL, type ServiceName } from "../eval/lib/world.ts";
+import { AcmeClient, defaultUrls, SERVICE_LABEL, type ServiceName } from "../eval/lib/world.ts";
 import {
   type Recorder,
   runScenario,
@@ -28,7 +32,9 @@ import {
   type ServiceControl,
   type WorldSetup,
 } from "./demo/runner.ts";
-import { freshRoom, setBaseline } from "./demo/fresh-room.ts";
+import { BASELINE_TAKES, keepBaselineTake } from "./demo/baseline-take.ts";
+import { cleanInboxes, markEverythingRead, waitForDirectRooms } from "./demo/clean-inboxes.ts";
+import { freshRoom, restartRunningAgents, setBaseline } from "./demo/fresh-room.ts";
 import { greetClearance, personaTokens } from "./demo/greet.ts";
 import { archiveStrayRooms } from "./demo/stray-rooms.ts";
 import { serviceCommand } from "./demo/services.ts";
@@ -43,13 +49,14 @@ interface Args {
   record: boolean;
   reset: boolean;
   fresh: boolean;
+  layout?: "full" | "half";
   agentTimeoutMs?: number;
 }
 
 function usage(message: string): never {
   process.stderr.write(`${message}\n`);
   process.stderr.write(
-    "usage: pnpm demo:run <SC1..SC14|SC2T|all> [--record] [--no-reset] [--no-fresh] [--agent-timeout <s>] | --list\n",
+    "usage: pnpm demo:run <SC1..SC14|SC2T|all> [--record] [--no-reset] [--no-fresh] [--layout <full|half>] [--agent-timeout <s>] | --list\n",
   );
   process.exit(2);
 }
@@ -63,6 +70,11 @@ function parseArgs(argv: string[]): Args {
     else if (arg === "--record") args.record = true;
     else if (arg === "--no-reset") args.reset = false;
     else if (arg === "--no-fresh") args.fresh = false;
+    else if (arg === "--layout") {
+      const layout = argv[++i];
+      if (layout !== "full" && layout !== "half") usage("--layout takes full or half");
+      args.layout = layout;
+    }
     else if (arg === "--agent-timeout") {
       const seconds = Number(argv[++i]);
       if (!Number.isFinite(seconds) || seconds <= 0)
@@ -164,9 +176,11 @@ const BASELINE: Record<string, { autoMode: boolean; anyoneMayAnswer: boolean }> 
  */
 async function startTake(id: string, room: string | undefined, setup: WorldSetup, args: Args): Promise<void> {
   const log = (line: string) => process.stdout.write(`    ${line}\n`);
+  if (args.record) await restartRunningAgents(log);
   const baseline = BASELINE[id];
   if (baseline) await setBaseline(baseline.autoMode, baseline.anyoneMayAnswer, log);
   if (args.fresh && room) await freshRoom(room, log);
+  if (args.record) await cleanInboxes(log);
   // Or the agent's next hold needs two approvers: see scripts/demo/stray-rooms.ts.
   await archiveStrayRooms(Object.keys(OWNERS), log);
   if (args.reset) await resetWorld(setup);
@@ -175,6 +189,10 @@ async function startTake(id: string, room: string | undefined, setup: WorldSetup
     tokens: personaTokens(REPO_ROOT),
     log,
   });
+  if (args.record) {
+    await waitForDirectRooms(log);
+    await markEverythingRead(log);
+  }
 }
 
 async function main(): Promise<number> {
@@ -205,16 +223,33 @@ async function main(): Promise<number> {
     services: servicesFromEnvironment,
     agentTimeoutMs: args.agentTimeoutMs,
     timeScale: Number(setting("CLEARANCE_TIME_SCALE") ?? 1),
+    layout: args.layout,
   };
 
   const results: ScenarioResult[] = [];
   for (const scenario of chosen) {
+    const startedMs = Date.now();
+    let knownRefunds: Set<string> | undefined;
     const result = await runScenario(scenario, {
       ...options,
-      reset: (setup) => startTake(scenario.id, scenario.room, setup, args),
+      reset: async (setup) => {
+        await startTake(scenario.id, scenario.room, setup, args);
+        const before = await new AcmeClient(defaultUrls().acme).state();
+        knownRefunds = new Set(before.refunds.map((refund) => refund.id));
+      },
     });
     results.push(result);
     saveRun(result);
+    if (BASELINE_TAKES.has(scenario.id)) {
+      await keepBaselineTake({
+        scenario,
+        result,
+        autoMode: BASELINE[scenario.id]?.autoMode ?? false,
+        knownRefunds,
+        startedMs,
+        log: (line) => process.stdout.write(`  ${line}\n`),
+      });
+    }
   }
 
   process.stdout.write("\nsummary\n");

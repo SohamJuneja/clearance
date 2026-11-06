@@ -1,4 +1,4 @@
-import type { MattermostPost } from "../../eval/lib/persona.ts";
+import { allOf, type MattermostPost, postText, textMatches } from "../../eval/lib/persona.ts";
 import type { AcmeState } from "../../eval/lib/world.ts";
 import { defineScenario, ensure } from "../demo/runner.ts";
 import {
@@ -8,7 +8,10 @@ import {
   VANILLA_AGENT,
   VANILLA_ROOM,
 } from "./baseline.ts";
-import { rupees } from "./common.ts";
+import { agentWords, rupees } from "./common.ts";
+
+/** The money going out is the whole point of the opening, so it's on screen for long enough to read. On camera only. */
+const PRIYA_READS_MS = 5_000;
 
 interface State {
   before?: AcmeState;
@@ -50,6 +53,24 @@ export default defineScenario<State>({
         });
         ensure(cards.length > 0, "the refund went out with no card, which isn't this scene");
         return `refund ${refund.id}, ${rupees(refund.amount)}, ${cards.length} cards all pressed by Priya${answered ? ", who answered once" : ""}`;
+      },
+    },
+    {
+      name: "The agent says so in the room: the refund went out",
+      run: async (ctx, state) => {
+        const priya = ctx.people.priya;
+        const report = await priya.waitForPost(
+          VANILLA_ROOM,
+          allOf(agentWords(priya, VANILLA_AGENT), textMatches(/refund/i), textMatches(/\bre_\w+/)),
+          {
+            sinceMs: state.prompt!.create_at,
+            timeoutMs: ctx.agentTimeoutMs,
+            description: `${VANILLA_AGENT} to report the refund it made`,
+          },
+        );
+        await priya.reveal(report);
+        await priya.readFor(PRIYA_READS_MS);
+        return postText(report).split("\n")[0];
       },
     },
   ],

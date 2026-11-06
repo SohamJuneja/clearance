@@ -53,6 +53,24 @@ export function fitClip(clipS: number, durationS: number, maxSpeed: number, what
   return { speed, holdS: 0 };
 }
 
+/** A speed a scene chooses, with the last frame held for whatever time is left. So the end of a clip can stay up to be read. */
+export function fixedSpeed(
+  clipS: number,
+  durationS: number,
+  speed: number,
+  maxSpeed: number,
+  what: string,
+): ClipFit {
+  if (speed > maxSpeed) throw new Error(`${what} asks for ${speed}x. The limit is ${maxSpeed}x.`);
+  const playedS = clipS / speed;
+  if (playedS > durationS) {
+    throw new Error(
+      `${what} runs ${playedS.toFixed(1)} s at ${speed}x but its scene is ${durationS.toFixed(1)} s. Pick tighter segments in scenes.yaml.`,
+    );
+  }
+  return { speed, holdS: durationS - playedS };
+}
+
 /** The honest label for a speed-up, or none below a difference anyone would see. */
 export function playbackLabel(speed: number): string | undefined {
   return speed >= 1.1 ? `playback ${speed.toFixed(1)}x` : undefined;

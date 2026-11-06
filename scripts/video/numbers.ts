@@ -25,6 +25,8 @@ function wordsOf(scene: Scene, board: Storyboard): string[] {
     scene.kind === "card" || scene.kind === "numbers" ? scene.headline : undefined,
     ...(scene.kind === "card" ? (scene.lines ?? []) : []),
     ...(scene.callouts ?? []),
+    ...(scene.timed_callouts ?? []).map((callout) => callout.text),
+    ...(scene.kind === "split" && scene.alone ? [scene.alone.voiceover, ...(scene.alone.callouts ?? [])] : []),
     ...(scene.notices ?? []),
     ...(footage ? board.default_notices : []),
   ].filter((text): text is string => text !== undefined);

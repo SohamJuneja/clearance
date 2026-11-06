@@ -119,7 +119,7 @@ Tick a box only when tests or a run prove it. Acceptance text is copied from PLA
 - [x] **D2** (world-ui) Acme Mini services, CLI, seed data; `scripts/demo-reset.ts` under 10 s.
 - [x] **D3** (switchboard) `templates/` for clearance, acme-mini, acme-vanilla.
 - [ ] **D4** (proof) `pnpm demo:run SCn` for every scenario through the Mattermost API and Playwright. People scripted, agents never.
-- [ ] **D5a** (proof) Get Clearance's first refusal on screen by 0:20 of the video, by shortening the opening. A judge skims.
+- [x] **D5a** (proof) Get Clearance's first refusal on screen by 0:20 of the video, by shortening the opening. A judge skims.
 - [ ] **D5** (proof; pipeline proven on a smoke capture, real footage pending) Video pipeline: Playwright capture at 1920x1080, ffmpeg split screens, captions, "clock 10x", numbers slide from RESULTS.md, offline TTS. Under 3:00.
 - [ ] **D6** (lead) README per PLAN 13, including Best demo path, "Remove Switch and this breaks", Related work, How we used AI tools, Threat model and limits, vendor coverage table.
 - [ ] **D7** (lead) `docs/threat-model.md`, `docs/architecture.md`, `docs/policy-reference.md`, `docs/built-by-voice.md`.
@@ -128,4 +128,5 @@ Tick a box only when tests or a run prove it. Acceptance text is copied from PLA
 - [ ] **D10** (switchboard) Track 03 #803: design comment text, PR code in a fork, in HUMAN.md.
 - [x] **D11** (world-ui, switchboard) Study: recruitment text, consent, sets X and Y, Approval Lab, in-Switch study bot, analysis. Built and rehearsed; no real participant yet.
 - [ ] **D12** (proof; first scan done, docs/competition-scan.md) Competition re-scan Fri 12:00 and Sat 12:00; update README Related work.
+- [ ] **D12a** (lead) At release, commit the result files and baseline take records from gitignored `eval/out` and `data/spike-logs` to a tracked folder, after a secret scan, so a judge can read what each number came from.
 - [ ] **D13** (lead) `SUBMISSION.md` with every form field. Tag `v1.0.0`. CI green. Fresh-clone `just demo` verified in a clean temp directory.

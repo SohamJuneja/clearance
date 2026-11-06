@@ -25,6 +25,11 @@ const ANOTHER_REFUND = "@refunds-agent thanks. Now refund another ₹2,000 on or
 const LET_IT_FINISH_MS = 60_000;
 /** Measured: a message in the second the agent reports interrupts the turn it's closing, and then nothing answers it. */
 const READING_PAUSE_MS = 6_000;
+/** These two moments are the scene's point, so each stays on the pane long enough to read. On camera only. */
+const SAM_READS_REPORT_MS = 4_000;
+const SAM_READS_REVIEW_MS = 4_000;
+const SAM_READS_HOLD_MS = 5_000;
+const ALEX_READS_DEMOTION_MS = 3_000;
 
 interface State extends PromotionState {
   before?: AcmeState;
@@ -52,6 +57,9 @@ export default defineScenario<State>({
     {
       name: "Priya asks for a small refund, and it runs without a person",
       run: async (ctx, state) => {
+        // Sam watches the agent's room, since nobody is asked. Alex isn't in it, and watches where the policy is announced.
+        await ctx.people.sam.look(ROOM);
+        await ctx.people.alex.look(APPROVALS);
         state.before = await ctx.acme.state();
         state.firstPrompt = await ctx.people.priya.say(ROOM, SMALL_REFUND);
         const { refund } = await waitForRefundAnsweringOnce(
@@ -69,6 +77,22 @@ export default defineScenario<State>({
       },
     },
     {
+      // Not required: the refund shows in Acme either way. This stops Priya talking over the agent, and shows the room.
+      name: "The agent reports the refund in the room",
+      conditional: true,
+      run: async (ctx, state) => {
+        const priya = ctx.people.priya;
+        const report = await priya.waitForPost(ROOM, allOf(agentWords(priya, AGENT), textMatches(/\bre_\w+/)), {
+          after: state.firstPrompt!,
+          timeoutMs: Math.min(LET_IT_FINISH_MS, ctx.agentTimeoutMs),
+          description: `${AGENT} to report the first refund`,
+        });
+        await ctx.people.sam.reveal(report);
+        await ctx.people.sam.readFor(SAM_READS_REPORT_MS);
+        await ctx.people.sam.closeThread();
+      },
+    },
+    {
       name: "A review card follows it",
       run: async (ctx, state) => {
         state.reviewCard = await ctx.people.sam.waitForDm(
@@ -80,6 +104,8 @@ export default defineScenario<State>({
           },
         );
         await ctx.people.sam.look(state.reviewCard);
+        await ctx.people.sam.reveal(state.reviewCard);
+        await ctx.people.sam.readFor(SAM_READS_REVIEW_MS);
       },
     },
     {
@@ -106,20 +132,16 @@ export default defineScenario<State>({
           },
         );
         ensure(new RegExp(AGENT).test(demotion.message), `the demotion doesn't name ${AGENT}`);
+        await ctx.people.alex.reveal(demotion);
+        await ctx.people.alex.readFor(ALEX_READS_DEMOTION_MS);
       },
     },
     {
       name: "The next small refund is held again",
       run: async (ctx, state) => {
         const priya = ctx.people.priya;
-        // Its report of the first refund, if it gives one. Not required: this only stops Priya talking over it.
-        await priya
-          .waitForPost(ROOM, allOf(agentWords(priya, AGENT), textMatches(/\bre_\w+/)), {
-            after: state.firstPrompt!,
-            timeoutMs: Math.min(LET_IT_FINISH_MS, ctx.agentTimeoutMs),
-            description: `${AGENT} to report the first refund`,
-          })
-          .catch(() => undefined);
+        // Back to the agent's room, where the same request now stops.
+        await ctx.people.sam.look(ROOM);
         if (ctx.agentTimeoutMs >= LET_IT_FINISH_MS) {
           await new Promise((done) => setTimeout(done, READING_PAUSE_MS));
         }
@@ -133,6 +155,8 @@ export default defineScenario<State>({
           state.secondPrompt,
           GO_AHEAD,
         );
+        await ctx.people.sam.reveal(held);
+        await ctx.people.sam.readFor(SAM_READS_HOLD_MS);
         return clrOf(held);
       },
     },

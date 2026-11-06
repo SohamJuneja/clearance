@@ -1,5 +1,11 @@
 # Competition scan
 
+## Re-scan, Fri Nov 6, 11:46 IST
+
+Scan `20261106T061604Z`, same script. Search results for the field went from 243 to 266, and leads went from 33 to 34. The one new lead is [looseword-ops-room](https://github.com/V3sr/looseword-ops-room), where people and two agents investigate a synthetic outage. It matched on "drill" and it isn't about approvals. `switchguard`'s "fatigue" query failed on the network, and on retry it found nothing.
+
+On what search shows, nothing changes in the table below: no new entry ships a cross-room inbox, standing drills on live approvals, earned autonomy or a human study, and Litti is still the only one with live rubber-stamp detection. Everything under "How far to trust this" still applies, since a blank isn't a no. The pitch stays as it is. Litti, Switchyard and Precedent all pushed code today, and I didn't re-read their files beyond a search of Litti, so Saturday's scan should read those three first.
+
 Scan `20261105T215906Z` (Fri Nov 6, 03:29 IST), from `scripts/scan-competition.sh`, per PLAN 16.5. Raw output is in `eval/out/competition/` (gitignored).
 
 ## The one finding that changes something

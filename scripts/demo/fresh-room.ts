@@ -110,6 +110,22 @@ async function freshSessions(agentIds: Set<string>, log: Log): Promise<void> {
   }
 }
 
+/**
+ * Recorded takes only. Measured: an agent told "ship it to staging" at the end of SC6 went on working, and its deploy reached
+ * the next take, on the camera of a scene about something else. So nothing an earlier take set going carries on into this
+ * one. A stopped agent stays stopped: E2's baseline agent isn't started by anything but scripts/setup-e2.ts.
+ */
+export async function restartRunningAgents(log: Log = () => undefined): Promise<void> {
+  const running = new Set<string>();
+  for (const owner of OWNERS) {
+    const gateway = await ownerGateway(owner);
+    for (const agent of await gateway.must<ManagedAgent[]>("GET", "/management/agents")) {
+      if (agent.desired_state === "running") running.add(agentIdOf(agent));
+    }
+  }
+  await freshSessions(running, log);
+}
+
 function runScript(args: string[], log: Log): void {
   const result = spawnSync("pnpm", ["exec", "tsx", ...args], { cwd: ROOT, encoding: "utf8" });
   for (const line of result.stdout.split("\n")) if (/restarted core|added|created the rooms/.test(line)) log(line);

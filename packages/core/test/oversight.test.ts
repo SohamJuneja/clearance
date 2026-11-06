@@ -6,7 +6,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { FastifyInstance } from "fastify";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildServer } from "../src/api/server.js";
 import { DETAIL_BUDGET, renderedCost, TITLE_MAX } from "../src/cards/render.js";
 import { changeSummary, policyChanges } from "../src/policy/diff.js";
@@ -193,6 +193,34 @@ describe("F18 break-glass", () => {
       await say(PARTICIPANTS.alex, `@clearance breakglass ${id} checkout is down`);
       return id;
     }
+
+    it("gives each reviewer one card when the next tick comes while it is still opening", async () => {
+      const id = await held();
+      let release!: () => void;
+      const slow = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const realOpen = h.chat.openCard.bind(h.chat);
+      vi.spyOn(h.chat, "openCard").mockImplementation(async (input) => {
+        await slow;
+        return realOpen(input);
+      });
+      const before = h.chat.cards.length;
+      const broke = say(PARTICIPANTS.alex, `@clearance breakglass ${id} checkout is down`);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      const ticked = h.core.tick();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      release();
+      await Promise.all([broke, ticked]);
+      const opened = h.chat.cards.slice(before).map((card) => card.roomId);
+      expect(opened.length).toBeGreaterThan(0);
+      expect(new Set(opened).size).toBe(opened.length);
+      // The tick ran it while the break-glass was still posting. It ran once, and the break-glass didn't trip over that.
+      const executed = h.core.stores.ledger.list({ requestId: id }).filter((entry) => entry.type === "executed");
+      expect(executed).toHaveLength(1);
+      expect(executed[0]?.payload.ok).toBe(true);
+      expect(h.core.stores.requests.require(id).state).toBe("EXECUTED");
+    });
 
     it("justified: on the record, closes it, and costs nobody anything", async () => {
       const id = await broken();

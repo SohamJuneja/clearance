@@ -3,7 +3,8 @@
  * come out right; line breaks are ours, so nothing depends on how a font happens to measure.
  *
  * The frame has fixed zones (see FRAME in compose.ts): footage on top, a caption band below, so a caption
- * can never sit over the message box a persona is typing in.
+ * can never sit over the message box a persona is typing in. Callouts share one row across the top, over Mattermost's
+ * own header bar, so they can't sit on a post either.
  */
 export const CAPTION_FONT = "Noto Sans";
 export const MAX_CHARS_PER_LINE = 78;
@@ -82,8 +83,10 @@ export interface SceneText {
   cues: Cue[];
   /** Small standing notes at the foot of the frame, such as "persona actions are scripted". */
   notices: string[];
-  /** A prominent standing label over the footage, such as "staged illustration, real clicks". */
+  /** Prominent standing labels above the posts, such as "staged illustration, real clicks". They share one row. */
   callouts: string[];
+  /** The same labels, for part of the scene. In the same place, so they shouldn't overlap each other or `callouts`. */
+  timedCallouts?: { text: string; startS: number; endS: number }[];
   /** Words for the corner label, such as "clock 10x". */
   corner: string[];
 }
@@ -186,6 +189,11 @@ const STYLES: AssStyle[] = [
   },
 ];
 
+/** Past this a callout row would reach the corner label at full size. At size 30 a hundred characters still clear it. */
+const CALLOUT_FULL_SIZE_CHARS = 80;
+/** Keeps the box on Mattermost's header bar, which ends about 64 px down in either layout. */
+const CALLOUT_MARGIN_V = 24;
+
 export function assDocument(scene: SceneText): string {
   const out = [
     "[Script Info]",
@@ -210,9 +218,17 @@ export function assDocument(scene: SceneText): string {
   if (scene.notices.length > 0) {
     out.push(`Dialogue: 1,${whole},Notice,,0,0,0,,${assText(scene.notices.join("  ·  "))}`);
   }
-  scene.callouts.forEach((callout, index) => {
-    out.push(`Dialogue: 2,${whole},Callout,,0,0,${30 + index * 72},,${assText(callout)}`);
-  });
+  if (scene.callouts.length > 0) {
+    const row = scene.callouts.join("  ·  ");
+    const fit = row.length > CALLOUT_FULL_SIZE_CHARS ? "{\\fs30}" : "";
+    out.push(`Dialogue: 2,${whole},Callout,,0,0,${CALLOUT_MARGIN_V},,${fit}${assText(row)}`);
+  }
+  for (const { text, startS, endS } of scene.timedCallouts ?? []) {
+    const fit = text.length > CALLOUT_FULL_SIZE_CHARS ? "{\\fs30}" : "";
+    out.push(
+      `Dialogue: 2,${assTime(startS)},${assTime(endS)},Callout,,0,0,${CALLOUT_MARGIN_V},,${fit}${assText(text)}`,
+    );
+  }
   scene.corner.forEach((corner, index) => {
     out.push(`Dialogue: 2,${whole},Corner,,0,0,${30 + index * 68},,${assText(corner)}`);
   });

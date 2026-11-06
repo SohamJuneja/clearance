@@ -5,11 +5,11 @@
 
 Clip: SC2 then SC3, under 45 seconds, cut from the recorded takes.
 
-In Switch, an agent's approval card goes to whoever may address the agent. On a team, that's often the person who asked.
+In Switch, an approval card mentions the person who asked, and anyone who may address the agent can answer it. So the person who asked can approve their own request.
 
 In this clip, Priya asks an agent for a ₹40,000 refund and approves every card. The money goes out, and nobody else was involved.
 
-Then the same team with Clearance. Priya's press is refused in the room, and the card goes to Sam in finance.
+Then the same team with Clearance, on a different refund: ₹4,000 to a payment ID added minutes ago. Priya tries to approve it. Clearance refuses in the room and sends the card to Sam in finance.
 
 Switch runs the room, the agents and the cards. Clearance decides who may answer them. The data is synthetic and the people's clicks are scripted. The agents' words aren't.
 
@@ -21,13 +21,13 @@ Switch runs the room, the agents and the cards. Clearance decides who may answer
 
 Clip: SC9, under 45 seconds.
 
-People stop reading approval cards. Anthropic's post on auto mode says users accept 93% of permission prompts.
+People stop reading approval cards. Anthropic's post on auto mode says users accept 93% of permission prompts: https://www.anthropic.com/engineering/claude-code-auto-mode
 
 So we borrowed from phishing tests. Now and then, Clearance sends an approver a practice request with a planted flaw. In this clip the amount is ten times the order. Sam approves it without reading.
 
 Nothing runs. Sam gets a private note, and the next high-risk card asks Sam to type a detail from the call before it can be approved.
 
-Sam is a scripted persona, so read this as how drills work and not as a measurement. Switch carries the cards and tells us who answered, which is the part an agent can't fake.
+Sam is a scripted persona and this drill was triggered for the clip, so read this as how drills work and not as a measurement. Switch carries the cards and reports who answered from its own events, not from anything an agent wrote.
 
 {{REPO_URL}}
 

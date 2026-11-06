@@ -1,7 +1,8 @@
 # The demo video, built from the table in PLAN section 12. `pnpm video:build` reads this.
 #
-# Voice-over is read as written. `{{E1.clearance}}` pulls a cell from RESULTS.md at build time, a cell with
-# no number yet reads "pending", and `[[if E2/risky.clearance]]...[[/if]]` is only said once that cell has one.
+# Voice-over is read as written. `{{E1.clearance}}` pulls a cell from RESULTS.md at build time, and
+# `[[if E2/risky.clearance]]...[[/if]]` is only said once that cell has a number. Nothing that has no number yet is said
+# or shown: a voice-over that would read "pending" fails the build, and the slide only shows rows with a result.
 # Never type a result here: a number that isn't from RESULTS.md or listed under `cited` fails the build.
 #
 # Clips are relative to docs/media/raw/ and come from `pnpm demo:run <SC> --record`. Pin a good take by
@@ -28,14 +29,22 @@ cited:
     }
 
 # A judge skims. The build fails if Clearance's refusal of Priya isn't on screen by this time. `scene` ends on the
-# refusal, so where that scene ends is the latest it can appear.
-first_refusal: { scene: sc3-refused, within_s: 20 }
+# refusal, so where that scene ends is the latest it can appear. `seen` is the recorder's own record of the moment its
+# text is visible in Priya's page, and the build fails on a take with no such record, or if it maps past the limit.
+first_refusal: { scene: sc3-refused, within_s: 20, seen: "Clearance's refusal of Priya" }
 
 scenes:
   - id: sc2
     kind: clip
     planned_s: 8
-    source: { clip: takes/SC2/latest/priya.mp4 }
+    # "Refunded" has to stay up to be read, and this scene can't grow without moving the refusal. So: the agent's start-up
+    # is cut, the rest runs at the 6x limit, and the last frame holds. Pinned because these seconds are this take's.
+    source:
+      clip: takes/SC2/6/priya.mp4
+      speed: 6
+      segments:
+        - { from: "Priya asks refunds-agent-vanilla for the refund in #support-vanilla", to: 4.5 }
+        - { from: 11.3, to: 42.3 }
     voiceover: "This is Switch today. Priya asks an agent for a ₹40,000 refund, and Priya approves every card."
 
   - id: sc3-refused
@@ -85,6 +94,19 @@ scenes:
       - { clip: takes/SC5/latest/priya.mp4 }
       - { clip: takes/SC6/latest/alex.mp4 }
     voiceover: "Clearance covers every room and every agent vendor, with no changes to Switch. One policy file: a Codex agent's customer export and an OpenCode agent's production deploy are held the same way, even though OpenCode's auto mode would have asked no one."
+    # SC5 needs Codex, which isn't logged in. Until there's a real take this runs alone and names no Codex, and the split
+    # above comes back by itself when there is. Record SC6 with `--layout half` then.
+    alone:
+      missing: takes/SC5/latest/priya.mp4
+      source:
+        clip: takes/SC6/latest/alex.mp4
+        segments:
+          - {
+              from: "The card reaches Alex (service owner) and shows 2 failing checks",
+              to: "Acme: v2.14.0 did not reach prod",
+            }
+      callouts: ["An OpenCode agent, under the same policy file"]
+      voiceover: "Clearance isn't tied to one agent vendor, and Switch doesn't change. Under the same policy file, an OpenCode agent's production deploy is held, and goes to Alex with the failing checks on the card."
 
   - id: sc8
     kind: split
@@ -99,6 +121,8 @@ scenes:
   - id: sc14
     kind: clip
     planned_s: 9
+    # The whole take, sped up and labelled. Measured: each press takes a fraction of a second, so keeping only the presses
+    # would leave about a second of footage.
     source: { clip: takes/SC14/latest/sam.mp4 }
     callouts: ["staged illustration, real clicks"]
     notices: ["93%: Anthropic, Claude Code auto mode, Mar 2026"]
@@ -106,11 +130,28 @@ scenes:
 
   - id: sc9
     kind: clip
-    planned_s: 20
-    source: { clip: takes/SC9/latest/sam.mp4 }
+    planned_s: 30
+    # Only the wait for the agent is cut. The typed card, the "didn't match" line and the result stay up to be read.
+    source:
+      clip: takes/SC9/latest/sam.mp4
+      segments:
+        - { from: "Clearance sends Sam a drill refund", to: "A real high-risk request arrives" }
+        - {
+            from: "Sam's next card asks for a typed detail",
+            to: "Acme: one refund went out, the real one",
+          }
     # The only place the 10x flag appears: no agent attempted that amount, so it's shown as what it is, a planted flaw.
-    callouts: ["Sam's first card is a drill: its planted flaw is an amount 10x the order total"]
-    voiceover: "People rubber-stamp. So Clearance runs drills, like phishing tests, and adds friction when approvals get too fast."
+    # It ends with the drill, so it can't read as being about the real card after it.
+    timed_callouts:
+      - {
+          text: "Sam's first card is a drill: its planted flaw is an amount 10x the order total",
+          to: "Sam's next card asks for a typed detail",
+        }
+      - {
+          text: "The next card is real: a ₹40,000 refund on a returned order",
+          from: "Sam's next card asks for a typed detail",
+        }
+    voiceover: "People rubber-stamp. So Clearance runs drills, like phishing tests, and adds friction when approvals get too fast. Sam's next high-risk card asks for a detail from the call, typed out. Get it wrong, and it asks again, for a different field. Only the right answer runs it."
 
   - id: sc11
     kind: split
@@ -125,8 +166,9 @@ scenes:
     kind: numbers
     planned_s: 25
     headline: "Measured, not claimed"
-    rows: [E1, AUDIT, E2/risky?, E3/quiet, E6, NEG]
-    voiceover: "Measured, not claimed. Bad outcomes prevented, of 25: {{E1.clearance}}. An independent review found more, now fixed and checked apart. {{AUDIT.clearance}}. [[if E2/risky.clearance]]Risky actions without an eligible human: {{E2/risky.clearance}}. [[/if]]Tool calls with no card: {{E3/quiet.clearance}}. Human decisions per hundred agent actions: {{E6.clearance}}. And one place we lose: {{NEG.text}}."
+    # A row with no result isn't shown, and the voice-over says the same rows.
+    rows: [E1, AUDIT, E2/risky, E3/quiet, E6, NEG]
+    voiceover: "Measured, not claimed. [[if E1.clearance]]Bad outcomes prevented, of 25: {{E1.clearance}}. [[/if]][[if AUDIT.clearance]]An independent review found more, now fixed and checked apart. {{AUDIT.clearance}}. [[/if]][[if E2/risky.clearance]]Risky actions without an eligible human: {{E2/risky.clearance}}. [[/if]][[if E3/quiet.clearance]]Tool calls with no card: {{E3/quiet.clearance}}. [[/if]][[if E6.clearance]]Human decisions per hundred agent actions: {{E6.clearance}}. [[/if]][[if NEG.text]]And one place we lose: {{NEG.text}}.[[/if]]"
 
   - id: close
     kind: card
@@ -138,4 +180,5 @@ scenes:
       - "Built on Switch's rooms, identities, approval cards and documents."
       - "{{repo_url}}"
     image: desk/live-ledger.png
-    voiceover: "One template and a few config files. Clearance is built on Switch's rooms, identities, approval cards and documents. Link below."
+    # The link's line and these two words wait for CLEARANCE_REPO_URL, together.
+    voiceover: "One template and a few config files. Clearance is built on Switch's rooms, identities, approval cards and documents. [[if repo_url]]Link below.[[/if]]"

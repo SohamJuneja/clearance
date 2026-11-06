@@ -5,7 +5,7 @@
  *   pnpm video:build --allow-missing    slates instead of missing footage, to check timing and voice
  *
  * Numbers come from RESULTS.md at build time, or from a source declared under `cited` in the storyboard, and the build
- * fails on any other number it finds. A voice for a scene comes from
+ * fails on any other number it finds, and on a voice-over that still reads "pending". A voice for a scene comes from
  * scripts/video/voice/<scene>.wav if that file exists, else from offline TTS, else the scene is silent
  * and the build says so.
  */
@@ -22,6 +22,7 @@ import {
   concatScenes,
   DEFAULT_MAX_SPEED,
   fitClip,
+  fixedSpeed,
   type FootageInput,
   FRAME,
   type MediaInfo,
@@ -32,7 +33,7 @@ import {
   sceneDuration,
   VOICE_DELAY_S,
 } from "./compose.ts";
-import { hasPending, parseResults, PENDING, resolveTemplate, type ResultRow } from "./results.ts";
+import { hasPending, parseResults, resolveTemplate, type ResultRow } from "./results.ts";
 import {
   loadStoryboard,
   readMarks,
@@ -41,8 +42,12 @@ import {
   refusalProblem,
   resolvePoint,
   type Scene,
+  sceneOffset,
+  seenInVideo,
+  settleScenes,
   type SourceSpec,
   sourcesOf,
+  timeCallouts,
 } from "./scenes.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -83,6 +88,8 @@ export interface BuildReport {
   plannedS: number;
   /** When Clearance's refusal is on screen by, from what the scenes really came to. */
   refusalByS?: number;
+  /** When the recorder saw the refusal's text in the page, mapped into the video. */
+  refusalSeenS?: number;
   info: MediaInfo;
   loudnessInputI: string;
   silent: boolean;
@@ -90,12 +97,32 @@ export interface BuildReport {
   warnings: string[];
 }
 
-/** Fills `{{repo_url}}` and any RESULTS.md cell. A repo URL nobody has set stays "pending". */
-function fillText(text: string, rows: ResultRow[]): string {
-  return resolveTemplate(text, rows).replace(
-    /\{\{\s*repo_url\s*\}\}/g,
-    setting("CLEARANCE_REPO_URL") ?? PENDING,
+const REPO_URL = /\{\{\s*repo_url\s*\}\}/;
+
+/**
+ * Fills `{{repo_url}}` and any RESULTS.md cell. `[[if repo_url]]...[[/if]]` is only said once a repo URL is set, so the
+ * voice-over can't point at a link that isn't on screen.
+ */
+export function fillText(
+  text: string,
+  rows: ResultRow[],
+  repoUrl: string | undefined = setting("CLEARANCE_REPO_URL"),
+): string {
+  const kept = text.replace(/\s*\[\[if repo_url\]\]([\s\S]*?)\[\[\/if\]\]/g, (_all, body: string) =>
+    repoUrl ? ` ${body}` : "",
   );
+  return resolveTemplate(kept, rows).replace(new RegExp(REPO_URL, "g"), repoUrl ?? "");
+}
+
+/** A card's lines, without any that exist only to show a repo URL nobody has set. */
+export function fillLines(
+  lines: string[],
+  rows: ResultRow[],
+  repoUrl: string | undefined = setting("CLEARANCE_REPO_URL"),
+): string[] {
+  return lines
+    .filter((line) => repoUrl || !REPO_URL.test(line))
+    .map((line) => fillText(line, rows, repoUrl));
 }
 
 function clipPath(mediaRoot: string, source: SourceSpec): string {
@@ -127,12 +154,20 @@ async function footageFor(
     const path = clipPath(mediaRoot, source);
     const media = await probeMedia(path);
     const marks = readMarks(path);
-    const segments = (source.segments ?? [{ from: 0, to: media.durationS }]).map((segment) => ({
-      fromS: resolvePoint(segment.from, marks, source.clip),
-      toS: resolvePoint(segment.to, marks, source.clip),
-    }));
+    // A step that had nothing to do, such as a card that never came, leaves a segment with no length.
+    const segments = (source.segments ?? [{ from: 0, to: media.durationS }])
+      .map((segment) => ({
+        fromS: resolvePoint(segment.from, marks, source.clip),
+        toS: resolvePoint(segment.to, marks, source.clip),
+      }))
+      .filter((segment) => segment.toS - segment.fromS > 0.05);
+    if (segments.length === 0) throw new Error(`${scene.id}: ${source.clip} has no footage in its segments`);
     const clipS = segments.reduce((sum, segment) => sum + (segment.toS - segment.fromS), 0);
-    const fit = fitClip(clipS, durationS, maxSpeed, `${scene.id}: ${source.clip}`);
+    const what = `${scene.id}: ${source.clip}`;
+    const fit =
+      source.speed === undefined
+        ? fitClip(clipS, durationS, maxSpeed, what)
+        : fixedSpeed(clipS, durationS, source.speed, maxSpeed, what);
     const label = playbackLabel(fit.speed);
     if (label && !labels.includes(label)) labels.push(label);
     inputs.push({ path, segments, fit, box });
@@ -142,12 +177,19 @@ async function footageFor(
 
 export async function buildVideo(options: BuildOptions): Promise<BuildReport> {
   const { log } = options;
-  const board = loadStoryboard(options.scenesPath);
-  ensureSourcedNumbers(board);
+  const written = loadStoryboard(options.scenesPath);
+  ensureSourcedNumbers(written);
+  const board = settleScenes(written, (clip) => existsSync(resolve(options.mediaRoot, clip)));
   const rows = parseResults(readFileSync(options.resultsPath, "utf8"));
   mkdirSync(options.workDir, { recursive: true });
   mkdirSync(dirname(options.output), { recursive: true });
   const warnings: string[] = [];
+  const problems: string[] = [];
+  for (const scene of written.scenes) {
+    if (scene.kind === "split" && scene.alone && !existsSync(resolve(options.mediaRoot, scene.alone.missing))) {
+      warnings.push(`${scene.id}: no ${scene.alone.missing} yet, so ${scene.alone.source.clip} runs alone`);
+    }
+  }
 
   // Find anything missing before the slow part, and name all of it at once.
   const missing = board.scenes.flatMap((scene) =>
@@ -182,7 +224,7 @@ export async function buildVideo(options: BuildOptions): Promise<BuildReport> {
         id: scene.id,
         html: cardHtml(
           fillText(scene.headline, rows),
-          (scene.lines ?? []).map((line) => fillText(line, rows)),
+          fillLines(scene.lines ?? [], rows),
           stillThere
             ? `data:image/png;base64,${readFileSync(image).toString("base64")}`
             : undefined,
@@ -203,9 +245,12 @@ export async function buildVideo(options: BuildOptions): Promise<BuildReport> {
 
   const reports: SceneReport[] = [];
   const files: string[] = [];
+  const footages = new Map<string, FootageInput[]>();
   for (const scene of board.scenes) {
     const text = scene.voiceover ? fillText(scene.voiceover, rows) : undefined;
-    if (text && hasPending(text)) warnings.push(`${scene.id}: voice-over still reads "pending"`);
+    if (text && hasPending(text)) {
+      problems.push(`${scene.id}: the voice-over reads "pending". Guard it with [[if ...]]: ${text}`);
+    }
     const voice = text ? await options.voice(scene.id, text) : undefined;
     if (text && !voice) warnings.push(`${scene.id}: no voice available, this scene is silent`);
     const voiceS = voice ? (await probeMedia(voice.path)).durationS : 0;
@@ -217,6 +262,23 @@ export async function buildVideo(options: BuildOptions): Promise<BuildReport> {
         ? await footageFor(scene, options.mediaRoot, durationS)
         : undefined;
 
+    if (footage) footages.set(scene.id, footage.inputs);
+
+    const first = footage?.inputs[0];
+    const timedCallouts =
+      first && scene.timed_callouts
+        ? timeCallouts(
+            scene.timed_callouts,
+            {
+              segments: first.segments,
+              speed: first.fit.speed,
+              marks: readMarks(first.path),
+              clip: sourcesOf(scene)[0]?.clip ?? first.path,
+            },
+            durationS,
+          )
+        : [];
+
     const speechS = voiceS > 0 ? voiceS : Math.max(0, durationS - VOICE_DELAY_S);
     const defaults = scene.kind === "clip" || scene.kind === "split" ? board.default_notices : [];
     const assFile = `${scene.id}.ass`;
@@ -227,6 +289,7 @@ export async function buildVideo(options: BuildOptions): Promise<BuildReport> {
         cues: text ? timeCues(captionChunks(text), VOICE_DELAY_S, speechS) : [],
         notices: [...defaults, ...(scene.notices ?? [])],
         callouts: scene.callouts ?? [],
+        timedCallouts,
         corner: [...(scene.clock10x ? ["clock 10x"] : []), ...(footage?.labels ?? [])],
       }),
     );
@@ -263,22 +326,42 @@ export async function buildVideo(options: BuildOptions): Promise<BuildReport> {
   if (silent) warnings.push("the audio track is silent, so it could not be loudness-normalised");
 
   const info = await probeMedia(options.output);
-  const problems = checkFinal(info, {
-    maxDurationS: board.max_duration_s,
-    width: FRAME.width,
-    height: FRAME.height,
-    fps: FRAME.fps,
-  });
+  problems.push(
+    ...checkFinal(info, {
+      maxDurationS: board.max_duration_s,
+      width: FRAME.width,
+      height: FRAME.height,
+      fps: FRAME.fps,
+    }),
+  );
   const realDuration = (scene: Scene): number =>
     reports.find((one) => one.id === scene.id)?.durationS ?? scene.planned_s;
   const tooLate = refusalProblem(board, realDuration);
   if (tooLate) problems.push(tooLate);
   const refusalByS = refusalOnScreenBy(board, realDuration);
+  const refusal = board.first_refusal;
+  let refusalSeenS: number | undefined;
+  if (refusal?.seen) {
+    const footage = footages.get(refusal.scene);
+    if (footage) {
+      const seen = seenInVideo({
+        label: refusal.seen,
+        withinS: refusal.within_s,
+        sceneStartS: sceneOffset(board, refusal.scene, realDuration),
+        footage: footage.map((input) => ({ path: input.path, segments: input.segments, speed: input.fit.speed })),
+      });
+      refusalSeenS = seen.atS;
+      if (seen.problem) problems.push(seen.problem);
+    } else {
+      warnings.push(`${refusal.scene}: no footage, so the refusal's visibility wasn't checked`);
+    }
+  }
   const report: BuildReport = {
     output: options.output,
     scenes: reports,
     plannedS: board.scenes.reduce((sum, scene) => sum + scene.planned_s, 0),
     ...(refusalByS === undefined ? {} : { refusalByS }),
+    ...(refusalSeenS === undefined ? {} : { refusalSeenS }),
     info,
     loudnessInputI: measured.input_i,
     silent,
@@ -302,7 +385,10 @@ export function printReport(report: BuildReport, log: (line: string) => void): n
     }`,
   );
   if (report.refusalByS !== undefined) {
-    log(`  Clearance's refusal on screen by ${report.refusalByS.toFixed(1)} s`);
+    log(`  Clearance's refusal on screen by ${report.refusalByS.toFixed(1)} s, from where its scene ends`);
+  }
+  if (report.refusalSeenS !== undefined) {
+    log(`  Clearance's refusal visible at ${report.refusalSeenS.toFixed(2)} s, from the recorder's record`);
   }
   for (const warning of report.warnings) log(`  warning: ${warning}`);
   if (report.problems.length > 0) {

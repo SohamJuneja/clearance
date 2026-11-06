@@ -3,6 +3,7 @@ import {
   checkFinal,
   DEFAULT_MAX_SPEED,
   fitClip,
+  fixedSpeed,
   footageFilter,
   FRAME,
   isSilent,
@@ -26,6 +27,17 @@ describe("sceneDuration", () => {
 
   it("keeps the planned length with no voice", () => {
     expect(sceneDuration(9, 0)).toBe(9);
+  });
+});
+
+describe("fixedSpeed", () => {
+  it("plays at the speed asked for and holds the last frame for the rest", () => {
+    expect(fixedSpeed(30, 8, 6, DEFAULT_MAX_SPEED, "x")).toEqual({ speed: 6, holdS: 3 });
+  });
+
+  it("refuses a speed over the limit, and footage that still won't fit", () => {
+    expect(() => fixedSpeed(30, 8, 7, DEFAULT_MAX_SPEED, "x")).toThrow(/asks for 7x/);
+    expect(() => fixedSpeed(60, 8, 6, DEFAULT_MAX_SPEED, "x")).toThrow(/runs 10\.0 s at 6x/);
   });
 });
 

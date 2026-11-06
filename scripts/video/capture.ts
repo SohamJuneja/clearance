@@ -34,7 +34,8 @@ import {
 import { REPO_ROOT, setting } from "../../eval/lib/paths.ts";
 import { loadPersonaToken, type MattermostPost, Persona } from "../../eval/lib/persona.ts";
 import type { PersonaWindow } from "../demo/person.ts";
-import type { CaptureOutput, CaptureSession, PersonName, Recorder } from "../demo/runner.ts";
+import type { CaptureOutput, CaptureSession, PersonName, Recorder, WatchSpec } from "../demo/runner.ts";
+import type { SeenRecord } from "./scenes.ts";
 
 const execFileAsync = promisify(execFile);
 
@@ -98,6 +99,52 @@ function labelScript(label: string): string {
     if (close) close.click();
   }, 250);
 })();`;
+}
+
+/**
+ * Is this text really on screen? In the page, inside a rectangle a viewer can see, and with nothing over it. A post below
+ * the fold is in the page too, and that's how a take once showed nothing while everything looked fine. Written as source,
+ * because a compiled function can carry helpers the page doesn't have.
+ */
+export const VISIBLE_TEXT_PROBE = `function (doc, view, pattern) {
+  var wanted = new RegExp(pattern);
+  var blocks = doc.querySelectorAll(".post-message__text p, .post-message__text, .attachment__body p");
+  for (var i = 0; i < blocks.length; i += 1) {
+    var block = blocks[i];
+    if (!wanted.test(block.innerText || "")) continue;
+    var box = block.getBoundingClientRect();
+    if (box.width <= 0 || box.height <= 0) continue;
+    if (box.top < 0 || box.left < 0 || box.bottom > view.height || box.right > view.width) continue;
+    var points = [[box.left + 2, box.top + 2], [box.left + box.width / 2, box.top + box.height / 2], [box.left + 2, box.bottom - 2]];
+    var clear = points.every(function (point) {
+      var hit = doc.elementFromPoint(point[0], point[1]);
+      return hit !== null && block.contains(hit);
+    });
+    if (clear) return true;
+  }
+  return false;
+}`;
+
+const WATCH_POLL_MS = 100;
+
+/** Watches a page until the text shows, and says when by the page's own clock. Returns how to stop watching. */
+function watchVisible(page: Page, pattern: string, seen: (atS: number) => void): () => void {
+  let stopped = false;
+  const expression = `(${VISIBLE_TEXT_PROBE})(document, { width: window.innerWidth, height: window.innerHeight }, ${JSON.stringify(pattern)}) ? Date.now() : 0`;
+  void (async () => {
+    while (!stopped) {
+      // A page mid-navigation can't answer, and that isn't the text being visible.
+      const at = await page.evaluate<number>(expression).catch(() => 0);
+      if (at > 0) {
+        seen(at / 1000);
+        return;
+      }
+      await new Promise((done) => setTimeout(done, WATCH_POLL_MS));
+    }
+  })();
+  return () => {
+    stopped = true;
+  };
 }
 
 export interface WindowOptions {
@@ -195,9 +242,16 @@ export class MattermostWindow implements PersonaWindow {
   }
 
   async reveal(post: MattermostPost): Promise<void> {
-    const row = this.page.locator(`#post_${post.id}`);
+    // An agent's report can be a thread reply, and then it's in the open thread and not the channel.
+    const row = await this.rowOf(post);
     await row.waitFor({ state: "attached", timeout: 10_000 });
     await row.scrollIntoViewIfNeeded({ timeout: 5_000 });
+  }
+
+  /** Back to the channel alone, once a thread has been read. Nothing happens if no thread is open. */
+  async closeThread(): Promise<void> {
+    const close = this.page.locator("#rhsCloseButton");
+    if ((await close.count()) > 0) await close.first().click({ timeout: 5_000 });
   }
 
   /**
@@ -328,6 +382,11 @@ export class Screencast {
     return this.frames.length;
   }
 
+  /** The wall-clock second this clip's first frame shows: its opening picture, as in frameDurations. */
+  get videoStartS(): number {
+    return this.frames[0]?.at ?? this.started;
+  }
+
   /** Writes an mp4 where every frame shows for as long as it did on screen. */
   async encode(output: string): Promise<void> {
     if (this.frames.length === 0)
@@ -422,6 +481,8 @@ export function createRecorder(options: { root?: string } = {}): Recorder {
       const windows = new Map<PersonName, MattermostWindow>();
       const casts = new Map<PersonName, Screencast>();
       const marks: { label: string; t: number }[] = [];
+      const seen: SeenRecord[] = [];
+      const stopWatching: (() => void)[] = [];
       let startedAt = 0;
       try {
         for (const persona of spec.personas) {
@@ -436,15 +497,25 @@ export function createRecorder(options: { root?: string } = {}): Recorder {
             session: { token, userId: me.id },
             team: team.name,
           });
-          // Somewhere neutral until the scene gives them something to look at. A DM still shows the last take's cards, which
-          // on camera could pass for this one's.
-          await window.goto(`/${team.name}/channels/off-topic`);
+          // Somewhere quiet until the scene gives them something to look at. Town Square and Off-Topic are full of join
+          // messages, and at the start of a recorded take this holds only the person's own hello.
+          await window.goto(`/${team.name}/messages/@clearance`);
           await window.page.locator("#post_textbox").waitFor({ state: "visible", timeout: 45_000 });
           windows.set(persona, window);
           casts.set(persona, new Screencast(window.page, spec.layout, scratch, persona));
         }
         startedAt = Date.now();
         for (const cast of casts.values()) await cast.start();
+        for (const watch of spec.watch ?? ([] as WatchSpec[])) {
+          const window = windows.get(watch.persona);
+          const cast = casts.get(watch.persona);
+          if (!window || !cast) throw new Error(`${watch.label}: ${watch.persona} isn't being recorded`);
+          stopWatching.push(
+            watchVisible(window.page, watch.text, (atS) => {
+              seen.push({ label: watch.label, persona: watch.persona, t: atS - cast.videoStartS });
+            }),
+          );
+        }
       } catch (error) {
         await browser.close().catch(() => undefined);
         rmSync(scratch, { recursive: true, force: true });
@@ -454,6 +525,7 @@ export function createRecorder(options: { root?: string } = {}): Recorder {
         window: (persona) => windows.get(persona),
         mark: (label) => marks.push({ label, t: (Date.now() - startedAt) / 1000 }),
         async end(passed: boolean): Promise<CaptureOutput> {
+          for (const stop of stopWatching) stop();
           for (const cast of casts.values()) await cast.stop();
           await browser.close().catch(() => undefined);
           const files: Record<string, string> = {};
@@ -467,6 +539,7 @@ export function createRecorder(options: { root?: string } = {}): Recorder {
             rmSync(scratch, { recursive: true, force: true });
           }
           writeFileSync(join(directory, "marks.json"), `${JSON.stringify(marks, null, 2)}\n`);
+          writeFileSync(join(directory, "seen.json"), `${JSON.stringify(seen, null, 2)}\n`);
           if (passed) pointLatest(directory);
           return { directory, files };
         },

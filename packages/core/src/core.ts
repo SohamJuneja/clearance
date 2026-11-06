@@ -1796,6 +1796,9 @@ export class Clearance implements ClearanceCore {
 
   private async executeApproved(request: RequestRecord): Promise<void> {
     if (this.executing.has(request.id)) return;
+    // The tick retries approved calls, so it can get there first while the path that approved this one is still posting.
+    const { state } = this.stores.requests.require(request.id);
+    if (state !== "APPROVED" && state !== "BREAK_GLASS") return;
     this.executing.add(request.id);
     this.lastExecuteAttempt.set(request.id, this.deps.clock.nowMs());
     this.stores.requests.noteExecutionAttempt(request.id);
@@ -2215,7 +2218,18 @@ export class Clearance implements ClearanceCore {
     return { ...this.responseFor(evaluation), request_id: request.id };
   }
 
+  /** One at a time per request. A card takes seconds to open and is only on record afterwards, so the tick would open another. */
   private async openReview(request: RequestRecord): Promise<void> {
+    if (this.opening.has(request.id)) return;
+    this.opening.add(request.id);
+    try {
+      await this.openReviewNow(request);
+    } finally {
+      this.opening.delete(request.id);
+    }
+  }
+
+  private async openReviewNow(request: RequestRecord): Promise<void> {
     const { directory } = this.people;
     const { routes, ledger } = this.stores;
     const ctx = this.routeContext(request);
@@ -2894,6 +2908,17 @@ export class Clearance implements ClearanceCore {
   }
 
   private async openGlassReview(request: RequestRecord, actorId: string, reason: string): Promise<void> {
+    const key = `glass:${request.id}`;
+    if (this.opening.has(key)) return;
+    this.opening.add(key);
+    try {
+      await this.openGlassReviewNow(request, actorId, reason);
+    } finally {
+      this.opening.delete(key);
+    }
+  }
+
+  private async openGlassReviewNow(request: RequestRecord, actorId: string, reason: string): Promise<void> {
     const { routes } = this.stores;
     const { directory } = this.people;
     const evidence = this.evidenceOf(request);

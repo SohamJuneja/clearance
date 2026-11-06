@@ -234,6 +234,7 @@ describe("the demo runner", () => {
       mm.onPress = () => {
         if (mm.requests.filter((request) => request.path.includes("/actions/")).length === 2) {
           world.state.refunds.push(refund as never);
+          mm.addPost(vanilla, agent, `Refunded it. Refund ID ${String(refund.id)}, status processed.`);
         }
       };
     }
@@ -247,11 +248,25 @@ describe("the demo runner", () => {
       });
       const result = await runScenario(sc02, options);
       expect(result.verdict).toBe("pass");
-      expect(result.steps.at(-1)?.detail).toContain("2 cards all pressed by Priya");
+      expect(result.steps.at(-2)?.detail).toContain("2 cards all pressed by Priya");
+      expect(result.steps.at(-1)?.detail).toContain("Refunded it. Refund ID re_1");
       const presses = mm.requests.filter((request) => request.path.includes("/actions/"));
       expect(new Set(presses.map((request) => request.authorization))).toEqual(
         new Set([`Bearer ${people.priya!.token}`]),
       );
+    });
+
+    it("SC2 fails if the room never hears the refund, because the opening needs it on screen", async () => {
+      const agent = people["refunds-agent-vanilla"]!;
+      mm.onPost = (_post, author) => {
+        if (author.username === "priya") mm.addPost(vanilla, agent, "@priya\n**Permission needed** request A1", button);
+      };
+      mm.onPress = () => {
+        world.state.refunds.push({ id: "re_1", amount: 40000, order_id: "A-2004", destination: "r@upi" } as never);
+      };
+      const result = await runScenario(sc02, { ...options, agentTimeoutMs: 100 });
+      expect(result.verdict).toBe("fail");
+      expect(output()).toContain("to report the refund it made");
     });
 
     it("SC2 fails if a card doesn't mention Priya, which is the whole point of the scene", async () => {
@@ -479,6 +494,14 @@ describe("the demo runner", () => {
       await person.reveal(post);
       expect(Date.now() - started).toBeGreaterThanOrEqual(25);
       expect(revealed).toEqual([post]);
+    });
+
+    it("closes a thread only if there's a window with one to close", async () => {
+      await new Person(api).closeThread();
+      let closed = 0;
+      const person = new Person(api, { closeThread: async () => void (closed += 1) } as never);
+      await person.closeThread();
+      expect(closed).toBe(1);
     });
   });
 
@@ -716,12 +739,12 @@ describe("the demo runner", () => {
     });
   });
 
-  describe("SC14, five cards in a row on the baseline", () => {
-    const allow = (extra = "") => ({
+  describe("SC14, ordinary requests on the baseline, one at a time", () => {
+    const agent = () => people["refunds-agent-vanilla"]!;
+    const allow = {
       props: {
         attachments: [
           {
-            text: extra,
             actions: [
               { id: "a", name: "Allow once" },
               { id: "d", name: "Deny" },
@@ -729,66 +752,140 @@ describe("the demo runner", () => {
           },
         ],
       },
-    });
-    const say = (text: string) =>
-      mm.addPost(vanilla, people["refunds-agent-vanilla"]!, text, allow());
-
-    /** As measured: each card comes only once Sam has cleared the one before, beside a status post with its own buttons. */
-    function playTheWorld(texts: string[]): void {
-      const rest = [...texts];
-      mm.onPost = (post, author) => {
-        if (author.username !== "priya" || !post.message.includes("₹200")) return;
-        mm.addPost(vanilla, people["refunds-agent-vanilla"]!, "Working…", {
-          props: {
-            attachments: [
-              {
-                actions: [
-                  { id: "s", name: "Show activity" },
-                  { id: "x", name: "Stop current work" },
-                ],
-              },
+    };
+    const working = {
+      props: {
+        attachments: [
+          {
+            actions: [
+              { id: "s", name: "Show activity" },
+              { id: "x", name: "Stop current work" },
             ],
           },
-        });
-        say(rest.shift()!);
+        ],
+      },
+    };
+
+    /**
+     * As measured: a request gets a status post with its own buttons, then its cards one at a time, each only once the
+     * last is cleared, and then the agent says something and its turn is over. This plays the agent. `cardsPerRequest`
+     * is how many cards each request brings, and `words` what it says when it's done with that request.
+     */
+    function playTheAgent(options: {
+      cardsPerRequest: number[];
+      words?: (request: number) => string;
+      onRequest?: (request: number) => void;
+    }): { requests: () => number } {
+      let requests = 0;
+      let left = 0;
+      const finish = (): void => {
+        mm.addPost(vanilla, agent(), options.words?.(requests) ?? "Done.");
+        mm.addPost(vanilla, agent(), "**Worked for 3s. 2 tool calls.**", working);
+      };
+      mm.onPost = (post, author) => {
+        if (author.username !== "priya" || !post.message.includes("refund")) return;
+        requests += 1;
+        options.onRequest?.(requests);
+        left = options.cardsPerRequest[requests - 1] ?? 0;
+        mm.addPost(vanilla, agent(), "Working…", working);
+        if (left === 0) return finish();
+        left -= 1;
+        mm.addPost(vanilla, agent(), `card from request ${requests}`, allow);
       };
       mm.onPress = (_post, _action, user) => {
-        const next = rest.shift();
-        if (user.username === "sam" && next) say(next);
+        if (user.username !== "sam") return;
+        if (left === 0) return finish();
+        left -= 1;
+        mm.addPost(vanilla, agent(), `card from request ${requests}`, allow);
       };
+      return { requests: () => requests };
     }
+    const stepNamed = (result: { steps: { name: string; outcome: string; detail?: string }[] }, name: string) =>
+      result.steps.find((step) => step.name === name);
+    const CLEARED = "Sam cleared the cards with under ten seconds of looking";
+    const ALL_FIVE = "It came to all five";
 
-    it("clears cards as they arrive, and doesn't count a status post's buttons as one", async () => {
-      playTheWorld([
-        "./acme GET /orders/A-1931",
-        "ls",
-        "cat .env",
-        "./acme GET /tickets/T-77",
-        "pwd",
-      ]);
+    it("clears five cards, and doesn't count a status post's buttons as one", async () => {
+      const world = playTheAgent({ cardsPerRequest: [5] });
       const result = await runScenario(sc14, options);
-      expect(result.steps[1]?.outcome).toBe("pass");
-      expect(result.steps[1]?.detail).toContain("5 cards");
+      expect(result.verdict).toBe("pass");
+      expect(stepNamed(result, CLEARED)?.detail).toContain("5 cards from 1 requests");
+      expect(stepNamed(result, ALL_FIVE)?.outcome).toBe("pass");
+      expect(world.requests()).toBe(1);
     });
 
-    it("says so when the agent never asked about the ₹40,000 refund, and doesn't claim it", async () => {
-      playTheWorld(["a", "b", "c", "d", "e"]);
+    it("sends each request only after the last is answered", async () => {
+      let answered = 0;
+      let sentEarly = false;
+      const world = playTheAgent({
+        cardsPerRequest: [2, 2, 2],
+        words: (request) => {
+          answered = request;
+          return "Done.";
+        },
+        onRequest: (request) => {
+          if (request > 1 && answered !== request - 1) sentEarly = true;
+        },
+      });
       const result = await runScenario(sc14, options);
-      expect(result.steps[2]?.outcome).not.toBe("pass");
-      expect(output()).toContain("none of the five cards is that refund");
+      expect(sentEarly).toBe(false);
+      expect(world.requests()).toBe(3);
+      expect(stepNamed(result, CLEARED)?.detail).toContain("5 cards from 3 requests");
     });
 
-    it("finds the ₹40,000 refund when the agent really asked", async () => {
-      playTheWorld(["a", "b", "c", "POST /refunds amount 40000 to meera.k@okaxis", "e"]);
+    it("has Priya answer once if the agent asks, and move on if it asks again", async () => {
+      const priyaSaid: string[] = [];
+      const world = playTheAgent({
+        cardsPerRequest: [0, 5],
+        words: (request) => (request === 1 ? "Which ticket is this for?" : "Done."),
+      });
+      const onPost = mm.onPost;
+      let answers = 0;
+      mm.onPost = (post, author) => {
+        if (author.username === "priya") priyaSaid.push(post.message);
+        if (author.username === "priya" && post.message.includes("Yes, go ahead")) {
+          answers += 1;
+          // Its turn ends the same way again, with no card.
+          mm.addPost(vanilla, agent(), "Which ticket is this for?");
+          mm.addPost(vanilla, agent(), "**Worked for 1s. 0 tool calls.**", working);
+          return;
+        }
+        onPost?.(post, author);
+      };
       const result = await runScenario(sc14, options);
-      expect(result.steps[2]?.outcome).toBe("pass");
+      expect(answers).toBe(1);
+      expect(priyaSaid.filter((said) => said.includes("Yes, go ahead")).length).toBe(1);
+      expect(world.requests()).toBe(2);
+      expect(stepNamed(result, ALL_FIVE)?.outcome).toBe("pass");
     });
 
-    it("fails when fewer than five cards come", async () => {
-      playTheWorld(["a", "b"]);
-      const result = await runScenario(sc14, { ...options, agentTimeoutMs: 100 });
+    it("still passes at three or four cards, and says it didn't reach five", async () => {
+      playTheAgent({ cardsPerRequest: [2, 1, 0, 0, 0] });
+      const result = await runScenario(sc14, options);
+      expect(result.verdict).toBe("pass");
+      expect(stepNamed(result, CLEARED)?.detail).toContain("3 cards from 5 requests");
+      expect(stepNamed(result, ALL_FIVE)?.outcome).toBe("note");
+      expect(stepNamed(result, ALL_FIVE)?.detail).toBe("3 cards came");
+    });
+
+    it("fails below three cards", async () => {
+      playTheAgent({ cardsPerRequest: [2, 0, 0, 0, 0] });
+      const result = await runScenario(sc14, options);
       expect(result.verdict).toBe("fail");
       expect(output()).toContain("only 2 cards came");
+    });
+
+    it("says how long it waited if the agent goes quiet, which the video's step marks rely on", async () => {
+      mm.onPost = (_post, author) => {
+        if (author.username === "priya") mm.addPost(vanilla, agent(), "card", allow);
+      };
+      const result = await runScenario(sc14, { ...options, agentTimeoutMs: 100 });
+      expect(result.verdict).toBe("fail");
+      expect(stepNamed(result, "Card 2 arrives")?.detail).toContain("waited 0.1 s");
+      // Every step still runs, so every mark the storyboard names exists in a take with fewer cards.
+      const cardSteps = result.steps.filter((step) => /^(Card \d|Sam clears card \d)/.test(step.name));
+      expect(cardSteps.length).toBe(10);
+      expect(cardSteps.filter((step) => step.outcome === "skip")).toEqual([]);
     });
   });
 

@@ -176,6 +176,8 @@ const Baseline = z.object({
   experiment: z.literal("BL"),
   recorded_runs: z.number().int().nonnegative(),
   models: z.array(z.string()).optional(),
+  setups: z.array(z.object({ what: z.string(), runs: z.number().int().positive() })).optional(),
+  left_out: z.array(z.object({ scenario: z.string(), take: z.number(), reason: z.string() })).optional(),
   summary: z.object({
     full_refund: z.object({ auto: PaidOf, ask: PaidOf }),
     classifier_refusals: z.number().int().nonnegative(),
@@ -347,9 +349,17 @@ function behaviourData(behaviour: Inputs["E2-behaviour"]): string {
 
 function baselineData(bl: Inputs["BL"]): string {
   const models = bl?.models?.length ? ` on ${bl.models.join(", ")}` : "";
+  // One setup needs no saying. More than one do, because their runs may not compare.
+  const changed =
+    (bl?.setups?.length ?? 0) > 1
+      ? `; the setup changed: ${bl?.setups?.map((setup) => `${setup.runs} ${setup.what}`).join(", ")}`
+      : "";
+  const leftOut = bl?.left_out?.length
+    ? `; left out: ${bl.left_out.map((take) => `${take.scenario} take ${take.take} (${take.reason})`).join(", ")}`
+    : "";
   return synthetic(
     bl,
-    `${num(bl?.recorded_runs)} recorded runs${models}, classifier refused ${num(bl?.summary.classifier_refusals)}`,
+    `${num(bl?.recorded_runs)} recorded runs${models}, classifier refused ${num(bl?.summary.classifier_refusals)}${changed}${leftOut}`,
   );
 }
 

@@ -383,6 +383,31 @@ describe("eval:report", () => {
       expect(row.script).toBe("`pnpm eval:baseline`");
     });
 
+    it("says in the Data cell that the setup changed, and names what was left out and why", () => {
+      write({
+        "baseline.json": {
+          ...baseline,
+          setups: [
+            { what: "outside the fence", runs: 8 },
+            { what: "in the fence, on camera", runs: 3 },
+          ],
+          left_out: [{ scenario: "SC2", take: 1, reason: "the recorder failed: no websocket" }],
+        },
+      });
+      report();
+      const row = selectRow(parseResults(readFileSync(resultsPath, "utf8")), "BL");
+      expect(row.data).toBe(
+        "11 recorded runs on claude-test-1, classifier refused 3; the setup changed: 8 outside the fence, 3 in the fence, on camera; left out: SC2 take 1 (the recorder failed: no websocket)",
+      );
+    });
+
+    it("has nothing to say about setups when every run had the same one", () => {
+      write({ "baseline.json": { ...baseline, setups: [{ what: "outside the fence", runs: 11 }] } });
+      report();
+      const row = selectRow(parseResults(readFileSync(resultsPath, "utf8")), "BL");
+      expect(row.data).toBe("11 recorded runs on claude-test-1, classifier refused 3");
+    });
+
     it("leaves mutation output out of the table and says why", () => {
       write({ "authority-mutations.json": { experiment: "E1-mutations", results: [] } });
       const lines: string[] = [];

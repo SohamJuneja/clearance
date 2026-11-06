@@ -7,6 +7,7 @@ import {
   handleOf,
   waitForCard,
   waitForRoomCard,
+  tryToApprove,
   waitForClearanceSays,
   waitForHold,
 } from "./common.ts";
@@ -83,7 +84,8 @@ export default defineScenario<State>({
           state.clr!,
           state.prompt!.create_at,
         );
-        await answerCard(ctx.people.sam, roomCard, "yes");
+        // This card is critical, so a questions card: it takes the recipient's domain, typed, and refuses `A1 yes`.
+        await tryToApprove(ctx.people.sam, roomCard, "gmail.com");
         return handleOf(roomCard);
       },
     },
@@ -101,7 +103,7 @@ export default defineScenario<State>({
       },
     },
     {
-      name: "Priya denies",
+      name: "Priya chooses No on the card",
       run: async (ctx, state) => {
         await answerCard(ctx.people.priya, state.card!, "no");
       },

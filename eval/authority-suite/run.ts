@@ -1,10 +1,11 @@
 /**
  * `pnpm eval:authority`, E1: the 25 cases of PLAN 10.2. Condition C is run against real Acme, gate and core
- * processes on their own ports, one fresh world per case. B-auto and B-ask come from baselines.ts, read from
- * Switch's code, and the output says so. Writes eval/out/authority.json.
+ * processes on their own ports, one fresh world per case and per variant. B-auto and B-ask come from baselines.ts,
+ * read from Switch's code, and the output says so. The audit regression group (audit.ts) runs after them and gets its
+ * own line, so C stays comparable. Writes eval/out/authority.json.
  *
- *   pnpm eval:authority              every case, isolated
- *   pnpm eval:authority --case 1,8   just those, printed but not saved
+ *   pnpm eval:authority              every case and audit check, isolated
+ *   pnpm eval:authority --case 1,F2  just those, printed but not saved
  *   pnpm eval:authority --live       cases 1, 4, 5 and 22 through real Mattermost. Touches the shared stack,
  *                                    so it also needs CLEARANCE_EVAL_LIVE_OK=1.
  *
@@ -13,7 +14,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { findUpwards, REPO_ROOT } from "../lib/paths.ts";
-import { IsolatedWorld } from "../harness/world.ts";
+import { AUDIT_CHECKS, AUDIT_FOUND_BY } from "./audit.ts";
 import {
   BASELINE_BASIS,
   BASELINES,
@@ -22,7 +23,8 @@ import {
   verifyBaselines,
 } from "./baselines.ts";
 import { type AuthorityCase, CASES } from "./cases.ts";
-import { countPrevented, Findings, type Outcome, StopCase, verdictOf } from "./scene.ts";
+import { runCheck } from "./execute.ts";
+import { countPrevented, type Outcome } from "./scene.ts";
 
 export interface CaseOutcome {
   id: number;
@@ -42,29 +44,13 @@ export interface CaseOutcome {
 const print = (line: string): void => void process.stdout.write(`${line}\n`);
 
 async function runCase(authorityCase: AuthorityCase): Promise<CaseOutcome["clearance"]> {
-  const started = Date.now();
-  const findings = new Findings();
-  let error: string | undefined;
-  let world: IsolatedWorld | undefined;
-  try {
-    world = await IsolatedWorld.start({
-      name: `authority-${authorityCase.id}`,
-      extraClasses: authorityCase.extraClasses,
-    });
-    await authorityCase.run(world, findings);
-    if (!(await world.ledgerVerifies())) findings.control("the ledger chain verifies", false);
-  } catch (caught) {
-    if (!(caught instanceof StopCase)) error = (caught as Error).message;
-  } finally {
-    await world?.stop().catch(() => undefined);
-  }
-  const verdict = verdictOf(findings, error);
+  const result = await runCheck(authorityCase);
   return {
-    outcome: verdict.outcome,
-    why: verdict.why,
-    evidence: findings.evidence,
+    outcome: result.outcome,
+    why: result.why,
+    evidence: result.evidence,
     chat: authorityCase.chat,
-    duration_ms: Date.now() - started,
+    duration_ms: result.durationMs,
   };
 }
 
@@ -88,10 +74,9 @@ async function main(): Promise<number> {
     return runLive(print);
   }
   const caseArg = args[args.indexOf("--case") + 1];
-  const only = args.includes("--case")
-    ? new Set((caseArg ?? "").split(",").map(Number))
-    : undefined;
-  const chosen = only ? CASES.filter((one) => only.has(one.id)) : CASES;
+  const only = args.includes("--case") ? new Set((caseArg ?? "").split(",")) : undefined;
+  const chosen = only ? CASES.filter((one) => only.has(String(one.id))) : CASES;
+  const chosenAudit = only ? AUDIT_CHECKS.filter((one) => only.has(one.id)) : AUDIT_CHECKS;
 
   // Baselines that no longer match the pinned code would be worse than none, so check before printing them.
   const switchFile = findUpwards("vendor/switch/core/switch_core");
@@ -124,11 +109,34 @@ async function main(): Promise<number> {
     if (clearance.outcome !== "prevented") print(`        ${clearance.why}`);
   }
 
+  const auditResults = [];
+  for (const one of chosenAudit) {
+    const result = await runCheck(one);
+    auditResults.push({
+      id: one.id,
+      title: one.title,
+      bad_outcome: one.badOutcome,
+      outcome: result.outcome,
+      why: result.why,
+      evidence: result.evidence,
+      duration_ms: result.durationMs,
+    });
+    const marker = result.outcome === "prevented" ? "ok  " : "FAIL";
+    print(
+      `${marker} ${one.id.padStart(2)}  ${result.outcome.padEnd(16)} ${one.title}  (${(result.durationMs / 1000).toFixed(1)} s)`,
+    );
+    if (result.outcome !== "prevented") print(`        ${result.why}`);
+  }
+
   print("");
   for (const line of table(results)) print(line);
   const prevented = (pick: (row: CaseOutcome) => Outcome): number =>
     countPrevented(results.map(pick));
   const total = results.length;
+  const audit = {
+    passed: countPrevented(auditResults.map((row) => row.outcome)),
+    total: auditResults.length,
+  };
   const summary = {
     b_auto: { prevented: prevented((row) => row.b_auto.outcome), total },
     b_ask: { prevented: prevented((row) => row.b_ask.outcome), total },
@@ -138,6 +146,7 @@ async function main(): Promise<number> {
   print(
     `Prevented of ${total}: B-auto ${summary.b_auto.prevented}, B-ask ${summary.b_ask.prevented}, C ${summary.clearance.prevented}`,
   );
+  print(`Audit: ${audit.passed} of ${audit.total}, apart from the ${total}. ${AUDIT_FOUND_BY}`);
   print(BASELINE_BASIS);
   print(
     "C ran on isolated real processes with a fake ChatPort. Calls are scripted, so this proves the controls, not how an agent behaves.",
@@ -156,6 +165,7 @@ async function main(): Promise<number> {
         experiment: "E1",
         ...summary,
         cases: total,
+        audit: { ...audit, found_by: AUDIT_FOUND_BY, per_check: auditResults },
         baseline_basis: BASELINE_BASIS,
         switch_pin: SWITCH_PIN,
         mode: "isolated processes, fake ChatPort",

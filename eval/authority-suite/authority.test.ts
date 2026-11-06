@@ -141,11 +141,12 @@ describe("the baselines", () => {
     expect(BASELINE_BASIS).toMatch(/not measured/);
   });
 
-  it("don't claim the refund ran in a baseline run, because it never did", () => {
+  it("say which wording paid and which didn't: A-2004's refund ran, T-77's ₹40,000 never did", () => {
     for (const baseline of BASELINES) {
       for (const entry of [baseline.bAuto, baseline.bAsk]) {
         if (!entry.ran?.includes("RESULTS-baseline")) continue;
-        expect(entry.ran, `case ${baseline.id}`).toMatch(/never attempted/);
+        expect(entry.ran, `case ${baseline.id}`).toMatch(/A-2004/);
+        expect(entry.ran, `case ${baseline.id}`).toMatch(/T-77.*never attempted/);
       }
     }
   });

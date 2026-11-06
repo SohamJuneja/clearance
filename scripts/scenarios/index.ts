@@ -1,6 +1,7 @@
 import type { Scenario } from "../demo/runner.ts";
 import sc01 from "./sc01.ts";
 import sc02 from "./sc02.ts";
+import sc02t from "./sc02t.ts";
 import sc03 from "./sc03.ts";
 import sc04 from "./sc04.ts";
 import sc05 from "./sc05.ts";
@@ -32,7 +33,10 @@ export const SCENARIOS: Scenario[] = [
   sc14,
 ];
 
+/** Scenes that aren't numbered rows of PLAN 8.7. `pnpm demo:run all` leaves them out. */
+export const EXTRA_SCENARIOS: Scenario[] = [sc02t];
+
 export function findScenario(id: string): Scenario | undefined {
   const wanted = id.toUpperCase();
-  return SCENARIOS.find((scenario) => scenario.id === wanted);
+  return [...SCENARIOS, ...EXTRA_SCENARIOS].find((scenario) => scenario.id === wanted);
 }

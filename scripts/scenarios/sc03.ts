@@ -8,12 +8,14 @@ import {
   handleOf,
   waitForCard,
   waitForClearanceSays,
-  waitForHold,
+  waitForHoldAnsweringOnce,
   waitForRoomCard,
 } from "./common.ts";
 
 const ROOM = "support";
 const AGENT = "refunds-agent";
+/** Priya accepts the offer once, if there is one. Her line, never the agent's. */
+const PRIYA_ACCEPTS = "@refunds-agent Yes, ₹4,000 to meera.k@okaxis.";
 
 interface State {
   before?: AcmeState;
@@ -25,7 +27,7 @@ interface State {
 
 export default defineScenario<State>({
   id: "SC3",
-  title: "Clearance: hold, refusal, route, mismatch",
+  title: "Clearance: hold, refusal, route",
   inVideo: true,
   prompt: {
     by: "priya",
@@ -54,11 +56,20 @@ export default defineScenario<State>({
       },
     },
     {
-      name: "The refund is held, and the room hears a CLR id",
+      // Real runs: the agent caught the wrong amount and offered ₹4,000 to the new UPI ID, and Priya accepted.
+      name: "The refund is held, and the room hears a CLR id (if the agent asks first, Priya accepts once)",
       run: async (ctx, state) => {
-        state.held = await waitForHold(ctx, ctx.people.priya, ROOM, AGENT, state.prompt!);
-        state.clr = clrOf(state.held);
-        return state.clr;
+        const { held, answered } = await waitForHoldAnsweringOnce(
+          ctx,
+          ctx.people.priya,
+          ROOM,
+          AGENT,
+          state.prompt!,
+          PRIYA_ACCEPTS,
+        );
+        state.held = held;
+        state.clr = clrOf(held);
+        return `${state.clr}${answered ? ", after Priya accepted once" : ""}`;
       },
     },
     {
@@ -70,12 +81,16 @@ export default defineScenario<State>({
       },
     },
     {
-      name: "The card flags the amount against the order total",
+      // Conditional because it's the agent's choice, and the video's line depends on it. A take that says otherwise
+      // here can't carry that line. The 10x flag belongs to drills (SC9), never to this scene.
+      name: "The held call is the amount the order supports: the agent caught the wrong one",
+      conditional: true,
       run: async (_ctx, state) => {
         const text = postText(state.card!);
-        ensure(/10x|ten times/i.test(text), `no amount flag on the card: ${text.slice(0, 400)}`);
-        ensure(/₹?40,?000/.test(text), "the card doesn't show the amount of the call");
-        ensure(/₹?4,?000/.test(text), "the card doesn't show the order total");
+        ensure(
+          /REFUND ₹4,000\b/.test(text),
+          `this take's call isn't ₹4,000, so the video can't say the agent caught the amount: ${text.slice(0, 200)}`,
+        );
       },
     },
     {
@@ -85,17 +100,6 @@ export default defineScenario<State>({
         ensure(
           /destination added/i.test(text),
           `no new-destination flag on the card: ${text.slice(0, 400)}`,
-        );
-      },
-    },
-    {
-      name: "Mismatch flag, if the agent described ₹4,000 in the thread (conditional in PLAN 8.7)",
-      conditional: true,
-      run: async (_ctx, state) => {
-        const text = postText(state.card!);
-        ensure(
-          /the agent wrote/i.test(text),
-          "this take's agent didn't describe a different amount, so no mismatch flag. The scene still works",
         );
       },
     },
@@ -120,9 +124,9 @@ export default defineScenario<State>({
           ctx,
           ctx.people.priya,
           ROOM,
-          new RegExp(`Priya can't approve ${state.clr}`),
+          new RegExp(`Priya can't approve ${state.clr} \\(requester\\)`),
           state.prompt!.create_at,
-          "Clearance to refuse Priya's approval",
+          "Clearance to refuse Priya's approval, as the requester",
         );
         ensure(
           /Sam/.test(postText(refusal)),

@@ -6,6 +6,11 @@ max_duration_s: 180
 default_notices:
   - "persona actions are scripted; agents' words are not"
 
+cited:
+  - { value: "₹40,000", source: "a sign, to test the glyph" }
+  - { value: "Two windows", source: "there are two" }
+  - { value: "of 25", source: "the size of E1's suite" }
+
 scenes:
   - id: smoke-title
     kind: card

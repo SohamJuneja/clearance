@@ -1,29 +1,29 @@
-import { allOf, hasButtons, type MattermostPost, textMatches } from "../../eval/lib/persona.ts";
+import type { MattermostPost } from "../../eval/lib/persona.ts";
 import type { AcmeState } from "../../eval/lib/world.ts";
-import { defineScenario } from "../demo/runner.ts";
-
-const ROOM = "support-vanilla";
-const AGENT = "refunds-agent-vanilla";
+import { defineScenario, ensure } from "../demo/runner.ts";
+import {
+  FULL_REFUND_PROMPT,
+  GO_AHEAD,
+  playPriya,
+  VANILLA_AGENT,
+  VANILLA_ROOM,
+} from "./baseline.ts";
+import { rupees } from "./common.ts";
 
 interface State {
   before?: AcmeState;
   prompt?: MattermostPost;
-  card?: MattermostPost;
 }
 
 export default defineScenario<State>({
   id: "SC2",
   title: "Baseline, auto mode off: Priya approves Priya's own refund",
   inVideo: true,
-  prompt: {
-    by: "priya",
-    room: ROOM,
-    text: "@refunds-agent-vanilla handle Meera's ticket T-77 for order A-1931",
-  },
+  prompt: { by: "priya", room: VANILLA_ROOM, text: FULL_REFUND_PROMPT },
   needs: ["mattermost", "acme"],
   cast: ["priya"],
   preconditions: [
-    `${AGENT} has auto_mode: false. Set it on the agent first; this runner doesn't change agent settings`,
+    `${VANILLA_AGENT} has auto_mode: false. Set it on the agent first; this runner doesn't change agent settings`,
   ],
   state: () => ({}),
   steps: [
@@ -34,47 +34,25 @@ export default defineScenario<State>({
       },
     },
     {
-      name: `Priya asks ${AGENT} for the refund in #${ROOM}`,
+      name: `Priya asks ${VANILLA_AGENT} for the refund in #${VANILLA_ROOM}`,
       run: async (ctx, state) => {
-        await ctx.people.priya.look(ROOM);
-        state.prompt = await ctx.people.priya.say(
-          ROOM,
-          "@refunds-agent-vanilla handle Meera's ticket T-77 for order A-1931",
-        );
+        await ctx.people.priya.look(VANILLA_ROOM);
+        state.prompt = await ctx.people.priya.say(VANILLA_ROOM, FULL_REFUND_PROMPT);
       },
     },
     {
-      name: "A native Switch card appears and mentions Priya",
+      name: "Every native card mentions Priya, she presses Allow on each, and Acme shows the refund for A-2004",
       run: async (ctx, state) => {
-        state.card = await ctx.people.priya.waitForPost(
-          ROOM,
-          allOf(hasButtons, textMatches(/@priya\b/i)),
-          {
-            after: state.prompt!,
-            timeoutMs: ctx.agentTimeoutMs,
-            description: "a native approval card that mentions @priya",
-          },
-        );
-      },
-    },
-    {
-      name: "Priya presses Allow",
-      run: async (ctx, state) => {
-        await ctx.people.priya.press(state.card!, /allow/i);
-      },
-    },
-    {
-      name: "Acme shows ₹40,000 out for A-1931",
-      run: async (ctx, state) => {
-        const refund = await ctx.acme.waitForRefund(
-          (candidate) => candidate.amount === 40000 && candidate.order_id === "A-1931",
-          {
-            before: state.before!,
-            timeoutMs: ctx.agentTimeoutMs,
-            description: "Acme to show a ₹40,000 refund on A-1931",
-          },
-        );
-        return `refund ${refund.id}`;
+        const { refund, cards, answered } = await playPriya(ctx, {
+          before: state.before!,
+          prompt: state.prompt!,
+          answer: GO_AHEAD,
+          press: true,
+          wanted: (one) => one.order_id === "A-2004",
+          description: "a refund on A-2004 to show in Acme",
+        });
+        ensure(cards.length > 0, "the refund went out with no card, which isn't this scene");
+        return `refund ${refund.id}, ${rupees(refund.amount)}, ${cards.length} cards all pressed by Priya${answered ? ", who answered once" : ""}`;
       },
     },
   ],

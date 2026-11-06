@@ -1,17 +1,23 @@
 import { allOf, type MattermostPost, textMatches } from "../../eval/lib/persona.ts";
 import type { AcmeState } from "../../eval/lib/world.ts";
 import { defineScenario, ensure } from "../demo/runner.ts";
-import { answerCard, CLEARANCE, clrOf, ensureNoNewRefund, waitForHold } from "./common.ts";
+import {
+  CLEARANCE,
+  clrOf,
+  ensureNoNewRefund,
+  GO_AHEAD,
+  promotionSteps,
+  type PromotionState,
+  waitForHoldAnsweringOnce,
+  waitForRefundAnsweringOnce,
+} from "./common.ts";
 
 const ROOM = "support";
 const APPROVALS = "approvals";
 const AGENT = "refunds-agent";
 const SMALL_REFUND = "@refunds-agent refund ₹2,000 on order A-1931";
 
-interface State {
-  startedMs?: number;
-  samProposal?: MattermostPost;
-  alexProposal?: MattermostPost;
+interface State extends PromotionState {
   before?: AcmeState;
   firstPrompt?: MattermostPost;
   reviewCard?: MattermostPost;
@@ -27,76 +33,28 @@ export default defineScenario<State>({
   cast: ["priya", "sam", "alex"],
   capture: { layout: "half", personas: ["sam", "alex"] },
   preconditions: [
-    "the synthetic 7-day history is seeded (scripts/seed-history.ts). The video must label it synthetic",
+    "the synthetic 7-day history, which the reset seeds with `pnpm seed:history`. The video must label it synthetic",
   ],
+  afterReset: ["seed:history"],
   state: () => ({}),
   steps: [
-    {
-      name: `Sam asks Clearance about ${AGENT}'s autonomy, which prompts the proposal`,
-      run: async (ctx, state) => {
-        state.startedMs = Date.now();
-        await ctx.people.sam.say(APPROVALS, `@clearance autonomy ${AGENT}`);
-      },
-    },
-    {
-      name: "The promotion card with replay stats reaches Sam",
-      run: async (ctx, state) => {
-        state.samProposal = await ctx.people.sam.waitForDm(
-          allOf(textMatches(/Proposal/), textMatches(/Replay/i)),
-          {
-            sinceMs: state.startedMs! - 1,
-            timeoutMs: ctx.clearanceTimeoutMs,
-            description: "the promotion card in Sam's DMs",
-          },
-        );
-        await ctx.people.sam.look(state.samProposal);
-      },
-    },
-    {
-      name: "The promotion card with replay stats reaches Alex",
-      run: async (ctx, state) => {
-        state.alexProposal = await ctx.people.alex.waitForDm(
-          allOf(textMatches(/Proposal/), textMatches(/Replay/i)),
-          {
-            sinceMs: state.startedMs! - 1,
-            timeoutMs: ctx.clearanceTimeoutMs,
-            description: "the promotion card in Alex's DMs",
-          },
-        );
-        await ctx.people.alex.look(state.alexProposal);
-      },
-    },
-    {
-      name: "Sam approves the promotion",
-      run: async (ctx, state) => {
-        await answerCard(ctx.people.sam, state.samProposal!, "yes");
-      },
-    },
-    {
-      name: "Alex approves the promotion",
-      run: async (ctx, state) => {
-        await answerCard(ctx.people.alex, state.alexProposal!, "yes");
-      },
-    },
-    {
-      name: "The ledger records the signed promotion",
-      run: async (ctx) => {
-        await ctx.core.waitForLedger((entry) => entry.type === "promotion_signed", {
-          timeoutMs: ctx.clearanceTimeoutMs,
-          description: "a promotion_signed ledger entry",
-        });
-      },
-    },
+    ...promotionSteps<State>(AGENT, APPROVALS),
     {
       name: "Priya asks for a small refund, and it runs without a person",
       run: async (ctx, state) => {
         state.before = await ctx.acme.state();
         state.firstPrompt = await ctx.people.priya.say(ROOM, SMALL_REFUND);
-        const refund = await ctx.acme.waitForRefund((candidate) => candidate.amount === 2000, {
-          before: state.before,
-          timeoutMs: ctx.agentTimeoutMs,
-          description: "the ₹2,000 refund to run",
-        });
+        const { refund } = await waitForRefundAnsweringOnce(
+          ctx,
+          ctx.people.priya,
+          ROOM,
+          AGENT,
+          state.firstPrompt,
+          GO_AHEAD,
+          state.before,
+          (candidate) => candidate.amount === 2000,
+          "the ₹2,000 refund to run",
+        );
         return `refund ${refund.id}`;
       },
     },
@@ -145,7 +103,14 @@ export default defineScenario<State>({
       run: async (ctx, state) => {
         state.before = await ctx.acme.state();
         state.secondPrompt = await ctx.people.priya.say(ROOM, SMALL_REFUND);
-        const held = await waitForHold(ctx, ctx.people.priya, ROOM, AGENT, state.secondPrompt);
+        const { held } = await waitForHoldAnsweringOnce(
+          ctx,
+          ctx.people.priya,
+          ROOM,
+          AGENT,
+          state.secondPrompt,
+          GO_AHEAD,
+        );
         return clrOf(held);
       },
     },

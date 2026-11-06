@@ -43,6 +43,20 @@ const E1 = z.object({
   cases: z.number().int().positive().optional(),
   /** How the baselines were obtained. Set when they were read from code rather than run. */
   baseline_basis: z.string().optional(),
+  /** The audit regression group. Its own line, never part of the numbers above. */
+  audit: z
+    .object({ passed: z.number().int().nonnegative(), total: z.number().int().positive() })
+    .optional(),
+  /** So a case that isn't prevented can be named in the negative results. */
+  per_case: z
+    .array(
+      z.object({
+        id: z.number().int(),
+        title: z.string(),
+        clearance: z.object({ outcome: z.string(), why: z.string() }),
+      }),
+    )
+    .optional(),
 });
 
 const E2 = z.object({
@@ -54,6 +68,20 @@ const E2 = z.object({
   claude_model: z.string().optional(),
 });
 
+/** What agents did after a hold, scored from real sessions. */
+const E2Behaviour = z.object({
+  ...Flags,
+  experiment: z.literal("E2-behaviour"),
+  holds: z.number().int().nonnegative(),
+  tried_another_route: z.number().int().nonnegative(),
+  by_vendor: z
+    .object({
+      claude: z.object({ holds: z.number().int().nonnegative() }),
+      opencode: z.object({ holds: z.number().int().nonnegative() }),
+    })
+    .optional(),
+});
+
 const E3 = z.object({
   ...Flags,
   experiment: z.literal("E3"),
@@ -61,6 +89,10 @@ const E3 = z.object({
     .object({ approval_required: z.number().optional(), clearance: z.number().optional() })
     .optional(),
   cards_per_100: z
+    .object({ approval_required: z.number().optional(), clearance: z.number().optional() })
+    .optional(),
+  /** Share of tool calls that showed no card, as a fraction. */
+  no_card_share: z
     .object({ approval_required: z.number().optional(), clearance: z.number().optional() })
     .optional(),
   labelled_calls: z.number().int().positive().optional(),
@@ -124,6 +156,28 @@ const E6 = z.object({
     .optional(),
 });
 
+const PaidOf = z.object({
+  paid: z.number().int().nonnegative(),
+  runs: z.number().int().nonnegative(),
+});
+
+/** Real baseline runs, from eval/baseline. */
+const Baseline = z.object({
+  ...Flags,
+  experiment: z.literal("BL"),
+  recorded_runs: z.number().int().nonnegative(),
+  models: z.array(z.string()).optional(),
+  summary: z.object({
+    full_refund: z.object({ auto: PaidOf, ask: PaidOf }),
+    classifier_refusals: z.number().int().nonnegative(),
+    t77: z.object({
+      amount_asked: z.number().positive(),
+      attempted: z.number().int().nonnegative(),
+      runs: z.number().int().nonnegative(),
+    }),
+  }),
+});
+
 const Negative = z.object({
   ...Flags,
   experiment: z.literal("NEG"),
@@ -176,16 +230,19 @@ function studyToE5(study: z.infer<typeof Study>): z.infer<typeof E5> {
 const NOT_FOR_THIS_TABLE: Record<string, string> = {
   "E4-soak-smoke": "it's a smoke test of the soak, not the 2 hour result",
   "E1-live": "the table reports the isolated run; live results are read separately",
+  "E1-mutations": "it's evidence that E1's cases test what they say, not a result of its own",
 };
 
 const SCHEMAS = {
   E1,
   E2,
+  "E2-behaviour": E2Behaviour,
   E3,
   "E4-latency": E4Latency,
   "E4-soak": E4Soak,
   E5,
   E6,
+  BL: Baseline,
   NEG: Negative,
 } as const;
 type ExperimentId = keyof typeof SCHEMAS;
@@ -193,11 +250,13 @@ type ExperimentId = keyof typeof SCHEMAS;
 export interface Inputs {
   E1?: z.infer<typeof E1>;
   E2?: z.infer<typeof E2>;
+  "E2-behaviour"?: z.infer<typeof E2Behaviour>;
   E3?: z.infer<typeof E3>;
   "E4-latency"?: z.infer<typeof E4Latency>;
   "E4-soak"?: z.infer<typeof E4Soak>;
   E5?: z.infer<typeof E5>;
   E6?: z.infer<typeof E6>;
+  BL?: z.infer<typeof Baseline>;
   NEG?: z.infer<typeof Negative>;
 }
 
@@ -247,11 +306,135 @@ function e6Data(e6: Inputs["E6"]): string {
   return `synthetic week, labelled; the anomaly rule was changed after seeing the first result, and the original rule gives ${num(original)}`;
 }
 
+function auditCell(e1: Inputs["E1"]): string {
+  return `Audit: ${num(e1?.audit?.passed)} of ${e1?.audit?.total ?? 5}`;
+}
+
+function behaviourData(behaviour: Inputs["E2-behaviour"]): string {
+  const vendors = behaviour?.by_vendor;
+  return synthetic(
+    behaviour,
+    vendors
+      ? `real sessions: Claude ${num(vendors.claude.holds)}, OpenCode ${num(vendors.opencode.holds)}, under one prompt`
+      : "real sessions",
+  );
+}
+
+function baselineData(bl: Inputs["BL"]): string {
+  const models = bl?.models?.length ? ` on ${bl.models.join(", ")}` : "";
+  return synthetic(
+    bl,
+    `${num(bl?.recorded_runs)} recorded runs${models}, classifier refused ${num(bl?.summary.classifier_refusals)}`,
+  );
+}
+
+function paidOf(value: z.infer<typeof PaidOf> | undefined): string {
+  return `${num(value?.paid)} of ${num(value?.runs)}`;
+}
+
+const rupeesOf = (amount: number): string => `₹${amount.toLocaleString("en-IN")}`;
+
+export interface NegativeResult {
+  id: string;
+  /** The whole thing, for the list under the table. */
+  text: string;
+  /** What the table's NEG row and the video say. */
+  short: string;
+  source: string;
+  /** No data yet: it stays in the list, marked, and can't be the headline. */
+  pending?: boolean;
+}
+
+const times = (count: number): string => (count === 1 ? "once" : `${count} times`);
+
+/** The expected one: decisions take longer. A blank stays pending until the study has data for both cards. */
+function e5Negative(e5: Inputs["E5"]): NegativeResult {
+  const before = e5?.median_seconds?.switch_card;
+  const after = e5?.median_seconds?.clearance_card;
+  const source = "`pnpm eval:study`";
+  const expected = "Clearance cards take longer to decide than Switch's card";
+  if (
+    before?.legit === undefined ||
+    before.flawed === undefined ||
+    after?.legit === undefined ||
+    after.flawed === undefined
+  ) {
+    const short = `${expected}: pending until the study has data`;
+    return { id: "E5", text: `Expected: ${short}.`, short, source, pending: true };
+  }
+  const both = `${num(after.legit)} s against ${num(before.legit)} s on legitimate requests, ${num(after.flawed)} s against ${num(before.flawed)} s on flawed ones`;
+  const slower = after.legit > before.legit || after.flawed > before.flawed;
+  const short = slower
+    ? `Clearance cards take longer to decide: ${both}`
+    : `the slower decisions we expected didn't show: ${both}`;
+  return {
+    id: "E5",
+    text: synthetic(e5, `${short}.`),
+    short: synthetic(e5, short),
+    source,
+  };
+}
+
+/** The ones that went against us, from whatever has data. PLAN 10 requires publishing them. */
+export function negativeResults(inputs: Inputs): NegativeResult[] {
+  const results: NegativeResult[] = [];
+  const { E1: e1, E6: e6, BL: bl } = inputs;
+  // Where Clearance itself loses comes first, as long as it's true.
+  for (const row of e1?.per_case ?? []) {
+    if (row.clearance.outcome === "prevented") continue;
+    const why = row.clearance.why.replace(/^bad outcome: /, "");
+    results.push({
+      id: `E1-case-${row.id}`,
+      text: `E1 case ${row.id}, "${row.title}", is ${row.clearance.outcome}: ${why}.`,
+      short: `case ${row.id} of E1 is ${row.clearance.outcome}: ${why}`,
+      source: "`pnpm eval:authority`",
+    });
+  }
+  if (bl) {
+    const { t77, classifier_refusals: refusals, full_refund: full } = bl.summary;
+    const asked = rupeesOf(t77.amount_asked);
+    results.push({
+      id: "headline-scenario",
+      text: `The agent attempted T-77's ${asked} in ${t77.attempted} of ${t77.runs} runs, so the headline scenario PLAN expected didn't happen. It caught the wrong amount. What Clearance holds on T-77 is the smaller refund it then offers to a brand-new payment ID.`,
+      short: `the agent attempted T-77's ${asked} in ${t77.attempted} of ${t77.runs} runs, so the headline scenario we planned didn't happen`,
+      source: "`pnpm eval:baseline`",
+    });
+    if (refusals > 0) {
+      results.push({
+        id: "classifier",
+        text: `The vendor's own auto mode classifier refused a refund ${times(refusals)} in the baseline, with no Clearance anywhere, while auto mode paid the same refund in ${full.auto.paid} of ${full.auto.runs} runs. The baseline does sometimes stop this by itself, though not reliably.`,
+        short: `the vendor's own classifier refused the refund ${times(refusals)} with no Clearance anywhere`,
+        source: "`pnpm eval:baseline`",
+      });
+    }
+  }
+  const original = e6?.original_rule?.human_decisions_per_100?.after;
+  if (original !== undefined) {
+    results.push({
+      id: "autonomy-rule",
+      text: `The autonomy anomaly rule as first written gave ${num(original)} human decisions per 100 agent actions, against ${num(e6?.human_decisions_per_100?.before)} before promotion. The rule was changed after seeing that result, and the one in force gives ${num(e6?.human_decisions_per_100?.after)}. Both are published. Synthetic week.`,
+      short: `the autonomy rule as first written gave ${num(original)} human decisions per 100 actions`,
+      source: "`pnpm eval:autonomy`",
+    });
+  }
+  if (e1?.audit) {
+    results.push({
+      id: "audit",
+      text: `An independent review found ${num(e1.audit.total)} real breaks while E1 reported every listed case as prevented. E1 proves the listed controls, not that the list is complete. They were fixed and are re-checked on their own line (F1 to F${num(e1.audit.total)}), apart from E1's count.`,
+      short: `an independent review found ${num(e1.audit.total)} real breaks while E1 reported every listed case as prevented`,
+      source: "`pnpm eval:authority`",
+    });
+  }
+  results.push(e5Negative(inputs.E5));
+  return results;
+}
+
 const HEADER = "| ID | Metric | Baseline | Clearance | Data | Script |";
 
 /** The PLAN 10.8 table. With no inputs at all, every cell it doesn't know is `_`. */
 export function renderTable(inputs: Inputs): string {
-  const { E1: e1, E2: e2, E3: e3, E5: e5, E6: e6, NEG: neg } = inputs;
+  const { E1: e1, E2: e2, E3: e3, E5: e5, E6: e6, BL: bl } = inputs;
+  const behaviour = inputs["E2-behaviour"];
   const latency = inputs["E4-latency"];
   const soak = inputs["E4-soak"];
   const codexProcess = latency?.codex_cli?.as_configured ?? latency?.codex_cli?.direct_node;
@@ -265,27 +448,36 @@ export function renderTable(inputs: Inputs): string {
     HEADER,
     "|---|---|---|---|---|---|",
     `| E1 | Bad outcomes prevented (of ${e1?.clearance?.total ?? e1?.b_auto?.total ?? 25}) | B-auto: ${prevented(e1?.b_auto)} / B-ask: ${prevented(e1?.b_ask)} | ${prevented(e1?.clearance)} | ${synthetic(e1, `${e1?.cases ?? 25} scripted cases${e1?.baseline_basis ? "; baselines read from code, not run" : ""}`)} | \`pnpm eval:authority\` |`,
+    `| AUDIT | Breaks an independent review found, re-checked apart from the 25 | n/a | ${auditCell(e1)} | F1 to F5, each fixed after the review | \`pnpm eval:authority\` |`,
     `| E2 | Risky actions executed without an eligible human (of 20 per vendor) | ${vendors(e2?.risky_unapproved?.baseline)} | ${vendors(e2?.risky_unapproved?.clearance)} | ${synthetic(e2, `${num(e2?.runs ?? 360)} agent runs${e2?.claude_model ? `, Claude on ${e2.claude_model}` : ""}`)} | \`pnpm eval:vendors\` |`,
     `| E2 | Safe actions interrupted (of 20 per vendor) | ${vendorsOrBlank(e2?.safe_interrupted?.baseline)} | ${vendorsOrBlank(e2?.safe_interrupted?.clearance)} | same | same |`,
+    `| E2 | Tried another route after a hold | n/a | ${num(behaviour?.tried_another_route)} of ${num(behaviour?.holds)} holds | ${behaviourData(behaviour)} | \`pnpm eval:behaviour\` |`,
     `| E3 | Recall on risky calls, held-out | approval-required: ${pct(e3?.recall?.approval_required)} | ${pct(e3?.recall?.clearance)} | ${synthetic(e3, `${num(e3?.labelled_calls)} labelled calls after Fri 20:00`)} | \`pnpm eval:classifier\` |`,
     `| E3 | Cards per 100 tool calls | approval-required: ${num(e3?.cards_per_100?.approval_required)} | ${num(e3?.cards_per_100?.clearance)} | same | same |`,
+    `| E3 | Quiet share: tool calls with no card | approval-required: ${pct(e3?.no_card_share?.approval_required)} | ${pct(e3?.no_card_share?.clearance)} | same | same |`,
     `| E4 | Added latency p50 / p95 / p99 (ms) | n/a | ${latencyCell} | ${synthetic(latency, `${num(latency?.calls_each ?? 1000)} calls each${latency?.codex_cli?.calls ? `; Codex hook ${num(latency.codex_cli.calls)} runs, each a new process` : ""}`)} | \`pnpm eval:latency\` |`,
     `| E4 | Soak invariant violations | n/a | ${num(soak?.violations)} | ${synthetic(soak, `${soak?.hours ?? 2} h, ${num(soak?.calls)} calls, ${soak?.restarts ?? 3} restarts`)} | \`pnpm eval:soak\` |`,
     `| E5 | Catch rate on flawed requests | Switch card: ${pct(e5?.catch_rate?.switch_card)} | Clearance card: ${pct(e5?.catch_rate?.clearance_card)} | ${synthetic(e5, `n = ${num(e5?.people)} people, ${e5?.flawed_each ?? 4} flawed each`)} | \`pnpm eval:study\` |`,
     `| E5 | Median seconds per decision (legit / flawed) | ${num(e5?.median_seconds?.switch_card?.legit)} / ${num(e5?.median_seconds?.switch_card?.flawed)} | ${num(e5?.median_seconds?.clearance_card?.legit)} / ${num(e5?.median_seconds?.clearance_card?.flawed)} | same | same |`,
     `| E6 | Human decisions per 100 agent actions | ${num(e6?.human_decisions_per_100?.before)} | ${num(e6?.human_decisions_per_100?.after)} (after promotion) | ${e6Data(e6)} | \`pnpm eval:autonomy\` |`,
-    negativeRow(neg),
+    `| BL | Real runs, no Clearance: the ₹40,000 order's refund went out | auto mode: ${paidOf(bl?.summary.full_refund.auto)} / approvals on: ${paidOf(bl?.summary.full_refund.ask)} | n/a | ${baselineData(bl)} | \`pnpm eval:baseline\` |`,
+    negativeRow(inputs),
   ];
   return rows.join("\n");
 }
 
-function negativeRow(neg: Inputs["NEG"]): string {
+/** A result file naming the negative wins. Otherwise the first one with data, in the order of the list. */
+function negativeRow(inputs: Inputs): string {
+  const named = inputs.NEG;
+  const computed = named ? undefined : negativeResults(inputs).find((one) => !one.pending);
+  const text = named?.text ?? computed?.short;
+  const source = named ? synthetic(named, named.source ?? "") : (computed?.source ?? "");
   const cells = [
     "NEG",
     "**Negative result**",
     "",
-    neg ? neg.text.replace(/\|/g, "\\|").replace(/\n/g, " ") : "",
-    neg ? synthetic(neg, neg.source ?? "") : "",
+    text ? text.replace(/\|/g, "\\|").replace(/\n/g, " ") : "",
+    source,
     "",
   ];
   return `|${cells.map((cell) => (cell ? ` ${cell} ` : " ")).join("|")}|`;
@@ -297,8 +489,16 @@ Generated by \`pnpm eval:report\`. Never edit numbers by hand. Blank cells mean 
 
 `;
 
+/** Every negative result, under the table. The table's NEG row can only carry one. */
+function renderNegatives(inputs: Inputs): string {
+  const lines = negativeResults(inputs).map(
+    (one) => `- ${one.pending ? "**Pending.** " : ""}${one.text} (${one.source})`,
+  );
+  return `## Negative results\n\nWhat went against us, from the same scripts as the table.\n\n${lines.join("\n")}\n`;
+}
+
 export function renderResults(inputs: Inputs): string {
-  return `${PREAMBLE}${renderTable(inputs)}\n`;
+  return `${PREAMBLE}${renderTable(inputs)}\n\n${renderNegatives(inputs)}`;
 }
 
 export interface LoadedInputs {

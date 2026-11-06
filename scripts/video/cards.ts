@@ -4,7 +4,7 @@
  */
 import { join } from "node:path";
 import { launchBrowser } from "./capture.ts";
-import { PENDING, type ResultRow, selectRow, showCell } from "./results.ts";
+import { PENDING, type ResultRow, showCell, slideRows } from "./results.ts";
 
 function escapeHtml(text: string): string {
   return text
@@ -32,6 +32,7 @@ const PAGE_STYLE = `
   td.data { width: 16%; font-size: 21px; color: #9aa0ac; }
   .pending { color: #7c828e; font-style: italic; font-weight: 400; }
   .foot { font-size: 23px; color: #9aa0ac; }
+  .still { display: block; height: 400px; width: auto; align-self: flex-start; border: 1px solid #2b2f37; }
 `;
 
 function page(body: string): string {
@@ -43,10 +44,11 @@ function inlineMarkup(text: string): string {
   return escapeHtml(text).replace(/`([^`]+)`/g, "<code>$1</code>");
 }
 
-export function cardHtml(headline: string, lines: string[] = []): string {
+/** `image` is a data URI: a card is rendered from a string, with nothing to load a file from. */
+export function cardHtml(headline: string, lines: string[] = [], image?: string): string {
   const rows = lines.map((line) => `<div>${inlineMarkup(line)}</div>`).join("");
   return page(
-    `<div class="stage"><h1>${inlineMarkup(headline)}</h1>${rows ? `<div class="lines">${rows}</div>` : ""}</div>`,
+    `<div class="stage"><h1>${inlineMarkup(headline)}</h1>${rows ? `<div class="lines">${rows}</div>` : ""}${image ? `<img class="still" alt="" src="${image}">` : ""}</div>`,
   );
 }
 
@@ -69,14 +71,16 @@ function dataOf(rows: ResultRow[], row: ResultRow): string {
 }
 
 export function numbersHtml(headline: string, rows: ResultRow[], selectors: string[]): string {
-  const body = selectors
-    .map((selector) => {
-      const row = selectRow(rows, selector);
+  const body = slideRows(rows, selectors)
+    .map((row) => {
+      // Once the negative row has its words, its other cells were never going to hold a number.
+      const beside = (cell: string): string =>
+        row.id === "NEG" && row.clearance !== "" && cell === "" ? "" : slideCell(cell);
       return `<tr>
         <td class="metric">${slideCell(row.metric)}</td>
-        <td>${slideCell(row.baseline)}</td>
+        <td>${beside(row.baseline)}</td>
         <td class="clearance">${slideCell(row.clearance)}</td>
-        <td class="data">${slideCell(dataOf(rows, row))}</td>
+        <td class="data">${beside(dataOf(rows, row))}</td>
       </tr>`;
     })
     .join("");

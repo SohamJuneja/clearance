@@ -60,7 +60,7 @@ export default defineScenario<State>({
       },
     },
     {
-      name: "Alex denies",
+      name: "Alex chooses No on the card",
       run: async (ctx, state) => {
         await answerCard(ctx.people.alex, state.card!, "no");
       },

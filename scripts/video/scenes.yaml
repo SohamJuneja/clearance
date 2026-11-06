@@ -1,25 +1,42 @@
 # The demo video, built from the table in PLAN section 12. `pnpm video:build` reads this.
 #
-# Voice-over is read as written. `{{E1.clearance}}` pulls a cell from RESULTS.md at build time, and a cell
-# with no number yet reads "pending". Never type a result here.
+# Voice-over is read as written. `{{E1.clearance}}` pulls a cell from RESULTS.md at build time, a cell with
+# no number yet reads "pending", and `[[if E2/risky.clearance]]...[[/if]]` is only said once that cell has one.
+# Never type a result here: a number that isn't from RESULTS.md or listed under `cited` fails the build.
 #
 # Clips are relative to docs/media/raw/ and come from `pnpm demo:run <SC> --record`. Pin a good take by
 # replacing `latest` with its number. `segments` keeps parts of a clip, in seconds or by scenario step name.
-#
-# The 93% in sc14 and sc9 is Anthropic's published figure, not one of ours. It's in the plan's script, and
-# the notice on those scenes names the source.
 
 max_duration_s: 180
 
 default_notices:
   - "persona actions are scripted; agents' words are not"
 
+# Every number that isn't one of our results, and where it comes from.
+cited:
+  - {
+      value: "93%",
+      source: "Anthropic, Claude Code auto mode, Mar 2026. Its notice is on sc14 and sc9",
+    }
+  - { value: "Mar 2026", source: "the date of that Anthropic figure" }
+  - { value: "₹40,000", source: "seeded order A-2004, synthetic: packages/acme" }
+  - { value: "four minutes", source: "seeded: the age of T-77's new UPI ID, packages/acme" }
+  - { value: "of 25", source: "the size of E1's suite, PLAN 10.2" }
+  - { value: "Two humans", source: "policy: a promotion takes two signatures" }
+  - { value: "7-day", source: "the synthetic history's length, scripts/seed-history.ts" }
+  - { value: "per hundred", source: "E6's unit, PLAN 10.7" }
+  - {
+      value: "10x",
+      source: "drills/flaws.yaml: the amount_10x drill, whose flaw is planted",
+      only_in: [sc9],
+    }
+
 scenes:
   - id: sc2
     kind: clip
     planned_s: 8
     source: { clip: takes/SC2/latest/priya.mp4 }
-    voiceover: "This is Switch today. Priya asks an agent for a ₹40,000 refund, and the approval card goes to Priya, who approves it."
+    voiceover: "This is Switch today. Priya asks an agent to refund a ₹40,000 order, and every approval card goes to Priya, who approves them."
 
   - id: sc14
     kind: clip
@@ -42,7 +59,9 @@ scenes:
     sources:
       - { clip: takes/SC3/latest/priya.mp4 }
       - { clip: takes/SC3/latest/sam.mp4 }
-    voiceover: "Clearance holds the refund, refuses Priya's own approval, and sends it to Sam in finance. Sam sees the real call, not the agent's story: ten times the order total, to a payment ID added four minutes ago. Sam denies it."
+    # No recorded run attempted the amount the ticket asks for (`pnpm eval:baseline`), and the take's own step says whether this one did.
+    callouts: ["The agent caught the wrong amount in this ticket"]
+    voiceover: "The agent caught the wrong amount in this ticket. It still offered to pay a brand-new payment ID. Clearance holds it, refuses Priya's own approval, and sends it to Sam in finance. Sam sees the real call, not the agent's story: a payment ID added four minutes ago. Sam denies it."
 
   - id: sc5-sc6
     kind: split
@@ -65,6 +84,8 @@ scenes:
     kind: clip
     planned_s: 20
     source: { clip: takes/SC9/latest/sam.mp4 }
+    # The only place the 10x flag appears: no agent attempted that amount, so it's shown as what it is, a planted flaw.
+    callouts: ["A drill: the flaw is planted, an amount 10x the order total"]
     notices: ["93%: Anthropic, Claude Code auto mode, Mar 2026"]
     voiceover: "People rubber-stamp. Claude Code users approve 93% of prompts. So Clearance runs drills, like phishing tests, and adds friction when approvals get too fast."
 
@@ -81,8 +102,8 @@ scenes:
     kind: numbers
     planned_s: 25
     headline: "Measured, not claimed"
-    rows: [E1, E2/risky, E5/catch, E3/cards, NEG]
-    voiceover: "Measured, not claimed. Bad outcomes prevented, of 25: {{E1.clearance}}. Risky actions executed without an eligible human: {{E2/risky.clearance}}. {{E5/catch.clearance}} on flawed requests. And one place we lose: {{NEG.text}}."
+    rows: [E1, AUDIT, E2/risky?, E3/quiet, E6, NEG]
+    voiceover: "Measured, not claimed. Bad outcomes prevented, of 25: {{E1.clearance}}. An independent review found more, now fixed and checked apart. {{AUDIT.clearance}}. [[if E2/risky.clearance]]Risky actions without an eligible human: {{E2/risky.clearance}}. [[/if]]Tool calls with no card: {{E3/quiet.clearance}}. Human decisions per hundred agent actions: {{E6.clearance}}. And one place we lose: {{NEG.text}}."
 
   - id: close
     kind: card
@@ -93,4 +114,5 @@ scenes:
       - "`.claude/settings.json`  `.codex/hooks.json`  `.opencode/plugins/clearance.ts`  `.cursor/hooks.json`"
       - "Built on Switch's rooms, identities, approval cards and documents."
       - "{{repo_url}}"
+    image: desk/live-ledger.png
     voiceover: "One template and a few config files. Clearance is built on Switch's rooms, identities, approval cards and documents. Link below."

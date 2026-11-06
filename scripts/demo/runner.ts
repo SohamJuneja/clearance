@@ -87,6 +87,10 @@ export interface ScenarioDefinition<S> {
   cast: PersonName[];
   /** Things the runner can't arrange itself and a person must know about. Printed before the steps. */
   preconditions?: string[];
+  /** Environment the world's services restart with on the reset, such as CLEARANCE_DRILL_RATE. */
+  worldEnv?: Record<string, string>;
+  /** `pnpm` scripts to run right after the reset, such as seed:history. */
+  afterReset?: string[];
   capture?: CaptureSpec;
   state: () => S;
   steps: Step<S>[];
@@ -103,9 +107,16 @@ export interface Scenario {
   needs: ServiceName[];
   cast: PersonName[];
   preconditions: string[];
+  world: WorldSetup;
   capture: CaptureSpec;
   stepNames: string[];
   execute(ctx: DemoContext, hooks: StepHooks): Promise<StepResult[]>;
+}
+
+/** What a scene asks of the reset. A run with --no-reset gets neither, and its preconditions say so. */
+export interface WorldSetup {
+  env: Record<string, string>;
+  afterReset: string[];
 }
 
 export interface StepHooks {
@@ -122,6 +133,7 @@ export function defineScenario<S>(definition: ScenarioDefinition<S>): Scenario {
     needs: definition.needs,
     cast: definition.cast,
     preconditions: definition.preconditions ?? [],
+    world: { env: definition.worldEnv ?? {}, afterReset: definition.afterReset ?? [] },
     capture: definition.capture ?? {},
     stepNames: definition.steps.map((step) => step.name),
     async execute(ctx, hooks) {
@@ -220,8 +232,8 @@ export interface RunOptions {
   urls?: WorldUrls;
   print?: (line: string) => void;
   recorder?: Recorder;
-  /** Puts the world in its starting state. Absent means don't reset. */
-  reset?: () => Promise<void>;
+  /** Puts the world in its starting state, as this scene asks. Absent means don't reset. */
+  reset?: (setup: WorldSetup) => Promise<void>;
   services?: ServiceControl;
   agentTimeoutMs?: number;
   clearanceTimeoutMs?: number;
@@ -295,7 +307,7 @@ export async function runScenario(
 
   if (options.reset) {
     try {
-      await options.reset();
+      await options.reset(scenario.world);
       print("    PASS  world reset");
     } catch (error) {
       const why = `reset failed: ${errorText(error)}`;

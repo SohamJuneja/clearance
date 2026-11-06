@@ -1,11 +1,14 @@
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { REPO_ROOT } from "../../eval/lib/paths.ts";
-import { renderResults } from "../../eval/report.ts";
+import { renderResults, renderTable } from "../../eval/report.ts";
+import { buildVideo } from "./build.ts";
 import { cardHtml, numbersHtml, slateHtml } from "./cards.ts";
-import { parseResults, resolveTemplate } from "./results.ts";
+import { unsourcedNumbers } from "./numbers.ts";
+import { parseResults, resolveTemplate, scriptedWords, slideRows } from "./results.ts";
 import { loadStoryboard, parseStoryboard, recordingHint, resolvePoint } from "./scenes.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -36,6 +39,119 @@ function planTable(): { scene: string; seconds: number; voiceover: string }[] {
   }
   return rows;
 }
+
+describe("a number with no source", () => {
+  const scene = (extra: string) => `
+max_duration_s: 180
+cited:
+  - { value: "93%", source: "Anthropic" }
+  - { value: "10x", source: "a planted flaw", only_in: [sc9] }
+scenes:
+  - { id: sc1, kind: card, planned_s: 3, headline: "Title", ${extra} }
+`;
+
+  it("is clean when nothing numeric is typed, or it's all cited or pulled from RESULTS.md", () => {
+    expect(
+      unsourcedNumbers(parseStoryboard(scene(`voiceover: "One inbox, 93%: {{E1.clearance}}."`))),
+    ).toEqual([]);
+    expect(
+      unsourcedNumbers(parseStoryboard(scene(`voiceover: "[[if E2/risky.clearance]]a[[/if]]"`))),
+    ).toEqual([]);
+  });
+
+  it.each([
+    ["a digit in the voice-over", `voiceover: "We prevented 24 of them."`, "24"],
+    ["a number word", `voiceover: "Twenty people approved."`, "Twenty"],
+    ["a percentage nobody cited", `voiceover: "People approve 94%."`, "94%"],
+    ["a callout", `callouts: ["caught 87.5%"]`, "87.5%"],
+    ["a notice", `notices: ["n = 12"]`, "12"],
+    ["a card's line", `lines: ["25.8 per 100"]`, "25.8"],
+    ["a cited number outside the scenes it's for", `voiceover: "It was 10x."`, "10x."],
+  ])("is caught in %s", (_name, extra, number) => {
+    const problems = unsourcedNumbers(parseStoryboard(scene(extra)));
+    expect(problems.length).toBeGreaterThan(0);
+    expect(problems.join(" ")).toContain(number);
+    expect(problems.join(" ")).toContain("sc1");
+  });
+
+  it("is what the real boards are free of", () => {
+    expect(unsourcedNumbers(loadStoryboard(join(here, "scenes.yaml")))).toEqual([]);
+    expect(unsourcedNumbers(loadStoryboard(join(here, "smoke.scenes.yaml")))).toEqual([]);
+  });
+
+  it("wants a source for every citation, so a bare value can't pass for one", () => {
+    expect(() =>
+      parseStoryboard(
+        `max_duration_s: 180\ncited: [{ value: "93%" }]\nscenes: [{ id: a, kind: card, planned_s: 1, headline: x }]`,
+      ),
+    ).toThrow(/cited/);
+  });
+
+  it("leaves the negative row's empty baseline empty, since nothing is pending there", () => {
+    const html = numbersHtml(
+      "x",
+      parseResults(renderTable({ NEG: { experiment: "NEG", text: "we lose here" } })),
+      ["NEG"],
+    );
+    expect(html).toContain("we lose here");
+    expect(html).not.toContain(">pending<");
+  });
+
+  it("puts a still on a card when it's given one, and fails the build when the file isn't there", async () => {
+    expect(cardHtml("x", [], "data:image/png;base64,AAAA")).toContain(
+      'src="data:image/png;base64,AAAA"',
+    );
+    expect(cardHtml("x")).not.toContain("<img");
+    const dir = mkdtempSync(join(tmpdir(), "still-"));
+    try {
+      const scenesPath = join(dir, "scenes.yaml");
+      writeFileSync(
+        scenesPath,
+        "max_duration_s: 180\nscenes:\n  - { id: end, kind: card, planned_s: 1, headline: x, image: desk/live-ledger.png }\n",
+      );
+      const resultsPath = join(dir, "RESULTS.md");
+      writeFileSync(resultsPath, renderResults({}));
+      await expect(
+        buildVideo({
+          scenesPath,
+          resultsPath,
+          output: join(dir, "out.mp4"),
+          workDir: join(dir, "work"),
+          mediaRoot: dir,
+          allowMissing: false,
+          voice: async () => undefined,
+          log: () => undefined,
+        }),
+      ).rejects.toThrow(/end: desk\/live-ledger\.png {2}\(pnpm video:desk\)/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("fails the build before anything is rendered", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "numbers-"));
+    try {
+      const scenesPath = join(dir, "scenes.yaml");
+      writeFileSync(scenesPath, scene(`voiceover: "We prevented 24 of them."`));
+      const resultsPath = join(dir, "RESULTS.md");
+      writeFileSync(resultsPath, renderResults({}));
+      await expect(
+        buildVideo({
+          scenesPath,
+          resultsPath,
+          output: join(dir, "out.mp4"),
+          workDir: join(dir, "work"),
+          mediaRoot: dir,
+          allowMissing: true,
+          voice: async () => undefined,
+          log: () => undefined,
+        }),
+      ).rejects.toThrow(/these numbers have no source[\s\S]*sc1: "24"/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
 
 describe("scenes.yaml", () => {
   const board = loadStoryboard(join(here, "scenes.yaml"));
@@ -75,7 +191,7 @@ describe("scenes.yaml", () => {
 
   it("types no result in the numbers line: everything comes from placeholders", () => {
     const numbers = board.scenes.find((scene) => scene.id === "numbers");
-    const stripped = (numbers?.voiceover ?? "").replace(/\{\{[^}]+\}\}/g, "");
+    const stripped = scriptedWords(numbers?.voiceover ?? "");
     expect(stripped.match(/\d+/g)).toEqual(["25"]); // "of 25" is the size of the suite, per PLAN 10.8.
   });
 
@@ -97,6 +213,65 @@ describe("scenes.yaml", () => {
     if (numbers?.kind !== "numbers") throw new Error("no numbers scene");
     expect(() => resolveTemplate(numbers.voiceover ?? "", rows)).not.toThrow();
     expect(() => numbersHtml(numbers.headline, rows, numbers.rows)).not.toThrow();
+  });
+
+  it("puts on the slide what the numbers row asks for, with E2 only once it exists", () => {
+    const numbers = board.scenes.find((scene) => scene.id === "numbers");
+    if (numbers?.kind !== "numbers") throw new Error("no numbers scene");
+    expect(numbers.rows).toEqual(["E1", "AUDIT", "E2/risky?", "E3/quiet", "E6", "NEG"]);
+    const shown = (table: string) =>
+      slideRows(parseResults(table), numbers.rows).map((row) => row.id);
+    expect(shown(renderResults({}))).toEqual(["E1", "AUDIT", "E3", "E6", "NEG"]);
+    const withE2 = renderResults({
+      E2: {
+        experiment: "E2",
+        risky_unapproved: { baseline: { claude: 7 }, clearance: { claude: 0 } },
+      },
+    });
+    expect(shown(withE2)).toEqual(["E1", "AUDIT", "E2", "E3", "E6", "NEG"]);
+    expect(resolveTemplate(numbers.voiceover ?? "", parseResults(renderResults({})))).not.toContain(
+      "Risky actions",
+    );
+    expect(resolveTemplate(numbers.voiceover ?? "", parseResults(withE2))).toContain(
+      "Risky actions without an eligible human: Claude 0",
+    );
+  });
+
+  it("reads both E1 lines, and keeps the audit's apart from the 25", () => {
+    const numbers = board.scenes.find((scene) => scene.id === "numbers");
+    const said = resolveTemplate(
+      numbers?.voiceover ?? "",
+      parseResults(
+        renderResults({
+          E1: {
+            experiment: "E1",
+            clearance: { prevented: 24, total: 25 },
+            audit: { passed: 5, total: 5 },
+          },
+        }),
+      ),
+    );
+    expect(said).toContain("of 25: 24.");
+    expect(said).toContain("Audit: 5 of 5.");
+  });
+
+  it("says on screen in SC3 that the agent caught the amount, and credits it first", () => {
+    const sc3 = board.scenes.find((scene) => scene.id === "sc3");
+    expect(sc3?.callouts?.join(" ")).toMatch(/agent caught the wrong amount/i);
+    expect(sc3?.voiceover).toMatch(/^The agent caught the wrong amount/);
+  });
+
+  it("shows the 10x flag in the SC9 drill and nowhere else", () => {
+    const mentions = (scene: (typeof board.scenes)[number]): boolean =>
+      /10x|ten times/i.test(
+        [
+          scene.voiceover,
+          ...(scene.callouts ?? []),
+          ...(scene.notices ?? []),
+          scene.kind === "card" || scene.kind === "numbers" ? scene.headline : "",
+        ].join(" "),
+      );
+    expect(board.scenes.filter(mentions).map((scene) => scene.id)).toEqual(["sc9"]);
   });
 
   it("names a clip recorded by a known scenario for every footage scene", () => {

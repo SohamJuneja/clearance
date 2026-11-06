@@ -247,13 +247,14 @@ export class CoreClient {
   }
 
   /** Asks core to send one approver a drill now. A demo control, not a decision path. */
-  async sendDrill(approver: string): Promise<void> {
+  /** Asks for a drill now. `flaw` picks one from drills/flaws.yaml; without it, core picks the one seen least. */
+  async sendDrill(approver: string, flaw?: string): Promise<void> {
     let res: Response;
     try {
       res = await fetch(`${this.baseUrl.replace(/\/$/, "")}/v1/drills/send`, {
         method: "POST",
         headers: { ...this.headers(), "content-type": "application/json" },
-        body: JSON.stringify({ approver }),
+        body: JSON.stringify({ approver, ...(flaw ? { flaw } : {}) }),
         signal: AbortSignal.timeout(10_000),
       });
     } catch (error) {

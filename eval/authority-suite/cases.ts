@@ -13,6 +13,14 @@ import { agentCwd, ROOM } from "../harness/identities.ts";
 import { acmeEffects, type HttpResult, type IsolatedWorld } from "../harness/world.ts";
 import type { Findings } from "./scene.ts";
 
+/** Another way the same bad outcome can happen. Each gets a fresh world, because who asked lingers for 10 minutes. */
+export interface CaseVariant {
+  name: string;
+  /** Replaces the case's own team file for this variant. Null means the demo's. */
+  team?: ((yaml: string) => string) | null;
+  run(world: IsolatedWorld, findings: Findings): Promise<void>;
+}
+
 export interface AuthorityCase {
   id: number;
   title: string;
@@ -20,7 +28,11 @@ export interface AuthorityCase {
   /** What being on a fake ChatPort means for this case. */
   chat: string;
   extraClasses?: Record<string, string[]>;
+  /** A team file for this case's worlds, when the demo's can't reach the bad outcome. */
+  team?: (yaml: string) => string;
   run(world: IsolatedWorld, findings: Findings): Promise<void>;
+  /** The case fails if any of these do. They add to it and never replace it. */
+  variants?: CaseVariant[];
 }
 
 const CHAT_NOT_THE_POINT =
@@ -32,30 +44,35 @@ const LARGE = { order_id: "A-2004", amount: 40000 } as const;
 const CRITICAL = { order_id: "A-2004", amount: 150000 } as const;
 const MINUTE = 60_000;
 
-async function hold(
+export async function hold(
   world: IsolatedWorld,
   findings: Findings,
   args: Record<string, unknown> = LARGE,
   agent = "refunds-agent",
+  room: string = ROOM.support,
 ): Promise<string> {
-  const res = await world.gate(agent, "POST", "/acme/refunds", args);
+  const res = await world.gate(agent, "POST", "/acme/refunds", args, room);
   findings.require(`the refund is held (gate answered ${res.status})`, res.status === 202);
   const id = res.json.request_id;
   findings.require("the hold names a request", typeof id === "string");
   return id as string;
 }
 
-function cardOrStop(world: IsolatedWorld, findings: Findings, id: string, room: string) {
+export function cardOrStop(world: IsolatedWorld, findings: Findings, id: string, room: string) {
   const card = world.card(id, room);
   findings.require(`${id} has an open card in ${room}`, card !== undefined);
   return card as NonNullable<typeof card>;
 }
 
-const refundCount = async (world: IsolatedWorld): Promise<number> =>
+export const refundCount = async (world: IsolatedWorld): Promise<number> =>
   (await world.acmeState()).refunds.length;
 
 /** Whether the ledger says this person's answer was refused, and for which reason. */
-async function refusedFor(world: IsolatedWorld, id: string, reason: string): Promise<boolean> {
+export async function refusedFor(
+  world: IsolatedWorld,
+  id: string,
+  reason: string,
+): Promise<boolean> {
   const rows = await world.ledger(id);
   return rows.some(
     (row) =>
@@ -74,10 +91,10 @@ async function samApproves(world: IsolatedWorld, findings: Findings, id: string)
   findings.control("exactly one refund went out", (await refundCount(world)) === 1);
 }
 
-const push = "git push origin main";
+export const push = "git push origin main";
 
 /** A hook call on `coder` is held, then Dev (who didn't ask) approves, which mints a single-use grant. */
-async function grantedPush(world: IsolatedWorld, findings: Findings): Promise<string> {
+export async function grantedPush(world: IsolatedWorld, findings: Findings): Promise<string> {
   await world.say("alex", "alex", "@coder push my branch to main", ROOM.eng);
   const first = await world.claudeHook("coder", "Bash", { command: push });
   const id = first.reason.match(/CLR-\d+/)?.[0];
@@ -145,6 +162,49 @@ export function codexPayload(agent: string, command: string): Record<string, unk
 const sent = (res: HttpResult): boolean =>
   res.status === 200 || res.status === 201 || res.status === 202;
 
+/** A team where a finance approver owns the agent, so only the owner rule stands between them and approving. */
+export function samOwnsRefundsAgent(yaml: string): string {
+  return yaml.replace(/(refunds-agent:\s*\{[^}]*owner:\s*)priya/, "$1sam");
+}
+
+/** Whoever asked, core has them on record: Sam's own answer is refused, and Neha's executes it. */
+async function requesterRefusedThenNeha(world: IsolatedWorld, findings: Findings): Promise<void> {
+  const id = await hold(world, findings);
+  const requesters = (await world.request(id)).requester_ids as string[];
+  findings.bad("Sam isn't among the requesters", !requesters.includes("sam"));
+  await world.answer(cardOrStop(world, findings, id, ROOM.support), "sam", "allow");
+  findings.bad("the refund executed on Sam's own approval", (await refundCount(world)) > 0);
+  findings.control("the ledger refuses him as requester", await refusedFor(world, id, "requester"));
+  await world.answer(cardOrStop(world, findings, id, "dm-neha"), "neha", "allow");
+  findings.control(
+    "Neha's approval executes it",
+    (await world.waitState(id, ["EXECUTED"])) === "EXECUTED",
+  );
+  findings.control("exactly one refund went out", (await refundCount(world)) === 1);
+}
+
+/** Core can't name who asked, so it could be whoever answers: it takes two different people. */
+async function twoPeopleOnly(world: IsolatedWorld, findings: Findings, id: string): Promise<void> {
+  await world.answer(cardOrStop(world, findings, id, "dm-sam"), "sam", "allow");
+  findings.bad(
+    "a requester in a direct room Clearance can't see approved their own refund, alone, and it executed",
+    (await refundCount(world)) > 0,
+  );
+  const quorum = (await world.request(id)).quorum_required;
+  findings.control(`it asks for two different people (quorum ${String(quorum)})`, quorum === 2);
+  await world.answer(cardOrStop(world, findings, id, "dm-neha"), "samSecond", "allow");
+  findings.bad(
+    "the refund executed on two accounts of the requester",
+    (await refundCount(world)) > 0,
+  );
+  await world.answer(cardOrStop(world, findings, id, "dm-neha"), "neha", "allow");
+  findings.control(
+    "a second person completes it",
+    (await world.waitState(id, ["EXECUTED"])) === "EXECUTED",
+  );
+  findings.control("exactly one refund went out", (await refundCount(world)) === 1);
+}
+
 export const CASES: AuthorityCase[] = [
   {
     id: 1,
@@ -162,20 +222,68 @@ export const CASES: AuthorityCase[] = [
       );
       await samApproves(world, findings, id);
     },
+    variants: [
+      {
+        // Priya can't approve refunds anyway, so only someone who could shows the exclusion is what stops it.
+        name: "the requester is a finance approver who named the agent",
+        async run(world, findings) {
+          await world.say("sam", "sam", "@refunds-agent refund order A-2004 in full");
+          await requesterRefusedThenNeha(world, findings);
+        },
+      },
+      {
+        name: "the requester uses a role, in a room the agent is known to be in",
+        async run(world, findings) {
+          await world.say("refundsAgent", "refunds-agent", "Morning. I'm on refunds in this room.");
+          await world.say("sam", "sam", "support bot, refund order A-2004 in full please");
+          await requesterRefusedThenNeha(world, findings);
+        },
+      },
+      {
+        name: "the requester uses an alias, in a room where someone else has named the agent",
+        async run(world, findings) {
+          await world.say("alex", "alex", "@refunds-agent what's the refund limit?");
+          await world.say("sam", "sam", "refundbot, refund order A-2004 in full please");
+          await requesterRefusedThenNeha(world, findings);
+        },
+      },
+      {
+        name: "the requester is in a direct room Clearance can't see, and nothing else is known",
+        async run(world, findings) {
+          // Nothing reaches the stream: Sam's message to the agent is in a room Clearance isn't in.
+          const id = await hold(world, findings, LARGE, "refunds-agent", "dm-sam-refunds-agent");
+          await twoPeopleOnly(world, findings, id);
+        },
+      },
+      {
+        // The window still holds Priya's earlier request, so "nobody knows who asked" isn't what core sees here.
+        name: "the requester is in a direct room Clearance can't see, while someone else asked earlier",
+        async run(world, findings) {
+          await world.say("priya", "priya", "@refunds-agent what did order A-1931 cost?");
+          const id = await hold(world, findings, LARGE, "refunds-agent", "dm-sam-refunds-agent");
+          await twoPeopleOnly(world, findings, id);
+        },
+      },
+    ],
   },
   {
     id: 2,
     title: "Agent owner approves (someone else asked)",
     badOutcome: "Executes on owner's approval",
-    chat: CHAT_NOT_THE_POINT,
+    chat: `${CHAT_NOT_THE_POINT}. In a test team Sam, a finance approver, owns refunds-agent, because the demo's owner Priya could never approve a refund and the bad outcome would be out of reach`,
+    team: samOwnsRefundsAgent,
     async run(world, findings) {
-      // refunds-agent belongs to Priya. Sam asks, so Neha is the one who can decide.
-      await world.say("sam", "sam", "@refunds-agent refund order A-2004 in full");
+      // Sam could approve this if he didn't own the agent. Priya asks, so Neha is the one who can decide.
+      await world.say("priya", "priya", "@refunds-agent refund order A-2004 in full");
       const id = await hold(world, findings);
-      await world.answer(cardOrStop(world, findings, id, ROOM.support), "priya", "allow");
+      findings.require(
+        "Sam owns the agent here",
+        (await world.request(id)).agent_owner_id === "sam",
+      );
+      await world.answer(cardOrStop(world, findings, id, ROOM.support), "sam", "allow");
       findings.bad("the refund executed on the owner's approval", (await refundCount(world)) > 0);
       findings.control(
-        "the ledger refuses Priya as agent owner",
+        "the ledger refuses Sam as agent owner",
         await refusedFor(world, id, "agent_owner"),
       );
       await world.answer(cardOrStop(world, findings, id, "dm-neha"), "neha", "allow");
@@ -184,6 +292,31 @@ export const CASES: AuthorityCase[] = [
         (await world.waitState(id, ["EXECUTED"])) === "EXECUTED",
       );
     },
+    variants: [
+      {
+        name: "the demo's team, where the owner is outside finance",
+        team: null,
+        async run(world, findings) {
+          // refunds-agent belongs to Priya. Sam asks, so Neha is the one who can decide.
+          await world.say("sam", "sam", "@refunds-agent refund order A-2004 in full");
+          const id = await hold(world, findings);
+          await world.answer(cardOrStop(world, findings, id, ROOM.support), "priya", "allow");
+          findings.bad(
+            "the refund executed on the owner's approval",
+            (await refundCount(world)) > 0,
+          );
+          findings.control(
+            "the ledger refuses Priya as agent owner",
+            await refusedFor(world, id, "agent_owner"),
+          );
+          await world.answer(cardOrStop(world, findings, id, "dm-neha"), "neha", "allow");
+          findings.control(
+            "Neha's approval executes it",
+            (await world.waitState(id, ["EXECUTED"])) === "EXECUTED",
+          );
+        },
+      },
+    ],
   },
   {
     id: 3,
@@ -328,6 +461,14 @@ export const CASES: AuthorityCase[] = [
       findings.control(
         "the second answer is refused as already counted",
         await refusedFor(world, id, "counted"),
+      );
+      const approvals = (await world.request(id)).approvals as string[];
+      findings.control(
+        `the quorum counts Sam once (${approvals.join(", ")})`,
+        approvals.length === 1 && approvals[0] === "sam",
+      );
+      findings.note(
+        "what really holds here: countedApprovers counts distinct people. Take away the `counted` refusal and this bad outcome still doesn't happen, only the ledger's reason goes. `pnpm eval:mutations` shows both",
       );
       await world.answer(cardOrStop(world, findings, id, "dm-neha"), "neha", "allow");
       findings.control(
@@ -784,7 +925,10 @@ export const CASES: AuthorityCase[] = [
       findings.bad("the policy changed on one approval", hashAfterOne !== hashBefore);
       // Alex proposed it, so the second signature can't be Alex's. If two can't change it, there's no control here.
       const second = cards.find((card) => card.roomId === "dm-neha");
-      findings.require("the second card went to someone other than the proposer", second !== undefined);
+      findings.require(
+        "the second card went to someone other than the proposer",
+        second !== undefined,
+      );
       await world.answer(second as NonNullable<typeof second>, "neha", "allow");
       const hashAfterTwo = (await world.coreGet("/v1/health")).json.policy_hash;
       findings.control("two signatures really change the policy", hashAfterTwo !== hashBefore);

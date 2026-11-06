@@ -31,7 +31,11 @@ import {
 export const SHARED_PORTS = [7700, 7710, 7800] as const;
 // CLEARANCE_EVAL_PORT_OFFSET lets a long soak run beside other eval runs without a port clash.
 const PORT_OFFSET = Number(process.env.CLEARANCE_EVAL_PORT_OFFSET ?? 0);
-export const EVAL_PORTS = { core: 17700 + PORT_OFFSET, gate: 17710 + PORT_OFFSET, acme: 17800 + PORT_OFFSET } as const;
+export const EVAL_PORTS = {
+  core: 17700 + PORT_OFFSET,
+  gate: 17710 + PORT_OFFSET,
+  acme: 17800 + PORT_OFFSET,
+} as const;
 
 export interface WorldPorts {
   core: number;
@@ -121,6 +125,12 @@ export interface WorldOptions {
   /** Extra gate classes per agent, for a case that needs a wider token than the demo's. */
   extraClasses?: Record<string, string[]>;
   keepFiles?: boolean;
+  /** Rewrites the team file for this world only, for a case that needs a different team. */
+  team?: (yaml: string) => string;
+  /** Rewrites the policy file for this world only, as a mutation check does. */
+  policy?: (yaml: string) => string;
+  /** Another core entry point, for a mutation check that runs a changed copy of the code. */
+  coreEntry?: string;
 }
 
 type ServiceName = "acme" | "gate" | "core";
@@ -144,6 +154,9 @@ export class IsolatedWorld {
   private messageCounter = 0;
   private readonly keepFiles: boolean;
   private readonly answeredCards = new Set<string>();
+  private readonly teamPath: string;
+  private readonly policyPath: string;
+  private readonly coreEntry: string;
 
   private constructor(options: WorldOptions) {
     this.ports = options.ports ?? EVAL_PORTS;
@@ -168,6 +181,21 @@ export class IsolatedWorld {
       { mode: 0o600 },
     );
     this.extraClasses = options.extraClasses ?? {};
+    this.teamPath = this.rewritten("policy/team.yaml", "team.yaml", options.team);
+    this.policyPath = this.rewritten("policy/clearance.policy.yaml", "policy.yaml", options.policy);
+    this.coreEntry = options.coreEntry ?? ENTRY.core;
+  }
+
+  /** The repo's file, or this world's own rewritten copy of it. A rewrite that changes nothing is a bug in the check. */
+  private rewritten(file: string, name: string, edit?: (yaml: string) => string): string {
+    const original = join(REPO_ROOT, file);
+    if (!edit) return original;
+    const before = readFileSync(original, "utf8");
+    const after = edit(before);
+    if (after === before) throw new Error(`the rewrite of ${file} changed nothing`);
+    const path = join(this.directory, name);
+    writeFileSync(path, after);
+    return path;
   }
 
   private readonly extraClasses: Record<string, string[]>;
@@ -231,8 +259,8 @@ export class IsolatedWorld {
       CLEARANCE_CORE_PORT: String(this.ports.core),
       CLEARANCE_GATE_URL: url(this.ports.gate),
       CLEARANCE_DB_PATH: join(this.directory, "clearance.sqlite"),
-      CLEARANCE_POLICY_PATH: join(REPO_ROOT, "policy/clearance.policy.yaml"),
-      CLEARANCE_TEAM_PATH: join(REPO_ROOT, "policy/team.yaml"),
+      CLEARANCE_POLICY_PATH: this.policyPath,
+      CLEARANCE_TEAM_PATH: this.teamPath,
       CLEARANCE_IDENTITIES_PATH: join(this.directory, "identities.json"),
       CLEARANCE_DRILLS_PATH: join(REPO_ROOT, "drills/flaws.yaml"),
       CLEARANCE_INTERNAL_TOKEN: this.internalToken,
@@ -248,7 +276,8 @@ export class IsolatedWorld {
    */
   async startService(service: ServiceName): Promise<void> {
     const log = openSync(join(this.directory, `${service}.log`), "a");
-    const child = spawn(process.execPath, ["--import", "tsx", ENTRY[service]], {
+    const entry = service === "core" ? this.coreEntry : ENTRY[service];
+    const child = spawn(process.execPath, ["--import", "tsx", entry], {
       cwd: REPO_ROOT,
       env: this.env(service),
       detached: true,
@@ -366,7 +395,8 @@ export class IsolatedWorld {
   async answer(card: ChatRecord, who: ParticipantName, answer: "allow" | "deny"): Promise<void> {
     this.answeredCards.add(card.switchRequestId ?? "");
     const question = card.questions?.[0];
-    const typed = question && answer === "allow" ? await this.valueToType(card, question.id) : undefined;
+    const typed =
+      question && answer === "allow" ? await this.valueToType(card, question.id) : undefined;
     const reply = question
       ? {
           kind: "questions",
@@ -391,7 +421,9 @@ export class IsolatedWorld {
   private async valueToType(card: ChatRecord, field: string): Promise<string> {
     const id = /CLR-\d+/.exec(card.title ?? "")?.[0];
     if (!id) throw new Error(`a type-to-confirm card with no request id: ${card.title ?? ""}`);
-    const { evidence } = (await this.request(id)) as { evidence?: { extracted?: Record<string, unknown> } };
+    const { evidence } = (await this.request(id)) as {
+      evidence?: { extracted?: Record<string, unknown> };
+    };
     const fields = evidence?.extracted ?? {};
     if (field === "request_id") return id;
     if (field === "destination_last4") return String(fields.destination).trim().slice(-4);
@@ -514,21 +546,29 @@ export class IsolatedWorld {
     return token;
   }
 
-  /** A Claude Code PreToolUse hook call, over HTTP, as `.claude/settings.json` sends it. */
+  /**
+   * A Claude Code PreToolUse hook call, over HTTP, as `.claude/settings.json` sends it, with this agent's own token.
+   * `claims` overrides what the request says about itself, for a caller that says it is someone else.
+   */
   async claudeHook(
     agent: string,
     tool: string,
     input: Record<string, unknown>,
+    claims: Record<string, unknown> = {},
   ): Promise<{ allow: boolean; reason: string; status: number }> {
     const res = await fetch(`http://127.0.0.1:${this.ports.core}/v1/hooks/claude`, {
       method: "POST",
-      headers: { authorization: `Bearer ${this.hookTokenOf(agent)}`, "content-type": "application/json" },
+      headers: {
+        authorization: `Bearer ${this.hookTokenOf(agent)}`,
+        "content-type": "application/json",
+      },
       body: JSON.stringify({
         session_id: `eval-${agent}`,
         hook_event_name: "PreToolUse",
         cwd: agentCwd(agent),
         tool_name: tool,
         tool_input: input,
+        ...claims,
       }),
     });
     const json = await readJson(res);

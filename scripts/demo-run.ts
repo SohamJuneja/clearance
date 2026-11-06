@@ -3,7 +3,8 @@
  *
  *   pnpm demo:run SC3            one scenario
  *   pnpm demo:run SC3 SC4        several, in order
- *   pnpm demo:run all            every scenario
+ *   pnpm demo:run all            every numbered scenario
+ *   pnpm demo:run SC2T           ticket T-77 on the baseline, which isn't a numbered row of PLAN 8.7
  *   pnpm demo:run --list         what exists, with prompts
  *   pnpm demo:run SC3 --record   also capture each persona's browser to docs/media/raw/
  *   --no-reset                   skip scripts/demo-reset.ts
@@ -23,9 +24,10 @@ import {
   type RunOptions,
   type ScenarioResult,
   type ServiceControl,
+  type WorldSetup,
 } from "./demo/runner.ts";
 import { serviceCommand } from "./demo/services.ts";
-import { findScenario, SCENARIOS } from "./scenarios/index.ts";
+import { EXTRA_SCENARIOS, findScenario, SCENARIOS } from "./scenarios/index.ts";
 
 const execShell = promisify(exec);
 
@@ -40,7 +42,7 @@ interface Args {
 function usage(message: string): never {
   process.stderr.write(`${message}\n`);
   process.stderr.write(
-    "usage: pnpm demo:run <SC1..SC14|all> [--record] [--no-reset] [--agent-timeout <s>] | --list\n",
+    "usage: pnpm demo:run <SC1..SC14|SC2T|all> [--record] [--no-reset] [--agent-timeout <s>] | --list\n",
   );
   process.exit(2);
 }
@@ -65,7 +67,7 @@ function parseArgs(argv: string[]): Args {
 }
 
 function list(): void {
-  for (const scenario of SCENARIOS) {
+  for (const scenario of [...SCENARIOS, ...EXTRA_SCENARIOS]) {
     const star = scenario.inVideo ? "*" : " ";
     process.stdout.write(`${star} ${scenario.id.padEnd(5)} ${scenario.title}\n`);
     if (scenario.prompt) {
@@ -77,17 +79,16 @@ function list(): void {
   process.stdout.write("\n* is in the video (PLAN 12).\n");
 }
 
-/** Runs scripts/demo-reset.ts, which a teammate owns. Its absence is a reason to stop, not to guess. */
-function resetWorld(): Promise<void> {
-  const script = join(REPO_ROOT, "scripts/demo-reset.ts");
-  if (!existsSync(script)) {
-    return Promise.reject(
-      new Error("scripts/demo-reset.ts isn't here yet. Pass --no-reset to run without it"),
-    );
-  }
+function runToEnd(
+  what: string,
+  command: string,
+  args: string[],
+  env: NodeJS.ProcessEnv,
+): Promise<void> {
   return new Promise((resolve, reject) => {
-    const child = spawn("pnpm", ["exec", "tsx", script], {
+    const child = spawn(command, args, {
       cwd: REPO_ROOT,
+      env,
       stdio: ["ignore", "ignore", "pipe"],
     });
     let stderr = "";
@@ -96,9 +97,24 @@ function resetWorld(): Promise<void> {
     });
     child.on("error", reject);
     child.on("close", (code) =>
-      code === 0 ? resolve() : reject(new Error(`demo-reset exited ${code}: ${stderr.trim()}`)),
+      code === 0 ? resolve() : reject(new Error(`${what} exited ${code}: ${stderr.trim()}`)),
     );
   });
+}
+
+/**
+ * Runs scripts/demo-reset.ts, which a teammate owns, then whatever the scene needs after it. Its absence is a reason
+ * to stop, not to guess. The services restart inside the reset, and a value already in their environment wins over
+ * `.env`, so that's how a scene's environment reaches them.
+ */
+async function resetWorld(setup: WorldSetup): Promise<void> {
+  const script = join(REPO_ROOT, "scripts/demo-reset.ts");
+  if (!existsSync(script)) {
+    throw new Error("scripts/demo-reset.ts isn't here yet. Pass --no-reset to run without it");
+  }
+  const env = { ...process.env, ...setup.env };
+  await runToEnd("demo-reset", "pnpm", ["exec", "tsx", script], env);
+  for (const name of setup.afterReset) await runToEnd(name, "pnpm", [name], env);
 }
 
 /** scripts/services.sh, unless the environment says otherwise. */

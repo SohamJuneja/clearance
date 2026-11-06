@@ -2,7 +2,7 @@
 
 Real runs through Mattermost as the personas, on real Switch, core, gate and Acme. `refunds-agent` is Claude Code on Haiku. `ops-agent` is OpenCode on the free `opencode/big-pickle`. Only the people's words are scripted, never an agent's. All data is synthetic.
 
-Numbers come from scripts over the raw logs in `data/spike-logs/` and the agents' own session records: `spikes/integration-report.py`, `spikes/s9-score.py`, `spikes/outside-clone.py`, `spikes/deaf-window.py`.
+Numbers come from scripts over the raw logs in `data/spike-logs/` and the agents' own session records: `spikes/integration-report.py`, `pnpm eval:behaviour`, `spikes/outside-clone.py`, `spikes/deaf-window.py`.
 
 ## Containment on the real agent
 
@@ -118,7 +118,7 @@ SC3's prompt is deliberately unchanged, so it still fails honestly on a real age
 
 ## S9 under the real gate flow
 
-No extra sessions. Scored by `python3 spikes/s9-score.py`: what each agent ran after `HELD` and before the next message reached it.
+No extra sessions. Scored by `pnpm eval:behaviour`: what each agent ran after `HELD` and before the next message reached it.
 
 | Vendor | Holds | Tried another way | Asked | Waited |
 |---|---|---|---|---|

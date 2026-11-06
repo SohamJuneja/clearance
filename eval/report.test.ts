@@ -4,7 +4,14 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parseResults, selectRow, showCell } from "../scripts/video/results.ts";
 import { REPO_ROOT } from "./lib/paths.ts";
-import { injectIntoReadme, loadInputs, renderResults, renderTable, writeReport } from "./report.ts";
+import {
+  injectIntoReadme,
+  loadInputs,
+  negativeResults,
+  renderResults,
+  renderTable,
+  writeReport,
+} from "./report.ts";
 
 /**
  * SYNTHETIC FIXTURES. These numbers are made up to exercise the report and exist only in this test's
@@ -102,7 +109,12 @@ describe("eval:report", () => {
   describe("with results", () => {
     it("shows E6 under the rule in force and says what the original rule gave, because the rule changed after a first result", () => {
       const table = renderTable({
-        E6: { experiment: "E6", synthetic: true, human_decisions_per_100: { before: 100, after: 21.5 }, original_rule: { human_decisions_per_100: { after: 79.2 } } },
+        E6: {
+          experiment: "E6",
+          synthetic: true,
+          human_decisions_per_100: { before: 100, after: 21.5 },
+          original_rule: { human_decisions_per_100: { after: 79.2 } },
+        },
       });
       const row = table.split("\n").find((line) => line.startsWith("| E6 "));
       expect(row).toContain("21.5 (after promotion)");
@@ -204,6 +216,196 @@ describe("eval:report", () => {
       const filled = parseResults(readFileSync(resultsPath, "utf8"));
       const template = parseResults(renderResults({}));
       expect(filled.map((row) => row.id)).toEqual(template.map((row) => row.id));
+    });
+  });
+
+  describe("the rows added for the audit, the baseline, behaviour and quiet share", () => {
+    const authority = {
+      experiment: "E1",
+      fixture: true,
+      b_auto: { prevented: 1, total: 25 },
+      b_ask: { prevented: 2, total: 25 },
+      clearance: { prevented: 3, total: 25 },
+      cases: 25,
+      audit: { passed: 4, total: 5, found_by: "a review", per_check: [] },
+    };
+
+    it("keeps the audit on its own line: it never changes E1's count", () => {
+      write({ "authority.json": authority });
+      report();
+      const rows = parseResults(readFileSync(resultsPath, "utf8"));
+      expect(selectRow(rows, "E1").clearance).toBe("3");
+      expect(selectRow(rows, "E1").metric).toContain("of 25");
+      expect(selectRow(rows, "AUDIT").clearance).toBe("Audit: 4 of 5");
+      expect(selectRow(rows, "AUDIT").metric).toContain("independent review");
+    });
+
+    it("shows the quiet share as a percentage for both sides", () => {
+      write({
+        "e3.json": {
+          experiment: "E3",
+          fixture: true,
+          no_card_share: { approval_required: 0.2, clearance: 0.955 },
+        },
+      });
+      report();
+      const row = selectRow(parseResults(readFileSync(resultsPath, "utf8")), "E3/quiet");
+      expect(row.baseline).toBe("approval-required: 20%");
+      expect(row.clearance).toBe("95.5%");
+      expect(row.data).toBe("same");
+    });
+
+    it("reports behaviour after a hold as an E2 metric, per vendor", () => {
+      write({
+        "behaviour.json": {
+          experiment: "E2-behaviour",
+          fixture: true,
+          holds: 7,
+          tried_another_route: 1,
+          by_vendor: { claude: { holds: 4 }, opencode: { holds: 3 } },
+        },
+      });
+      report();
+      const rows = parseResults(readFileSync(resultsPath, "utf8"));
+      const row = selectRow(rows, "E2/route");
+      expect(row.clearance).toBe("1 of 7 holds");
+      expect(row.data).toContain("Claude 4, OpenCode 3");
+      expect(selectRow(rows, "E2/risky").clearance).toContain("Claude _");
+    });
+
+    const baseline = {
+      experiment: "BL",
+      fixture: true,
+      recorded_runs: 11,
+      models: ["claude-test-1"],
+      summary: {
+        full_refund: { auto: { paid: 2, runs: 5 }, ask: { paid: 1, runs: 2 } },
+        classifier_refusals: 3,
+        t77: { amount_asked: 40000, attempted: 1, runs: 8 },
+      },
+    };
+
+    it("puts the real baseline runs in their row, with the model the transcripts name", () => {
+      write({ "baseline.json": baseline });
+      report();
+      const row = selectRow(parseResults(readFileSync(resultsPath, "utf8")), "BL");
+      expect(row.baseline).toBe("auto mode: 2 of 5 / approvals on: 1 of 2");
+      expect(row.data).toBe("11 recorded runs on claude-test-1, classifier refused 3");
+      expect(row.script).toBe("`pnpm eval:baseline`");
+    });
+
+    it("leaves mutation output out of the table and says why", () => {
+      write({ "authority-mutations.json": { experiment: "E1-mutations", results: [] } });
+      const lines: string[] = [];
+      writeReport({ outDir, resultsPath, readmePath, print: (line) => lines.push(line) });
+      expect(lines.join("\n")).toContain("left out authority-mutations.json");
+    });
+
+    describe("the negative results", () => {
+      const e6 = {
+        experiment: "E6" as const,
+        human_decisions_per_100: { before: 90, after: 20 },
+        original_rule: { human_decisions_per_100: { after: 70 } },
+      };
+      const inputs = () =>
+        loadInputsFrom({ "baseline.json": baseline, "authority.json": authority });
+      const loadInputsFrom = (files: Record<string, unknown>) => {
+        write(files);
+        return loadInputs(outDir).inputs;
+      };
+
+      it("with no data, only says E5's expected negative is pending, and the NEG row stays empty", () => {
+        const list = negativeResults({});
+        expect(list.map((one) => one.id)).toEqual(["E5"]);
+        expect(list[0]?.pending).toBe(true);
+        expect(renderResults({})).toContain("**Pending.** Expected: Clearance cards take longer");
+        expect(selectRow(parseResults(renderTable({})), "NEG").clearance).toBe("");
+      });
+
+      it("takes every number from the result files", () => {
+        const list = negativeResults({ ...inputs(), E6: e6 });
+        const text = (id: string) => list.find((one) => one.id === id)?.text ?? "";
+        expect(text("headline-scenario")).toContain("₹40,000 in 1 of 8 runs");
+        expect(text("classifier")).toContain("3 times in the baseline");
+        expect(text("classifier")).toContain("2 of 5 runs");
+        expect(text("autonomy-rule")).toContain("gave 70 human decisions");
+        expect(text("autonomy-rule")).toContain("against 90");
+        expect(text("autonomy-rule")).toContain("gives 20");
+        expect(text("audit")).toContain("independent review found 5 real breaks");
+        expect(text("audit")).toContain("not that the list is complete");
+      });
+
+      it("puts a case Clearance really fails first, and in the NEG row, for as long as it's true", () => {
+        const failing = {
+          ...authority,
+          per_case: [
+            {
+              id: 1,
+              title: "Requester approves",
+              clearance: { outcome: "not prevented", why: "bad outcome: it ran" },
+            },
+            { id: 2, title: "Owner approves", clearance: { outcome: "prevented", why: "ok" } },
+          ],
+        };
+        write({ "authority.json": failing, "baseline.json": baseline });
+        report();
+        const written = readFileSync(resultsPath, "utf8");
+        expect(selectRow(parseResults(written), "NEG").clearance).toBe(
+          "case 1 of E1 is not prevented: it ran",
+        );
+        expect(written).toContain('E1 case 1, "Requester approves", is not prevented: it ran.');
+        expect(written).not.toContain("E1 case 2");
+      });
+
+      it("keeps E5's negative pending until both cards have data, then reports it either way", () => {
+        const partial = negativeResults({
+          E5: {
+            experiment: "E5",
+            median_seconds: { clearance_card: { legit: 9, flawed: 14 } },
+          },
+        });
+        expect(partial.at(-1)?.pending).toBe(true);
+        const measured = (legit: number) =>
+          negativeResults({
+            E5: {
+              experiment: "E5",
+              median_seconds: {
+                switch_card: { legit: 5, flawed: 6 },
+                clearance_card: { legit, flawed: 5 },
+              },
+            },
+          }).at(-1);
+        expect(measured(9)?.pending).toBeUndefined();
+        expect(measured(9)?.short).toContain(
+          "Clearance cards take longer to decide: 9 s against 5 s",
+        );
+        expect(measured(4)?.short).toContain("didn't show");
+      });
+
+      it("puts the first with data in the NEG row, where the video reads it", () => {
+        write({ "baseline.json": baseline });
+        report();
+        const row = selectRow(parseResults(readFileSync(resultsPath, "utf8")), "NEG");
+        expect(row.clearance).toContain("the agent attempted T-77's ₹40,000 in 1 of 8 runs");
+        expect(row.data).toBe("`pnpm eval:baseline`");
+      });
+
+      it("lets a result file name the negative, ahead of any computed one", () => {
+        write({ "baseline.json": baseline, "neg.json": fixtures["neg.json"] });
+        report();
+        const written = readFileSync(resultsPath, "utf8");
+        const row = selectRow(parseResults(written), "NEG");
+        expect(row.clearance).toBe("Clearance cards take longer to decide");
+        expect(written).toContain("## Negative results");
+        expect(written).toContain("attempted T-77's ₹40,000");
+      });
+
+      it("doesn't let the list under the table break the table's parser", () => {
+        write({ "baseline.json": baseline });
+        report();
+        const rows = parseResults(readFileSync(resultsPath, "utf8"));
+        expect(rows.at(-1)?.id).toBe("NEG");
+      });
     });
   });
 

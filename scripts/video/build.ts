@@ -4,7 +4,8 @@
  *   pnpm video:build                    the real thing; fails if any footage is missing
  *   pnpm video:build --allow-missing    slates instead of missing footage, to check timing and voice
  *
- * Numbers come from RESULTS.md at build time. A voice for a scene comes from
+ * Numbers come from RESULTS.md at build time, or from a source declared under `cited` in the storyboard, and the build
+ * fails on any other number it finds. A voice for a scene comes from
  * scripts/video/voice/<scene>.wav if that file exists, else from offline TTS, else the scene is silent
  * and the build says so.
  */
@@ -13,6 +14,7 @@ import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { REPO_ROOT, setting } from "../../eval/lib/paths.ts";
 import { assDocument, captionChunks, timeCues } from "./captions.ts";
+import { ensureSourcedNumbers } from "./numbers.ts";
 import { type CardToRender, cardHtml, numbersHtml, renderCards, slateHtml } from "./cards.ts";
 import { RAW_MEDIA } from "./capture.ts";
 import {
@@ -137,6 +139,7 @@ async function footageFor(
 export async function buildVideo(options: BuildOptions): Promise<BuildReport> {
   const { log } = options;
   const board = loadStoryboard(options.scenesPath);
+  ensureSourcedNumbers(board);
   const rows = parseResults(readFileSync(options.resultsPath, "utf8"));
   mkdirSync(options.workDir, { recursive: true });
   mkdirSync(dirname(options.output), { recursive: true });
@@ -148,10 +151,18 @@ export async function buildVideo(options: BuildOptions): Promise<BuildReport> {
       .filter((source) => !existsSync(clipPath(options.mediaRoot, source)))
       .map((source) => ({ scene, source })),
   );
-  if (missing.length > 0 && !options.allowMissing) {
-    const lines = missing.map(
-      ({ scene, source }) => `  ${scene.id}: ${source.clip}  (${recordingHint(source.clip)})`,
-    );
+  const missingStills = board.scenes.flatMap((scene) =>
+    scene.kind === "card" && scene.image && !existsSync(resolve(options.mediaRoot, scene.image))
+      ? [{ scene, image: scene.image }]
+      : [],
+  );
+  if ((missing.length > 0 || missingStills.length > 0) && !options.allowMissing) {
+    const lines = [
+      ...missing.map(
+        ({ scene, source }) => `  ${scene.id}: ${source.clip}  (${recordingHint(source.clip)})`,
+      ),
+      ...missingStills.map(({ scene, image }) => `  ${scene.id}: ${image}  (pnpm video:desk)`),
+    ];
     throw new Error(`missing footage:\n${lines.join("\n")}`);
   }
   const slated = new Set(missing.map(({ scene }) => scene.id));
@@ -160,11 +171,17 @@ export async function buildVideo(options: BuildOptions): Promise<BuildReport> {
   const cards: CardToRender[] = [];
   for (const scene of board.scenes) {
     if (scene.kind === "card") {
+      const image = scene.image ? resolve(options.mediaRoot, scene.image) : undefined;
+      const stillThere = image !== undefined && existsSync(image);
+      if (image && !stillThere) warnings.push(`${scene.id}: no ${scene.image} yet, so no still`);
       cards.push({
         id: scene.id,
         html: cardHtml(
           fillText(scene.headline, rows),
           (scene.lines ?? []).map((line) => fillText(line, rows)),
+          stillThere
+            ? `data:image/png;base64,${readFileSync(image).toString("base64")}`
+            : undefined,
         ),
       });
     } else if (scene.kind === "numbers") {

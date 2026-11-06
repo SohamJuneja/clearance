@@ -83,12 +83,51 @@ function rowText(row: ResultRow): string {
   return PENDING;
 }
 
+/** What a script's text says itself, with everything that comes from RESULTS.md taken out. */
+export function scriptedWords(text: string): string {
+  return text.replace(/\{\{[^}]*\}\}/g, " ").replace(/\[\[[^\]]*\]\]/g, " ");
+}
+
+/** Whether a cell holds a result yet. `Claude _, Codex _` doesn't; `Claude 0, Codex blocked` does. */
+function holdsANumber(cell: string): boolean {
+  return /\d/.test(cell);
+}
+
+const OPTIONAL_PART =
+  /\[\[if\s+([A-Za-z0-9]+(?:\/[^.\]\s]+)?)\.([a-z]+)\s*\]\]([\s\S]*?)\[\[\/if\]\]/g;
+
+function cellOf(rows: ResultRow[], selector: string, column: string): string {
+  const row = selectRow(rows, selector);
+  if (!(COLUMNS as readonly string[]).includes(column)) {
+    throw new Error(`RESULTS.md has no column "${column}" (in ${selector}.${column})`);
+  }
+  return row[column as ResultColumn];
+}
+
 /**
- * Fills `{{E1.clearance}}` and `{{NEG.text}}` from the table. An unknown cell name is an error rather
- * than a "pending": it's a typo in the script, not a result that hasn't arrived.
+ * The rows a slide should show. `E2/risky?` is a row only worth a place once it has a result, so a slide isn't made of
+ * promises. Anything else stays, and a blank reads "pending".
+ */
+export function slideRows(rows: ResultRow[], selectors: string[]): ResultRow[] {
+  return selectors.flatMap((selector) => {
+    const optional = selector.endsWith("?");
+    const row = selectRow(rows, optional ? selector.slice(0, -1) : selector);
+    return optional && !holdsANumber(row.baseline + row.clearance) ? [] : [row];
+  });
+}
+
+/**
+ * Fills `{{E1.clearance}}` and `{{NEG.text}}` from the table, and keeps `[[if E2/risky.clearance]]...[[/if]]` only once
+ * that cell holds a result. An unknown cell name is an error rather than a "pending": it's a typo in the script, not a
+ * result that hasn't arrived.
  */
 export function resolveTemplate(text: string, rows: ResultRow[]): string {
-  return text.replace(
+  const kept = text.replace(
+    OPTIONAL_PART,
+    (_all, selector: string, column: string, body: string) =>
+      holdsANumber(cellOf(rows, selector, column)) ? body : "",
+  );
+  return kept.replace(
     /\{\{\s*([A-Za-z0-9]+(?:\/[^.}\s]+)?)\.([a-z]+)\s*\}\}/g,
     (_all, selector: string, column: string) => {
       const row = selectRow(rows, selector);

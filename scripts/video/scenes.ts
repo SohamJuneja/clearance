@@ -57,6 +57,8 @@ const CardScene = z
     kind: z.literal("card"),
     headline: z.string().min(1),
     lines: z.array(z.string()).optional(),
+    /** A still under the lines, relative to docs/media/raw/. `pnpm video:desk` takes the Desk's. */
+    image: z.string().min(1).optional(),
   })
   .strict();
 
@@ -65,7 +67,7 @@ const NumbersScene = z
     ...Common,
     kind: z.literal("numbers"),
     headline: z.string().min(1),
-    /** Row selectors into RESULTS.md: `E1`, `E2/risky`. */
+    /** Row selectors into RESULTS.md: `E1`, `E2/risky`. `E2/risky?` shows only once that row has a result. */
     rows: z.array(z.string()).min(1),
   })
   .strict();
@@ -73,10 +75,21 @@ const NumbersScene = z
 const SceneSchema = z.discriminatedUnion("kind", [ClipScene, SplitScene, CardScene, NumbersScene]);
 export type Scene = z.infer<typeof SceneSchema>;
 
+/** A number that doesn't come from RESULTS.md, and where it does come from. Anything else fails the build. */
+const CitedSchema = z
+  .object({
+    value: z.string().min(1),
+    source: z.string().min(1),
+    /** Scenes it may appear in. Without this, any. */
+    only_in: z.array(z.string()).optional(),
+  })
+  .strict();
+
 const StoryboardSchema = z
   .object({
     max_duration_s: z.number().positive(),
     default_notices: z.array(z.string()).default([]),
+    cited: z.array(CitedSchema).default([]),
     scenes: z.array(SceneSchema).min(1),
   })
   .strict();

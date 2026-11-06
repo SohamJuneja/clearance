@@ -53,6 +53,7 @@ export class FakeMattermost {
   baseUrl = "";
   /** Runs after a person's post is accepted, so a test can play whoever answers it. */
   onPost: ((post: FakePost, author: FakeUser) => void) | undefined;
+  onPress: ((post: FakePost, actionId: string, user: FakeUser) => void) | undefined;
 
   /** A monotonic server clock, so ordering in tests never depends on wall time. */
   now(): number {
@@ -279,6 +280,7 @@ export class FakeMattermost {
         userId: me.id,
         cookie: (body as { cookie?: string } | undefined)?.cookie,
       });
+      this.onPress?.(post, match[2] ?? "", me);
       return send(200, { status: "OK" });
     }
 

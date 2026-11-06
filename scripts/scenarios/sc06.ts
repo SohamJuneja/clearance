@@ -1,6 +1,6 @@
 import { allOf, type MattermostPost, postText, textMatches } from "../../eval/lib/persona.ts";
 import { defineScenario, ensure } from "../demo/runner.ts";
-import { answerCard, clrOf, handleOf, waitForCard, waitForHold } from "./common.ts";
+import { answerCard, clrOf, handleOf, waitForCard, waitForHoldAnsweringOnce } from "./common.ts";
 
 const ROOM = "eng";
 const AGENT = "ops-agent";
@@ -29,21 +29,31 @@ export default defineScenario<State>({
       },
     },
     {
-      name: "The deploy is held, and the room hears a CLR id",
+      // Real runs: the agent saw the failing checks and asked first, every time so far.
+      name: "The deploy is held, and the room hears a CLR id (if the agent asks first, Priya answers once)",
       run: async (ctx, state) => {
-        state.held = await waitForHold(ctx, ctx.people.priya, ROOM, AGENT, state.prompt!);
-        state.clr = clrOf(state.held);
-        return state.clr;
+        const { held, answered } = await waitForHoldAnsweringOnce(
+          ctx,
+          ctx.people.priya,
+          ROOM,
+          AGENT,
+          state.prompt!,
+          "@ops-agent yes, ship it",
+        );
+        state.held = held;
+        state.clr = clrOf(held);
+        return `${state.clr}${answered ? ", after Priya answered once" : ""}`;
       },
     },
     {
       name: "The card reaches Alex (service owner) and shows 2 failing checks",
       run: async (ctx, state) => {
-        state.card = await waitForCard(ctx, ctx.people.alex, state.clr!, state.held!.create_at - 1);
+        state.card = await waitForCard(ctx, ctx.people.alex, state.clr!, state.prompt!.create_at);
         await ctx.people.alex.look(state.card);
         const text = postText(state.card);
         ensure(
-          /2 failing checks/i.test(text),
+          // What the product really prints: "Checks: failing (2 failing: e2e/..., integration/...)".
+          /Checks: failing \(2 failing\b/i.test(text),
           `the card doesn't show the failing checks: ${text.slice(0, 400)}`,
         );
         return handleOf(state.card);

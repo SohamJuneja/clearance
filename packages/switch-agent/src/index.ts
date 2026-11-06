@@ -1,6 +1,7 @@
 export {
   createSwitchAgent,
   roomSessionId,
+  serviceConnectionId,
   SwitchApiError,
   type ApprovalOption,
   type ApprovalQuestion,

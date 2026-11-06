@@ -24,6 +24,7 @@ import {
   type ScenarioResult,
   type ServiceControl,
 } from "./demo/runner.ts";
+import { serviceCommand } from "./demo/services.ts";
 import { findScenario, SCENARIOS } from "./scenarios/index.ts";
 
 const execShell = promisify(exec);
@@ -100,17 +101,18 @@ function resetWorld(): Promise<void> {
   });
 }
 
-/** Commands come from the environment, because how the world's processes run isn't this script's call. */
+/** scripts/services.sh, unless the environment says otherwise. */
 const servicesFromEnvironment: ServiceControl = {
   stop: (service) => runServiceCommand(service, "STOP"),
   start: (service) => runServiceCommand(service, "START"),
 };
 
 async function runServiceCommand(service: ServiceName, verb: "STOP" | "START"): Promise<void> {
-  const key = `CLEARANCE_${service.toUpperCase()}_${verb}_CMD`;
-  const command = setting(key);
+  const command = serviceCommand(service, verb, setting);
   if (!command)
-    throw new Error(`set ${key} to say how to ${verb.toLowerCase()} ${SERVICE_LABEL[service]}`);
+    throw new Error(
+      `set CLEARANCE_${service.toUpperCase()}_${verb}_CMD to say how to ${verb.toLowerCase()} ${SERVICE_LABEL[service]}`,
+    );
   await execShell(command, { cwd: REPO_ROOT, timeout: 60_000 });
 }
 

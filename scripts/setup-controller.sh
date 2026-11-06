@@ -12,6 +12,7 @@
 #
 # --owner defaults to admin, the Gateway admin's machine `clearance-host`. A persona signs in to the
 # Gateway as <owner>@clearance.example with PERSONA_PASSWORD from the root .env.
+# CLEARANCE_EXTRA_PATH goes first on the PATH agents get, for a probe like spikes/claude-init-tee.
 # Secrets are read from .env files by this script and never printed.
 set -euo pipefail
 
@@ -66,7 +67,7 @@ NODE="$(node -p process.execPath)"
 # The PATH agents get. The pinned OpenCode comes first; the controller appends the login shell's
 # entries after whatever it is given (login-path.ts). Node's own folder is named because Volta's shim
 # cannot find its home under an isolated HOME.
-AGENT_PATH="$TOOLS/node_modules/.bin:$(dirname "$NODE"):$HOME/.local/bin:$HOME/.volta/bin:/usr/local/bin:/usr/bin:/bin"
+AGENT_PATH="${CLEARANCE_EXTRA_PATH:+$CLEARANCE_EXTRA_PATH:}$TOOLS/node_modules/.bin:$(dirname "$NODE"):$HOME/.local/bin:$HOME/.volta/bin:/usr/local/bin:/usr/bin:/bin"
 
 SESSION_HOME="$HOME"
 if [ "$ISOLATED" = 1 ]; then

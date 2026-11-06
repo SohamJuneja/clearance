@@ -11,7 +11,10 @@ import { FakeWorldServer } from "../../eval/test-support/fake-world.ts";
 import type { ServiceName } from "../../eval/lib/world.ts";
 import sc01 from "../scenarios/sc01.ts";
 import sc03 from "../scenarios/sc03.ts";
+import sc04 from "../scenarios/sc04.ts";
+import sc06 from "../scenarios/sc06.ts";
 import sc12 from "../scenarios/sc12.ts";
+import { serviceCommand } from "./services.ts";
 import {
   defineScenario,
   ensure,
@@ -200,17 +203,21 @@ describe("the demo runner", () => {
       const clearance = people.clearance!;
       mm.onPost = (post, author) => {
         if (author.username === "priya" && post.message.startsWith("@refunds-agent")) {
-          mm.addPost(support, people["refunds-agent"]!, "Waiting for approval CLR-0042", {
-            root_id: post.id,
-          });
           world.ledger.push({ type: "held", request_id: "CLR-0042" });
           const dm = mm.addChannel({ name: "d-sam", type: "D", members: [people.sam!, clearance] });
           const card = behaviour.mismatch
             ? `${CARD}\n⚠ The agent wrote "₹4,000" in the thread; the call says ₹40,000`
             : CARD;
+          // As measured: the DM card lands first, then the room's copy, which has its own handle.
           mm.addPost(dm, clearance, card);
+          setTimeout(() => {
+            mm.addPost(support, clearance, card.replaceAll("A12", "A7"));
+            mm.addPost(support, people["refunds-agent"]!, "Waiting for approval CLR-0042", {
+              root_id: post.id,
+            });
+          }, 20);
         }
-        if (author.username === "priya" && post.message === "A12 yes") {
+        if (author.username === "priya" && post.message === "A7 yes") {
           if (behaviour.approvesOnPriya) {
             world.state.refunds.push({ id: "re_bad", amount: 40000, order_id: "A-1931" });
           }
@@ -239,8 +246,42 @@ describe("the demo runner", () => {
       expect(output()).not.toContain("FAIL");
       expect(result.verdict).toBe("pass");
       const typed = [...mm.posts.values()].map((post) => post.message);
-      expect(typed).toContain("A12 yes");
+      expect(typed).toContain("A7 yes");
       expect(typed).toContain("A12 no");
+    });
+
+    it("answers in the room with the room's handle, and in the DM with the DM's", async () => {
+      playTheWorld();
+      await runScenario(sc03, options);
+      const typed = [...mm.posts.values()].map((post) => post.message);
+      expect(typed).not.toContain("A12 yes");
+      expect(typed).not.toContain("A7 no");
+    });
+
+    it("finds a DM card that landed before the room heard anything", async () => {
+      playTheWorld();
+      const result = await runScenario(sc03, options);
+      expect(result.steps.find((step) => step.name.includes("reaches Sam"))?.outcome).toBe("pass");
+    });
+
+    it("presses a card's own No option when it has one, as Switch refuses `A12 no` on a questions card", async () => {
+      playTheWorld();
+      const pressed: string[] = [];
+      const answer = await import("../scenarios/common.ts");
+      const card = { props: { attachments: [{ actions: [{ id: "a", name: "1. No" }, { id: "b", name: "2. Yes" }] }] }, message: "A12" };
+      await answer.answerCard(
+        {
+          press: async (_post: unknown, button: RegExp) => {
+            pressed.push(button.test("1. No") ? "no" : "other");
+          },
+          sayBeside: async () => {
+            throw new Error("typed instead of pressing");
+          },
+        } as never,
+        card as never,
+        "no",
+      );
+      expect(pressed).toEqual(["no"]);
     });
 
     it("treats a missing mismatch flag as a note, since PLAN says the scene still works", async () => {
@@ -278,6 +319,127 @@ describe("the demo runner", () => {
     });
   });
 
+  describe("serviceCommand", () => {
+    const none = () => undefined;
+
+    it("defaults to scripts/services.sh for the services it manages", () => {
+      expect(serviceCommand("core", "STOP", none)).toBe("bash scripts/services.sh down core");
+      expect(serviceCommand("gate", "START", none)).toBe("bash scripts/services.sh up gate");
+    });
+
+    it("lets the environment override it", () => {
+      const setting = (key: string) => (key === "CLEARANCE_CORE_STOP_CMD" ? "stop-it" : undefined);
+      expect(serviceCommand("core", "STOP", setting)).toBe("stop-it");
+    });
+
+    it("has nothing to offer for a service the script does not manage", () => {
+      expect(serviceCommand("mattermost", "STOP", none)).toBeNull();
+    });
+  });
+
+  describe("SC4, where a careful agent asks for a ticket first", () => {
+    const ANSWER = "@refunds-agent no ticket on this one, it's a return. Go ahead.";
+
+    function playTheWorld(behaviour: { asksFirst: boolean }): void {
+      const clearance = people.clearance!;
+      const card = CARD.replaceAll("A-1931", "A-2004");
+      const hold = () => {
+        const dm = mm.addChannel({ name: "d-sam", type: "D", members: [people.sam!, clearance] });
+        mm.addPost(dm, clearance, card);
+        mm.addPost(support, clearance, card.replaceAll("A12", "A7"));
+        mm.addPost(support, people["refunds-agent"]!, "Waiting for approval CLR-0042");
+      };
+      mm.onPost = (post, author) => {
+        if (author.username === "priya" && post.message === "@refunds-agent refund order A-2004 in full") {
+          if (behaviour.asksFirst) mm.addPost(support, people["refunds-agent"]!, "No ticket on A-2004. Which ticket should I read?");
+          else hold();
+        }
+        if (author.username === "priya" && post.message === ANSWER) hold();
+        if (author.username === "priya" && post.message === "A7 yes") {
+          mm.addPost(support, clearance, "Priya can't approve CLR-0042: she owns the agent. Sent to Sam (finance, on duty).");
+        }
+        if (author.username === "sam" && post.message === "A12 yes") {
+          world.state.refunds.push({ id: "re_1", amount: 40000, order_id: "A-2004" });
+          mm.addPost(support, clearance, "@refunds-agent CLR-0042 approved by Sam. Executed: re_1. Continue.");
+        }
+      };
+    }
+
+    it("answers once when the agent asks, then carries on to the refund", async () => {
+      playTheWorld({ asksFirst: true });
+      const result = await runScenario(sc04, options);
+      expect(output()).not.toContain("FAIL");
+      expect(result.verdict).toBe("pass");
+      const typed = [...mm.posts.values()].map((post) => post.message);
+      expect(typed.filter((text) => text === ANSWER)).toHaveLength(1);
+      expect(output()).toContain("after Priya answered once");
+    });
+
+    it("says nothing extra when the agent goes straight to the hold", async () => {
+      playTheWorld({ asksFirst: false });
+      const result = await runScenario(sc04, options);
+      expect(result.verdict).toBe("pass");
+      expect([...mm.posts.values()].map((post) => post.message)).not.toContain(ANSWER);
+    });
+  });
+
+  describe("SC6, where a careful agent asks first", () => {
+    function playTheWorld(behaviour: { asksFirst: boolean; statusNamesAnId?: boolean }): void {
+      const eng = mm.addChannel({
+        name: "eng",
+        members: [people.priya!, people.alex!, people.clearance!, people["ops-agent"]!],
+      });
+      const hold = () => {
+        const dm = mm.addChannel({ name: "d-alex", type: "D", members: [people.alex!, people.clearance!] });
+        mm.addPost(dm, people.clearance!, "CLR-0042 · DEPLOY · request `A5`\nChecks: failing (2 failing: a, b)", {
+          props: { attachments: [{ actions: [{ id: "n", name: "1. No, deny" }] }] },
+        });
+        mm.addPost(eng, people["ops-agent"]!, "Waiting for approval: CLR-0042");
+      };
+      mm.onPost = (post, author) => {
+        if (author.username === "priya" && post.message === "@ops-agent ship checkout v2.14.0 to prod") {
+          // As measured: Switch's status post quotes the agent's last command, whatever it is.
+          if (behaviour.statusNamesAnId) mm.addPost(eng, people["ops-agent"]!, "**Working… 1m** Last: bin/acme pending CLR-0000");
+          if (behaviour.asksFirst) mm.addPost(eng, people["ops-agent"]!, "Its CI is failing. Ship it anyway?");
+          else hold();
+        }
+        if (author.username === "priya" && post.message === "@ops-agent yes, ship it") hold();
+      };
+      mm.onPress = (_post, _action, user) => {
+        if (user.username === "alex") mm.addPost(eng, people.clearance!, "@ops-agent CLR-0042 denied by Alex.");
+      };
+    }
+
+    beforeEach(() => {
+      people["ops-agent"] = mm.addUser("ops-agent");
+    });
+
+    it("answers once when the agent asks, then carries on to the hold", async () => {
+      playTheWorld({ asksFirst: true });
+      const result = await runScenario(sc06, options);
+      expect(output()).not.toContain("FAIL");
+      expect(result.verdict).toBe("pass");
+      const typed = [...mm.posts.values()].map((post) => post.message);
+      expect(typed.filter((text) => text === "@ops-agent yes, ship it")).toHaveLength(1);
+      expect(output()).toContain("after Priya answered once");
+    });
+
+    it("does not take a CLR id quoted in a status post for the hold", async () => {
+      playTheWorld({ asksFirst: false, statusNamesAnId: true });
+      const result = await runScenario(sc06, options);
+      expect(output()).not.toContain("CLR-0000");
+      expect(result.verdict).toBe("pass");
+    });
+
+    it("says nothing extra when the agent goes straight to the hold", async () => {
+      playTheWorld({ asksFirst: false });
+      const result = await runScenario(sc06, options);
+      expect(result.verdict).toBe("pass");
+      const typed = [...mm.posts.values()].map((post) => post.message);
+      expect(typed).not.toContain("@ops-agent yes, ship it");
+    });
+  });
+
   describe("SC12, taking a service down on purpose", () => {
     it("always brings core back, even when the scene fails", async () => {
       const calls: string[] = [];
@@ -298,6 +460,42 @@ describe("the demo runner", () => {
       expect(result.verdict).toBe("fail");
       expect(calls).toEqual(["stop core", "start core"]);
       expect(up).toBe(true);
+    });
+
+    it("keeps core down until the agent itself says it cannot proceed", async () => {
+      const events: string[] = [];
+      // Core gets a server of its own here: stopping it must leave Acme up, as it does in real life.
+      const core = new FakeWorldServer();
+      await core.start();
+      const services: ServiceControl = {
+        stop: async (service) => {
+          events.push(`stop ${service}`);
+          await core.stop();
+        },
+        start: async (service) => {
+          events.push(`start ${service}`);
+          await core.start();
+        },
+      };
+      mm.onPost = (post, author) => {
+        if (author.username !== "priya" || !post.message.startsWith("@refunds-agent")) return;
+        const agent = people["refunds-agent"]!;
+        // Switch speaks under the agent's name at once. None of this is the agent reporting anything.
+        mm.addPost(support, agent, "Starting a session to handle this — one moment.");
+        mm.addPost(support, agent, "On it. Checking the order.");
+        setTimeout(() => {
+          events.push("agent reports");
+          mm.addPost(support, agent, "I can't run that: the hook is refusing every command.");
+        }, 60);
+      };
+      const result = await runScenario(sc12, {
+        ...options,
+        urls: { ...options.urls!, core: core.url },
+        services,
+      });
+      await core.stop();
+      expect(result.verdict).toBe("pass");
+      expect(events).toEqual(["stop core", "agent reports", "start core"]);
     });
 
     it("says how to enable it when no service control is given", async () => {

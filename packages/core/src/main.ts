@@ -10,7 +10,7 @@ import { resolve } from "node:path";
 import { hookRoutes } from "@clearance/adapters";
 import { DEFAULT_PORTS } from "@clearance/contracts";
 import { createGateClient } from "@clearance/gate";
-import { createChatPort, createMattermostHandleResolver, createOwnPosts, createSwitchAgent, createTemplatePort } from "@clearance/switch-agent";
+import { createChatPort, createMattermostHandleResolver, createOwnPosts, createSwitchAgent, createTemplatePort, serviceConnectionId } from "@clearance/switch-agent";
 import { buildServer } from "./api/server.js";
 import { systemClock } from "./clock.js";
 import { OperatorCommands } from "./commands/operator.js";
@@ -70,6 +70,8 @@ const agent = createSwitchAgent({
   bridgeUrl: process.env.SWITCH_BRIDGE_URL ?? "http://127.0.0.1:8000",
   agentId: clearance.switchAgentId,
   apiKey,
+  // One core per Switch: services.sh refuses a second, and a restart must not leave the rooms deaf for 30 s.
+  connectionId: serviceConnectionId(clearance.switchAgentId),
 });
 // Clearance's own Mattermost account can read its real direct rooms, which the reader account can't.
 const ownToken = secrets.mattermostTokens.clearance;

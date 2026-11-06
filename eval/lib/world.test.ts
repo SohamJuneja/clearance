@@ -98,6 +98,28 @@ describe("CoreClient", () => {
     expect(await new CoreClient(url, () => undefined).ledger()).toEqual([{ type: "held" }]);
   });
 
+  it("uses the internal token by default, since the hook token only opens the hook routes", async () => {
+    const seen: (string | undefined)[] = [];
+    const server = createServer((req, res) => {
+      seen.push(req.headers.authorization);
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end("[]");
+    });
+    await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
+    const { port } = server.address() as AddressInfo;
+    const saved = { internal: process.env.CLEARANCE_INTERNAL_TOKEN, hook: process.env.CLEARANCE_HOOK_TOKEN };
+    process.env.CLEARANCE_INTERNAL_TOKEN = "internal-for-test";
+    process.env.CLEARANCE_HOOK_TOKEN = "hook-for-test";
+    try {
+      await new CoreClient(`http://127.0.0.1:${port}`).ledger();
+    } finally {
+      process.env.CLEARANCE_INTERNAL_TOKEN = saved.internal;
+      process.env.CLEARANCE_HOOK_TOKEN = saved.hook;
+      await new Promise((done) => server.close(done));
+    }
+    expect(seen).toEqual(["Bearer internal-for-test"]);
+  });
+
   it("reports health without throwing", async () => {
     expect(await new CoreClient(closedPort, () => undefined).isHealthy()).toBe(false);
   });

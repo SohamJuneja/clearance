@@ -25,3 +25,9 @@ check:
     pnpm typecheck
     pnpm lint
     pnpm test
+
+# Agents' working copies and the Acme rooms, safe to rerun. Needs Switch up and each owner's controller
+# (scripts/setup-controller.sh --owner priya, --owner alex). Codex and Cursor agents need logins first.
+world:
+    pnpm exec tsx scripts/setup-agents.ts --source acme-mini-app --agents refunds-agent,ops-agent
+    pnpm exec tsx scripts/setup-world.ts

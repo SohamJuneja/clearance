@@ -9,6 +9,7 @@ import {
   waitForCard,
   waitForClearanceSays,
   waitForHold,
+  waitForRoomCard,
 } from "./common.ts";
 
 const ROOM = "support";
@@ -63,7 +64,7 @@ export default defineScenario<State>({
     {
       name: "The card reaches Sam's DMs",
       run: async (ctx, state) => {
-        state.card = await waitForCard(ctx, ctx.people.sam, state.clr!, state.held!.create_at - 1);
+        state.card = await waitForCard(ctx, ctx.people.sam, state.clr!, state.prompt!.create_at);
         await ctx.people.sam.look(state.card);
         return handleOf(state.card);
       },
@@ -101,7 +102,15 @@ export default defineScenario<State>({
     {
       name: "Priya tries to approve Priya's own request",
       run: async (ctx, state) => {
-        await ctx.people.priya.reply(state.held!, `${handleOf(state.card!)} yes`);
+        const roomCard = await waitForRoomCard(
+          ctx,
+          ctx.people.priya,
+          ROOM,
+          state.clr!,
+          state.prompt!.create_at,
+        );
+        await answerCard(ctx.people.priya, roomCard, "yes");
+        return handleOf(roomCard);
       },
     },
     {
@@ -112,7 +121,7 @@ export default defineScenario<State>({
           ctx.people.priya,
           ROOM,
           new RegExp(`Priya can't approve ${state.clr}`),
-          state.held!.create_at - 1,
+          state.prompt!.create_at,
           "Clearance to refuse Priya's approval",
         );
         ensure(

@@ -11,7 +11,7 @@
  */
 import type { ApprovalOutcomeEvent, ChatMessageEvent } from "@clearance/contracts";
 import { createParser } from "eventsource-parser";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
   ApprovalOutcomeFrameSchema,
   ApprovalViewSchema,
@@ -39,6 +39,18 @@ export type Logger = {
   warn(message: string): void;
   error(message: string): void;
 };
+
+/**
+ * The connection id for a long-running agent, the same after every restart.
+ *
+ * Switch keeps a connection whose stream dropped until its heartbeat lapses, about 30 s, and every room placed on
+ * it stays there. A new process with a new id hears nothing from those rooms until then, so a person who asks
+ * during that time is unknown to core. Reopening the same id takes the connection over at once.
+ */
+export function serviceConnectionId(agentId: string): string {
+  const hex = createHash("sha256").update(`clearance-service-connection:${agentId}`).digest("hex");
+  return [hex.slice(0, 8), hex.slice(8, 12), hex.slice(12, 16), hex.slice(16, 20), hex.slice(20, 32)].join("-");
+}
 
 export type SwitchAgentConfig = {
   /** The bridge API, for example http://127.0.0.1:8000. Not the Gateway. */

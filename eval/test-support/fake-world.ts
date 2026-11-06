@@ -20,6 +20,7 @@ export class FakeWorldServer {
   ledger: { type: string; request_id?: string }[] = [];
   private server: Server | undefined;
   url = "";
+  private port = 0;
 
   async start(): Promise<string> {
     this.server = createServer((req, res) => {
@@ -32,8 +33,10 @@ export class FakeWorldServer {
       if (req.url === "/v1/health") return send(200, { ok: true });
       return send(200, {});
     });
-    await new Promise<void>((done) => this.server!.listen(0, "127.0.0.1", done));
-    this.url = `http://127.0.0.1:${(this.server.address() as AddressInfo).port}`;
+    // A restart keeps its port, as a real service does, so a client holding the url can find it again.
+    await new Promise<void>((done) => this.server!.listen(this.port, "127.0.0.1", done));
+    this.port = (this.server.address() as AddressInfo).port;
+    this.url = `http://127.0.0.1:${this.port}`;
     return this.url;
   }
 

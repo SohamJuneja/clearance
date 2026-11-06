@@ -1,6 +1,6 @@
 import type { ApprovalOutcomeEvent, ChatMessageEvent } from "@clearance/contracts";
 import { afterEach, describe, expect, it } from "vitest";
-import { createSwitchAgent, roomSessionId, SwitchApiError, type SwitchAgent, type SwitchAgentConfig, type SwitchAgentHandlers } from "../src/agent.js";
+import { createSwitchAgent, roomSessionId, serviceConnectionId, SwitchApiError, type SwitchAgent, type SwitchAgentConfig, type SwitchAgentHandlers } from "../src/agent.js";
 import { AGENT_ID, API_KEY, FakeSwitch, fixture, frame, quietLogger, until } from "./helpers.js";
 
 const STATE = { ...frame("connection_state"), generation: 7 };
@@ -37,6 +37,24 @@ async function started(config: Partial<SwitchAgentConfig> = {}, handlers: Switch
   await ready;
   return { ...context, stream };
 }
+
+describe("serviceConnectionId", () => {
+  it("is the same after a restart, so a new process takes the old connection and its rooms straight back", async () => {
+    const id = serviceConnectionId(AGENT_ID);
+    expect(serviceConnectionId(AGENT_ID)).toBe(id);
+    const { stream, agent } = await started({ connectionId: id });
+    expect(agent.connectionId).toBe(id);
+    expect(stream.query.get("connection_id")).toBe(id);
+  });
+
+  it("differs per agent: Switch never lets one agent attach to another's connection", () => {
+    expect(serviceConnectionId("agent-a")).not.toBe(serviceConnectionId("agent-b"));
+  });
+
+  it("looks like the ids Switch usually sees and fits its length limit", () => {
+    expect(serviceConnectionId(AGENT_ID)).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+  });
+});
 
 describe("the stream", () => {
   it("opens scope=all&filter=all and declares the revision that receives outcomes", async () => {

@@ -55,12 +55,7 @@ export default defineScenario<State>({
     {
       name: "The card reaches Sam, and Sam doesn't answer",
       run: async (ctx, state) => {
-        state.samCard = await waitForCard(
-          ctx,
-          ctx.people.sam,
-          state.clr!,
-          state.held!.create_at - 1,
-        );
+        state.samCard = await waitForCard(ctx, ctx.people.sam, state.clr!, state.prompt!.create_at);
         await ctx.people.sam.look(state.samCard);
       },
     },

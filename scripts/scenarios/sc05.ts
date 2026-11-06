@@ -6,6 +6,7 @@ import {
   clrOf,
   handleOf,
   waitForCard,
+  waitForRoomCard,
   waitForClearanceSays,
   waitForHold,
 } from "./common.ts";
@@ -62,12 +63,7 @@ export default defineScenario<State>({
     {
       name: "The card reaches Priya (support-lead) and flags bulk data going outside",
       run: async (ctx, state) => {
-        state.card = await waitForCard(
-          ctx,
-          ctx.people.priya,
-          state.clr!,
-          state.held!.create_at - 1,
-        );
+        state.card = await waitForCard(ctx, ctx.people.priya, state.clr!, state.prompt!.create_at);
         await ctx.people.priya.look(state.card);
         const text = postText(state.card);
         ensure(
@@ -80,7 +76,15 @@ export default defineScenario<State>({
     {
       name: "Sam tries to approve Sam's own request",
       run: async (ctx, state) => {
-        await ctx.people.sam.reply(state.held!, `${handleOf(state.card!)} yes`);
+        const roomCard = await waitForRoomCard(
+          ctx,
+          ctx.people.sam,
+          ROOM,
+          state.clr!,
+          state.prompt!.create_at,
+        );
+        await answerCard(ctx.people.sam, roomCard, "yes");
+        return handleOf(roomCard);
       },
     },
     {

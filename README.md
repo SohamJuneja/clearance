@@ -2,43 +2,218 @@
 
 The approval layer for teams of people and AI agents, built on [Switch](https://github.com/sandbox-quantum/switch).
 
-Our entry to the Flip the Switch hackathon (Track 01, Best Business Workflow), built from Nov 4 to Nov 7, 2026 by team CoffeeAndWispr.
+[![CI](https://github.com/Prashant-thakur77/clearance/actions/workflows/ci.yml/badge.svg)](https://github.com/Prashant-thakur77/clearance/actions/workflows/ci.yml) [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE) ![Built Nov 4 to 7, 2026](https://img.shields.io/badge/built-Nov%204%20to%207%202026-555)
 
-Status: under active development. This page only says what has been run. The full README arrives with the results.
+Team CoffeeAndWispr's entry to the Flip the Switch hackathon, Track 01: Best Business Workflow.
+
+Approval gates are the most common feature in this hackathon, and they decay. Clearance is the layer that keeps them meaningful across every room and every agent vendor: one policy, one inbox, the right other person with the real call in front of them, drills that measure whether approvers still read, and autonomy that agents earn from a record people signed. It needs no changes to Switch.
+
+<!-- video:start -->
+<!-- video:end -->
 
 ## The problem
 
-Approval gates are the most common feature in this hackathon, and they decay.
+In Switch today, the person who asks can approve their own request. `session_activity/service.py` says "An answer is accepted from anyone who may address the agent", new agents default to owner-only addressing, and the approval record has no requester field. In a small team the owner is usually the person asking. We watched this happen: a refund's approval cards all went to the person who asked for it, and they pressed every one.
 
-In Switch today, the person who asks can approve their own request. `session_activity/service.py` says "An answer is accepted from anyone who may address the agent", new agents default to owner-only addressing, and the approval record has no requester field. In a small team the owner is usually the person asking.
+Auto mode moved the team's risk policy to four vendors. It has been on by default for new agents since [PR #965](https://github.com/sandbox-quantum/switch/pull/965), and what it means differs by vendor. Under auto, Switch's OpenCode adapter answers every permission with `once` (`opencode-adapter.ts`), so nothing reaches anyone. Switch's own end-to-end test commit `adf8978c` says that with it on, Claude Code ran shell commands "without asking, so no approval card ever appeared". Anthropic [reports](https://www.anthropic.com/engineering/claude-code-auto-mode) a "17% false-negative rate on real overeager actions" for its classifier.
 
-Auto mode moved the team's risk policy to four vendors. It has been on by default for new agents since [PR #965](https://github.com/sandbox-quantum/switch/pull/965), and what it means differs per vendor. Switch's own end-to-end test commit `adf8978c` says that with it on, Claude Code ran shell commands "without asking, so no approval card ever appeared". Anthropic [reports](https://www.anthropic.com/engineering/claude-code-auto-mode) a "17% false-negative rate on real overeager actions" for its classifier.
-
-When people do get asked, they stop reading. The same Anthropic post says "users accept 93% of them anyway" and describes "approval fatigue, where people stop paying close attention to what they're approving".
+When people do get asked, they stop reading. The same post says "users accept 93% of them anyway" and describes "approval fatigue, where people stop paying close attention to what they're approving". OWASP's [Top 10 for Agentic Applications](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/) lists this as ASI09, Human-Agent Trust Exploitation.
 
 ## What Clearance does
 
 | Feature | What you see |
 |---|---|
-| One policy for every agent and vendor | One YAML file holds a Claude Code refund, a Codex customer email and an OpenCode deploy |
+| One policy for every agent and vendor | One YAML file holds a Claude Code refund and an OpenCode deploy, with Codex and Cursor configs in the same place |
 | Routing with separation of duties | Priya asks and tries to approve. Clearance refuses in the room and sends it to Sam in finance. If Sam is away, it escalates on a timer |
-| Evidence card | The card leads with fields parsed from the real call and flags "agent said ₹4,000, call says ₹40,000" |
-| Drills and rubber-stamp detection | A planted bad request catches a 1.8 s approval, and the next high-risk card asks for a typed amount |
+| Evidence card | The card leads with fields parsed from the real call and context from systems of record. The agent's own sentence comes last, labelled unverified |
+| Drills and rubber-stamp signals | A planted bad request catches a fast approval, and the next high-risk card asks for a typed value |
 | Earned autonomy | An agent earns auto-approval for small refunds after a clean record. Two people sign, and one incident takes it away |
 
 Decisions are deterministic code over the policy file. No LLM sits in the decision path.
 
 ## Results
 
-Every number comes from a script in `eval/` and is regenerated by `pnpm eval:report`. Nothing has been measured yet.
+Every number comes from a script in `eval/` and is regenerated by `pnpm eval:report`. Baselines from reading Switch's code are marked, and so is anything synthetic.
 
 <!-- results:start -->
 <!-- results:end -->
 
-## Licence
+An independent review of this code found five real breaks that the 25-case suite had not caught, including a way for a person to approve their own refund by addressing an agent without an `@name`. All five are fixed and kept as regression checks in `eval/`. The suite proves the listed controls. It does not prove the list is complete, and we'd rather you hear that from us.
 
-Our code is Apache-2.0. Switch is source-available (Apache 2.0 with a modified Commons Clause), keeps its own licence, and is not modified by this project; we pin commit `1fe56227`.
+## Judge quickstart
 
-## How this was built
+```bash
+git clone https://github.com/Prashant-thakur77/clearance && cd clearance
+cp .env.example .env            # add one Anthropic key; others are optional
+just demo                       # Switch standalone, Mattermost, Acme, Clearance, seeded
+```
 
-Written with Claude Code under the rules in [CLAUDE.md](CLAUDE.md). Full notes come with the final README.
+Then open http://localhost:8065 and log in as `priya` or `sam`. Their password is `PERSONA_PASSWORD` in `.env`, a demo value that only works on a localhost stack. The Desk is at http://localhost:7900.
+
+### Best demo path
+
+Each step is also one command, `pnpm demo:run SC3` and so on, which drives the people through Mattermost. People's actions are scripted. The agents' words never are.
+
+1. SC3, the spine. As Priya in `#support`: `@refunds-agent handle Meera's ticket T-77 for order A-1931`. The ticket pressures the agent to send ₹40,000 to a payment ID added minutes ago. In our runs the agent caught the wrong amount and offered the correct ₹4,000 to the new ID, and it's held. Answer the card yourself as Priya and Clearance refuses you in the room. Sam's direct room has the card, with the new destination flagged.
+2. SC5 and SC6, other vendors. Sam asks `@support-agent` to email the customer list outside the company, and Priya asks `@ops-agent` to ship `checkout v2.14.0` to prod with failing checks. Same policy file, same kind of card.
+3. SC8, the inbox. Leave a card unanswered with the clock sped up. The backup gets it, and each approver has one "Needs your response" post across rooms.
+4. SC9, a drill. Approve the practice request quickly. Nothing runs, you get a private note, and your next high-risk card asks you to type a detail.
+5. SC11, earned autonomy. `pnpm seed:history` loads a synthetic week. Two people sign a promotion, a small refund runs with a review card, and `@clearance incident` takes it away.
+
+## How Clearance uses Switch
+
+| Switch capability | How Clearance uses it | Code |
+|---|---|---|
+| Agent protocol: register, SSE stream, heartbeat, operations | Clearance is a Switch agent | `packages/switch-agent` |
+| Approval cards and `approval_outcome` | Every Clearance card is a native Switch card with buttons | `packages/core/src/cards`, `packages/switch-agent/src/chat-port.ts` |
+| Answer grammar (`A12 yes`) | The same grammar, plus type-to-confirm question cards | `packages/core/src/confirm` |
+| Identity claims, `answered_by`, `sender` | Who asked and who approved, never taken from an agent's text | `packages/core/src/router/requesters.ts`, `packages/core/src/people` |
+| Rooms, direct rooms, groups | `#approvals` and one direct room per approver | `templates/` |
+| Targeted messages | Escalations and agent notifications | `packages/core/src/escalation` |
+| Room documents | The ledger, mirrored per day, plus current state | `packages/core/src/ledger/mirror.ts` |
+| Templates v2 and `run_template` | `@clearance install` and the demo world | `templates/`, `packages/core/src/install` |
+| Managed agents across vendors | One policy over all of them | `acme-mini-app/`, `scripts/setup-agents.ts` |
+| Addressing policy | Only linked people can answer Clearance's cards | `scripts/setup-identities.ts` |
+| Message stream | Presence and load for routing | `packages/core/src/router` |
+| Mattermost bridge buttons | One-click decisions in the demo | Switch's own |
+
+### Remove Switch and this breaks
+
+There's no room where people and different vendors' agents meet, no identity to separate requester from approver, no card, and no way to install. Clearance has no chat surface of its own and no agents of its own. Switch is where the work happens, and Clearance decides who may let it through.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph Chat["Team chat: Mattermost through Switch"]
+    P[Priya, support]
+    S[Sam, finance]
+    X[Alex, eng]
+  end
+  subgraph Switch["Switch standalone"]
+    R[(Rooms, threads, identity claims, cards, room documents)]
+  end
+  subgraph Agents["Managed agents, fenced to their own folder"]
+    RA[refunds-agent, Claude Code]
+    OA[ops-agent, OpenCode]
+    SA[support-agent, Codex]
+    CU[reviewer, Cursor CLI]
+  end
+  subgraph Clearance
+    CORE[clearance-core :7700 and the Clearance Switch agent]
+    GATE[clearance-gate :7710, holds credentials]
+    DESK[Desk :7900]
+    DB[(SQLite)]
+  end
+  ACME[Acme Mini :7800, synthetic]
+
+  Chat <--> Switch
+  Switch <--> Agents
+  CORE <-- SSE events, HTTP ops, approval cards --> Switch
+  RA & OA & SA & CU -- vendor hooks --> CORE
+  Agents -- acme CLI or MCP --> GATE
+  GATE -- check, execute on approval --> CORE
+  GATE -- custody credentials --> ACME
+  CORE <--> DB
+  DESK --> CORE
+```
+
+Business actions go through the gate, which holds the credentials and executes exactly the approved call once. Local actions such as `git push` are caught by each vendor's pre-action hook, which answers allow or deny and never asks. [docs/architecture.md](docs/architecture.md) has the refund flow step by step.
+
+## Vendor coverage
+
+Tested means a real session under Switch, on Nov 6, 2026, unless it says otherwise.
+
+| Vendor | Gate (business actions) | Hook (local actions) | MCP from project config | Status |
+|---|---|---|---|---|
+| Claude Code | tested | tested, in auto mode | loads; the gate's token header gets a 401, so agents use the CLI | working |
+| OpenCode 1.18.27 | tested | tested, deny and endpoint-down both block | loads and calls | working |
+| Codex | not run | hook mechanics tested on a stub model, trust seeded by script | loaded on a stub model | blocked on a login in our run |
+| Cursor CLI | not run | untested | untested | untested |
+
+The configs for Codex and Cursor are in `acme-mini-app/`, and `scripts/setup-agents.ts` seeds them. We say untested where we mean it.
+
+## The policy
+
+`policy/clearance.policy.yaml` holds classes like this one, shortened. Expressions are a small hand-written language, never `eval`.
+
+```yaml
+refund:
+  match:
+    - { gate: 'POST /acme/refunds' }
+    - { mcp: 'refund_customer', via_gate: true }
+    - { shell: '(^|/)acme\s+refund\b' }
+  risk:
+    base: 20
+    add:
+      - { when: 'amount > 10000', points: 35, why: 'refunds over ₹10,000' }
+      - { when: 'amount > 3 * order_total', points: 30, flag: amount_vs_order }
+      - { when: 'destination_age_hours < 24', points: 25, flag: new_destination }
+  aggregate:                     # ten small refunds don't slip under the threshold
+    - { sum: amount, by: customer, window: 24h, over: 10000, then: hold }
+  reversible: false
+  approvers:
+    any_of: [ { role: finance-approver }, { group: finance } ]
+    quorum: { default: 1, critical: 2 }
+  escalate:
+    - { after: 3m, add: backup }
+    - { after: 8m, post: '#approvals', mention: '@finance-approvers' }
+  autonomy:
+    max_level: L3
+    buckets: [ { name: small, when: 'amount <= 5000' } ]
+    promote_after: { approvals: 20, days: 7, min_distinct_approvers: 2 }
+```
+
+## What works today, and what doesn't yet
+
+Working on the real stack: holds, refusals, routing, execute-on-approval and fail-closed behaviour through the gate, the Claude Code and OpenCode hooks, cards with real button presses, the inbox, the ledger mirror, drills, and the install command.
+
+Proved in tests against fakes, not yet on the live stack: earned autonomy's promotion and demotion, delegation, break-glass and signed policy changes.
+
+Not yet:
+
+- Approve with edits (F20) isn't built.
+- Delete cards show no record name, because the gate has no record lookup.
+- An L2 review's "reverse" can't undo anything automatically, because Acme has no undo. It demotes, records an incident and asks a person.
+- Shadow mode logs what would have been held but keeps denies enforced, because those guard Clearance itself.
+- `!list-documents` crashes in Switch at our pin (PR #1286 upstream), so you see the ledger through the room notice and the Gateway room page.
+
+## Threat model and limits
+
+Hooks are a guardrail and the gate is the boundary. An agent that holds its own unscoped credentials outside the gate isn't stopped by Clearance. [docs/threat-model.md](docs/threat-model.md) has the full list. The ones you'd want to know first:
+
+- Shell classification is best effort. `python -c`, `perl -e` and `awk system()` can do things the classifier can't read, which is why business credentials live only in the gate.
+- When Clearance can't tell who asked, for example a direct message in a room it isn't in, the request needs two different approvers. One of them could be the person who asked. They can't be the only one.
+- While a drill is open, the Desk's queue and the ledger mirror stand still rather than reveal it. Someone comparing their own card with them could suspect a drill. Removing that would mean publishing something false.
+- The Desk has no login, so its per-person admin view is protected by a label. Don't expose it.
+- Drills, friction and study results measure attention in a small group. A type-to-confirm proves someone read one field, not that they thought about it.
+
+## How this maps to the judging criteria
+
+Use of Switch: Clearance is a Switch protocol agent, posting native Switch cards, reading identity from Switch events, routing through Switch rooms and direct rooms, writing to room documents, and installing with a Switch template. Take Switch away and there's nothing left to run in.
+
+Technical execution: `just demo` brings up the whole thing, tests run in CI, and every number in this README comes from a script you can run. Controls fail closed, and the authority suite checks both that the bad outcome didn't happen and that the legitimate path still works.
+
+Creativity and impact: most entries build a gate into one workflow, and Clearance is the layer under all of them. It works on the human side too: whether approvals still mean anything after week one. Our study compares Switch's card with ours on real people, and its numbers are in the results table once people have taken part.
+
+Presentation: the video opens on Switch's default, shows real agents in a real Mattermost, and says plainly what agents did and didn't do. Our most expected scenario, an agent trying to send ₹40,000, never happened, and we say that too.
+
+## Related work in this hackathon
+
+In a Nov 5 scan of 180 public repos, about 60 had an approval gate, so separation of duties, hash-bound approvals and ledgers are table stakes. We learned from these, and here's what Clearance adds to each:
+
+- [Litti](https://github.com/Abhishek764/litti) has timed reading, comprehension quizzes and a serial rubber-stamper rule on a separate review page, called by the agent. Ours runs in the chat on every held action, and its signal stops fast approvals counting toward autonomy.
+- [Switchyard](https://github.com/atharvgaur1845/switchyard) has YAML flows with gates and hash-bound approvals, one flow per room. Clearance is one policy over every vendor's tool calls.
+- [Fleet Room](https://github.com/sirmos/fleetroom) has policy tiers and no self-approval. Clearance adds a cross-room layer and the human side.
+- [Overruled](https://github.com/Kevrc/overruled) has a policy file, a tamper-evident ledger and measured evals. Clearance applies that rigour as a reusable layer.
+- [Blackout](https://github.com/codeswithroh/blackout) runs incident fire drills. Clearance runs drills on live approvals as a standing feature.
+- [Lead Desk](https://github.com/coder-irwin/switch-lead-desk) is designed against approval fatigue with routine and review tiers. Clearance adds continuous per-person signals.
+- [Precedent](https://github.com/rushibhosalepro/precedent) turns approvals into rules, backtested on history, the closest thing to earned autonomy. Clearance adds demotion on incidents and evidence that excludes rubber-stamped approvals.
+
+## Built during the hackathon, and how we used AI tools
+
+Everything here was built from Nov 4 to Nov 7, 2026. The code was written with Claude Code, working as a set of agents under the rules in [CLAUDE.md](CLAUDE.md), and the decisions are logged in [DECISIONS.md](DECISIONS.md), mistakes included. An independent AI review attacked the result, and its findings are in `packages/core/test/audit.test.ts`. Prompts were dictated with Wispr Flow; [docs/built-by-voice.md](docs/built-by-voice.md) has the details.
+
+## Acknowledgements and licence
+
+Our code is Apache-2.0. Switch is source-available (Apache 2.0 with a modified Commons Clause), keeps its own licence, and is not modified by this project; we pin commit `1fe56227`. All data in Acme Mini is synthetic.

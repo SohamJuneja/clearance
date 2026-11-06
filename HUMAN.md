@@ -83,5 +83,6 @@ Everything else is being done without you. Tick a box when done (or just tell me
   ```bash
   rm -rf /tmp/clearance-gate-* /tmp/acme-cli-* /tmp/acme-token-* /tmp/acme-e2e-* /tmp/hook-token-* /tmp/hook-no-token-* /tmp/plugin-token-* /tmp/setup-agent-* /tmp/mcp-headers-* /tmp/codex-wrapper-* /tmp/real-acme-*
   ```
-- [ ] **Blog and three #HowISwitch posts.** Ready to post here with clips.
+- [ ] **Blog:** draft at `docs/blog-draft.md`, written as you, in first person. Please read it, since it speaks for you, and change anything that isn't how you'd say it. I fill the `{{...}}` numbers from RESULTS.md at the end. Post on dev.to or Hashnode when I say it's final.
+- [ ] **Three #HowISwitch posts.** Ready to post here with clips once the takes exist.
 - [ ] **Submission form.** `SUBMISSION.md` will have every field filled in.

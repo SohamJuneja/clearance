@@ -6,7 +6,7 @@ The approval layer for teams of people and AI agents, built on [Switch](https://
 
 Team CoffeeAndWispr's entry to the Flip the Switch hackathon, Track 01: Best Business Workflow.
 
-Approval gates are the most common feature in this hackathon, and they decay. Clearance is the layer that keeps them meaningful across every room and every agent vendor: one policy, one inbox, the right other person with the real call in front of them, drills that measure whether approvers still read, and autonomy that agents earn from a record people signed. It needs no changes to Switch.
+Approval gates decay. Clearance is the layer that keeps them meaningful across every room and every agent vendor: one policy, one inbox, the right other person with the real call in front of them, drills that measure whether approvers still read, and autonomy that agents earn from a record people signed. It needs no changes to Switch.
 
 <!-- video:start -->
 <!-- video:end -->
@@ -233,26 +233,14 @@ Use of Switch: Clearance is a Switch protocol agent, posting native Switch cards
 
 Technical execution: `just demo` brings up the whole thing, tests run in CI, and every number in this README comes from a script you can run. Controls fail closed, and the authority suite checks both that the bad outcome didn't happen and that the legitimate path still works.
 
-Creativity and impact: most entries build a gate into one workflow, and Clearance is the layer under all of them. It works on the human side too: whether approvals still mean anything after week one. Our study compares Switch's card with ours on real people, and its numbers are in the results table once people have taken part.
+Creativity and impact: Clearance isn't a gate inside one workflow. It's the layer under them. It works on the human side too: whether approvals still mean anything after week one. Our study compares Switch's card with ours on real people, and its numbers are in the results table once people have taken part.
 
 Presentation: the video opens on Switch's default, shows real agents in a real Mattermost, and says plainly what agents did and didn't do. Our most expected scenario, an agent trying to send ₹40,000, never happened, and we say that too.
-
-## Related work in this hackathon
-
-In a Nov 5 scan of 180 public repos, about 60 had an approval gate, so separation of duties, hash-bound approvals and ledgers are table stakes. A re-scan on Nov 6 turned up no new entry with these features, on what code search can show ([docs/competition-scan.md](docs/competition-scan.md)). We learned from these, and here's what Clearance adds to each:
-
-- [Litti](https://github.com/Abhishek764/litti) has timed reading, comprehension quizzes and a serial rubber-stamper rule on a separate review page, called by the agent. Ours runs in the chat on every held action, and its signal stops fast approvals counting toward autonomy.
-- [Switchyard](https://github.com/atharvgaur1845/switchyard) has YAML flows with gates and hash-bound approvals, one flow per room. Clearance is one policy over every vendor's tool calls.
-- [Fleet Room](https://github.com/sirmos/fleetroom) has policy tiers and no self-approval. Clearance adds a cross-room layer and the human side.
-- [Overruled](https://github.com/Kevrc/overruled) has a policy file, a tamper-evident ledger and measured evals. Clearance applies that rigour as a reusable layer.
-- [Blackout](https://github.com/codeswithroh/blackout) runs incident fire drills. Clearance runs drills on live approvals as a standing feature.
-- [Lead Desk](https://github.com/coder-irwin/switch-lead-desk) is designed against approval fatigue with routine and review tiers. Clearance adds continuous per-person signals.
-- [Precedent](https://github.com/rushibhosalepro/precedent) turns approvals into rules, backtested on history, the closest thing to earned autonomy. Clearance adds demotion on incidents and evidence that excludes rubber-stamped approvals.
 
 ## Built during the hackathon, and how we used AI tools
 
 Everything here was built from Nov 4 to Nov 7, 2026. The code was written with Claude Code, working as a set of agents under the rules in [CLAUDE.md](CLAUDE.md), and the decisions are logged in [DECISIONS.md](DECISIONS.md), mistakes included. Three independent AI reviews attacked the result, and their findings are in `packages/core/test/audit.test.ts`, `red-team.test.ts` and `third-review.test.ts`. Prompts were dictated with Wispr Flow; [docs/built-by-voice.md](docs/built-by-voice.md) has the details.
 
-## Acknowledgements and licence
+## Licence
 
 Our code is Apache-2.0. Switch is source-available (Apache 2.0 with a modified Commons Clause), keeps its own licence, and is not modified by this project; we pin commit `1fe56227`. All data in Acme Mini is synthetic.

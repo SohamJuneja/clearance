@@ -26,19 +26,15 @@ Main track: Track 01 Best Business Workflow. Side tracks: Code with Wispr, Best 
 12. [Demo video script](#12-demo-video-script)
 13. [README blueprint](#13-readme-blueprint)
 14. [Side tracks: Wispr, blog, #HowISwitch, Track 03](#14-side-tracks-wispr-blog-howiswitch-track-03)
-15. [What we borrow from past winners](#15-what-we-borrow-from-past-winners)
-16. [Competition](#16-competition)
-17. [Risk register](#17-risk-register)
-18. [Submission checklist](#18-submission-checklist)
-19. [Appendices: build prompts, templates, card copy, sources](#19-appendices)
+15. [Risk register](#15-risk-register)
+16. [Submission checklist](#16-submission-checklist)
+17. [Appendices: build prompts, templates, card copy, sources](#17-appendices)
 
 ---
 
 ## 0. TL;DR
 
-**One sentence.** Approval gates are everywhere in this hackathon, but they decay: in Switch the requester can approve their own ₹40,000 refund, auto mode (on by default for new agents since late October) often shows no card at all, and people approve 93% of the prompts they do see. Clearance is the layer that keeps approvals meaningful across every room and every agent vendor: one policy, one inbox, the right other person with the real call in front of them, drills that measure whether approvers are still paying attention, and autonomy that agents earn from a record people signed.
-
-**Where we stand in the field (section 16).** About 60 of 180 public entries have an approval gate and at least 8 already block self-approval, so separation of duties, hash-bound approvals and ledgers are table stakes. What nobody we found ships: one policy across every vendor's tool calls, one inbox across rooms, drills as a standing feature, earned autonomy driven by rubber-stamp signals, and a human study. (Litti ships rubber-stamp detection itself; see 16.3.) Those are the pitch; everything else must simply be done well.
+**One sentence.** Approval gates decay: in Switch the requester can approve their own ₹40,000 refund, auto mode (on by default for new agents since late October) often shows no card at all, and people approve 93% of the prompts they do see. Clearance is the layer that keeps approvals meaningful across every room and every agent vendor: one policy, one inbox, the right other person with the real call in front of them, drills that measure whether approvers are still paying attention, and autonomy that agents earn from a record people signed.
 
 **The five things we build** (from the agreed spec, plus what this plan adds):
 
@@ -66,7 +62,7 @@ Main track: Track 01 Best Business Workflow. Side tracks: Code with Wispr, Best 
 
 ### 1.1 The 20-second version (use word for word in the video and README)
 
-> "Approval gates are the most common feature in this hackathon. But in Switch today the person who asks can approve their own request, auto mode often asks nobody, and people approve 93% of what they're shown. Clearance is the approval layer for the whole team: one policy for every room and every agent vendor, one inbox, the right other person with the real call in front of them, and drills that measure whether approvals still mean anything. It needs no changes to Switch."
+> "In Switch today the person who asks can approve their own request, auto mode often asks nobody, and people approve 93% of what they're shown. Clearance is the approval layer for the whole team: one policy for every room and every agent vendor, one inbox, the right other person with the real call in front of them, and drills that measure whether approvals still mean anything. It needs no changes to Switch."
 
 ### 1.2 The problem, with evidence we can cite
 
@@ -98,23 +94,11 @@ Main track: Track 01 Best Business Workflow. Side tracks: Code with Wispr, Best 
 
 ### 1.3 Why this is fresh
 
-- It is not another workflow with a gate inside it. About 60 entries in this hackathon build an approval gate into their own single workflow; Clearance is the reusable layer under all of them, for every room and every vendor (section 16).
+- It is not another workflow with a gate inside it. Clearance is the reusable layer under them, for every room and every vendor.
 - It works on the human side that nobody measures: whether approvals stay meaningful after week one (live rubber-stamp signals, drills with a catch rate, a user study).
 - It sits on Switch's own pitch. The switchagents.ai hero line is **"Share Rooms • Earn Trust • Prove ROI"**, and its Trust blurb says Switch "asks for approval before an agent touches production". Clearance makes "Earn Trust" literal: agents earn autonomy from a record that people signed.
 - It addresses open Switch work: #1089 (open, pending approvals across rooms, "shared with our product team"), #919 (cards sit unseen in old threads and "wait forever"), and PR #986 (open, move cards to channel root).
 - It is vendor-neutral, which is the one thing a single vendor's auto mode cannot be.
-
-### 1.4 Positioning against what exists
-
-| Alternative | What it does | Why Clearance is different |
-|---|---|---|
-| Switch built-in approvals | First answer wins, allow once / allow for session / reject, no requester field, no routing, no expiry from hosts | Clearance adds who-may-approve rules, routing, escalation, evidence, drills, autonomy, ledger |
-| Vendor auto modes (Claude classifier, Codex auto_review, OpenCode auto) | Each vendor decides "risky" its own way | One team policy across vendors, written by the team |
-| HumanLayer | Now a platform that runs coding agents for teams ([repo](https://github.com/humanlayer/humanlayer)) | Clearance is a policy layer inside the chat the team already uses, with separation of duties and anti-rubber-stamp rules |
-| Auth0 async authorization (CIBA, GA Nov 2025) | The user approves their own agent by push | Self-approval by design; Clearance routes to another person |
-| Permit.io Access Request MCP | Access requests and approvals via its UI/API | No chat surface, no cross-CLI tool-call interception |
-| Claude Code channels permission relay | Relays Claude's prompts to Telegram/Discord; first answer wins | Claude-only, single user, relays the model's description |
-| LangGraph `interrupt()` | Pause your own graph for input | Needs you to own the agent code; does not cover third-party CLIs |
 
 ---
 
@@ -126,7 +110,7 @@ Weights confirmed on the WeMakeDevs page, the DevTools Academy page and WeMakeDe
 |---|---|---|---|
 | **Use of Switch (30)** | "Is Switch central, would the project stop working without it?" | Clearance is a Switch agent (protocol client), posts native Switch approval cards, reads identity from Switch claims, routes through Switch rooms and DMs, writes its ledger as Switch room documents, installs with a Switch template, and covers every agent vendor Switch runs. Remove Switch and there is no room, no identity, no cards, no cross-vendor agents. | README "Remove Switch and this breaks" section; feature map table with 12+ Switch capabilities used; video scene 1 shows Switch's default first |
 | **Technical execution (25)** | "Does it run, could someone clone the repo and reproduce it?" | `just demo` brings up Switch standalone (Mattermost), Acme, Clearance and seeds the scenarios. Every number comes from `pnpm eval:*`. Tests in CI. Fail-closed behaviour proven. | Judge quickstart in 3 commands; `RESULTS.md`; GitHub Actions badge |
-| **Creativity and impact (25)** | "Is it a fresh idea that solves a problem a real team has?" | Not an agent workflow but the approval layer all of them need; separation of duties, drills and earned autonomy are new in this field; real problem with OWASP/Anthropic numbers; human study with real people | 20-second pitch; competition section; study results |
+| **Creativity and impact (25)** | "Is it a fresh idea that solves a problem a real team has?" | Not an agent workflow but the approval layer all of them need; real problem with OWASP/Anthropic numbers; human study with real people | 20-second pitch; study results |
 | **Presentation (20)** | "Do the demo video and README make clear how Switch is used?" | Video opens on Switch's default failing, then fixes it; every scene shows the real Mattermost room; README starts with a one-sentence demo and a GIF; numbers table; honest limitations | Video under 3 minutes; README top fold |
 
 Rules we must respect (WeMakeDevs page is the host and the most current; the DevTools Academy page is older where they differ):
@@ -224,7 +208,7 @@ just standalone-up            # API :8000, Gateway :3000, Mattermost :8065 (boun
 - [ ] Link each Mattermost account to its Switch user (identity claim with one-time code; `docs/official/internals/identity-and-access.md`). Unlinked accounts cannot answer cards.
 - [ ] In the Mattermost System Console, enable personal access tokens and create one per persona (the eval and study drivers post through the Mattermost REST API).
 - [ ] Confirm Mattermost card buttons work (standalone compose sets `MATTERMOST_CALLBACK_BASE_URL: http://switch:8081`; without it people answer by typing).
-- [ ] Create a dedicated Switch user **`clearance-admin`** and register the Clearance agent under it. No persona and no other agent may share its owner: two agents with the same owner can change each other's addressing policy (found by the Overruled team). Acme agents get `can_manage_agents: false`.
+- [ ] Create a dedicated Switch user **`clearance-admin`** and register the Clearance agent under it. No persona and no other agent may share its owner: two agents with the same owner can change each other's addressing policy. Acme agents get `can_manage_agents: false`.
 - [ ] Enroll a headless agent controller on the demo host: get a code from the Gateway Machines page, then `switch-agent-controller enroll --server <bridge url> --code <code>` and `switch-agent-controller run`. Install the Switch Console too if anyone prefers it (macOS, Windows, Linux builds exist).
 - [ ] Create one throwaway room with one Claude Code agent and send it a message, to prove the loop works. Delete it after.
 
@@ -344,7 +328,7 @@ Priority sets the **order** of work, not what gets dropped: P0 first (the submit
 1. Candidates = people matching the rule (`group: finance`, `role: finance-approver`, `owner_of: target`).
 2. Remove ineligible people: every requester (including `on_behalf_of` chains through agents), the agent's owner for tier ≥ high, the code author for merges, anyone away (unless they delegated), and anyone already counted in this request's quorum.
 3. Rank: on-duty rota holder → resource owner → active in the origin room in the last 15 minutes → active anywhere in the last 15 minutes → others. Ties go to the person with the fewest open requests (load balancing). Cap: no more than 6 open cards per person; above that, route to the next.
-4. Quorum: `required: 2` means two distinct eligible people, each with their own card bound to the same `call_hash` (borrowed from Overturn and Migration Control Tower, section 15).
+4. Quorum: `required: 2` means two distinct eligible people, each with their own card bound to the same `call_hash`.
 5. If nobody is eligible: escalate straight to the fallback group and say why in the room.
 **Acceptance.**
 - [ ] Authority suite cases 1 to 4, 12 and 13 pass (section 10, E1).
@@ -378,7 +362,7 @@ Each approver gets a DM room with Clearance (S7). Clearance keeps a running "**N
 
 ### F8. Ledger (P0 table, P1 mirror and verify)
 
-Append-only SQLite table; each entry has `prev_hash` and `entry_hash = sha256(prev_hash || canonical_json(entry))` (borrowed from OneDecision). Entry types: `held, routed, answered, ineligible_answer, approved, denied, expired, executed, grant_consumed, escalated, drill_sent, drill_result, promotion_proposed, promotion_signed, demoted, policy_loaded, break_glass`.
+Append-only SQLite table; each entry has `prev_hash` and `entry_hash = sha256(prev_hash || canonical_json(entry))`. Entry types: `held, routed, answered, ineligible_answer, approved, denied, expired, executed, grant_consumed, escalated, drill_sent, drill_result, promotion_proposed, promotion_signed, demoted, policy_loaded, break_glass`.
 Mirror: Clearance creates one room document per day in `#approvals` named `clearance-ledger-2026-11-06` (≤1 MiB; only the creating agent can update, which is us) plus `clearance-state` (current autonomy levels and open requests). `GET /v1/ledger/verify` and `pnpm ledger:verify` recompute the chain.
 **Acceptance.** [ ] Tampering with one row makes verify fail at that row (test). [ ] `!list-documents` in `#approvals` shows today's ledger document.
 
@@ -417,10 +401,10 @@ Mirror: Clearance creates one room document per day in `#approvals` named `clear
 - **L2 Auto with review**: executes, then posts a review card that can reverse or demote within 24 h.
 - **L3 Auto within budget**: executes silently up to a daily cap; summary in the daily digest.
 A class's `max_level` in the policy decides how far it can climb. Irreversible classes normally stop at L1. Refunds are a stated exception: `reversible: false`, yet allowed up to L3 inside a small-amount bucket. The critical tier never runs on its own, and neither does a call with any flag on it (changed Nov 7, after the second review): a flag is something a person would want to see, so at L2 and L3 it holds. That includes a destination or order belonging to a different customer, and an identical call that ran in the last 24 h.
-**Promotion.** Clearance proposes a promotion when, inside the scope bucket over the last 7 days: at least 20 approved requests, 0 denials, 0 incidents, 0 approved-with-edits, at least 2 different approvers, and none of the counted approvals were fast approvals (F10). Before proposing, it **replays** the proposed rule over the history (borrowed from OneDecision): "would have auto-approved 22; all 22 were approved by people; 0 would have auto-approved a denied request." The proposal is a card to the class's policy owners with `quorum: 2`; both must approve.
+**Promotion.** Clearance proposes a promotion when, inside the scope bucket over the last 7 days: at least 20 approved requests, 0 denials, 0 incidents, 0 approved-with-edits, at least 2 different approvers, and none of the counted approvals were fast approvals (F10). Before proposing, it **replays** the proposed rule over the history: "would have auto-approved 22; all 22 were approved by people; 0 would have auto-approved a denied request." The proposal is a card to the class's policy owners with `quorum: 2`; both must approve.
 **Demotion.** Instant, to L0, on any incident (`@clearance incident CLR-0042 <note>`) or any denial inside the bucket. Demotion needs no approval; promotion always does.
 **Above the normal range.** An amount above the bucket's 95th percentile holds that one call for a person, flagged `above_normal_range` on the card, and does not demote. If the person approves, the level stays. If they deny, the denial rule above demotes at once. A call with missing data still can't run on its own. (This replaced "an anomaly demotes", which by definition fires on about 5% of normal traffic. It was changed after seeing the first E6 result on synthetic data, and E6 publishes both numbers.)
-**Metric.** Human decisions per 100 agent actions before and after promotion (borrowed from Doorstep, which reported 18 human decisions against 204 automated actions).
+**Metric.** Human decisions per 100 agent actions before and after promotion.
 **Acceptance.** [ ] Seeded 7-day history (clearly labelled synthetic) yields exactly one proposal. [ ] Replay numbers come from `pnpm eval:autonomy`. [ ] One incident demotes and the next refund in the bucket is held again.
 
 ### F12. Clearance Desk (P1)
@@ -448,7 +432,7 @@ A small React app (read-mostly) at http://localhost:7900. Tabs: **Queue** (open 
 
 - **F16 Shadow mode and simulator.** `mode: shadow` logs what would have been held without blocking (safe rollout). `POST /v1/policy/simulate` replays a policy change over the last N actions and prints held/allowed deltas.
 - **F17 Policy changes need two approvers.** Edits to the policy file or autonomy levels go through Clearance itself with `quorum: 2` ("who approves the approver").
-- **F18 Break-glass.** Named emergency approvers can run `@clearance breakglass CLR-0042 <reason>`; it executes, pages the team, and opens a mandatory review card for the next day. Borrowed from Warrant's waiver rule.
+- **F18 Break-glass.** Named emergency approvers can run `@clearance breakglass CLR-0042 <reason>`; it executes, pages the team, and opens a mandatory review card for the next day.
 - **F19 Delegation and quiet hours.** `@clearance away until 18:00 delegate @alex`; rotas respect quiet hours; delegation never to the requester.
 - **F20 Approve with edits.** An eligible approver types `@clearance counter CLR-0042 4000`, which opens a question card "Approve ₹4,000 instead?". On a yes, Clearance creates a new call with the edited amount and executes that through the gate. It's a command so that ordinary cards keep their buttons. Only the amount, only down, only gate calls, and the edited call goes through the normal policy path.
 - **F21 Switch Trust endpoint.** Clearance implements `POST /guardrails/check` (the schema Switch's Trust client calls, `trust/client.py`) and returns `ALERTED` for agent messages that pressure approvers ("urgent, CEO says approve now"). Switch calls it with a 2 s timeout and fails open, so it is advisory only.
@@ -550,13 +534,13 @@ On approval instead of denial, step 20 becomes "approved", the gate executes the
 
 ### 6.3 Design decisions (and why)
 
-1. **No LLM in the decision path.** Classification, risk, routing, grants, escalation, drills and promotion are deterministic code over the policy (borrowed from Plant Debugger: only deterministic code can mark an incident resolved). LLMs are allowed only for optional text polish of cards, never for a decision.
+1. **No LLM in the decision path.** Classification, risk, routing, grants, escalation, drills and promotion are deterministic code over the policy. LLMs are allowed only for optional text polish of cards, never for a decision.
 2. **Enforcement where the agent cannot reach it.** The gate holds the credentials and executes approved calls itself. Hooks are a second layer for local actions.
 3. **Identity comes from Switch, never from the agent.** Requester = the human `sender`/`on_behalf_of` on Switch message events; approver = `answered_by` on Switch's `approval_outcome`, resolved through identity claims. An agent cannot claim "Sam approved this".
 4. **Deny-and-retry instead of long holds in hooks.** Codex and Cursor hooks fail open on timeout, Cursor's MCP calls die at 60 s, Codex's MCP default is 60 s. A hook that denies with `HELD CLR-xxxx` and a grant bound to the exact call hash is safe on every vendor.
-5. **Approval binds to the exact call.** Grants carry `call_hash`; any change voids them; grants are single use. (Borrowed from Migration Control Tower and Instanter.)
+5. **Approval binds to the exact call.** Grants carry `call_hash`; any change voids them; grants are single use.
 6. **Fail closed.** Core down → gate returns 503 for risky endpoints; Claude hook uses `onFailure: "block"`; Cursor hook `failClosed: true`; expired requests are denied.
-7. **Quiet on safe work.** The goal is to hold few calls, not many. We measure and publish the share of tool calls that pass silently (borrowed from Precedent, which stayed silent on about 95% of messages).
+7. **Quiet on safe work.** The goal is to hold few calls, not many. We measure and publish the share of tool calls that pass silently.
 8. **Our TTL is shorter than Switch's.** 25 minutes, so Clearance always decides before Switch's documented 30-minute interrupt.
 9. **One process for core and the Switch agent.** Fewer moving parts for judges; the gate is separate because it holds credentials.
 
@@ -1105,8 +1089,6 @@ Two people: person 1 = A + B, person 2 = C + D (D's UI work moves to Saturday mo
 | 20:00–21:00 | #HowISwitch posts; blog published; share in WeMakeDevs Discord | | | |
 | 21:00–23:59 | Buffer. Answer Track 03 review comments. Nothing risky. | | | |
 
-Competition re-scan (D, 20 minutes): Fri 12:00 and Sat 12:00, using `scripts/scan-competition.sh`; update section 16 and the README's related-work section.
-
 ### 9.4 Solo order (if one person builds)
 
 1. Gate HTTP + core (policy, classify, router with SoD, grants, ledger) + Clearance agent cards → SC3. 2. Baselines SC1, SC2 recorded. 3. Evidence card + mismatch. 4. Escalation + inbox. 5. Drills + rubber-stamp. 6. Earned autonomy. 7. Claude hook, then Codex/OpenCode/Cursor. 8. E1, E2, E4. 9. Study with whoever is available (6 to 8 people). 10. Video, README, blog, posts. Everything stays in scope; the order changes, not the plan.
@@ -1119,7 +1101,7 @@ If a gate slips by more than 90 minutes, the lead decides within 10 minutes whic
 
 ## 10. Evaluation: numbers against named baselines
 
-Rules for every number (from the lessons of past winners): one change at a time between conditions; test on data we did not tune on, and say so; every number comes from a script in `eval/` and is regenerated by `pnpm eval:report` into `RESULTS.md`; label anything synthetic; publish at least one result where Clearance loses; repeat agent runs because agents are not deterministic, and report the spread.
+Rules for every number: one change at a time between conditions; test on data we did not tune on, and say so; every number comes from a script in `eval/` and is regenerated by `pnpm eval:report` into `RESULTS.md`; label anything synthetic; publish at least one result where Clearance loses; repeat agent runs because agents are not deterministic, and report the spread.
 
 ### 10.1 Conditions used across experiments
 
@@ -1134,7 +1116,7 @@ Comparing **G-shadow** with **C** changes exactly one thing (enforcement on or o
 
 ### 10.2 E1: Authority suite (25 adversarial cases)
 
-Format borrowed from Shoulder (authority-boundary precision and recall on 25 scenarios; 37/37 privacy attacks blocked). Each case has one bad outcome: an unsafe execution or an ineligible approval being accepted. Script: `eval/authority-suite/run.ts` drives personas through the Mattermost REST API (persona access tokens), answers cards with the Switch grammar, calls the gate directly where needed, and asserts on Acme state and the ledger.
+Each case has one bad outcome: an unsafe execution or an ineligible approval being accepted. Script: `eval/authority-suite/run.ts` drives personas through the Mattermost REST API (persona access tokens), answers cards with the Switch grammar, calls the gate directly where needed, and asserts on Acme state and the ledger.
 
 | # | Case | Bad outcome checked |
 |---|---|---|
@@ -1194,7 +1176,7 @@ See section 11. Headline metrics: catch rate on flawed requests, false-deny rate
 ### 10.7 E6: Earned autonomy
 
 - **Data:** a seeded, clearly labelled synthetic 7-day history (`scripts/seed-history.ts`, fixed seed): 120 refund requests, about 85% at or below ₹5,000, a handful of flawed ones that people denied, and some fast approvals.
-- **Metrics:** on replay of the proposed promotion, wrong auto-approvals (target 0); approvals excluded from the evidence because they were fast approvals; human decisions per 100 agent actions before promotion and on a second synthetic week after it (Doorstep reported 18 human decisions against 204 automated actions); time from incident to demotion.
+- **Metrics:** on replay of the proposed promotion, wrong auto-approvals (target 0); approvals excluded from the evidence because they were fast approvals; human decisions per 100 agent actions before promotion and on a second synthetic week after it; time from incident to demotion.
 
 ### 10.8 `RESULTS.md` template (fill only from `pnpm eval:report`)
 
@@ -1258,7 +1240,7 @@ Amount 10x the order total; payout destination added minutes ago; prod deploy wi
 3. Two practice cards (not scored).
 4. Block 1 (12 cards, about 5 min), 30-second break, Block 2 (12 cards).
 5. Two questions per block: confidence (1 to 5); then one free-text question: "Which card helped you decide, and why?"
-6. Debrief: show each flaw they missed. Thank them; they appear in the README acknowledgements only if they opt in.
+6. Debrief: show each flaw they missed. Thank them.
 
 ### 11.7 Metrics and analysis (`pnpm eval:study`)
 
@@ -1318,7 +1300,7 @@ Write the README for a judge who gives it 20 seconds, then for one who clones it
    cp .env.example .env            # add one Anthropic key; others optional
    just demo                       # Switch standalone + Mattermost + Acme + Clearance, seeded
    ```
-   Then: open http://localhost:8065, log in as `priya` / `sam` (passwords in `.env.example`), follow **Best demo path** (SC3 → SC5 → SC8 → SC9 → SC11) with the exact prompts and the expected result after each step (borrowed from RELAY's "Best demo path").
+   Then: open http://localhost:8065, log in as `priya` / `sam` (passwords in `.env.example`), follow **Best demo path** (SC3 → SC5 → SC8 → SC9 → SC11) with the exact prompts and the expected result after each step.
 7. **How Clearance uses Switch** (feature map, the 30% criterion):
 
    | Switch capability | How Clearance uses it | Code |
@@ -1340,12 +1322,11 @@ Write the README for a judge who gives it 20 seconds, then for one who clones it
 8. **Architecture** diagram (section 6.1) and the refund sequence (6.2).
 9. **Vendor coverage** table with status per enforcement point: tested / gate only / untested, and the date tested.
 10. **Policy example** (shortened section 7.1).
-11. **What works today / Not yet** (honest lists, borrowed from RELAY and the Copilot Cowork ITSM entry).
+11. **What works today / Not yet** (honest lists).
 12. **Threat model and limits** (section 6.6), including "hooks are a guardrail, the gate is the boundary" and the same-host caveat.
-13. **How this maps to the judging criteria** (borrowed from Freight Room's README): four short paragraphs, one per criterion. Mention that Clearance works at the organisation level of the "four levels of Switch" in Switch's README (every room, every agent).
-13b. **Related work in this hackathon:** one line each crediting Switchyard, Fleet Room, Overruled, Blackout, Lead Desk and Precedent, and what Clearance adds (section 16.2).
+13. **How this maps to the judging criteria**: four short paragraphs, one per criterion. Mention that Clearance works at the organisation level of the "four levels of Switch" in Switch's README (every room, every agent).
 14. **Built during the hackathon, built by voice, and how we used AI tools:** dates, commit range, Wispr Flow usage with the Insights numbers, and a plain statement that the code was written with Claude Code under the rules in `CLAUDE.md`, reviewed by us, and that we can explain every part (asked for at kickoff).
-15. **Acknowledgements and licence:** study participants who opted in; Switch is source-available (Apache 2.0 with a modified Commons Clause); our code is Apache-2.0.
+15. **Licence:** Switch is source-available (Apache 2.0 with a modified Commons Clause); our code is Apache-2.0.
 
 ---
 
@@ -1381,98 +1362,7 @@ Judged on how clearly a post shows a real workflow. Three posts on LinkedIn and 
 
 ---
 
-## 15. What we borrow from past winners
-
-Flip the Switch is Switch's first hackathon (Switch launched publicly in late August 2026), so there are no earlier Switch winners. The closest format is lablab.ai's **Band of Agents** hackathon (June 2026), where agents and humans also share rooms. The patterns below come from winners on Devpost, lablab.ai and WeMakeDevs; each maps to something concrete in this plan.
-
-| Winner (event, prize) | Pattern | Where it shows up in Clearance |
-|---|---|---|
-| [Overturn](https://devpost.com/software/overturn-bu5imz) (All Things Agentic 2026, Best Multimodal UX, $5,000) | Two different people must sign the same draft before anything is sent | Quorum cards bound to one `call_hash` (F4) |
-| [Migration Control Tower](https://devpost.com/software/migration-control-tower) (All Things Agentic, Honorable Mention, $2,000) | Approval bound to run, plan hash and evidence; refused when the approver is the requester; viewers cannot approve | Grants bound to `call_hash`; separation of duties (F3, F4) |
-| [Instanter](https://devpost.com/software/instanter) (Agents for Humans, Professional Silver, $3,000) | Approval bound to exactly what the attorney saw; refused if it changed | Changed arguments void approval (E1 case 6) |
-| [OneDecision](https://devpost.com/software/onedecision) (Agents for Humans, Professional Bronze, $2,000) | "Approve and Teach": a policy is replayed on labelled cases before a supervisor activates it; hash-chained audit | Earned autonomy replay; hash-chained ledger (F8, F11) |
-| [Guardian](https://devpost.com/software/guardian-ai-governed-incident-response) (Airia AI Agents, 1st Active Agents, $2,000) | Slack approval card that auto-escalates after a 15-minute timeout | Escalation ladder (F5) |
-| [Shoulder](https://devpost.com/software/shoulder) (Agents for Humans, Everyday Golden, $5,000) | Authority-boundary precision/recall on 25 scenarios; 37/37 privacy attacks blocked; spending always goes to a human | E1 authority suite format |
-| [Doorstep](https://devpost.com/software/doorstep) (Agents for Humans, Good Neighbor Golden, $5,000) | 18 human decisions against 204 automated actions as the headline load number | E6 "human decisions per 100 agent actions" |
-| [Precedent](https://devpost.com/software/precedent-y2fczw) (Slack Agent Builder Challenge, 1st, $8,000) | Blind benchmark offline and live; "deciding when nothing should happen", silent on about 95% of messages | E3 "quiet on safe work" |
-| [RELAY](https://github.com/slindelow/relay-slack-agent) (Slack Agent Builder Challenge, 2nd, $4,000) | Never sends without human approval; README with "Best demo path", "What works today" | README sections 6 and 11 |
-| [CommSync](https://devpost.com/software/commsync) (All Things Agentic, Startup Excellence, $20,000) | Held-out injection eval (5/5 vs 0/5 for regex); kept its one failed case | Injection cases in E1; publish the negative result |
-| [Plant Debugger](https://devpost.com/software/plant-debugger) (All Things Agentic, Grand Prize, $50,000) | Only deterministic code can mark an incident resolved | No LLM in the decision path (6.3) |
-| [Warrant](https://devpost.com/software/warrant-wkjh0d) (All Things Agentic, Individual, $10,000) | A second verifier blind to the first verdict; a waiver needs a named person | Break-glass with named people (F18) |
-| [EIR](https://devpost.com/software/eir-healthcare-agent-fleet) (All Things Agentic, Fortified Enterprise Fleet, $20,000) | Agents draft purchase orders but cannot approve spending | Credential custody in the gate (6.6) |
-| [ShipGaurd](https://devpost.com/software/shipgaurd) (All Things Agentic, Individual, $10,000) | Never merges its own PR; says `needs_more_context` instead of guessing | Agents never approve; insufficient evidence holds |
-| [DeployGuard](https://github.com/Dan16ssd/Deploy-Guard-Ai-Agents-) (Band of Agents finalist) | "Remove Band and the chain collapses"; deterministic, fail-closed decisions | README "Remove Switch and this breaks"; fail closed |
-| [Freight Room](https://github.com/rohan879/freight-room) (Band of Agents, 1st) | README maps the project to each judging criterion; "the room is the incident" | README section 13 |
-| Mayday (WeMakeDevs Agent Harness, Best Blog) | Blog: contrarian hook, how the sponsor fits, what went wrong, what it doesn't do, try it | Blog outline (14.2) |
-| [Lethe](https://github.com/vinayaksonthalia/lethe) (WeMakeDevs Cognee hackathon, Track 1) | Blind-judge eval that admits where it tied with plain RAG | Honest negative result |
-| [ONCALL](https://github.com/ElijahUmana/oncall-trueforge-hackathon) (WeMakeDevs Agent Harness, Best Use of TrueForge) | Sponsor-depth table; "missing evidence is surfaced as an error, not converted into success" | Switch feature map; fail closed |
-| [Time-Traveler](https://devpost.com/software/time-traveler-w3cxp0) (GitLab AI Hackathon, $5,000) | Demo contrasts a good run and a bad run | Video: SC2 vs SC3, SC4 approve vs SC3 deny |
-| Switch's own blog, ["5 devs and 45 agents"](https://www.switchagents.ai/blog-posts/our-team-is-now-composed-of-5-devs-and-45-agents-all-in-slack) | A nine-step chain where a human is needed for two steps | Clearance decides which steps need a human, and which human |
-
----
-
-## 16. Competition
-
-Scanned on Nov 5 (IST). There is no public gallery (WeMakeDevs `/projects`, `/submissions`, `/gallery` return 404; submissions sit behind sign-in), so the scan used GitHub: **180 public Switch-based hackathon repos**, 134 of which name the hackathon in the README. WeMakeDevs reported "7000+ builders" on Nov 5, so the final field will be much larger. READMEs were read, not all code; treat counts as a floor.
-
-### 16.1 The field
-
-| Theme (180 repos) | Count |
-|---|---|
-| Dev workflow (PR review, bug-to-fix, release gates) | 41 |
-| Incident, SRE, ops, infra | 32 |
-| Business ops (sales, retail, hiring, desks) | 32 |
-| Personal and creative | 21 |
-| Security and compliance | 15 |
-| Finance, procurement, payments | 12 |
-| Knowledge, docs, data | 10 |
-| Customer support | 6 |
-| Hackathon meta and placeholders | 11 |
-
-- **About 60 entries have a human approval gate**, and **at least 8 enforce "the requester can't approve" or separation of duties in code** (threadbranch, Fleet Room, Overruled, PromiseKeeper, Shipyard, Notary, Platform Desk, Overcharge Desk; Countersign for agents).
-- The most copied idea is the hackathon's own hero example (checkout 500s, roll back v2.14.0 to v2.13.2, "Approved. Roll it back."). At kickoff the Switch team's own demo was also a human-approves-the-merge flow, so "approve in chat" is the baseline, not a differentiator.
-
-### 16.2 Closest entries and how Clearance differs
-
-| Entry | What it already does | What Clearance adds |
-|---|---|---|
-| [Switchyard](https://github.com/atharvgaur1845/switchyard) | "Operations layer for Switch": YAML flows with gates (approver, backup, deadline, `auto_approve`), approvals bound to a hash of the exact action, backup agent on another vendor, six flows on Slack and Mattermost | One policy over **every vendor's tool calls** in every room (not one flow per room), one inbox across rooms, live rubber-stamp metrics, drills, earned autonomy |
-| [Fleet Room](https://github.com/sirmos/fleetroom) | Policy tiers, agents never approve, no self-approval, per-person spending limits, two humans above a threshold, request TTL, hash-chained audit | Cross-room and cross-vendor layer; the human side (drills, fatigue signals); autonomy that moves with the record |
-| [Overruled](https://github.com/Kevrc/overruled) | `policy.yaml` limits, requester can't approve, enforcing agent has a separate owner, tamper-evident ledger, measured evals (20/20 fabricated claims caught) | Same rigour, applied as a reusable layer for any workflow, plus a human study |
-| [Shipyard](https://github.com/Shrinet82/shipyard) | Second-person approval for dangerous ops, single-use approvals bound to action and commit with a 10-minute expiry, dashboard of pending approvals for one project | Inbox across all rooms and agents; policy across vendors |
-| [Notary](https://github.com/Ritesh-Root/switch-notary) | Verifies agent claims against evidence, approvers from a room policy document, requester refused, signed hash-chained receipts | Story-vs-call mismatch on the card is similar in spirit; Clearance adds routing, drills and autonomy |
-| [PromiseKeeper](https://github.com/Iamyashsiwach/promise-keeper) | "The sign-off layer for AI agents in team chat"; requester can't sign off; scope change invalidates approval | Not tied to one workflow; covers every room and vendor |
-| [Precedent](https://github.com/rushibhosalepro/precedent) | Turns approvals into rules, backtests them on history, adopts with approval, then auto-applies (closest to earned autonomy) | Autonomy per agent and class with demotion on incidents, and evidence that excludes rubber-stamped approvals |
-| [Blackout](https://github.com/codeswithroh/blackout) | Incident fire drills with a decoy bot; scores "approvals backed by evidence" | Drills on **live** approvals as a standing feature of the approval layer, with a measured catch rate |
-| [Lead Desk](https://github.com/coder-irwin/switch-lead-desk) | Designed against approval fatigue: routine vs review tiers, batch vs one-by-one counts | Continuous per-person signals and adaptive friction across all requests |
-| [Countersign](https://github.com/PhiBao/countersign) | Deterministic verifier, only a human approver can countersign a PASS receipt; "policy tiers" on its roadmap | Policy tiers are Clearance's core, across vendors |
-
-### 16.3 Table stakes vs what is ours
-
-**Table stakes (build them well, do not pitch them as new):** requester can't approve, separation of duties, approvals bound to a hash, single-use approvals with expiry, YAML policy, escalation to a backup, hash-chained ledger, ledger as a room document, native Switch approval cards.
-
-**Ours (pitch these, prove each with a number):**
-1. **One policy across every agent vendor's tool calls**, in every room (E2: Claude Code, Codex, OpenCode, Cursor).
-2. **One inbox across rooms and agents** for every approver.
-3. **Rubber-stamp signals that feed everything else.** Not unique: [Litti](https://github.com/Abhishek764/litti) also ships timed reading, quizzes and a serial-stamper rule, on a separate review page, and agents must choose to call it. Ours runs in the chat, on every held action, and its signal stops fast approvals counting toward autonomy (F10). Credit Litti in the README.
-4. **Approval drills as a standing feature**, with a measured catch rate (F9, E5).
-5. **Earned autonomy driven by those signals**: rubber-stamped approvals do not count as evidence; incidents demote instantly (F11, E6).
-6. **A human study** comparing Switch's card with ours (E5). We did not see one in the READMEs scanned on Nov 5; re-check before saying so in public.
-
-### 16.4 What this changes in our pitch
-
-- Do not open with "nobody blocks self-approval"; many do. Open with **why approvals stop meaning anything**: the requester approves in Switch by default, people approve 93% of prompts, and gates get built once per workflow instead of once per team.
-- One sentence: **"Approval gates are everywhere in this hackathon. Clearance is the layer that keeps them meaningful across every room and every agent."**
-- Add a "Related work in this hackathon" section to the README crediting Switchyard, Fleet Room, Overruled, Blackout, Lead Desk and Precedent. Judges will have seen them; naming them shows we know the field and makes our differences clear.
-- The Switch team's language fits us: their site says "Earn Trust", and Phil Conway's Black Hat 2026 talk was titled "Does Your Agent Earn Its Place in Production?".
-
-### 16.5 Watch list
-
-D re-runs the GitHub scan (`scripts/scan-competition.sh`: searches for "Flip the Switch" plus "approval inbox", "rubber", "drill", "autonomy", "fatigue") on Fri at 12:00 and Sat at 12:00 and updates this section. If someone ships a cross-room inbox or live rubber-stamp detection, adjust the pitch, not the build.
-
----
-
-## 17. Risk register
+## 15. Risk register
 
 | # | Risk | Likelihood | Impact | Early signal | Mitigation / fallback |
 |---|---|---|---|---|---|
@@ -1486,7 +1376,6 @@ D re-runs the GitHub scan (`scripts/scan-competition.sh`: searches for "Flip the
 | R8 | Fewer than 12 study participants | Medium | Medium | Sign-ups by Fri noon | Approval Lab link people can do any time Saturday morning; report n honestly |
 | R9 | Tunnel or identity linking fails for the study | Medium | Low | S10 | Approval Lab fallback |
 | R10 | Judges read it as infrastructure, not a workflow | Medium | High | Feedback from a friend on the first cut | Open on Switch's failure with money at stake; personas; Track 01 framing "the approval workflow every team runs" |
-| R11 | Approval entries crowd the field (already true: about 60 gates, 8+ block self-approval) | High | High | Section 16 scan; re-scan Fri and Sat 12:00 | Pitch only what is ours (16.3); credit related work in the README; prove each differentiator with a number |
 | R12 | API costs during E2 | Medium | Low | Spend dashboards | Caps per key; 2 runs instead of 3; label the change |
 | R13 | Rules ambiguity (Track 03 assignment, video length) | High | Medium | Discord answers | Follow organisers' answers; log them |
 | R14 | Overclaiming security | Medium | High | Review by a teammate | Threat model doc; "guardrail vs boundary"; same-host caveat |
@@ -1497,7 +1386,7 @@ D re-runs the GitHub scan (`scripts/scan-competition.sh`: searches for "Flip the
 
 ---
 
-## 18. Submission checklist
+## 16. Submission checklist
 
 Saturday from 17:30 (owner in brackets):
 
@@ -1515,7 +1404,7 @@ Saturday from 17:30 (owner in brackets):
 
 ---
 
-## 19. Appendices
+## 17. Appendices
 
 ### Appendix A: `CLAUDE.md` for this repo
 
@@ -1659,7 +1548,5 @@ Evidence
 - KnowBe4 2025 phishing benchmark: https://knowbe4.com/press/knowbe4-report-reveals-security-training-reduces-global-phishing-click-rates-by-86
 - NIST SP 800-53 AC-5: https://csf.tools/reference/nist-sp-800-53/r5/ac/ac-5/
 - Microsoft Digital Defense Report 2023 (MFA fatigue): https://news.microsoft.com/en-cee/2023/10/12/microsoft-issued-annual-digital-defense-report-espionage-fuels-global-cyberattacks/ · Uber 2022: https://www.uber.com/newsroom/security-update/
-- Competitors: HumanLayer https://github.com/humanlayer/humanlayer · Auth0 for AI Agents https://auth0.com/blog/auth0-for-ai-agents-generally-available/ · Permit.io Access Request MCP https://docs.permit.io/ai-security/access-request-mcp/overview · LangGraph interrupts https://docs.langchain.com/oss/python/langgraph/interrupts
 
-Past winners: links in section 15.
 

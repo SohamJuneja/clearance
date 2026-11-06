@@ -121,12 +121,11 @@ Tick a box only when tests or a run prove it. Acceptance text is copied from PLA
 - [x] **D4** (proof) `pnpm demo:run SCn` for every scenario through the Mattermost API and Playwright. People scripted, agents never.
 - [x] **D5a** (proof) Get Clearance's first refusal on screen by 0:20 of the video, by shortening the opening. A judge skims.
 - [x] **D5** (proof) Video pipeline: Playwright capture at 1920x1080, ffmpeg split screens, captions, "clock 10x", numbers slide from RESULTS.md, offline TTS. Under 3:00.
-- [ ] **D6** (lead) README per PLAN 13, including Best demo path, "Remove Switch and this breaks", Related work, How we used AI tools, Threat model and limits, vendor coverage table.
+- [ ] **D6** (lead) README per PLAN 13, including Best demo path, "Remove Switch and this breaks", How we used AI tools, Threat model and limits, vendor coverage table.
 - [ ] **D7** (lead) `docs/threat-model.md`, `docs/architecture.md`, `docs/policy-reference.md`, `docs/built-by-voice.md`.
 - [ ] **D8** (lead) Blog draft, 1,000 to 1,500 words, in HUMAN.md.
 - [ ] **D9** (lead) Three #HowISwitch posts with clips, in HUMAN.md.
 - [ ] **D10** (switchboard) Track 03, now #833 Canva: connector built locally in `/home/prashant/projects/switch-track03`, comment and PR text drafted, go or drop waits on the owner's Canva probe.
 - [x] **D11** (world-ui, switchboard) Study: recruitment text, consent, sets X and Y, Approval Lab, in-Switch study bot, analysis. Built and rehearsed; no real participant yet.
-- [ ] **D12** (proof; first scan done, docs/competition-scan.md) Competition re-scan Fri 12:00 and Sat 12:00; update README Related work.
 - [ ] **D12a** (lead) At release, commit the result files from gitignored `eval/out` to a tracked folder, after a secret scan, so a judge can read what each number came from. The baseline's raw runs are already tracked in `eval/baseline/runs/`.
 - [ ] **D13** (lead) `SUBMISSION.md` with every form field. Tag `v1.0.0`. CI green. Fresh-clone `just demo` verified in a clean temp directory.

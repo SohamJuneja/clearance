@@ -1,6 +1,6 @@
 # STATUS
 
-Updated: Sat Nov 7, 01:00 IST. Freeze Sat 15:00 and submit Sat 20:00 do not move. Soham's repo is the main repo: merged locally, and the push is one command for the owner (`HUMAN.md` 0b).
+Updated: Sat Nov 7, 01:00 IST. Freeze Sat 15:00 and submit Sat 20:00 do not move. Soham's repo is the main repo, pushed to `master` at `0996d9b`. CI can't start until he clears a billing lock on his account (`HUMAN.md`).
 
 ## Gates
 

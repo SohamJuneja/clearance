@@ -250,3 +250,58 @@ Live, with a spike template and room name: Sam refused, Alex installs, the reply
 ## Not tested
 
 A real browser or phone. Waiting out the 5 minutes. A document past 1 MB through a real rollover (fakes, plus the live limit above). The mirror with Switch really down, since the stack is shared (fakes).
+
+---
+
+# Is the agent working somewhere Clearance can't see?
+
+Priya names `@refunds-agent` in `#support`. Within 10 minutes Sam asks the same agent somewhere Clearance isn't. Clearance records Priya, quorum stays 1, Sam gets the card and approves his own refund alone. `s-hidden-session.ts` measures what Switch will say, `s-hidden-live.ts` runs the break end to end on a spare core, port 7791, spare database, stub gate. Both use throwaway agents and rooms. Real agents were only read.
+
+## What Switch reveals
+
+Read with `get_agent_detail`, by a viewer owned by `clearance-admin` as the real Clearance is, and one owned by the gateway admin.
+
+| Where Sam asks | Membership, to Clearance's owner | Membership, to a workspace admin's agent | Live session, protocol agent | Live session, managed agent |
+|---|---|---|---|---|
+| Mattermost direct room (`read_visibility: public`) | **Named** | Named | Named | No room, see below |
+| Private chat in Switch (`read_visibility: private`) | **Not shown** | Shown | Room id, no name | No room, see below |
+
+- **A live managed agent is one session with no room.** Measured on `coder` and `ops-agent` with their controllers up: `{room_id: null, lifecycle: "controller", state: "live"}`. `presence.py` says why: "Switch does not know where its sessions are". So for a managed agent only membership can tell, and only for rooms Clearance's owner can read.
+- **Bridged rooms are `public` by default**, including Mattermost direct rooms, so any agent's owner can list them. `list_all_rooms` names one `Mattermost: sam / <agent>`. A Switch chat is created `private`.
+- **Nothing else reveals it.** On the hidden room's id, `get_room_detail` answers 403 and `read_context` 403, for both viewers. `connect_to_room` answers 400, and `list_participants` works only after it, so neither helps. `list_agents` counts tools and models, not rooms or sessions.
+- **A stopped agent's session lingers** as `live` for a while, so a hidden session counts for a short time after it ends. That is the cautious direction.
+- **All real agents are only in rooms Clearance is in**, default channels included: `refunds-agent`, `coder`, `ops-agent`. So the normal flow stays at quorum 1.
+
+## What core does
+
+1. **A call that names its room** takes its requesters from that room. Nobody on record there means unknown, so quorum 2. Anyone who asked elsewhere in the window still can't approve, since the room on a call is only the agent's word: otherwise Sam could ask in `#finance`, have the call say `#support` where Priya asked, and approve alone.
+2. **Every new hold asks `ChatPort.unseenRoomCount`**, 5 s cache, 1.5 s timeout. Any room the agent belongs to or has a live session in that Clearance isn't in, and the record may be incomplete: quorum 2, and the card says so. A failed lookup, or an agent Switch doesn't know, is the same with its own wording. A port with no such method changes nothing, which is why E1's fake chat can't exercise this.
+
+## The break, end to end
+
+No room on the call, as under Switch today.
+
+| Situation | Quorum | Who can finish it |
+|---|---|---|
+| Agent only in rooms Clearance is in, Priya on record | 1 | Sam |
+| Sam has written to it in a Mattermost direct room, Priya on record | **2** | Sam alone runs nothing; Neha as well runs it, once |
+| Private chat, protocol agent with a live session there | **2** | |
+| Private chat, no live session: how a managed agent always looks | **1** | **Not detected. This is the limit** |
+| An agent Switch doesn't know | **2** | |
+
+The card reads: "This agent is also working somewhere Clearance can't see, so this needs two approvals from different people."
+
+## What is left
+
+**A managed agent in a private chat in Switch, when someone else asked it in the last 10 minutes.** Clearance can't see it, and the person in the chat can approve alone.
+
+`pnpm eval:authority` reads 25 of 25, but **that number doesn't cover this**. E1's case 1 passes a room on the call, which layer 1 answers, and under Switch a managed agent's call has no room. E1's chat is a fake that can't answer where an agent is. A variant for this would still fail.
+
+Options, measured where it says so:
+
+- **Recommended: limit addressing to named rooms, per protected agent.** `{rooms: [...], users: "*", agents: "*", owner: true}`, set by the agent's owner. Measured: named in a listed room it hears `addressed: true`. A direct message draws "You're not permitted...", and it hears nothing. A private chat gets 403 `AGENT_NOT_ALLOWED`. It stops the request happening, for any kind of agent, and Switch enforces it. All real agents read `anyone` today. Not set here, because they are vendor-spikes' and being brought up now. Clearance can't check it from outside: another agent reads only `{policy: "custom"}`.
+- **Make `clearance-admin` a workspace admin.** Measured: its agents then see private chats, by membership, and this code picks that up unchanged. But it puts a workspace admin's password on the demo machine. Only if addressing can't be used.
+- **Treat every session with no known room as incomplete.** Rejected: every managed agent looks like that, so everything would need two people, and SC3 and SC4 would break.
+
+**A room counts for good.** Switch shows membership and not when a room was last used, so one old direct message means two approvals for that agent until the room is archived. That asks too much rather than too little.
+

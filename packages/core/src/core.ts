@@ -63,7 +63,7 @@ import { loadPolicy, loadTeam, parseDuration, parsePolicy, PolicyLoadError, type
 import type { TeamFile } from "./policy/schema.js";
 import { OPEN_STATES, RequestStore, type NewRequest, type RequestRecord } from "./requests/store.js";
 import { AggregateStore } from "./risk/aggregates.js";
-import { authorUnknownFlag, requesterUnknownFlag } from "./risk/flags.js";
+import { agentElsewhereFlag, agentReachUnknownFlag, authorUnknownFlag, requesterUnknownFlag } from "./risk/flags.js";
 import {
   evidenceLines,
   ignoredFlags,
@@ -73,6 +73,7 @@ import {
   stampConfig,
   tMinMs,
 } from "./rubberstamp/signals.js";
+import { AgentReachCheck, type AgentReach } from "./router/reach.js";
 import { RequesterTracker } from "./router/requesters.js";
 import { assessAnswer, route, type Refusal, type RouteContext, type RouteTrace } from "./router/router.js";
 import { RouteStore, type RouteRow, type RouteStep } from "./router/routes.js";
@@ -126,6 +127,8 @@ export type Evidence = {
   level?: string;
   /** Whether autonomy could have run this: no forced hold, no missing data, not critical. */
   autoEligible?: boolean;
+  /** People who asked this agent in other rooms in the window. Not who asked for this, but they can't approve it. */
+  askedElsewhereIds?: string[];
 };
 
 /** One line of `POST /v1/autonomy/simulate`: what the rule would do over the last days of decisions. */
@@ -272,8 +275,10 @@ export class Clearance implements ClearanceCore {
   private readonly executing = new Set<string>();
   /** Requests whose first cards are being opened right now. They are HELD meanwhile, which the tick's retry reads as failed. */
   private readonly opening = new Set<string>();
+  private readonly reach: AgentReachCheck;
 
   constructor(private readonly deps: CoreDeps) {
+    this.reach = new AgentReachCheck(deps.chat, deps.clock);
     this.team = loadTeam(deps.teamPath);
     const db = openDatabase(deps.dbPath);
     this.currentPolicy = this.policyAtBoot(db);
@@ -1053,6 +1058,8 @@ export class Clearance implements ClearanceCore {
     const now = this.deps.clock.nowMs();
     const stale = requests.findOpen(evaluation.callHash, action.agent.name);
     if (stale && stale.expiresAtMs <= now) await this.expire(stale);
+    // Asked before the transaction, which can't wait, and only for a request that will be new.
+    const reach = stale && stale.expiresAtMs > now ? "all_seen" : await this.reach.of(action.agent.name);
 
     const write = this.stores.db.transaction((): { request: RequestRecord; isNew: boolean } => {
       const open = requests.findOpen(evaluation.callHash, action.agent.name);
@@ -1060,7 +1067,7 @@ export class Clearance implements ClearanceCore {
         this.recordAction(action, evaluation, open.id);
         return { request: open, isNew: false };
       }
-      const created = requests.create(this.newRequest(action, evaluation, now));
+      const created = requests.create(this.newRequest(action, evaluation, now, undefined, reach));
       this.recordAction(action, evaluation, created.id);
       this.recordAggregates(action, evaluation, created.id);
       this.startLadder(created);
@@ -1089,14 +1096,18 @@ export class Clearance implements ClearanceCore {
     return this.currentPolicy.classes.find((candidate) => candidate.name === name) ?? null;
   }
 
-  private newRequest(action: Action, evaluation: Evaluation, now: number, drill?: Flaw & { askedBy: string }): NewRequest {
+  private newRequest(action: Action, evaluation: Evaluation, now: number, drill?: Flaw & { askedBy: string }, reach: AgentReach = "all_seen"): NewRequest {
     const policy = this.currentPolicy;
     const { directory, requesters } = this.people;
     const { aggregates } = this.stores;
     const clsName = evaluation.cls ?? evaluation.call.class;
     const cls = this.classOf(clsName);
     const tier = evaluation.tier ?? "high";
-    const requesterIds = drill ? [drill.askedBy] : requesters.requestersOf(action.agent.name);
+    // A call that says which room it came from was asked for in that room: anyone on record elsewhere is someone
+    // else's request. Nobody on record there is nobody known, even if the agent is busy in other rooms.
+    const askedIn = drill ? undefined : action.session?.switchRoomId;
+    const everyoneAsking = drill ? [drill.askedBy] : requesters.requestersOf(action.agent.name);
+    const requesterIds = askedIn === undefined ? everyoneAsking : requesters.requestersOf(action.agent.name, directory.roomId(askedIn));
     const agentOwnerIds = directory.agentOwners(action.agent.name, action.agent.ownerUserId);
     const origin = drill
       ? null
@@ -1121,10 +1132,14 @@ export class Clearance implements ClearanceCore {
 
     const flags: Flag[] = [...evaluation.flags, ...mismatches, ...(drill?.extra_flags ?? [])];
     // L1 is the fast lane: one eligible approver, whatever the tier would otherwise ask for.
-    const asked = evaluation.level === "L1" ? 1 : (cls?.approvers?.quorum[tier] ?? cls?.approvers?.quorum.default ?? 1);
+    const stated = evaluation.level === "L1" ? 1 : (cls?.approvers?.quorum[tier] ?? cls?.approvers?.quorum.default ?? 1);
     // Nobody can tell who asked, so whoever it was could be the one approving. Of two different people, only one can be.
-    const unknownQuorum = Math.max(asked, policy.defaults.unknown_requester_quorum ?? UNKNOWN_REQUESTER_QUORUM);
+    const unknownQuorum = Math.max(stated, policy.defaults.unknown_requester_quorum ?? UNKNOWN_REQUESTER_QUORUM);
     if (requesterIds.length === 0) flags.push(requesterUnknownFlag(unknownQuorum));
+    // The same reasoning when someone is on record but the record may not be everyone.
+    if (reach === "elsewhere") flags.push(agentElsewhereFlag(unknownQuorum));
+    if (reach === "unknown") flags.push(agentReachUnknownFlag(unknownQuorum));
+    const asked = reach === "all_seen" ? stated : unknownQuorum;
 
     // A name the policy excludes (a merge's author, say) that we cannot pin to a person: flag it, keep the hold.
     const authorIds: string[] = [];
@@ -1163,6 +1178,9 @@ export class Clearance implements ClearanceCore {
     if (evaluation.bucket) evidence.bucket = evaluation.bucket;
     if (evaluation.level) evidence.level = evaluation.level;
     if (evaluation.autoEligible !== undefined) evidence.autoEligible = evaluation.autoEligible;
+    // A room on a call is only the agent's word for it, so someone asking elsewhere still can't approve.
+    const askedElsewhereIds = everyoneAsking.filter((id) => !requesterIds.includes(id));
+    if (askedElsewhereIds.length > 0) evidence.askedElsewhereIds = askedElsewhereIds;
     const claim = action.agentClaim ?? said[0];
     if (claim) evidence.agentClaim = claim;
 
@@ -1862,7 +1880,7 @@ export class Clearance implements ClearanceCore {
       className: request.cls,
       tier: request.tier,
       quorumRequired: request.quorumRequired,
-      requesterIds: request.requesterIds,
+      requesterIds: [...request.requesterIds, ...(evidence.askedElsewhereIds ?? [])],
       agentOwnerIds: evidence.agentOwnerIds,
       authorIds: evidence.authorIds,
       extracted: evidence.extracted,

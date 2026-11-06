@@ -92,6 +92,11 @@ export function fallbackRoomName(userName: string, agentName: string): string {
 type ListedRoom = { room_id: string; name: string; archived?: boolean };
 type RoomDetail = { channel_type?: string | null; external_channel_id?: string | null; connected_user_names?: string[] };
 type DocumentEntry = { id: string; name: string };
+type AgentRow = { id: string; name: string };
+type AgentDetailRead = {
+  rooms: { room_id: string; archived?: boolean }[];
+  sessions: { room_id: string | null; state: string }[];
+};
 
 export function createChatPort(agent: SwitchAgent, options: ChatPortOptions = {}): ChatPort {
   const agentName = options.agentName ?? "clearance";
@@ -100,6 +105,7 @@ export function createChatPort(agent: SwitchAgent, options: ChatPortOptions = {}
   const directRooms = new Map<string, string>();
   const documents = new Map<string, string>();
   const reportedTurns = new Set<string>();
+  const agentIds = new Map<string, string>();
 
   async function roomNamed(name: string): Promise<ListedRoom | undefined> {
     const rooms = await agent.op<ListedRoom[]>("list_rooms", { include_archived: true });
@@ -213,6 +219,30 @@ export function createChatPort(agent: SwitchAgent, options: ChatPortOptions = {}
       const roomId = (await findDirectRoom(userName)) ?? (await ensureFallbackRoom(userName));
       directRooms.set(userName, roomId);
       return { roomId };
+    },
+
+    async unseenRoomCount(target) {
+      let id = agentIds.get(target);
+      if (!id) {
+        const rows = await agent.op<AgentRow[]>("list_agents", { name_contains: target });
+        id = rows.find((row) => row.name === target)?.id;
+        if (!id) throw new Error(`Switch has no agent named ${target}`);
+        agentIds.set(target, id);
+      }
+      const [detail, mine] = await Promise.all([
+        agent.op<AgentDetailRead>("get_agent_detail", { agent_id: id }),
+        agent.op<ListedRoom[]>("list_rooms", { include_archived: true }),
+      ]);
+      const heard = new Set(mine.map((room) => room.room_id));
+      const unseen = new Set<string>();
+      // Membership, which Switch shows for any kind of agent, but only for rooms Clearance's owner may read.
+      for (const room of detail.rooms) if (!room.archived && !heard.has(room.room_id)) unseen.add(room.room_id);
+      // A session, which shows the room's id even when its name is withheld. One with no room says nothing:
+      // that is an always-on connection, or a managed agent, for which Switch doesn't know where its sessions are.
+      for (const session of detail.sessions) {
+        if (session.state !== "stale" && session.room_id !== null && !heard.has(session.room_id)) unseen.add(session.room_id);
+      }
+      return unseen.size;
     },
 
     async upsertDocument({ roomId, name, content }) {

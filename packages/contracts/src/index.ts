@@ -228,6 +228,12 @@ export interface ChatPort {
   ensureDirectRoom(person: { userName: string }): Promise<{ roomId: string }>;
   /** Create or update a room document that Clearance owns. */
   upsertDocument(input: { roomId: string; name: string; content: string }): Promise<void>;
+  /**
+   * How many rooms this agent belongs to, or has a live session in, that Clearance isn't in. Someone could be
+   * asking it for things there, out of sight. Throws if Switch can't say. Optional: a port with no way to ask
+   * has nothing to report.
+   */
+  unseenRoomCount?(agentName: string): Promise<number>;
 }
 
 /** Execute-on-approval and custody live in the gate. Core asks; the gate does exactly the stored call. */

@@ -52,6 +52,8 @@ export class FakeChat implements ChatPort {
   readonly targeted: { roomId: string; body: string; targets: string[]; threadId?: string }[] = [];
   readonly documents: { roomId: string; name: string; content: string }[] = [];
   readonly directRooms: string[] = [];
+  /** Set to answer where an agent is working. Unset, as for a port with no way to ask. */
+  unseenRoomCount?: (agentName: string) => Promise<number>;
   /** Set to make openCard reject, as if Switch were down. */
   failOpenCard = false;
   /** Real direct rooms give no handle: Switch writes it into the post and no API returns it. */

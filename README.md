@@ -200,7 +200,8 @@ Not yet:
 Hooks are a guardrail and the gate is the boundary. An agent that holds its own unscoped credentials outside the gate isn't stopped by Clearance. [docs/threat-model.md](docs/threat-model.md) has the full list. The ones you'd want to know first:
 
 - Shell classification is best effort. `python -c`, `perl -e` and `awk system()` can do things the classifier can't read, which is why business credentials live only in the gate.
-- When Clearance can't tell who asked, for example a direct message in a room it isn't in, the request needs two different approvers. One of them could be the person who asked. They can't be the only one.
+- When Clearance can't tell who asked, the request needs two different approvers. One of them could be the person who asked. They can't be the only one. That covers a call from a room with nobody on record, and an agent that's also in a room Clearance isn't in, which Switch shows for a Mattermost direct room.
+- It doesn't cover a managed agent in a private chat in Switch itself, because Switch doesn't tell Clearance about that one. If someone else asked the agent in the last 10 minutes, the person in the private chat can approve their own request alone. To shut it, limit who can address protected agents to named rooms, which Switch enforces.
 - While a drill is open, the Desk's queue and the ledger mirror stand still rather than reveal it. Someone comparing their own card with them could suspect a drill. Removing that would mean publishing something false.
 - The Desk has no login, so its per-person admin view is protected by a label. Don't expose it.
 - Drills, friction and study results measure attention in a small group. A type-to-confirm proves someone read one field, not that they thought about it.

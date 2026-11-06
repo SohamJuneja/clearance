@@ -96,22 +96,23 @@ export class RequesterTracker {
       .run(agent, evt.roomId, evt.threadId ?? null, evt.body, this.clock.nowMs());
   }
 
-  requestersOf(agent: string): string[] {
+  /** Everyone who asked this agent in the window, or only those in `room` when the call says where it came from. */
+  requestersOf(agent: string, room?: string): string[] {
     const since = this.clock.nowMs() - REQUESTER_WINDOW_MS;
     // The rooms this agent is known to be in: it has spoken there, or someone has addressed it there.
     const rows = this.db
       .prepare(
         `SELECT user_id, MIN(at) AS first FROM (
-           SELECT user_id, at FROM requesters WHERE agent = @agent AND at > @since
+           SELECT user_id, at FROM requesters WHERE agent = @agent AND at > @since AND (@room IS NULL OR room = @room)
            UNION ALL
-           SELECT user_id, at FROM room_voices WHERE at > @since AND room IN (
+           SELECT user_id, at FROM room_voices WHERE at > @since AND (@room IS NULL OR room = @room) AND room IN (
              SELECT room FROM agent_messages WHERE agent = @agent
              UNION
              SELECT room FROM requesters WHERE agent = @agent
            )
          ) GROUP BY user_id ORDER BY first`,
       )
-      .all({ agent, since }) as { user_id: string }[];
+      .all({ agent, since, room: room ?? null }) as { user_id: string }[];
     return rows.map((row) => row.user_id);
   }
 

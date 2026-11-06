@@ -95,7 +95,9 @@ describe("F1, first layer: a person talking where the agent is counts as asking"
     await agentSays("On it.", { roomId: "#eng" });
     await personSays(PARTICIPANTS.priya, "@refunds-agent refund it", { roomId: "#eng" });
     await personSays(PARTICIPANTS.sam, "lunch?", { roomId: "#random" });
-    expect((await heldRefund()).requesterIds).toEqual(["priya"]);
+    // A call with no room, so this is the rule about where the agent is known to be, not the room on the call.
+    const held = await h.core.check(gateRefund(REFUND_SC4, { session: undefined }));
+    expect(h.core.stores.requests.require(held.request_id as string).requesterIds).toEqual(["priya"]);
   });
 
   it("forgets after the 10-minute window", async () => {

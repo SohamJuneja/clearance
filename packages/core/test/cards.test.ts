@@ -370,7 +370,7 @@ describe("cards from real calls: snapshots across fixture calls", () => {
   it("writes the fallback room's card when nobody on the team can take it", async () => {
     h.core.close();
     h = makeHarness({ teamPath: TEAM_ALEX_ONLY_PATH });
-    await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@coder please do this"));
+    await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@coder please do this", { roomId: "#eng", threadId: "t-2" }));
     await h.core.check(hookShell("git push --force origin main", { session: { switchRoomId: "#eng", threadId: "t-2" } }));
     expect(h.chat.cards.map(snapshotOf)).toMatchSnapshot();
   });
@@ -382,7 +382,10 @@ describe("cards from real calls: snapshots across fixture calls", () => {
   it.each(fixtures)("$name", async (fixture) => {
     const agent = fixture.agent ?? "refunds-agent";
     if (fixture.asker !== "none") {
-      await h.core.onMessage(chatMessage(fixture.asker ?? PARTICIPANTS.priya, `@${agent} please do this`));
+      // Asked where the call says it came from, as in real use.
+      const room = fixture.action().session;
+      const where = room?.switchRoomId ? { roomId: room.switchRoomId, threadId: room.threadId ?? null } : {};
+      await h.core.onMessage(chatMessage(fixture.asker ?? PARTICIPANTS.priya, `@${agent} please do this`, where));
     }
     if (fixture.said) {
       await h.core.onMessage(chatMessage(PARTICIPANTS.refundsAgent, fixture.said, { senderName: agent }));

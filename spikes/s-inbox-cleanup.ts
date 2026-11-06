@@ -1,7 +1,6 @@
 /**
- * Removes what s-inbox-posts.ts and s-inbox-live.ts left behind: their rooms, channels, throwaway agents
- * and those agents' bots. Goes by name, and only these names: rooms `spike-inbox-*`, `spike-ledger-*`,
- * `spike-install-*`, `spike-posts-*`, the direct rooms of a `spike-clr-*` agent, and agents `spike-clr-*`.
+ * Removes what s-inbox-posts.ts, s-inbox-live.ts, s-hidden-session.ts and s-hidden-live.ts left behind: their
+ * rooms, channels, throwaway agents and those agents' bots. Goes by name, and only the names in ROOMS and AGENTS.
  * Lists by default. Deletes only with --delete.
  */
 import { readFileSync } from "node:fs";
@@ -15,8 +14,8 @@ const env = Object.fromEntries(
     .filter((line) => line.includes("=") && !line.startsWith("#"))
     .map((line) => [line.slice(0, line.indexOf("=")), line.slice(line.indexOf("=") + 1).replace(/^"|"$/g, "")]),
 );
-const ROOMS = /^(spike-inbox-|spike-ledger-|spike-install-|spike-posts-)|^(Mattermost: )?\w+ \/ spike-clr-/;
-const AGENTS = /^spike-clr-/;
+const ROOMS = /^(spike-inbox-|spike-ledger-|spike-install-|spike-posts-|spike-seen-|spike-chat-|spike-lchat-)|^(Mattermost: )?\w+ \/ spike-(clr|tgt|tg2|lim|view|adm)-/;
+const AGENTS = /^spike-(clr|tgt|tg2|lim|view|adm)-/;
 
 const login = async (email: string, password: string) => {
   const res = await fetch(`${BRIDGE_URL}/gateway/auth/login`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, password }) });
@@ -24,7 +23,6 @@ const login = async (email: string, password: string) => {
   return res.headers.getSetCookie()[0]!.split(";")[0]!;
 };
 const adminCookie = await login(env.GATEWAY_ADMIN_EMAIL!, env.GATEWAY_ADMIN_PASSWORD!);
-const ownerCookie = await login("clearance-admin@clearance.example", secrets.clearanceAdminPassword);
 const gateway = async (cookie: string, method: string, path: string) => {
   const res = await fetch(`${BRIDGE_URL}/gateway${path}`, { method, headers: { cookie } });
   const text = await res.text();
@@ -55,7 +53,8 @@ const rooms = allRooms.filter((room) => ROOMS.test(room.name));
 say(`${rooms.length} of ${allRooms.length} rooms match:`);
 for (const room of rooms) say(`  ${room.name}`);
 
-const agentsBody = (await gateway(ownerCookie, "GET", "/agents")).body as { id: string; name: string }[] | { agents?: { id: string; name: string }[]; items?: { id: string; name: string }[] };
+// As the gateway admin: these agents have different owners.
+const agentsBody = (await gateway(adminCookie, "GET", "/agents")).body as { id: string; name: string }[] | { agents?: { id: string; name: string }[]; items?: { id: string; name: string }[] };
 const allAgents = Array.isArray(agentsBody) ? agentsBody : (agentsBody.agents ?? agentsBody.items ?? []);
 const agents = allAgents.filter((agent) => AGENTS.test(agent.name));
 say(`${agents.length} agents match: ${JSON.stringify(agents.map((agent) => agent.name))}`);
@@ -104,7 +103,7 @@ for (const room of rooms) {
   if (gone.status >= 300) say(`  room ${room.name}: HTTP ${gone.status}`);
 }
 for (const agent of agents) {
-  const gone = await gateway(ownerCookie, "DELETE", `/agents/${agent.id}`);
+  const gone = await gateway(adminCookie, "DELETE", `/agents/${agent.id}`);
   if (gone.status >= 300) say(`  agent ${agent.name}: HTTP ${gone.status}`);
 }
 // Deleting a Switch room leaves its channel, and Switch would bridge it again. Bots count against the team limit.

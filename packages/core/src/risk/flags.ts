@@ -77,6 +77,20 @@ export function requesterUnknownFlag(quorum: number): Flag {
   };
 }
 
+export function agentElsewhereFlag(quorum: number): Flag {
+  return {
+    code: "agent_elsewhere",
+    text: `This agent is also working somewhere Clearance can't see, so this needs ${COUNT_WORDS[quorum] ?? quorum} approvals from different people.`,
+  };
+}
+
+export function agentReachUnknownFlag(quorum: number): Flag {
+  return {
+    code: "agent_reach_unknown",
+    text: `Clearance couldn't check where this agent is working, so this needs ${COUNT_WORDS[quorum] ?? quorum} approvals from different people.`,
+  };
+}
+
 export function unparsedFlag(reason: string): Flag {
   return { code: "unparsed", text: `Could not read this shell line with confidence: ${reason}` };
 }

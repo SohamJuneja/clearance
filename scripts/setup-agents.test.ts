@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { type Machine, providersNotReady } from "./gateway-owner.ts";
 import {
   agentNeedsUpdate,
   gateTokenFor,
@@ -17,6 +18,30 @@ import {
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), "..");
 const template = readFileSync(join(REPO, "templates/acme-mini.template.yaml"), "utf8");
+
+describe("providersNotReady", () => {
+  const reporting = (providers: { provider: string; installed?: boolean; auth?: string }[]) =>
+    ({ id: "m", name: "m", status: { providers } }) as Machine;
+
+  it("holds the demo back while Claude isn't ready, even with a report in", () => {
+    const machine = reporting([{ provider: "claude", installed: true, auth: "missing" }]);
+    expect(providersNotReady(machine, ["claude"])).toEqual(["claude"]);
+  });
+
+  it("goes on once it is", () => {
+    const machine = reporting([{ provider: "claude", installed: true, auth: "ok" }]);
+    expect(providersNotReady(machine, ["claude"])).toEqual([]);
+  });
+
+  it("holds back for OpenCode too, which needs no login but does need installing", () => {
+    expect(providersNotReady(reporting([{ provider: "opencode", installed: false }]), ["opencode"])).toEqual(["opencode"]);
+  });
+
+  it("doesn't wait for Codex or Cursor, whose agents wait for their own logins", () => {
+    const machine = reporting([{ provider: "claude", installed: true, auth: "ok" }]);
+    expect(providersNotReady(machine, ["claude", "codex", "cursor"])).toEqual([]);
+  });
+});
 
 describe("planAgents", () => {
   const plans = planAgents(template);

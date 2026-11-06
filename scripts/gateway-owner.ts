@@ -28,6 +28,17 @@ export function providerReady(machine: Machine, provider: string): boolean {
   return Boolean(entry?.installed && entry.auth !== "missing");
 }
 
+/**
+ * What the demo can't go on without. Codex and Cursor wait for logins of their own, and a rerun creates their agents. A
+ * machine's first report can say it has no Claude login before its check of Claude has finished, and an agent created
+ * against that report would wait for nothing and be missing from the demo.
+ */
+const NEEDED_PROVIDERS = new Set(["claude", "opencode"]);
+
+export function providersNotReady(machine: Machine, providers: Iterable<string>): string[] {
+  return [...providers].filter((provider) => NEEDED_PROVIDERS.has(provider) && !providerReady(machine, provider));
+}
+
 export type AgentDefinition = {
   provider: string;
   model?: string | null;
@@ -61,6 +72,11 @@ export const agentIdOf = (agent: ManagedAgent): string => {
 };
 
 /** Where a machine keeps agents with no directory of their own, for this server (`paths.ts` in Switch). */
+/** Named by the compose project, which is anyone's choice. "switch" is only what it comes to when nobody chose. */
+export function mattermostContainer(env: NodeJS.ProcessEnv = process.env): string {
+  return `${env.COMPOSE_PROJECT_NAME || "switch"}-mattermost-1`;
+}
+
 export function defaultWorkspacesDir(): string {
   return join(homedir(), ".switch", "agents", new URL(BRIDGE_URL).host.replace(/[^A-Za-z0-9._-]+/g, "-"));
 }

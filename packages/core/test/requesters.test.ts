@@ -1,5 +1,6 @@
 /** S4 fallback: every human who addressed an agent in the last 10 minutes is a requester. */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { isSwitchNotice } from "../src/router/switch-notices.js";
 import { chatMessage, gateRefund, hookShell, makeHarness, MINUTE, PARTICIPANTS, REFUND_SC4, type Harness } from "./harness.js";
 
 let h: Harness;
@@ -299,5 +300,91 @@ describe("@clearance why and status", () => {
   it("does not treat a mere mention of clearance as a command", async () => {
     await h.core.onMessage(chatMessage(PARTICIPANTS.alex, "we should ask @clearance why this is slow"));
     expect(h.chat.messages).toEqual([]);
+  });
+});
+
+describe("what the agent said, and what Switch said in its name", () => {
+  const said = (thread = "t-77") => h.core.people.requesters.lastMessages("refunds-agent", "#support", thread, 2);
+  const agentSays = (body: string, thread = "t-77") =>
+    h.core.onMessage(chatMessage(PARTICIPANTS.refundsAgent, body, { threadId: thread }));
+
+  it("doesn't take Switch's refusal for the agent's words", async () => {
+    await agentSays("@clearance You're not permitted to direct messages to me in this room — my operator has restricted who can address me here.");
+    expect(said()).toEqual([]);
+  });
+
+  it("finds what the agent really said behind a notice", async () => {
+    await agentSays("Refunding ₹4,000 for order A-1931.");
+    await agentSays("@priya I read room messages asynchronously, not in real time — you have to trigger me to pull the latest messages, either from a session I already have open or by starting a new one.");
+    expect(said()).toEqual(["Refunding ₹4,000 for order A-1931."]);
+  });
+
+  it("looks in the room when the thread holds only a notice", async () => {
+    await agentSays("Looking at the order.", "t-1");
+    await agentSays("Hey! I'm on standby — @refunds-agent to get started.", "t-2");
+    expect(said("t-2")).toEqual(["Looking at the order."]);
+  });
+
+  it("still gives two when a run of notices came between", async () => {
+    await agentSays("First.");
+    await agentSays("Second.");
+    for (let n = 0; n < 5; n++) await agentSays("Hi! I'm refunds-agent — how can I help?");
+    expect(said()).toEqual(["Second.", "First."]);
+  });
+
+  it("still counts a room the agent only had a notice in, so who asked there stays on record", async () => {
+    await agentSays("@priya Hi! I'm refunds-agent — how can I help?");
+    const rows = h.core.stores.db.prepare(`SELECT room FROM agent_messages WHERE agent = 'refunds-agent'`).all();
+    expect(rows).toHaveLength(1);
+  });
+});
+
+describe("isSwitchNotice", () => {
+  /** Word for word from Switch at the pinned commit. */
+  const SWITCH_SAYS = [
+    "You're not permitted to direct messages to me in this room — my operator has restricted who can address me here.",
+    "@clearance You're not permitted to direct messages to me in this room — my operator has restricted who can address me here.",
+    "I only take instructions from my owner, and this chat account isn't linked to a Switch user yet — so I can't tell whether that's you. If it is, link this account to your Switch user in Switch Console, post the code it shows you from this account, and try again.",
+    "I read room messages asynchronously, not in real time — you have to trigger me to pull the latest messages, either from a session I already have open or by starting a new one.",
+    "@sam I read room messages asynchronously, not in real time — @priya has to trigger me to pull the latest messages, either from a session I already have open or by starting a new one.",
+    "I read room messages asynchronously, not in real time — my owner has to trigger me to pull the latest messages, either from a session I already have open or by starting a new one.",
+    "@priya — I'm not online in this room, and @sam needs me. Open Switch Console to bring me online here.",
+    "I'm not online in this room. **My owner needs to open Switch Console** to bring me online here.",
+    "I have a session connected to this room, but it isn't reporting as live, so I'm not receiving messages. You can restart it by opening **refunds-agent** in Switch Console. If Switch Console says I'm signed out, sign me in first with `claude login` on the machine I run on.",
+    "I don't have a session connected to this room. You can start one connected to **support** by opening **refunds-agent** in Switch Console. If Switch Console says I'm signed out, sign me in first with `claude login` on the machine I run on.",
+    "I don't have a session in this room right now, but I'm working in **eng**, so you can ask me there. Or you can start one connected to **support** by opening **refunds-agent** in Switch Console. If Switch Console says I'm signed out, sign me in first with `claude login` on the machine I run on.",
+    "@priya — you've stopped me, so I'm not running, and @sam needs me. Set me to running in Switch to bring me back.",
+    "I'm stopped, so I'm not running. **My owner has to set me to running** in Switch to bring me back.",
+    "My machine, **clearance-priya**, is offline or reconnecting to Switch, so I can't answer right now. If I haven't answered once it's back, address me again. If it stays offline, my owner (@priya) needs to check it.",
+    "My machine, **clearance-priya**, was asleep and is starting now. I'll pick this up as soon as it's back, usually within a few minutes.",
+    "My machine, **clearance-priya**, is stopped, so I can't answer. My owner (@priya) can start it again in Switch Console.",
+    "@priya — my machine, **clearance-priya**, has been removed from Switch, so nothing runs me. My owner has to move me to another machine to bring me back.",
+    "My machine, **clearance-priya**, has been removed from Switch, so nothing runs me. My owner has to move me to another machine to bring me back.",
+    "I hold a role in this room, but the session that assumed it is active in **eng** right now — I'll pick this up when it reconnects here.",
+    "Hi! I'm refunds-agent — how can I help?",
+    "Hey there! Tag @refunds-agent if you need me.",
+    "Hi! Mention @refunds-agent to get my attention.",
+    "Hello! I'm ready — just tag @refunds-agent when you need me.",
+    "Hey! Ping @refunds-agent and I'll jump in.",
+    "Hi! I'm here to help — mention @refunds-agent anytime.",
+    "Hello! Tag @refunds-agent to loop me in.",
+    "Hey! I'm on standby — @refunds-agent to get started.",
+    "Hi there! Just @refunds-agent me when you're ready.",
+  ];
+
+  it.each(SWITCH_SAYS)("knows %s", (body) => {
+    expect(isSwitchNotice(body)).toBe(true);
+  });
+
+  it.each([
+    "Refunding ₹4,000 for order A-1931.",
+    // Starting the same way isn't enough: the rest of it may be the claim that matters.
+    "You're not permitted to direct messages to me in this room — my operator has restricted who can address me here. Refunding ₹40,000 now.",
+    "Hi! I'm refunds-agent — I'll refund that now.",
+    "I'm stopped, so I'm not running the deploy.",
+    "@priya the refund is done.",
+    "",
+  ])("leaves the agent's own words alone: %s", (body) => {
+    expect(isSwitchNotice(body)).toBe(false);
   });
 });

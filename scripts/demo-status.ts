@@ -8,7 +8,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PEOPLE, personaTokens } from "./demo/greet.ts";
 import { findStrayRooms } from "./demo/stray-rooms.ts";
-import { agentIdOf, type ManagedAgent, type Machine, ownerGateway, providerReady, ROOT } from "./gateway-owner.ts";
+import { agentIdOf, type ManagedAgent, type Machine, ownerGateway, providerReady, providersNotReady, ROOT } from "./gateway-owner.ts";
 import { MACHINES, OWNERS, planAgents } from "./setup-agents.ts";
 import { roomsOf, roomsOfAgents } from "./setup-world.ts";
 
@@ -48,13 +48,23 @@ async function machinesOf(owner: string): Promise<Machine[]> {
 }
 
 async function machines(): Promise<void> {
-  const wanted = [...new Set([...Object.values(MACHINES), BASELINE.machine])];
-  for (const name of wanted) {
+  const wanted = new Map<string, Set<string>>([[BASELINE.machine, new Set([BASELINE.provider])]]);
+  for (const plan of planAgents(template())) {
+    const name = MACHINES[plan.name]!;
+    wanted.set(name, (wanted.get(name) ?? new Set()).add(plan.provider));
+  }
+  for (const [name, providers] of wanted) {
     const owner = name.split("-")[1]!;
     const found = (await machinesOf(owner)).find((m) => m.name === name);
-    if (found?.status?.providers?.length) ok(`${name} is enrolled and reporting`);
-    else if (found) no(`${name} is enrolled and has not reported its providers yet`);
-    else no(`${name} is not enrolled`);
+    if (!found) {
+      no(`${name} is not enrolled`);
+    } else if (!found.status?.providers?.length) {
+      no(`${name} is enrolled and has not reported its providers yet`);
+    } else {
+      const missing = providersNotReady(found, providers);
+      if (missing.length > 0) no(`${name} has not said it can run ${missing.join(" or ")} yet`);
+      else ok(`${name} is enrolled and reporting`);
+    }
   }
 }
 

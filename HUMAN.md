@@ -38,7 +38,7 @@ Everything else is being done without you. Tick a box when done (or just tell me
 - [ ] **Listen to the video once, 3 minutes.** `docs/media/raw/clearance-demo.mp4`. I can read every frame but I can't hear anything, so the offline voice is unchecked by anyone. Tell me if a word is mispronounced, or if it sounds too robotic to use. The agents' words are real, so tell me about anything that reads wrong too, and I'll fix it or say why not.
 
 - [ ] **1. Free RAM: close what you don't need.** The machine has 14 GB, about 12 GB in use and 11 GB already in swap, which is the OOM risk we've hit before. Switch, Mattermost and four agents need 4 to 6 GB free.
-  - Close Chrome (or most tabs), Discord and Claude desktop if you don't need them while recording, E2 or the study runs.
+  - Close Chrome (or most tabs), Discord and Claude desktop if you don't need them while recording, E2 or the study runs. VS Code alone is holding about 5 GB, and the machine ran out of memory once already, at 14:31 on Friday, so close spare windows.
   - Optional: your other project containers and Redis use memory too. I won't touch them, because they aren't mine. If you're fine with it:
     ```bash
     docker stop sr-prod-pg faultline-falkordb

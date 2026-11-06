@@ -1,8 +1,31 @@
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { fillRootEnv, fillSwitchEnv, GATE_GRANTS, gateTokensFile, readKey, setKey } from "./demo-env.mjs";
 
 let counter = 0;
 const random = () => `token-${++counter}`;
+
+describe("--check on a fresh clone", () => {
+  it("says what just demo will do, and gives the person nothing to do by hand", () => {
+    const root = mkdtempSync(join(tmpdir(), "demo-env-"));
+    try {
+      writeFileSync(join(root, "justfile"), 'switch_sha := "abc123"\n');
+      writeFileSync(join(root, ".env"), "CLEARANCE_INTERNAL_TOKEN=change-me\n");
+      const script = join(import.meta.dirname, "demo-env.mjs");
+      const result = spawnSync("node", [script, "--check", "--root", root], { encoding: "utf8" });
+      expect(result.status).toBe(3);
+      expect(result.stdout).toContain("just demo generates in .env: CLEARANCE_INTERNAL_TOKEN");
+      expect(result.stdout).toContain("just demo makes vendor/switch/.env");
+      expect(result.stdout).not.toContain("just init-env");
+      expect(existsSync(join(root, "vendor"))).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
 
 describe("fillRootEnv", () => {
   it("fills blanks and placeholders, and gives every agent its own gate token", () => {

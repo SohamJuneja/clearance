@@ -15,6 +15,10 @@
 import type { ChatMessageEvent, Clock } from "@clearance/contracts";
 import type { Db } from "../db/index.js";
 import type { Directory } from "../people/directory.js";
+import { isSwitchNotice } from "./switch-notices.js";
+
+/** More than Switch would post between two things an agent says. */
+const NOTICES_TO_READ_PAST = 20;
 
 /** Real time on purpose: an agent's turn takes as long as it takes, whatever CLEARANCE_TIME_SCALE says. */
 export const REQUESTER_WINDOW_MS = 10 * 60_000;
@@ -131,8 +135,14 @@ export class RequesterTracker {
   lastMessages(agent: string, room: string | null, thread: string | null, count: number): string[] {
     if (!room) return [];
     const since = this.clock.nowMs() - REQUESTER_WINDOW_MS;
+    // Switch's own notices are kept for who was where, and left out of what the agent said. They can't push a real
+    // message out of the window, because the query reads past them.
     const read = (sql: string, ...params: unknown[]) =>
-      (this.db.prepare(sql).all(...params) as { body: string }[]).map((row) => row.body);
+      (this.db.prepare(sql).all(...params) as { body: string }[])
+        .map((row) => row.body)
+        .filter((body) => !isSwitchNotice(body))
+        .slice(0, count);
+    const limit = count + NOTICES_TO_READ_PAST;
     if (thread) {
       const inThread = read(
         `SELECT body FROM agent_messages WHERE agent = ? AND room = ? AND thread = ? AND at > ? ORDER BY at DESC, id DESC LIMIT ?`,
@@ -140,7 +150,7 @@ export class RequesterTracker {
         room,
         thread,
         since,
-        count,
+        limit,
       );
       if (inThread.length > 0) return inThread;
     }
@@ -149,7 +159,7 @@ export class RequesterTracker {
       agent,
       room,
       since,
-      count,
+      limit,
     );
   }
 }

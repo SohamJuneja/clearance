@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { mattermostContainer } from "./gateway-owner.ts";
 import {
   buildPlan,
   describePlan,
@@ -23,6 +24,17 @@ const channel = (name: string, team = "switch", type = "O") => ({
   name,
   team,
   type,
+});
+
+describe("mattermostContainer", () => {
+  it("follows the compose project, which is anyone's choice", () => {
+    expect(mattermostContainer({ COMPOSE_PROJECT_NAME: "clearance-fresh" })).toBe("clearance-fresh-mattermost-1");
+  });
+
+  it("is switch's when nobody chose, or the setting is empty", () => {
+    expect(mattermostContainer({})).toBe("switch-mattermost-1");
+    expect(mattermostContainer({ COMPOSE_PROJECT_NAME: "" })).toBe("switch-mattermost-1");
+  });
 });
 
 describe("what may be removed", () => {

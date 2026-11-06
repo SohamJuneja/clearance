@@ -61,6 +61,27 @@ export function reason(body: unknown): string {
 
 export type Res = { status: number; body: unknown; headers: Headers };
 
+/**
+ * Says something until it's heard, or gives up and returns nothing. A chat bridge can take a moment to start listening
+ * for an account that was only just made, and what's said before then is gone: saying it once and waiting never ends.
+ */
+export async function sayUntilHeard<T>(
+  say: () => Promise<void>,
+  heard: () => Promise<T | undefined>,
+  options: { rounds?: number; checksPerRound?: number; waitMs?: number } = {},
+): Promise<T | undefined> {
+  const { rounds = 12, checksPerRound = 10, waitMs = 500 } = options;
+  for (let round = 0; round < rounds; round++) {
+    await say();
+    for (let check = 0; check < checksPerRound; check++) {
+      await new Promise((done) => setTimeout(done, waitMs));
+      const found = await heard();
+      if (found !== undefined) return found;
+    }
+  }
+  return undefined;
+}
+
 export async function call(
   base: string,
   method: string,

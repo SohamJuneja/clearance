@@ -63,7 +63,7 @@ Each protected agent can only be addressed in its own rooms, and Switch enforces
 
 **The gate and core run outside the fence as the same OS user.** The fence is what keeps agents from their files. In production, run the gate on another host or as another OS user.
 
-**It relies on the host.** The fence needs Linux and unprivileged user namespaces, so `just demo` refuses to start agents on macOS or where AppArmor blocks bubblewrap. There is no seccomp filter, so a kernel bug is out of scope. Codex and Cursor binds are written but untested, because no login for them exists yet.
+**It relies on the host.** The fence needs Linux and unprivileged user namespaces, so `just demo` refuses to start agents on macOS or where AppArmor blocks bubblewrap. It hides all of `/home` only when `$HOME` is under `/home`, so with `HOME=/root` other users' homes stay visible read-only inside the fence. There is no seccomp filter, so a kernel bug is out of scope. Codex and Cursor binds are written but untested, because no login for them exists yet.
 
 Clearance can't stop an agent that has its own unscoped credentials outside the gate. Baseline agent `refunds-agent-vanilla` in our evaluation holds the Acme key directly, on purpose, to show that case.
 

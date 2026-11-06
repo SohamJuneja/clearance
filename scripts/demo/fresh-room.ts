@@ -10,12 +10,11 @@
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { agentIdOf, type ManagedAgent, ownerGateway, type OwnerGateway, ROOT } from "../gateway-owner.ts";
+import { agentIdOf, type ManagedAgent, mattermostContainer, ownerGateway, type OwnerGateway, ROOT } from "../gateway-owner.ts";
 import { personaTokens } from "./greet.ts";
 
 /** Whoever can see the world's rooms and own its agents. PLAN 8.4. */
 const OWNERS = ["alex", "priya"];
-const MATTERMOST_CONTAINER = `${process.env.COMPOSE_PROJECT_NAME ?? "switch"}-mattermost-1`;
 const TEAM = "switch";
 /** The baseline rooms are not in the world's template. They hold no Clearance, on purpose. */
 const BASELINE_ROOMS: Record<string, { agent: string; description: string; instructions: string; users: string[] }> = {
@@ -54,7 +53,7 @@ async function retireChannel(room: string, channelId: string, owner: string, tak
   const name = `${retiredChannelName(room, new Date())}${take > 0 ? `-${take}` : ""}`;
   const renamed = spawnSync(
     "docker",
-    ["exec", MATTERMOST_CONTAINER, "mmctl", "--local", "channel", "rename", `${TEAM}:${channel.name}`, "--name", name, "--display-name", name],
+    ["exec", mattermostContainer(), "mmctl", "--local", "channel", "rename", `${TEAM}:${channel.name}`, "--name", name, "--display-name", name],
     { encoding: "utf8" },
   );
   if (renamed.status === 0) log(`kept the old channel as ${name}`);

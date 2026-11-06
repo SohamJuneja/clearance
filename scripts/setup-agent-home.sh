@@ -17,9 +17,10 @@ AGENT_HOME="${CLEARANCE_AGENT_HOME:-$HOME/.local/share/clearance-tools/agent-hom
 AGENT_HOME_INSIDE="${CLEARANCE_AGENT_HOME_INSIDE:-$AGENT_HOME}"
 KEY_FILE="$AGENT_HOME/.claude/api-key"
 SETTINGS="$AGENT_HOME/.claude/settings.json"
-CLAUDE_BIN="$(readlink -f "$HOME/.local/bin/claude")"
 
 if [ "${1:-}" = "--check" ]; then
+  # Wherever it's installed: npm's global folder isn't ~/.local/bin. Only this asks, so only this needs it.
+  CLAUDE_BIN="$(readlink -f "$(command -v claude)")"
   # auth status makes no model call.
   env -i HOME="$AGENT_HOME" USER="${USER:-$(id -un)}" LANG=C.UTF-8 PATH=/usr/bin:/bin \
     "$CLAUDE_BIN" auth status 2>&1 | head -n 20 || true

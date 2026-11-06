@@ -113,6 +113,15 @@ async function priyaAsks(text: string): Promise<void> {
   await new Promise((r) => setTimeout(r, 1500));
 }
 
+// On a used stack the first card can want a typed value, or someone is already on record, and it would end in a stack
+// trace about a button. Better to say what to do.
+const earlier = (await coreGet("/v1/ledger")).entries as { type: string }[] | undefined;
+if (earlier?.some((entry) => entry.type === "held")) {
+  console.error("This stack has held requests on it already, and the spine needs a clean start. Run:");
+  console.error("  pnpm demo:reset && pnpm demo:smoke");
+  process.exit(1);
+}
+
 const sam = persona("sam");
 const neha = persona("neha");
 check("acme reset", await resetAcme());

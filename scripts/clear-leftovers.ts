@@ -17,6 +17,7 @@ import {
   ownerGateway,
   type OwnerGateway,
   readDotenv,
+  mattermostContainer,
   ROOT,
   roomLabel,
 } from "./gateway-owner.ts";
@@ -26,9 +27,8 @@ export const ROOMS = ["clearance-identity-probe", "fence-proof"] as const;
 /** E2 needs these. Nothing above can match them, and this says so out loud if that ever changes. */
 export const KEEP = ["ops-vanilla", "ops-agent-vanilla"] as const;
 
-const STACK = "switch";
+const TEAM = "switch";
 const MATTERMOST_URL = "http://127.0.0.1:8065";
-const MATTERMOST_CONTAINER = `${STACK}-mattermost-1`;
 const PAGE = 200;
 
 const KNOWN_ACCOUNTS = new Set([
@@ -137,7 +137,7 @@ export function buildPlan(snapshot: Snapshot): Plan {
   const agents = snapshot.agents.filter((agent) => isLeftover(agent.name));
   const channels = snapshot.channels.filter(
     (channel) =>
-      channel.team === STACK &&
+      channel.team === TEAM &&
       channel.type !== "D" &&
       channel.type !== "G" &&
       isLeftover(channel.name),
@@ -151,7 +151,7 @@ export function buildPlan(snapshot: Snapshot): Plan {
   }
   for (const channel of snapshot.channels) {
     const why =
-      channel.team === STACK
+      channel.team === TEAM
         ? staleReason("channel", channel.name)
         : `a channel in another team (${channel.team})`;
     if (why) listed.push(`channel ${channel.name}: ${why}`);
@@ -163,7 +163,7 @@ export function buildPlan(snapshot: Snapshot): Plan {
     else if (why) listed.push(`user ${user.name}: ${why}`);
   }
   const retired = snapshot.channels.filter(
-    (channel) => channel.team === STACK && isRetired(channel.name),
+    (channel) => channel.team === TEAM && isRetired(channel.name),
   ).length;
   if (retired > 0)
     listed.push(
@@ -366,12 +366,12 @@ async function applyPlan(
         "docker",
         [
           "exec",
-          MATTERMOST_CONTAINER,
+          mattermostContainer(),
           "mmctl",
           "--local",
           "channel",
           "delete",
-          `${STACK}:${channel.name}`,
+          `${TEAM}:${channel.name}`,
           "--confirm",
         ],
         { stdio: "ignore" },
@@ -380,7 +380,7 @@ async function applyPlan(
       failed.push(`channel ${channel.name}: mmctl refused`);
     }
   }
-  const team = (await mattermost.call("GET", `/teams/name/${STACK}`)).body as { id: string };
+  const team = (await mattermost.call("GET", `/teams/name/${TEAM}`)).body as { id: string };
   for (const bot of plan.bots) {
     await mattermost.call("DELETE", `/teams/${team.id}/members/${bot.id}`);
     const { status } = await mattermost.call("DELETE", `/users/${bot.id}`);

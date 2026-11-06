@@ -46,6 +46,7 @@ import {
   readEnvFile,
   readJson,
   writePrivate,
+  sayUntilHeard,
 } from "./lib-provisioning.js";
 
 const LINKED_PERSONAS = ["priya", "sam", "neha", "alex", "dev"] as const;
@@ -124,13 +125,14 @@ type Thread = { root: ContextEntry; replies: ContextEntry[] };
 /**
  * Participant ids are opaque to clients and no API lists them by person, so they are read off the room
  * history: everyone who joins a room leaves a join entry carrying their id. The room is private, holds
- * only the personas and Clearance, and is archived straight after.
+ * only the personas and Clearance, and the caller deletes it straight after: archiving a room is only a flag in Switch,
+ * and would leave its channel in every person's sidebar.
  */
 async function readParticipantIds(
   agentId: string,
   apiKey: string,
   people: string[],
-): Promise<{ ids: Record<string, string>; agent: string }> {
+): Promise<{ ids: Record<string, string>; agent: string; roomId: string }> {
   const connectionId = `clearance-setup-${randomBytes(6).toString("hex")}`;
   const controller = new AbortController();
   const stream = await fetch(
@@ -188,8 +190,7 @@ async function readParticipantIds(
     }
     const missing = people.filter((name) => !ids[name]);
     if (missing.length > 0) fail(`no participant id found for ${missing.join(", ")} in ${PROBE_ROOM_NAME}`);
-    await op("archive_room", { room_id: roomId }).catch(() => undefined);
-    return { ids, agent: agentParticipant };
+    return { ids, agent: agentParticipant, roomId };
   } finally {
     clearInterval(beat);
     controller.abort();
@@ -224,18 +225,21 @@ async function ensureDirectRoom(
       json: [mattermostUserId, botId],
     });
     const channelId = String(expectOk(direct, `opening ${persona}'s DM with Clearance`).id);
-    expectOk(
-      await call(MATTERMOST_URL, "POST", "/api/v4/posts", {
-        token: personaToken,
-        json: { channel_id: channelId, message: "hello" },
-      }),
-      `${persona}'s first message to Clearance`,
+    room = await sayUntilHeard(
+      async () => {
+        expectOk(
+          await call(MATTERMOST_URL, "POST", "/api/v4/posts", {
+            token: personaToken,
+            json: { channel_id: channelId, message: "hello" },
+          }),
+          `${persona}'s first message to Clearance`,
+        );
+      },
+      async () => (await listRooms()).find((entry) => entry.name === name),
     );
-    for (let attempt = 0; attempt < 40 && !room; attempt++) {
-      await new Promise((done) => setTimeout(done, 500));
-      room = (await listRooms()).find((entry) => entry.name === name);
+    if (!room) {
+      fail(`Switch made no direct room for ${persona} within a minute: expected one named "${name}". Run just demo again.`);
     }
-    if (!room) fail(`Switch made no direct room for ${persona}: expected one named "${name}"`);
     log(`switch: ${persona} opened a direct room with ${AGENT_NAME}`);
   }
   if (room.archived) {
@@ -393,6 +397,13 @@ async function main(): Promise<void> {
   const previousAgentParticipant = previousIdentities.agents?.[AGENT_NAME]?.participantId;
   const complete = previousAgentParticipant && ALL_PERSONAS.every((name) => known[name]);
   const read = complete ? undefined : await readParticipantIds(agentId, apiKey, ALL_PERSONAS);
+  if (read) {
+    const removed = await call(BRIDGE_URL, "POST", "/gateway/rooms/bulk-delete", {
+      cookie: adminCookie,
+      json: { room_ids: [read.roomId], retire_channel: true },
+    });
+    if (expectOk(removed, "deleting the setup room").deleted !== 1) fail(`${PROBE_ROOM_NAME} could not be deleted`);
+  }
   const participantIds = read?.ids ?? known;
   const agentParticipant = read?.agent || previousAgentParticipant || "";
 

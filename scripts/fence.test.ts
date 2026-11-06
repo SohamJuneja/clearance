@@ -92,6 +92,30 @@ describe("E2's OpenCode baseline", () => {
   });
 });
 
+describe("fence_path", () => {
+  it("finds Claude Code where npm put it, which isn't always on the usual list", () => {
+    const dir = mkdtempSync(join(tmpdir(), "npm-global-"));
+    try {
+      writeFileSync(join(dir, "claude"), "#!/bin/sh\n", { mode: 0o755 });
+      const path = fence(`PATH="${dir}:$PATH"; fence_path`).trim();
+      expect(path.split(":")).toContain(dir);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("doesn't change when Claude Code is in the usual place, so a running machine isn't restarted for nothing", () => {
+    const nodeDir = dirname(process.execPath);
+    const usual = join(home, ".local/bin");
+    mkdirSync(usual, { recursive: true });
+    writeFileSync(join(usual, "claude"), "#!/bin/sh\n", { mode: 0o755 });
+    const installed = fence(`PATH="${usual}:${nodeDir}:/usr/bin:/bin"; fence_path`).trim();
+    rmSync(join(usual, "claude"));
+    const absent = fence(`PATH="${nodeDir}:/usr/bin:/bin"; fence_path`).trim();
+    expect(installed).toBe(absent);
+  });
+});
+
 describe("fence_args", () => {
   it("shares the network and nothing else", () => {
     const args = argsOf("clearance-priya");

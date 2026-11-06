@@ -3,12 +3,31 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
-import { groupOf, policyRoomMap, roomLimitedPolicy, roomsOf, roomsOfAgents, withRoomMap, worldDocument } from "./setup-world.ts";
+import { agentIdByName, groupOf, policyRoomMap, roomLimitedPolicy, roomsOf, roomsOfAgents, withRoomMap, worldDocument } from "./setup-world.ts";
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), "..");
 const template = readFileSync(join(REPO, "templates/acme-mini.template.yaml"), "utf8");
 type Doc = { resources: Record<string, { type?: string; agents?: string[]; group?: string; name?: string }> };
 const resources = (text: string | null) => (parse(text ?? "") as Doc).resources;
+
+describe("agentIdByName", () => {
+  const managed = [{ name: "coder", id: "managed-coder", agent_id: "managed-coder" }] as never[];
+
+  it("finds a registered name that no machine runs, or the placeholder would keep refusing Clearance", () => {
+    expect(agentIdByName("refunds-agent", [], [{ id: "reg-1", name: "refunds-agent" }])).toBe("reg-1");
+    expect(agentIdByName("refunds-agent", [], { agents: [{ id: "reg-2", name: "refunds-agent" }] })).toBe("reg-2");
+  });
+
+  it("prefers the agent a machine runs", () => {
+    expect(agentIdByName("coder", managed, [{ id: "other", name: "coder" }])).toBeTruthy();
+    expect(agentIdByName("coder", managed, [{ id: "other", name: "coder" }])).not.toBe("other");
+  });
+
+  it("has nothing for an agent not created yet", () => {
+    expect(agentIdByName("ops-agent", managed, [])).toBeUndefined();
+    expect(agentIdByName("ops-agent", [], { agents: undefined })).toBeUndefined();
+  });
+});
 
 describe("roomsOf", () => {
   it("finds the four rooms PLAN 8.3 names, with their agents", () => {

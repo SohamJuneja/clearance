@@ -17,6 +17,8 @@
 # CLEARANCE_EXTRA_PATH goes first on the PATH agents get, for a probe like spikes/claude-init-tee.
 # Secrets are read from .env files by this script and never printed.
 set -euo pipefail
+# So a step that fails says which, rather than just stopping. This is the command as written, so no secret is in it.
+trap 'echo "setup-controller.sh stopped at line $LINENO: $BASH_COMMAND" >&2' ERR
 
 OWNER=""
 MACHINE_NAME=""
@@ -157,8 +159,14 @@ status() {
   fi
 }
 
+# Switch's CLI talks to someone installing a controller by hand. These lines tell a person running the demo to do things
+# they shouldn't, with a command that isn't on their PATH. Node's warning about its own SQLite is no use to them either.
+quiet_cli() {
+  grep -v -e 'install-service' -e '^or in this terminal' -e 'ExperimentalWarning' -e 'trace-warnings' || true
+}
+
 doctor() {
-  fenced "$NODE" "$CLI" doctor --data-dir "$DATA_DIR" --env-file "$ENV_FILE" || true
+  fenced "$NODE" "$CLI" doctor --data-dir "$DATA_DIR" --env-file "$ENV_FILE" 2>&1 | quiet_cli || true
 }
 
 build_controller() {
@@ -166,16 +174,22 @@ build_controller() {
     echo "controller already built: $CLI"
     return
   fi
-  mkdir -p "$SRC"
+  mkdir -p "$SRC" "$RUN_DIR"
   # A copy, so the pinned checkout stays untouched: the build writes dist/ and node_modules/.
   rsync -a --delete --exclude node_modules --exclude dist "$SWITCH_DIR/console/" "$SRC/"
-  (
+  local log="$RUN_DIR/controller-build.log"
+  echo "building Switch's agent controller, once. This takes a minute or two"
+  if ! (
     cd "$SRC"
     $PNPM install --frozen-lockfile --filter '@switch-console/agent-controller...' \
       --config.engine-strict=false --ignore-scripts --store-dir "$TOOLS/pnpm-store"
     NODE_OPTIONS=--max-old-space-size=2048 \
       $PNPM -r --filter '@switch-console/agent-controller...' run build
-  )
+  ) >"$log" 2>&1; then
+    tail -n 30 "$log" >&2
+    echo "the controller did not build. All of it is in $log" >&2
+    return 1
+  fi
 }
 
 # Hook tokens do not go here: the session allowlist drops them (spikes/RESULTS-vendors.md).
@@ -238,7 +252,7 @@ enroll_if_needed() {
   code="$(enrollment_code)"
   fenced "$NODE" "$CLI" enroll --server "$BRIDGE_URL" --code "$code" \
     --name "$MACHINE_NAME" --description "Clearance demo machine for $OWNER" \
-    --data-dir "$DATA_DIR" --secret-store file
+    --data-dir "$DATA_DIR" --secret-store file 2>&1 | quiet_cli
 }
 
 fence_fingerprint() {
@@ -278,6 +292,23 @@ start_controller() {
 
 # How Claude authenticates in this machine's home. An API key wins. Otherwise the operator's login, without its
 # refresh token: see scripts/fence-claude-token.sh for why it cannot simply be bound in.
+# The fence hides the home that OpenCode's own installer uses, so a machine that runs it gets a copy under $TOOLS.
+OPENCODE_VERSION=1.18.27
+install_opencode() {
+  fence_has_provider "$MACHINE_NAME" opencode || return 0
+  if [ "$NO_FENCE" = 1 ]; then
+    command -v opencode >/dev/null 2>&1 && return 0
+    echo "warning: OpenCode is not installed, so $MACHINE_NAME's agent will not run: curl -fsSL https://opencode.ai/install | bash" >&2
+    return 0
+  fi
+  [ -x "$TOOLS/node_modules/.bin/opencode" ] && return 0
+  echo "installing OpenCode $OPENCODE_VERSION for $MACHINE_NAME"
+  mkdir -p "$TOOLS"
+  if ! npm install --prefix "$TOOLS" --no-audit --no-fund --loglevel=error "opencode-ai@$OPENCODE_VERSION"; then
+    echo "warning: OpenCode did not install, so $MACHINE_NAME's agent will not run. Rerun to try again." >&2
+  fi
+}
+
 prepare_claude_login() {
   fence_has_provider "$MACHINE_NAME" claude || return 0
   # With no fence, sessions run in the real home and use whatever login is there.
@@ -340,6 +371,7 @@ elif ! fence_supported; then
 fi
 build_controller
 install_hook_cli
+install_opencode
 fence_prepare "$MACHINE_NAME"
 if [ "$NO_FENCE" != 1 ]; then fence_args "$MACHINE_NAME"; fi
 if [ "$ACTION" = doctor ]; then

@@ -115,14 +115,33 @@ export function withRoomMap<T extends { rooms?: Record<string, string> }>(identi
 
 type RoomRow = { id: string; name: string };
 
+/**
+ * An agent's id whether a machine runs it or it's only a registered name, as with `just demo --no-agents`. The name gets
+ * the same limit, or Switch refuses Clearance on its behalf and the room reads as if Clearance had been shut out.
+ */
+export function agentIdByName(
+  name: string,
+  managed: ManagedAgent[],
+  registered: { id: string; name: string }[] | { agents?: { id: string; name: string }[] },
+): string | undefined {
+  const found = managed.find((agent) => agent.name === name);
+  if (found) return agentIdOf(found);
+  const rows = Array.isArray(registered) ? registered : (registered.agents ?? []);
+  return rows.find((agent) => agent.name === name)?.id;
+}
+
 /** Set by each agent's owner, the only one who can. An agent not created yet has nothing to set. */
 async function limitAddressing(wanted: WorldRoom[], rooms: RoomRow[]): Promise<void> {
   const byAgent = roomsOfAgents(wanted, rooms, Object.keys(OWNERS));
   for (const [agent, roomIds] of Object.entries(byAgent)) {
     const gateway = await ownerGateway(OWNERS[agent]!);
-    const found = (await gateway.must<ManagedAgent[]>("GET", "/management/agents")).find((a) => a.name === agent);
-    if (!found || roomIds.length === 0) continue;
-    await gateway.must("PUT", `/agents/${agentIdOf(found)}/addressing-policy`, { policy: roomLimitedPolicy(roomIds) });
+    const id = agentIdByName(
+      agent,
+      await gateway.must<ManagedAgent[]>("GET", "/management/agents"),
+      await gateway.must("GET", "/agents"),
+    );
+    if (!id || roomIds.length === 0) continue;
+    await gateway.must("PUT", `/agents/${id}/addressing-policy`, { policy: roomLimitedPolicy(roomIds) });
     console.log(`${agent}: can be addressed in ${roomIds.length} room${roomIds.length === 1 ? "" : "s"} only`);
   }
 }

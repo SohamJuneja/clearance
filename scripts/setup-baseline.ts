@@ -18,6 +18,7 @@ import {
   moveAgentToMachine,
   ownerGateway,
   ownerMachine,
+  providerReady,
   rootEnv,
   type ManagedAgent,
   type OwnerGateway,
@@ -35,6 +36,7 @@ export interface Baseline {
   agent: string;
   room: string;
   machine: string;
+  provider: string;
   template: string;
   /** What the template asks for beyond the machine. */
   inputs: Record<string, unknown>;
@@ -44,6 +46,7 @@ export const REFUNDS_BASELINE: Baseline = {
   agent: AGENT,
   room: ROOM,
   machine: MACHINE,
+  provider: "claude",
   template: "acme-vanilla",
   inputs: { auto_mode: true },
 };
@@ -51,6 +54,7 @@ export const OPEN_BASELINE: Baseline = {
   agent: "ops-agent-vanilla",
   room: "ops-vanilla",
   machine: "clearance-priya-open-base",
+  provider: "opencode",
   template: "ops-vanilla",
   inputs: {},
 };
@@ -74,12 +78,6 @@ export async function findAgent(gateway: OwnerGateway, name: string = AGENT): Pr
   return agents.find((a) => a.name === name);
 }
 
-type TemplateRun = {
-  created_agents?: { name: string; machine?: unknown; listening?: boolean }[];
-  room?: { id?: string; name?: string } | null;
-  rooms?: { id?: string; name?: string }[];
-};
-
 export async function ensureBaseline(baseline: Baseline): Promise<void> {
   const gateway = await ownerGateway(OWNER);
   const machine = await ownerMachine(gateway, baseline.machine);
@@ -98,15 +96,18 @@ export async function ensureBaseline(baseline: Baseline): Promise<void> {
     console.log(`${baseline.agent} already defined, revision ${String(existing.revision)}, model ${String(existing.definition.model)}`);
     return;
   }
+  // As any agent whose machine can't run it yet: it waits, and a rerun creates it.
+  if (!providerReady(machine, baseline.provider)) {
+    console.log(`${baseline.agent} is waiting: ${machine.name} has no ${baseline.provider} login or install. Rerun this once it does`);
+    return;
+  }
   const template = readFileSync(join(REPO, `templates/${baseline.template}.template.yaml`), "utf8");
-  const run = await gateway.must<TemplateRun>("POST", "/rooms/from-template-document", {
+  await gateway.must("POST", "/rooms/from-template-document", {
     template,
     inputs: { ...baseline.inputs, machine: machine.id },
     template_name: baseline.template,
   });
-  console.log(`template ran: agents ${JSON.stringify((run.created_agents ?? []).map((a) => ({ name: a.name, machine: a.machine, listening: a.listening })))}`);
-  const rooms = run.rooms ?? (run.room ? [run.room] : []);
-  console.log(`rooms: ${JSON.stringify(rooms.map((r) => ({ name: r.name, id: r.id })))}`);
+  console.log(`${baseline.agent} is on ${machine.name}, in #${baseline.room}`);
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {

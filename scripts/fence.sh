@@ -191,7 +191,16 @@ fence_path() {
   if [ -d "$HOME/.volta/tools/image/packages/@openai/codex/bin" ]; then
     extra="$HOME/.volta/tools/image/packages/@openai/codex/bin:"
   fi
-  echo "${CLEARANCE_EXTRA_PATH:+$CLEARANCE_EXTRA_PATH:}$TOOLS/node_modules/.bin:$node_bin:$extra$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin"
+  local base="$TOOLS/node_modules/.bin:$node_bin:$extra$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin"
+  # Claude Code wherever it was installed, as npm's global folder can be anywhere. Only when that isn't on the list already.
+  local found
+  if found="$(command -v claude 2>/dev/null)"; then
+    case ":$base:" in
+      *":$(dirname "$found"):"*) ;;
+      *) base="$base:$(dirname "$found")" ;;
+    esac
+  fi
+  echo "${CLEARANCE_EXTRA_PATH:+$CLEARANCE_EXTRA_PATH:}$base"
 }
 
 # What the fence's environment starts from. Nothing from the invoking shell gets in.

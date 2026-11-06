@@ -115,19 +115,20 @@ function main() {
 
   const rootText = existsSync(rootPath) ? readFileSync(rootPath, "utf8") : readFileSync(join(root, ".env.example"), "utf8");
   const filledRoot = fillRootEnv(rootText);
-  if (!existsSync(rootPath)) problems.push(".env does not exist yet");
-  if (filledRoot.changed.length > 0) problems.push(`.env needs: ${filledRoot.changed.join(", ")}`);
+  // What just demo is about to do, or would. Nothing here is for the person to do by hand.
+  if (!existsSync(rootPath)) problems.push("just demo makes .env from .env.example");
+  if (filledRoot.changed.length > 0) problems.push(`just demo generates in .env: ${filledRoot.changed.join(", ")}`);
 
   let filledSwitch = null;
   if (existsSync(switchPath)) {
     filledSwitch = fillSwitchEnv(readFileSync(switchPath, "utf8"), sha);
-    if (filledSwitch.changed.length > 0) problems.push(`vendor/switch/.env needs: ${filledSwitch.changed.join(", ")}`);
+    if (filledSwitch.changed.length > 0) problems.push(`just demo generates in vendor/switch/.env: ${filledSwitch.changed.join(", ")}`);
   } else {
-    problems.push("vendor/switch/.env does not exist yet: `just init-env` in vendor/switch makes it");
+    problems.push("just demo makes vendor/switch/.env");
   }
 
   if (values.check) {
-    for (const problem of problems) console.log(problem);
+    for (const problem of problems) console.log(`  todo  ${problem}`);
     process.exit(problems.length > 0 ? 3 : 0);
   }
 

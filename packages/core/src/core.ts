@@ -63,7 +63,7 @@ import { loadPolicy, loadTeam, parseDuration, parsePolicy, PolicyLoadError, type
 import type { TeamFile } from "./policy/schema.js";
 import { OPEN_STATES, RequestStore, type NewRequest, type RequestRecord } from "./requests/store.js";
 import { AggregateStore } from "./risk/aggregates.js";
-import { agentElsewhereFlag, agentReachUnknownFlag, authorUnknownFlag, requesterUnknownFlag } from "./risk/flags.js";
+import { agentElsewhereFlag, agentReachUnknownFlag, authorUnknownFlag, requesterUnknownFlag, uniqueFlags } from "./risk/flags.js";
 import {
   evidenceLines,
   ignoredFlags,
@@ -1130,7 +1130,7 @@ export class Clearance implements ClearanceCore {
       services: Object.keys(this.team.owners.services),
     });
 
-    const flags: Flag[] = [...evaluation.flags, ...mismatches, ...(drill?.extra_flags ?? [])];
+    const flags: Flag[] = uniqueFlags([...evaluation.flags, ...mismatches, ...(drill?.extra_flags ?? [])]);
     // L1 is the fast lane: one eligible approver, whatever the tier would otherwise ask for.
     const stated = evaluation.level === "L1" ? 1 : (cls?.approvers?.quorum[tier] ?? cls?.approvers?.quorum.default ?? 1);
     // Nobody can tell who asked, so whoever it was could be the one approving. Of two different people, only one can be.
@@ -2569,8 +2569,9 @@ export class Clearance implements ClearanceCore {
           handle: result.handle,
         });
         if (!named) await this.notifyCard({ roomId }, [person.userName], `${proposal.id} needs your signature: ${proposal.payload.title}. The card is just above.`);
-      } catch {
-        // Switch is down. The next answer, or asking again, covers it.
+      } catch (error) {
+        // Usually Switch is down. The next answer, or asking again, covers it.
+        console.error(`could not open ${proposal.id}'s card for ${person.userName}: ${(error as Error).message}`);
       }
     }
   }

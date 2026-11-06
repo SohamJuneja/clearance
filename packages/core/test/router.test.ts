@@ -124,6 +124,7 @@ describe("candidates and exclusions", () => {
     );
     expect(trace.chosen).toEqual(["alex"]);
     expect(trace.candidates.find((c) => c.id === "alex")?.matchedBy).toBe("delegate:sam");
+    expect(trace.ranked.find((r) => r.id === "alex")?.delegateFor).toBe("Sam");
   });
 
   it("does not let a requester approve through a delegation to themselves (case 24)", () => {

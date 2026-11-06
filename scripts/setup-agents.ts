@@ -8,6 +8,8 @@
  *     [--codex-home <dir>]             where to seed Codex's hook trust (default: the machine's home in the fence)
  *     [--prefix spike-]                prefix Switch names and folders, for tests
  *     [--no-create]                    prepare the folders only
+ *     [--no-machines]                  for `just demo --no-agents`: only hook tokens, which core needs to start, and a
+ *                                      registered refunds-agent with nothing running behind it, for the scripted spine
  *
  * An agent whose machine has no login for its provider gets its folder and waits: rerun this once the login exists,
  * and it is created. So the same command picks up Codex and Cursor when they land.
@@ -266,6 +268,8 @@ async function ensureAgent(
   machine: Machine,
 ): Promise<string> {
   const existing = (await gateway.must<ManagedAgent[]>("GET", "/management/agents")).find((a) => a.name === name);
+  // `--no-machines` registered this name with nothing behind it. Now it gets a real agent.
+  if (!existing) await gateway.call("DELETE", `/agents/by-name/${name}`);
   // Who may address it is set by scripts/setup-world.ts, which knows the room ids. Until that runs, a new agent keeps
   // Switch's default, which refuses everyone but its owner. That fails closed.
   if (!existing) {
@@ -290,6 +294,30 @@ async function ensureAgent(
   return changed ? "updated" : "unchanged";
 }
 
+/**
+ * For a run with no agents and no key. Core refuses to start without hook tokens. And at hold time it asks Switch where
+ * the agent is, so the name has to be registered and in its room or every request needs two approvers.
+ */
+async function setUpWithoutMachines(): Promise<void> {
+  const tokensPath = defaultHookTokensPath(rootEnv());
+  const plans = planAgents(readFileSync(join(REPO, "templates/acme-mini.template.yaml"), "utf8"));
+  for (const plan of plans) hookTokenFor(tokensPath, plan.name);
+  console.log(`hook tokens are in ${tokensPath}`);
+  const refunds = plans.find((plan) => plan.name === "refunds-agent")!;
+  const gateway = await ownerGateway(refunds.owner);
+  const known = await gateway.must<{ agents?: { name: string }[] } | { name: string }[]>("GET", "/agents");
+  const names = (Array.isArray(known) ? known : (known.agents ?? [])).map((agent) => agent.name);
+  if (names.includes(refunds.name)) {
+    console.log(`${refunds.name} is already registered`);
+    return;
+  }
+  await gateway.must("POST", "/agents/register-other", {
+    name: refunds.name,
+    description: "Registered with nothing running behind it: the scripted spine calls the gate itself.",
+  });
+  console.log(`${refunds.name} registered, with nothing running behind it`);
+}
+
 async function main(): Promise<void> {
   const { values } = parseArgs({
     options: {
@@ -299,8 +327,13 @@ async function main(): Promise<void> {
       prefix: { type: "string", default: "" },
       "codex-home": { type: "string" },
       "no-create": { type: "boolean", default: false },
+      "no-machines": { type: "boolean", default: false },
     },
   });
+  if (values["no-machines"]) {
+    await setUpWithoutMachines();
+    return;
+  }
   if (!values.source) throw new Error("--source <dir> is required");
   const source = resolve(values.source);
   if (!existsSync(source)) throw new Error(`no source directory at ${source}`);
@@ -342,7 +375,9 @@ async function main(): Promise<void> {
     let trust = "n/a";
     // A Codex agent with no seeded trust silently runs no hooks, so it is never created without it.
     if (plan.provider === "codex" && ready) {
-      const codexHome = values["codex-home"]?.replace(/^~/, homedir()) ?? join(TOOLS, "homes", machine.name, ".codex");
+      // With no fence, sessions run in the real home, so that is where Codex looks for its trust.
+      const sessionHome = process.env.CLEARANCE_NO_FENCE === "1" ? homedir() : join(TOOLS, "homes", machine.name);
+      const codexHome = values["codex-home"]?.replace(/^~/, homedir()) ?? join(sessionHome, ".codex");
       const seeded = await seedCodexTrust(resolve(codexHome), dir);
       trust = `${seeded} hooks trusted`;
     }

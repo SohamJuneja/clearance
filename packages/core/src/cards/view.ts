@@ -55,7 +55,7 @@ export function buildCardView(input: {
     id: request.id,
     headline: evidence.description.headline,
     tier: request.tier,
-    reversible: input.reversible,
+    reversible: evidence.description.reversible ?? input.reversible,
     call: evidence.description.call,
     context: evidence.description.context,
     flags: request.flags.map((flag) => flag.text),

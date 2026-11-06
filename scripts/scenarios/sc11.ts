@@ -29,6 +29,7 @@ export default defineScenario<State>({
   id: "SC11",
   title: "Earned autonomy: promoted by two people, demoted by one incident",
   inVideo: true,
+  room: ROOM,
   needs: ["mattermost", "acme", "core", "gate"],
   cast: ["priya", "sam", "alex"],
   capture: { layout: "half", personas: ["sam", "alex"] },

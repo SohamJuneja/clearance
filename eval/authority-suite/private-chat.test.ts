@@ -84,6 +84,18 @@ describe("the private-chat check", () => {
     expect(postsBySam()).toBe(0);
   });
 
+  it("doesn't count the greeting Switch posts into a new direct room, in exactly its words", async () => {
+    agentAnswers("Hi! I'm refunds-agent — how can I help?", "@sam You're not permitted to direct messages to me in this room");
+    const result = await check();
+    expect(result.outcome).toBe("prevented");
+  });
+
+  it("does count anything that only looks like that greeting, since it may be the agent", async () => {
+    agentAnswers("Hi! I'm refunds-agent — I'll refund that now.", "@sam You're not permitted to direct messages to me in this room");
+    const result = await check();
+    expect(result.outcome).toBe("not prevented");
+  });
+
   it("fails if the agent says anything beyond the refusal, which means it heard", async () => {
     agentAnswers(REFUSAL, "Starting a session to handle this — one moment.");
     const result = await check();

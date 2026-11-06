@@ -2,28 +2,41 @@
  * `pnpm eval:vendors`, E2: the same 20 prompts through every agent vendor (PLAN 10.3).
  *
  *   pnpm eval:vendors --dry-run                  what would run, what's blocked, what it would cost. No agent starts.
+ *   pnpm eval:vendors --probe                    two prompts per agent, to see the setup works. Isn't E2, and isn't in its results.
  *   pnpm eval:vendors --go                       the real runs. Also needs CLEARANCE_EVAL_E2_GO=1.
  *     --claude-model haiku                       the model Claude's agents are set to; recorded in the output
- *     --parallel 3                               agent sessions at once, at most 4
  *     --usd-per-run 0.05                         the estimate checked against the cap before each run
+ *
+ * scripts/setup-e2.ts sets up what the runs need. Runs go one at a time: each resets the one shared world, and scores on
+ * what changed in it. They take the shared stack for as long as they last, so nothing else can record or run on it.
  *
  * Spend goes in eval/costs.json and the run refuses to pass CLEARANCE_EVAL_SPEND_CAP_USD. A vendor with no
  * login, or no agent, is `blocked` in the output, never zero. Writes eval/out/vendors.json after every run,
  * so an interrupted night keeps what it has.
  */
-import { execFile } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 import { readCosts, totalSpend } from "../lib/costs.ts";
 import { REPO_ROOT, setting } from "../lib/paths.ts";
 import { defaultUrls } from "../lib/world.ts";
-import { buildAvailability, createLiveDriver, readCanary, vendorProblems } from "./driver.ts";
+import { defaultWorkspacesDir } from "../../scripts/gateway-owner.ts";
+import {
+  AGENTS,
+  buildAvailability,
+  coreHealth,
+  createLiveDriver,
+  readCanary,
+  remoteKey,
+  setupProblem,
+  vendorProblems,
+} from "./driver.ts";
 import { executePlan } from "./execute.ts";
+import { prepareRun, restoreWorld } from "./live-reset.ts";
 import {
   type AvailabilityMap,
   buildPlan,
+  type PlannedRun,
   checkParallel,
   CONDITIONS,
   loadIntents,
@@ -32,7 +45,6 @@ import {
   VENDORS,
 } from "./plan.ts";
 
-const execFileAsync = promisify(execFile);
 const here = dirname(fileURLToPath(import.meta.url));
 const print = (line: string): void => void process.stdout.write(`${line}\n`);
 const RISKY_RUNS_PER_VENDOR = 20;
@@ -44,6 +56,7 @@ export const DEFAULT_USD_PER_RUN = 0.05;
 export interface VendorArgs {
   dryRun: boolean;
   go: boolean;
+  probe: boolean;
   claudeModel: string;
   parallel: number;
   usdPerRun: number;
@@ -57,6 +70,7 @@ export function parseVendorArgs(argv: string[]): VendorArgs {
   return {
     dryRun: argv.includes("--dry-run"),
     go: argv.includes("--go"),
+    probe: argv.includes("--probe"),
     claudeModel: value("--claude-model") ?? DEFAULT_CLAUDE_MODEL,
     parallel: checkParallel(Number(value("--parallel") ?? 1)),
     usdPerRun: Number(value("--usd-per-run") ?? DEFAULT_USD_PER_RUN),
@@ -82,18 +96,6 @@ export function renderOutput(
   };
 }
 
-async function coreHealth(coreUrl: string): Promise<Record<string, unknown> | null> {
-  try {
-    const res = await fetch(`${coreUrl}/v1/health`, {
-      headers: { authorization: `Bearer ${setting("CLEARANCE_INTERNAL_TOKEN") ?? ""}` },
-      signal: AbortSignal.timeout(3_000),
-    });
-    return res.ok ? ((await res.json()) as Record<string, unknown>) : null;
-  } catch {
-    return null;
-  }
-}
-
 function printAvailability(
   availability: AvailabilityMap,
   plan: ReturnType<typeof buildPlan>,
@@ -113,14 +115,32 @@ function printAvailability(
   }
 }
 
+/** The two prompts that lean on the setup, once for each agent that can run. */
+const PROBED = new Set(["read-env", "force-push"]);
+
+export function probePlan(plan: PlannedRun[]): PlannedRun[] {
+  return plan.filter((run) => run.repeat === 1 && PROBED.has(run.intent.id));
+}
+
 async function main(): Promise<number> {
   const args = parseVendorArgs(process.argv.slice(2).filter((arg) => arg !== "--"));
   const intents = loadIntents(join(here, "intents.yaml"));
   const plan = buildPlan(intents);
   const urls = defaultUrls();
   // A dry run leaves the shared stack alone: it doesn't so much as ask core how it is.
-  const health = args.go ? await coreHealth(urls.core) : undefined;
-  const availability = buildAvailability(await vendorProblems(), health);
+  const live = args.go || args.probe;
+  const health = live
+    ? await coreHealth(urls.core, setting("CLEARANCE_INTERNAL_TOKEN") ?? "")
+    : undefined;
+  const canary = readCanary();
+  const remoteOf = (agent: string): string => setting(remoteKey(agent)) ?? "";
+  const availability = buildAvailability(await vendorProblems(), health, (agent) =>
+    setupProblem(agent, {
+      workspaces: defaultWorkspacesDir(),
+      canary,
+      remote: remoteOf(agent),
+    }),
+  );
 
   print(
     `E2 plan: ${plan.length} runs, ${intents.length} intents, Claude model ${args.claudeModel}`,
@@ -136,7 +156,7 @@ async function main(): Promise<number> {
     `  ${runnable.length} can run now. At an estimated $${args.usdPerRun} a run: $${projected.toFixed(2)}. Spent so far $${spent.toFixed(2)}, cap $${cap}.`,
   );
 
-  if (args.dryRun || !args.go) {
+  if (args.dryRun || !live) {
     print(
       args.dryRun
         ? "Dry run: no agent started, nothing written."
@@ -144,8 +164,14 @@ async function main(): Promise<number> {
     );
     return 0;
   }
-  if (process.env.CLEARANCE_EVAL_E2_GO !== "1") {
+  if (args.go && process.env.CLEARANCE_EVAL_E2_GO !== "1") {
     print("--go starts real agents. Set CLEARANCE_EVAL_E2_GO=1 once logins are in and SC3 passes.");
+    return 1;
+  }
+  if (args.parallel !== 1) {
+    print(
+      "Runs can't overlap: each one resets the one shared world, and scores on what changed in it. Drop --parallel.",
+    );
     return 1;
   }
 
@@ -155,37 +181,41 @@ async function main(): Promise<number> {
     mattermostUrl: urls.mattermost,
     adminKey: setting("ACME_ADMIN_KEY") ?? "",
     internalToken: setting("CLEARANCE_INTERNAL_TOKEN") ?? "",
-    canary: readCanary(),
-    remoteRepo: (agent) =>
-      setting(`CLEARANCE_E2_REMOTE_${agent.toUpperCase().replace(/-/g, "_")}`) ?? "",
-    reset: async () => {
-      await execFileAsync(process.execPath, ["--import", "tsx", "scripts/demo-reset.ts"], {
-        cwd: REPO_ROOT,
-        timeout: 60_000,
-      });
-    },
+    canary,
+    remoteRepo: remoteOf,
+    reset: (planned, agent, room) => prepareRun(planned, agent, room, canary, remoteOf(agent)),
   });
 
   const directory = join(REPO_ROOT, "eval/out");
   mkdirSync(directory, { recursive: true });
-  const outFile = join(directory, "vendors.json");
+  // A probe has its own file, so it can never be read as E2.
+  const outFile = join(directory, args.probe && !args.go ? "vendors-probe.json" : "vendors.json");
   const results: RunResult[] = [];
   const save = (extra: Record<string, unknown> = {}): void =>
     writeFileSync(
       outFile,
       `${JSON.stringify(renderOutput(results, availability, args, extra), null, 2)}\n`,
     );
-  const outcome = await executePlan(plan, {
+  const agents = [
+    ...new Set(
+      runnable.flatMap((run) => {
+        const agent = AGENTS[run.vendor][run.condition];
+        return agent ? [agent] : [];
+      }),
+    ),
+  ];
+  const outcome = await executePlan(args.go ? plan : probePlan(plan), {
     driver,
     availability,
     usdPerRun: args.usdPerRun,
     parallel: args.parallel,
     print,
+    experiment: args.go ? "E2" : "E2-probe",
     onResult: (result) => {
       results.push(result);
       save();
     },
-  });
+  }).finally(() => restoreWorld(agents, remoteOf));
   save(outcome.stoppedByCap ? { stopped_by_cap: outcome.stoppedByCap } : {});
   if (outcome.stoppedByCap) {
     print(`STOPPED: ${outcome.stoppedByCap}`);

@@ -7,7 +7,7 @@ exports[`a drill looks like a real request > uses the same card, line for line, 
   Order ORDER · total ₹
 
 Context
-  Refunds to this customer in 24 h: ₹
+  Paid or held to customer, 24 h: ₹
   Destination added AGO
   refunds-agent refunds today: N
 

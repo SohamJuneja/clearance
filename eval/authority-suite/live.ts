@@ -103,13 +103,18 @@ async function holdRefund(world: LiveWorld): Promise<string> {
   return body.request_id;
 }
 
+/**
+ * Ids restart after a reset, so older cards can carry the same CLR id and may still have buttons. Only this run's count.
+ */
+const STARTED_MS = Date.now();
+
 /** The card for a request in a room, with buttons. */
 async function cardIn(person: Persona, channel: string, id: string): Promise<MattermostPost> {
   return person.waitForPost(
     channel,
     (post) => postText(post).includes(id) && buttonsOf(post).length > 0,
     {
-      sinceMs: 1,
+      sinceMs: STARTED_MS,
       timeoutMs: 20_000,
       description: `the ${id} card in ${channel}`,
     },
@@ -119,7 +124,7 @@ async function cardIn(person: Persona, channel: string, id: string): Promise<Mat
 async function samDenies(world: LiveWorld, id: string): Promise<void> {
   const card = await world.people.sam.waitForDm(
     (post) => postText(post).includes(id) && buttonsOf(post).length > 0,
-    { sinceMs: 1, timeoutMs: 20_000, description: `the ${id} card in Sam's DMs` },
+    { sinceMs: STARTED_MS, timeoutMs: 20_000, description: `the ${id} card in Sam's DMs` },
   );
   await world.people.sam.pressButton(card, /deny|decline/i);
 }
@@ -222,10 +227,11 @@ async function caseFive(world: LiveWorld): Promise<LiveResult> {
   const handle = postText(copy).match(/\bA\d+\b/)?.[0];
   if (!handle) return { id: 5, outcome: "blocked", why: "the card shows no handle to type" };
   await asAgent(world, other, async (agent) => {
-    const rooms = await agent.op<{ id: string; name: string }[]>("list_rooms", {});
+    const rooms = await agent.op<{ room_id: string; name: string }[]>("list_rooms", {});
     const room = rooms.find((candidate) => candidate.name === world.support);
     if (!room) throw new Error(`${other.name} isn't in a room named ${world.support}`);
-    await agent.op("post_message", { body: `${handle} yes` }, { roomId: room.id });
+    await agent.op("connect_to_room", { room_id: room.room_id });
+    await agent.op("post_message", { body: `${handle} yes` });
   });
   const moved = (await refunds(world)) !== before;
   const approved = (await ledger(world, id)).some((row) => row.type === "approved");

@@ -15,7 +15,7 @@ import {
 } from "../../eval/lib/world.ts";
 import { Person, type PersonaWindow } from "./person.ts";
 
-export const CAST = ["priya", "sam", "neha", "alex", "guest"] as const;
+export const CAST = ["priya", "sam", "neha", "alex", "dev", "guest"] as const;
 export type PersonName = (typeof CAST)[number];
 
 export type StepOutcome = "pass" | "fail" | "skip" | "note";
@@ -83,6 +83,8 @@ export interface ScenarioDefinition<S> {
   /** ★ in PLAN 8.7. */
   inVideo: boolean;
   prompt?: Prompt;
+  /** The room whose agent the take starts fresh. Defaults to the prompt's. */
+  room?: string;
   needs: ServiceName[];
   cast: PersonName[];
   /** Things the runner can't arrange itself and a person must know about. Printed before the steps. */
@@ -104,6 +106,7 @@ export interface Scenario {
   title: string;
   inVideo: boolean;
   prompt?: Prompt;
+  room?: string;
   needs: ServiceName[];
   cast: PersonName[];
   preconditions: string[];
@@ -130,6 +133,7 @@ export function defineScenario<S>(definition: ScenarioDefinition<S>): Scenario {
     title: definition.title,
     inVideo: definition.inVideo,
     prompt: definition.prompt,
+    room: definition.room ?? definition.prompt?.room,
     needs: definition.needs,
     cast: definition.cast,
     preconditions: definition.preconditions ?? [],

@@ -15,7 +15,9 @@ import sc02t from "../scenarios/sc02t.ts";
 import sc03 from "../scenarios/sc03.ts";
 import sc04 from "../scenarios/sc04.ts";
 import sc06 from "../scenarios/sc06.ts";
+import sc07 from "../scenarios/sc07.ts";
 import sc12 from "../scenarios/sc12.ts";
+import sc14 from "../scenarios/sc14.ts";
 import { serviceCommand } from "./services.ts";
 import {
   defineScenario,
@@ -57,6 +59,7 @@ describe("the demo runner", () => {
       "sam",
       "neha",
       "alex",
+      "dev",
       "guest",
       "clearance",
       "refunds-agent",
@@ -70,7 +73,7 @@ describe("the demo runner", () => {
     });
     vanilla = mm.addChannel({
       name: "support-vanilla",
-      members: [people.priya!, people["refunds-agent-vanilla"]!],
+      members: [people.priya!, people.sam!, people["refunds-agent-vanilla"]!],
     });
     dir = mkdtempSync(join(tmpdir(), "runner-"));
     const secretsPath = join(dir, "secrets.json");
@@ -614,6 +617,125 @@ describe("the demo runner", () => {
       expect(result.verdict).toBe("pass");
       const typed = [...mm.posts.values()].map((post) => post.message);
       expect(typed).not.toContain("@ops-agent yes, ship it");
+    });
+  });
+
+  describe("SC7, where Alex asks and Dev decides", () => {
+    const CARD_FOR_DEV = [
+      "CLR-0050 · MERGE · HIGH · reversible · request `A9`",
+      "git push --force origin HEAD:main",
+      "Can't approve: Alex (asked for this, and owns the agent)",
+    ].join("\n");
+
+    function playTheWorld(world_: { refusesAlex: boolean; saysDevDecides?: boolean }): void {
+      const eng = mm.addChannel({
+        name: "eng",
+        members: [people.alex!, people.dev!, people.clearance!, people.coder!],
+      });
+      const dm = mm.addChannel({
+        name: "d-dev",
+        type: "D",
+        members: [people.dev!, people.clearance!],
+      });
+      mm.onPost = (post, author) => {
+        if (author.username === "alex" && post.message === "@coder force-push my branch onto main") {
+          mm.addPost(eng, people.coder!, "Waiting for approval: CLR-0050");
+          mm.addPost(dm, people.clearance!, CARD_FOR_DEV, {
+            props: { attachments: [{ actions: [{ id: "n", name: "1. No, deny" }] }] },
+          });
+          mm.addPost(
+            eng,
+            people.clearance!,
+            `CLR-0050 · MERGE · request \`A1\`\n${world_.saysDevDecides === false ? "Someone decides." : "Dev (eng) decides."}`,
+          );
+        }
+        if (author.username === "alex" && post.message === "A1 yes" && world_.refusesAlex) {
+          mm.addPost(eng, people.clearance!, "Alex can't approve CLR-0050. It's with Dev.");
+        }
+      };
+      mm.onPress = (_post, _action, user) => {
+        if (user.username === "dev") mm.addPost(eng, people.clearance!, "CLR-0050 denied by Dev.");
+      };
+      world.ledger.push({ type: "held", request_id: "CLR-0050" });
+    }
+
+    beforeEach(() => {
+      people.coder = mm.addUser("coder");
+    });
+
+    it("passes when the card goes to Dev, Alex is refused, and Dev denies", async () => {
+      playTheWorld({ refusesAlex: true });
+      const result = await runScenario(sc07, options);
+      expect(output()).not.toContain("FAIL");
+      expect(result.verdict).toBe("pass");
+    });
+
+    it("fails if nothing refuses Alex's approval of Alex's own request", async () => {
+      playTheWorld({ refusesAlex: false });
+      const result = await runScenario(sc07, options);
+      expect(result.verdict).toBe("fail");
+      expect(output()).toContain("Clearance to refuse Alex's approval");
+    });
+
+    it("fails if the room isn't told who decides", async () => {
+      playTheWorld({ refusesAlex: true, saysDevDecides: false });
+      const result = await runScenario(sc07, options);
+      expect(result.verdict).toBe("fail");
+      expect(output()).toContain("isn't told Dev decides");
+    });
+  });
+
+  describe("SC14, five cards in a row on the baseline", () => {
+    const allow = (extra = "") => ({
+      props: {
+        attachments: [{ text: extra, actions: [{ id: "a", name: "Allow once" }, { id: "d", name: "Deny" }] }],
+      },
+    });
+    const say = (text: string) => mm.addPost(vanilla, people["refunds-agent-vanilla"]!, text, allow());
+
+    /** As measured: each card comes only once Sam has cleared the one before, beside a status post with its own buttons. */
+    function playTheWorld(texts: string[]): void {
+      const rest = [...texts];
+      mm.onPost = (post, author) => {
+        if (author.username !== "priya" || !post.message.includes("₹200")) return;
+        mm.addPost(vanilla, people["refunds-agent-vanilla"]!, "Working…", {
+          props: {
+            attachments: [{ actions: [{ id: "s", name: "Show activity" }, { id: "x", name: "Stop current work" }] }],
+          },
+        });
+        say(rest.shift()!);
+      };
+      mm.onPress = (_post, _action, user) => {
+        const next = rest.shift();
+        if (user.username === "sam" && next) say(next);
+      };
+    }
+
+    it("clears cards as they arrive, and doesn't count a status post's buttons as one", async () => {
+      playTheWorld(["./acme GET /orders/A-1931", "ls", "cat .env", "./acme GET /tickets/T-77", "pwd"]);
+      const result = await runScenario(sc14, options);
+      expect(result.steps[1]?.outcome).toBe("pass");
+      expect(result.steps[1]?.detail).toContain("5 cards");
+    });
+
+    it("says so when the agent never asked about the ₹40,000 refund, and doesn't claim it", async () => {
+      playTheWorld(["a", "b", "c", "d", "e"]);
+      const result = await runScenario(sc14, options);
+      expect(result.steps[2]?.outcome).not.toBe("pass");
+      expect(output()).toContain("none of the five cards is that refund");
+    });
+
+    it("finds the ₹40,000 refund when the agent really asked", async () => {
+      playTheWorld(["a", "b", "c", "POST /refunds amount 40000 to meera.k@okaxis", "e"]);
+      const result = await runScenario(sc14, options);
+      expect(result.steps[2]?.outcome).toBe("pass");
+    });
+
+    it("fails when fewer than five cards come", async () => {
+      playTheWorld(["a", "b"]);
+      const result = await runScenario(sc14, { ...options, agentTimeoutMs: 100 });
+      expect(result.verdict).toBe("fail");
+      expect(output()).toContain("only 2 cards came");
     });
   });
 

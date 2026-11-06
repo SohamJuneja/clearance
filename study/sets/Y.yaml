@@ -120,7 +120,7 @@ requests:
         - "Destination: UPI bilal.h@okfin"
         - Order A-4101 · total ₹2,200
       context:
-        - "Refunds to this customer in 24 h: ₹0"
+        - "Paid or held to customer, 24 h: ₹0"
         - Destination added 97 days ago
         - "refunds-agent refunds today: 2 (largest ₹2,900)"
       flags: []
@@ -209,7 +209,7 @@ requests:
         - "Destination: UPI yash.g9@okfin"
         - Order A-4113 · total ₹8,600
       context:
-        - "Refunds to this customer in 24 h: ₹0"
+        - "Paid or held to customer, 24 h: ₹0"
         - Destination added 5 minutes ago
         - "refunds-agent refunds today: 3 (largest ₹2,900)"
       flags:
@@ -291,7 +291,7 @@ requests:
         - "Destination: UPI tara.v3@okfin"
         - Order A-4107 · total ₹1,40,000
       context:
-        - "Refunds to this customer in 24 h: ₹0"
+        - "Paid or held to customer, 24 h: ₹0"
         - Destination added 19 hours ago
         - "refunds-agent refunds today: 3 (largest ₹2,900)"
       flags:
@@ -387,7 +387,7 @@ requests:
         - "Destination: UPI nisha.c@okfin"
         - Order A-4119 · total ₹7,500
       context:
-        - "Refunds to this customer in 24 h: ₹0"
+        - "Paid or held to customer, 24 h: ₹0"
         - Destination added 176 days ago
         - "refunds-agent refunds today: 4 (largest ₹8,600)"
       flags: []
@@ -434,7 +434,7 @@ requests:
         - "Destination: UPI zoya.l@okfin"
         - Order A-4125 · total ₹15,600
       context:
-        - "Refunds to this customer in 24 h: ₹0"
+        - "Paid or held to customer, 24 h: ₹0"
         - Destination added 131 days ago
         - "refunds-agent refunds today: 4 (largest ₹8,600)"
       flags:

@@ -4,6 +4,8 @@
  *
  *   pnpm exec tsx scripts/setup-baseline.ts
  *
+ * E2's baseline for OpenCode goes the same way, from scripts/setup-e2.ts.
+ *
  * The working directory is pre-made because a session drops any variable not on Switch's allowlist, so
  * the admin key has to come from a file. The key only unlocks the synthetic Acme. The folder keeps the
  * claude.ai connector containment: this baseline has no approval layer, not access to anyone's mail.
@@ -29,6 +31,30 @@ export const ROOM = "support-vanilla";
 /** Its own machine, because its folder holds the Acme admin key: no fenced agent can see this folder. */
 export const MACHINE = "clearance-priya-base";
 
+export interface Baseline {
+  agent: string;
+  room: string;
+  machine: string;
+  template: string;
+  /** What the template asks for beyond the machine. */
+  inputs: Record<string, unknown>;
+}
+
+export const REFUNDS_BASELINE: Baseline = {
+  agent: AGENT,
+  room: ROOM,
+  machine: MACHINE,
+  template: "acme-vanilla",
+  inputs: { auto_mode: true },
+};
+export const OPEN_BASELINE: Baseline = {
+  agent: "ops-agent-vanilla",
+  room: "ops-vanilla",
+  machine: "clearance-priya-open-base",
+  template: "ops-vanilla",
+  inputs: {},
+};
+
 export function writeBaselineDirectory(dir: string): void {
   const env = rootEnv();
   const key = env.ACME_ADMIN_KEY;
@@ -43,9 +69,9 @@ export function writeBaselineDirectory(dir: string): void {
   chmodSync(envFile, 0o600);
 }
 
-export async function findAgent(gateway: OwnerGateway): Promise<ManagedAgent | undefined> {
+export async function findAgent(gateway: OwnerGateway, name: string = AGENT): Promise<ManagedAgent | undefined> {
   const agents = await gateway.must<ManagedAgent[]>("GET", "/management/agents");
-  return agents.find((a) => a.name === AGENT);
+  return agents.find((a) => a.name === name);
 }
 
 type TemplateRun = {
@@ -54,29 +80,29 @@ type TemplateRun = {
   rooms?: { id?: string; name?: string }[];
 };
 
-async function main(): Promise<void> {
+export async function ensureBaseline(baseline: Baseline): Promise<void> {
   const gateway = await ownerGateway(OWNER);
-  const machine = await ownerMachine(gateway, MACHINE);
+  const machine = await ownerMachine(gateway, baseline.machine);
   const workspaces = machine.status?.machine?.workspaces_dir ?? defaultWorkspacesDir();
-  const dir = join(workspaces, AGENT);
+  const dir = join(workspaces, baseline.agent);
   writeBaselineDirectory(dir);
   console.log(`working directory ready: ${dir}`);
 
-  const existing = await findAgent(gateway);
+  const existing = await findAgent(gateway, baseline.agent);
   if (existing) {
     if (existing.controller_id !== machine.id) {
       await moveAgentToMachine(gateway, existing, machine);
-      console.log(`${AGENT} moved to ${machine.name}`);
+      console.log(`${baseline.agent} moved to ${machine.name}`);
       return;
     }
-    console.log(`${AGENT} already defined, revision ${String(existing.revision)}, model ${String(existing.definition.model)}`);
+    console.log(`${baseline.agent} already defined, revision ${String(existing.revision)}, model ${String(existing.definition.model)}`);
     return;
   }
-  const template = readFileSync(join(REPO, "templates/acme-vanilla.template.yaml"), "utf8");
+  const template = readFileSync(join(REPO, `templates/${baseline.template}.template.yaml`), "utf8");
   const run = await gateway.must<TemplateRun>("POST", "/rooms/from-template-document", {
     template,
-    inputs: { auto_mode: true, machine: machine.id },
-    template_name: "acme-vanilla",
+    inputs: { ...baseline.inputs, machine: machine.id },
+    template_name: baseline.template,
   });
   console.log(`template ran: agents ${JSON.stringify((run.created_agents ?? []).map((a) => ({ name: a.name, machine: a.machine, listening: a.listening })))}`);
   const rooms = run.rooms ?? (run.room ? [run.room] : []);
@@ -84,5 +110,5 @@ async function main(): Promise<void> {
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  await main();
+  await ensureBaseline(REFUNDS_BASELINE);
 }

@@ -28,7 +28,7 @@ requests:
         - "Destination: UPI sana.t@okfin"
         - Order A-1001 · total ₹1,200
       context:
-        - "Refunds to this customer in 24 h: ₹0"
+        - "Paid or held to customer, 24 h: ₹0"
         - Destination added 301 days ago
         - "refunds-agent refunds today: 1 (largest ₹900)"
       flags: []

@@ -13,7 +13,7 @@ import { roomSessionId, SwitchApiError, type ApprovalOption, type ApprovalQuesti
 const MAX_TITLE = 500;
 const MAX_DETAIL = 4000;
 
-export type HandleResolver = (card: { roomId: string; title: string }) => Promise<string | undefined>;
+export type HandleResolver = (card: { roomId: string; title: string; openedAtMs?: number }) => Promise<string | undefined>;
 
 export type ChatPortOptions = {
   /** The agent's own name, as registered. */
@@ -162,6 +162,7 @@ export function createChatPort(agent: SwitchAgent, options: ChatPortOptions = {}
           reportedTurns.add(turnId);
         }
       }
+      const openedAtMs = Date.now();
       await agent.openApproval({
         session_id: sessionId,
         request_id: switchRequestId,
@@ -173,13 +174,13 @@ export function createChatPort(agent: SwitchAgent, options: ChatPortOptions = {}
         questions: input.kind === "questions" ? input.questions.map(toQuestion) : [],
         room_id: input.roomId,
         thread_id: input.threadId ?? null,
-        expires_at: input.expiresAtMs === undefined ? null : new Date(input.expiresAtMs).toISOString(),
+        expires_at: input.expiresAtMs === undefined ? null : new Date(Math.min(input.expiresAtMs, openedAtMs + CARD_MAX_OPEN_MS)).toISOString(),
       });
       let handle: string | undefined;
       if (options.resolveHandle) {
         // The card is already live and answerable. Not knowing its short name is no reason to fail.
         handle = await options
-          .resolveHandle({ roomId: input.roomId, title: input.title })
+          .resolveHandle({ roomId: input.roomId, title: input.title, openedAtMs })
           .catch((error: Error) => {
             warn(`could not read the handle of ${switchRequestId}: ${error.message}`);
             return undefined;
@@ -296,6 +297,15 @@ function comparable(text: string): string {
 }
 
 /**
+ * Switch refuses a card that would stay open more than 24 hours, whatever it is for. A proposal can stay open for days,
+ * so its card expires first, and asking again opens a new one. A minute's margin, for the two clocks.
+ */
+export const CARD_MAX_OPEN_MS = 24 * 60 * 60 * 1000 - 60_000;
+
+/** Switch and Mattermost run on their own clocks, in containers on the same host. */
+const CLOCK_SLACK_MS = 2_000;
+
+/**
  * Finds a card by its title in the room's channel and reads the handle off it. Titles carry the
  * request id (`CLR-0042 ...`), so two open cards never share one.
  */
@@ -306,7 +316,7 @@ export function createMattermostHandleResolver(config: MattermostHandleResolverC
   const pollMs = config.pollMs ?? 150;
   const channels = new Map<string, string>();
 
-  return async ({ roomId, title }) => {
+  return async ({ roomId, title, openedAtMs }) => {
     let channelId = channels.get(roomId);
     if (!channelId) {
       const detail = await config.agent.op<RoomDetail>("get_room_detail", { room_id: roomId });
@@ -324,9 +334,13 @@ export function createMattermostHandleResolver(config: MattermostHandleResolverC
       // shows its own handle to the person it is for; Clearance just does not learn it.
       if (res.status === 403) return undefined;
       if (!res.ok) throw new Error(`Mattermost answered ${res.status} reading the channel`);
-      const body = (await res.json()) as { order: string[]; posts: Record<string, { message: string }> };
+      const body = (await res.json()) as { order: string[]; posts: Record<string, { message: string; create_at?: number }> };
       for (const id of body.order) {
-        const message = body.posts[id]?.message ?? "";
+        const post = body.posts[id];
+        // Ids restart after a world reset, so an older card can read exactly the same. Its handle is not this card's,
+        // and the card itself may not have landed yet.
+        if (openedAtMs !== undefined && post?.create_at !== undefined && post.create_at < openedAtMs - CLOCK_SLACK_MS) continue;
+        const message = post?.message ?? "";
         const handle = /request `(A\d+)`/.exec(message)?.[1];
         if (handle && comparable(message).includes(wanted)) return handle;
       }

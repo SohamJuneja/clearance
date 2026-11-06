@@ -9,6 +9,8 @@
 #   scripts/setup-controller.sh --owner priya --restart  # stop, rewrite the env file, start. Ends its sessions
 #   scripts/setup-controller.sh --owner priya --stop     # stop. Ends its sessions
 #   scripts/setup-controller.sh --owner priya --status   # PID and RSS of the controller and its children
+#   scripts/setup-controller.sh --owner priya --no-fence # no sandbox at all, for a host without bubblewrap. It says what
+#                                                          that loses, and it never happens without this flag
 #
 # --owner defaults to admin, the Gateway admin's machine `clearance-host`. A persona signs in to the
 # Gateway as <owner>@clearance.example with PERSONA_PASSWORD from the root .env.
@@ -19,6 +21,7 @@ set -euo pipefail
 OWNER=""
 MACHINE_NAME=""
 ACTION=up
+NO_FENCE="${CLEARANCE_NO_FENCE:-0}"
 while [ $# -gt 0 ]; do
   case "$1" in
     --owner)
@@ -33,8 +36,12 @@ while [ $# -gt 0 ]; do
       ACTION="${1#--}"
       shift
       ;;
+    --no-fence)
+      NO_FENCE=1
+      shift
+      ;;
     *)
-      echo "usage: $0 [--owner <name> | --machine <name>] [--doctor|--stop|--restart|--status]" >&2
+      echo "usage: $0 [--owner <name> | --machine <name>] [--no-fence] [--doctor|--stop|--restart|--status]" >&2
       exit 2
       ;;
   esac
@@ -75,10 +82,18 @@ PNPM="npx --yes pnpm@10.28.2"
 NODE="$(node -p process.execPath)"
 AGENT_PATH="$(fence_path)"
 fence_env
-BWRAP="$(command -v bwrap || true)"
+BWRAP="$(command -v "${CLEARANCE_BWRAP:-bwrap}" || true)"
+FENCE_ARGS=()
+
+# Where the controller runs: in the fence, or, only when --no-fence said so, plainly as this user.
+wrapper() {
+  WRAPPER=("${FENCE_ENV[@]}")
+  if [ "$NO_FENCE" != 1 ]; then WRAPPER+=("$BWRAP" "${FENCE_ARGS[@]}"); fi
+}
 
 fenced() {
-  "${FENCE_ENV[@]}" "$BWRAP" "${FENCE_ARGS[@]}" "$@"
+  wrapper
+  "${WRAPPER[@]}" "$@"
 }
 
 running_pid() {
@@ -86,15 +101,15 @@ running_pid() {
   local pid
   pid="$(cat "$PID_FILE")"
   kill -0 "$pid" 2>/dev/null || return 1
-  { tr '\0' ' ' <"/proc/$pid/cmdline"; } 2>/dev/null | grep -q 'cli.mjs run' || return 1
+  fence_cmdline "$pid" | grep -q 'cli.mjs run' || return 1
   echo "$pid"
 }
 
 # The controller itself: the node under bwrap's two processes, or the pid when it predates the fence.
 inner_pid() {
   local pid="$1" child
-  case "$(cat "/proc/$pid/comm" 2>/dev/null)" in
-    node) echo "$pid" ;;
+  case "$(fence_comm "$pid")" in
+    *node) echo "$pid" ;;
     *)
       child="$(pgrep -P "$pid" | head -n 1 || true)"
       if [ -n "$child" ]; then pgrep -P "$child" -x node | head -n 1; fi
@@ -107,7 +122,7 @@ stop_token_sync() {
     local pid
     pid="$(cat "$TOKEN_PID_FILE")"
     # By what it is: after a reboot that number can belong to anything.
-    if { tr '\0' ' ' <"/proc/$pid/cmdline"; } 2>/dev/null | grep -q fence-claude-token; then
+    if fence_cmdline "$pid" | grep -q fence-claude-token; then
       kill "$pid" 2>/dev/null || true
     fi
     rm -f "$TOKEN_PID_FILE"
@@ -135,7 +150,7 @@ stop_controller() {
 status() {
   local pid
   if pid="$(running_pid)"; then
-    echo "$MACHINE_NAME pid $pid, $([ "$(cat "/proc/$pid/comm")" = bwrap ] && echo fenced || echo NOT FENCED)"
+    echo "$MACHINE_NAME pid $pid, $(case "$(fence_comm "$pid")" in *bwrap) echo fenced ;; *) echo NOT FENCED ;; esac)"
     ps -o pid,ppid,rss,etime,comm -p "$pid" --ppid "$pid"
   else
     echo "$MACHINE_NAME not running"
@@ -227,7 +242,11 @@ enroll_if_needed() {
 }
 
 fence_fingerprint() {
-  printf '%s\n' "${FENCE_ARGS[@]}" "${FENCE_ENV[@]}" | sha256sum | cut -d' ' -f1
+  if command -v sha256sum >/dev/null 2>&1; then
+    printf '%s\n' "${FENCE_ARGS[@]+"${FENCE_ARGS[@]}"}" "${FENCE_ENV[@]}" | sha256sum | cut -d' ' -f1
+  else
+    printf '%s\n' "${FENCE_ARGS[@]+"${FENCE_ARGS[@]}"}" "${FENCE_ENV[@]}" | shasum -a 256 | cut -d' ' -f1
+  fi
 }
 
 start_controller() {
@@ -243,7 +262,8 @@ start_controller() {
     stop_controller
   fi
   fence_fingerprint >"$FINGERPRINT_FILE"
-  nohup setsid "${FENCE_ENV[@]}" "$BWRAP" "${FENCE_ARGS[@]}" "$NODE" "$CLI" run --data-dir "$DATA_DIR" --env-file "$ENV_FILE" \
+  wrapper
+  nohup "$HERE/new-session.sh" "${WRAPPER[@]}" "$NODE" "$CLI" run --data-dir "$DATA_DIR" --env-file "$ENV_FILE" \
     >>"$LOG_FILE" 2>&1 </dev/null &
   echo $! >"$PID_FILE"
   sleep 5
@@ -252,7 +272,7 @@ start_controller() {
     tail -n 20 "$LOG_FILE" >&2
     exit 1
   }
-  echo "$MACHINE_NAME running in the fence, pid $pid, log $LOG_FILE"
+  echo "$MACHINE_NAME running $([ "$NO_FENCE" = 1 ] && echo WITH NO FENCE || echo in the fence), pid $pid, log $LOG_FILE"
   start_token_sync "$pid"
 }
 
@@ -260,6 +280,8 @@ start_controller() {
 # refresh token: see scripts/fence-claude-token.sh for why it cannot simply be bound in.
 prepare_claude_login() {
   fence_has_provider "$MACHINE_NAME" claude || return 0
+  # With no fence, sessions run in the real home and use whatever login is there.
+  [ "$NO_FENCE" != 1 ] || return 0
   local key=""
   if [ -f "$REPO_ROOT/.env" ]; then
     key="$(sed -n 's/^ANTHROPIC_API_KEY=//p' "$REPO_ROOT/.env" | tail -n 1 | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'$/\1/")"
@@ -310,14 +332,16 @@ case "$ACTION" in
   restart) stop_controller ;;
 esac
 
-if ! fence_supported; then
-  echo "refusing to run $MACHINE_NAME unfenced" >&2
+if [ "$NO_FENCE" = 1 ]; then
+  fence_off_warning
+elif ! fence_supported; then
+  echo "refusing to run $MACHINE_NAME unfenced without --no-fence" >&2
   exit 1
 fi
 build_controller
 install_hook_cli
 fence_prepare "$MACHINE_NAME"
-fence_args "$MACHINE_NAME"
+if [ "$NO_FENCE" != 1 ]; then fence_args "$MACHINE_NAME"; fi
 if [ "$ACTION" = doctor ]; then
   doctor
   exit 0

@@ -96,7 +96,9 @@ describe("optionDecision", () => {
 describe("openCard", () => {
   it("opens an approval with the fields Switch requires and reports where it lives", async () => {
     const { chat, opened } = port();
-    const result = await chat.openCard({ ...approvalCard, threadId: "sw_thread", expiresAtMs: 1_800_000_000_000 });
+    // Within the 24 hours Switch allows. A later date is clamped: see "a card's lifetime".
+    const soon = Date.now() + 3_600_000;
+    const result = await chat.openCard({ ...approvalCard, threadId: "sw_thread", expiresAtMs: soon });
     const body = opened[0]!;
     expect(body.session_id).toBe(roomSessionId("room-a"));
     expect(body.request_id).toBe(result.switchRequestId);
@@ -109,7 +111,7 @@ describe("openCard", () => {
     expect(body.questions).toEqual([]);
     expect(body.room_id).toBe("room-a");
     expect(body.thread_id).toBe("sw_thread");
-    expect(body.expires_at).toBe(new Date(1_800_000_000_000).toISOString());
+    expect(body.expires_at).toBe(new Date(soon).toISOString());
     expect(result.sessionId).toBe(roomSessionId("room-a"));
     expect(result.handle).toBeUndefined();
   });
@@ -411,6 +413,26 @@ describe("upsertDocument", () => {
   });
 });
 
+describe("a card's lifetime", () => {
+  it("never asks Switch for more than it allows, even for a proposal that stays open for days", async () => {
+    const { agent, opened } = fakeAgent();
+    const port = createChatPort(agent, { agentName: "clearance", participantNames: {} });
+    const threeDays = Date.now() + 3 * 24 * 60 * 60 * 1000;
+    await port.openCard({ roomId: "room-1", kind: "approval", title: "PROP-0001", detail: "", options: [], questions: [], expiresAtMs: threeDays });
+    const expires = Date.parse(String(opened[0]!.expires_at));
+    expect(expires).toBeLessThanOrEqual(Date.now() + 24 * 60 * 60 * 1000);
+    expect(expires).toBeGreaterThan(Date.now() + 23 * 60 * 60 * 1000);
+  });
+
+  it("leaves a shorter expiry as it is", async () => {
+    const { agent, opened } = fakeAgent();
+    const port = createChatPort(agent, { agentName: "clearance", participantNames: {} });
+    const soon = Date.now() + 30 * 60 * 1000;
+    await port.openCard({ roomId: "room-1", kind: "approval", title: "CLR-0001", detail: "", options: [], questions: [], expiresAtMs: soon });
+    expect(Date.parse(String(opened[0]!.expires_at))).toBe(soon);
+  });
+});
+
 describe("createMattermostHandleResolver", () => {
   const card = fixture<{ message: string }>("mattermost_card_post");
   const postsResponse = (messages: string[]) =>
@@ -433,6 +455,23 @@ describe("createMattermostHandleResolver", () => {
       }),
     };
   }
+
+  it("does not take the handle of an older card that reads the same, since ids restart after a reset", async () => {
+    const title = "CLR-0001 · REFUND ₹40,000 · HIGH · irreversible";
+    const now = Date.now();
+    const old = { message: `**Approve** · request \`A7\`\n${title}`, create_at: now - 3_600_000 };
+    const fresh = { message: `**Approve** · request \`A9\`\n${title}`, create_at: now + 10 };
+    let polls = 0;
+    const fetchImpl = (async () => {
+      polls += 1;
+      // The new card lands on the second look. Until then the only match is the old one.
+      const posts = polls === 1 ? { old } : { fresh, old };
+      return Response.json({ order: Object.keys(posts), posts });
+    }) as typeof fetch;
+    const { resolve } = resolver(fetchImpl);
+    expect(await resolve({ roomId: "room", title, openedAtMs: now })).toBe("A9");
+    expect(polls).toBeGreaterThan(1);
+  });
 
   it("reads the handle off a card as Mattermost really stores it, escaping and all", async () => {
     // The recorded post has a zero-width space in the address, which the title does not.

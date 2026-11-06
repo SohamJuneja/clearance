@@ -17,8 +17,21 @@ import { personaTokens } from "./greet.ts";
 const OWNERS = ["alex", "priya"];
 const MATTERMOST_CONTAINER = `${process.env.COMPOSE_PROJECT_NAME ?? "switch"}-mattermost-1`;
 const TEAM = "switch";
-/** The baseline room is not in the world's template. It holds no Clearance, on purpose. */
-const BASELINE_ROOM = "support-vanilla";
+/** The baseline rooms are not in the world's template. They hold no Clearance, on purpose. */
+const BASELINE_ROOMS: Record<string, { agent: string; description: string; instructions: string; users: string[] }> = {
+  "support-vanilla": {
+    agent: "refunds-agent-vanilla",
+    description: "The baseline room. Switch's defaults, with no Clearance in it.",
+    instructions: "Customer requests arrive here. refunds-agent-vanilla handles refunds.",
+    users: ["priya", "sam"],
+  },
+  "ops-vanilla": {
+    agent: "ops-agent-vanilla",
+    description: "E2's baseline room for OpenCode. Switch's defaults, with no Clearance in it.",
+    instructions: "Requests arrive here. ops-agent-vanilla handles deploys and rollbacks.",
+    users: ["priya"],
+  },
+};
 
 type RoomRow = { id: string; name: string };
 type RoomDetail = { id?: string; agent_ids?: string[]; external_channel_id?: string };
@@ -45,6 +58,22 @@ async function retireChannel(room: string, channelId: string, owner: string, tak
     { encoding: "utf8" },
   );
   if (renamed.status === 0) log(`kept the old channel as ${name}`);
+}
+
+/**
+ * Switch answers 200 and skips a room the caller may not delete, and an admin can see rooms it can't delete. So this
+ * tries each owner, and a room nobody could delete is an error: a take would go on beside the old room, and each take
+ * would leave one more behind.
+ */
+export async function deleteRoom(roomId: string, gateways: Pick<OwnerGateway, "must">[]): Promise<void> {
+  for (const gateway of gateways) {
+    const { deleted } = await gateway.must<{ deleted: number }>("POST", "/rooms/bulk-delete", {
+      room_ids: [roomId],
+      retire_channel: true,
+    });
+    if (deleted === 1) return;
+  }
+  throw new Error(`no owner could delete room ${roomId}`);
 }
 
 /** Every room with this name. More than one can exist, and each holds a channel with people in it. */
@@ -87,39 +116,49 @@ function runScript(args: string[], log: Log): void {
   if (result.status !== 0) throw new Error(`${args[0]} failed: ${result.stderr.slice(0, 500)}`);
 }
 
-/** SC1 runs the baseline with auto mode on and SC2 with it off, so the take has to set it. Changing it restarts the agent. */
-export async function setBaselineAutoMode(autoMode: boolean, log: Log = () => undefined): Promise<void> {
+/**
+ * What a baseline scene needs of the agent, so the take can set it. SC1 runs auto mode on and SC2 off, and SC14 also lets
+ * Sam answer, which is Switch's own "anyone". The rest keep Switch's default, its owner and the owner's agents.
+ */
+export async function setBaseline(autoMode: boolean, anyoneMayAnswer: boolean, log: Log = () => undefined): Promise<void> {
   const gateway = await ownerGateway("priya");
   const agent = (await gateway.must<ManagedAgent[]>("GET", "/management/agents")).find((a) => a.name === "refunds-agent-vanilla");
   if (!agent) throw new Error("refunds-agent-vanilla is not defined: run scripts/setup-baseline.ts");
+  const id = agentIdOf(agent);
+  await gateway.must("PUT", `/agents/${id}/addressing-policy`, {
+    policy: anyoneMayAnswer ? null : { rules: [{ users: [], agents: [], owner: true, owner_agents: true }] },
+  });
+  // Changing this restarts the agent, so it comes before the room.
   if (agent.definition.auto_mode === autoMode) return;
-  await gateway.must("PATCH", `/management/agents/${agentIdOf(agent)}`, { definition: { ...agent.definition, auto_mode: autoMode } });
+  await gateway.must("PATCH", `/management/agents/${id}`, { definition: { ...agent.definition, auto_mode: autoMode } });
   log(`baseline agent: auto mode ${autoMode ? "on" : "off"}`);
 }
 
 export async function freshRoom(room: string, log: Log = () => undefined): Promise<void> {
   const members = new Set<string>();
   let take = 0;
+  const gateways = await Promise.all(OWNERS.map((owner) => ownerGateway(owner)));
   for (const { gateway, owner, found } of await findRooms(room)) {
     const detail = await gateway.must<RoomDetail>("GET", `/rooms/${found.id}`);
     for (const id of detail.agent_ids ?? []) members.add(id);
     if (detail.external_channel_id) await retireChannel(room, detail.external_channel_id, owner, take++, log);
-    await gateway.must("POST", "/rooms/bulk-delete", { room_ids: [found.id], retire_channel: true });
+    await deleteRoom(found.id, gateways);
     log(`deleted room ${room}`);
   }
   await freshSessions(members, log);
 
-  if (room === BASELINE_ROOM) {
+  const baseline = BASELINE_ROOMS[room];
+  if (baseline) {
     const gateway = await ownerGateway("priya");
     const agents = await gateway.must<ManagedAgent[]>("GET", "/management/agents");
-    const agent = agents.find((a) => a.name === "refunds-agent-vanilla");
-    if (!agent) throw new Error("refunds-agent-vanilla is not defined: run scripts/setup-baseline.ts");
+    const agent = agents.find((a) => a.name === baseline.agent);
+    if (!agent) throw new Error(`${baseline.agent} is not defined: run scripts/setup-baseline.ts or scripts/setup-e2.ts`);
     await gateway.must("POST", "/rooms", {
       name: room,
-      description: "The baseline room. Switch's defaults, with no Clearance in it.",
-      instructions: "Customer requests arrive here. refunds-agent-vanilla handles refunds.",
+      description: baseline.description,
+      instructions: baseline.instructions,
       agent_ids: [agentIdOf(agent)],
-      user_names: ["priya"],
+      user_names: baseline.users,
     });
     log(`created room ${room}`);
     return;

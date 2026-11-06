@@ -446,6 +446,7 @@ describe("a card in a shared room", () => {
     handle: "A4",
     class: "refund",
     tier: "high",
+    typed: false,
     what: "refund ₹40,000",
     room: "#support",
     age_s: 30,
@@ -573,6 +574,7 @@ describe("how to answer", () => {
     handle: "A3",
     class: "refund",
     tier: "high",
+    typed: false,
     what: "refund ₹40,000",
     room: "#support",
     age_s: 5,
@@ -580,6 +582,14 @@ describe("how to answer", () => {
     card_room: "dm-sam",
     shared_in: null,
   };
+
+  it("doesn't offer yes or no for a high-risk card that asks for a typed value after a missed drill", () => {
+    const typed = { ...base, handle: "A38", typed: true };
+    const text = inboxMessage([typed], { roomId: "dm-sam" });
+    expect(text).not.toContain("A38 yes");
+    expect(text).toContain("as its card says");
+    expect(inboxMessage([typed, base], { roomId: "dm-sam" })).toContain("`A3 yes`");
+  });
 
   it("gives a yes or no example only from a card that takes one", () => {
     expect(inboxMessage([base], { roomId: "dm-sam" })).toContain("`A3 yes` or `A3 no`");

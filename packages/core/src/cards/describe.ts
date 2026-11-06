@@ -3,6 +3,7 @@
  * Everything from the call goes through `oneLine`: it is agent-controlled, and must not be able to fake a
  * line of the card.
  */
+import { parseShell } from "../classify/shell.js";
 import type { CanonicalCall } from "@clearance/contracts";
 import { formatMoney, oneLine, toNumber } from "../format.js";
 import { formatAgeHours } from "../time.js";
@@ -24,7 +25,13 @@ export type DescribeInput = {
   asWritten?: string;
 };
 
-export type CallDescription = { headline: string; call: string[]; context: string[] };
+export type CallDescription = {
+  headline: string;
+  call: string[];
+  context: string[];
+  /** Set when this call can't be undone even though its class usually can. */
+  reversible?: false;
+};
 
 function money(value: unknown, currency: string): string {
   const number = toNumber(value);
@@ -59,7 +66,7 @@ function describeRefund(input: DescribeInput): CallDescription {
     call.push(`Order ${oneLine(fields.order)} · total ${total}`);
   }
   const context: string[] = [];
-  if (input.priorSum !== null) context.push(`Refunds to this customer in 24 h: ${formatMoney(input.priorSum, currency)}`);
+  if (input.priorSum !== null) context.push(`Paid or held to customer, 24 h: ${formatMoney(input.priorSum, currency)}`);
   const age = toNumber(fields.destination_age_hours);
   if (age !== null) context.push(`Destination added ${formatAgeHours(age)}`);
   else if (present(fields.destination)) context.push("Destination is not on file");
@@ -97,9 +104,24 @@ function describeDeploy(input: DescribeInput): CallDescription {
   };
 }
 
+/** A push that can overwrite what's on the branch: `--force`, `--force-with-lease`, `-f`, or a `+` refspec. */
+function isForcePush(command: unknown): boolean {
+  if (typeof command !== "string") return false;
+  const parsed = parseShell(command);
+  // The parser gives up on some forms, like `git -c x=y push`. Read the text then: too cautious beats a wrong "reversible".
+  if (!parsed.ok) return /\bgit\b.*\bpush\b.*\s(--force|-[a-zA-Z]*f[a-zA-Z]*\b|\+)/.test(command);
+  return parsed.commands.some(({ words }) => {
+    if (words[0] !== "git" || words[1] !== "push") return false;
+    return words.slice(2).some((word) => /^--force(-with-lease)?(=|$)|^-[a-zA-Z]*f[a-zA-Z]*$|^\+/.test(word));
+  });
+}
+
 function describeMerge(input: DescribeInput): CallDescription {
   const { extracted: fields } = input;
   const shell = fromShell(input);
+  if (shell && isForcePush(input.call.args.command)) {
+    return { headline: "FORCE PUSH", call: shell, context: ["Rewrites the branch's history"], reversible: false };
+  }
   if (shell) return { headline: "MERGE", call: shell, context: ["Not a tracked pull request: nothing to look up"] };
   const repo = oneLine(fields.repo ?? "unknown repo");
   const pr = oneLine(fields.pr ?? "unknown");

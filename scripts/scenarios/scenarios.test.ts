@@ -80,9 +80,10 @@ describe("the scenarios", () => {
     expect(t77?.inVideo).toBe(false);
   });
 
-  it("keep the extra scene out of the numbered list, which is PLAN's", () => {
-    expect(SCENARIOS.map((scenario) => scenario.id)).not.toContain("SC2T");
-    expect(EXTRA_SCENARIOS.map((scenario) => scenario.id)).toEqual(["SC2T"]);
+  it("keep the extra scenes out of the numbered list, which is PLAN's", () => {
+    const numbered = SCENARIOS.map((scenario) => scenario.id);
+    for (const extra of ["SC2T", "SCBG", "SCDG"]) expect(numbered).not.toContain(extra);
+    expect(EXTRA_SCENARIOS.map((scenario) => scenario.id)).toEqual(["SC2T", "SCBG", "SCDG"]);
   });
 
   it("SC3 follows the real route: no mismatch, no 10x, and the amount it can't promise isn't required", () => {

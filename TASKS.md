@@ -94,14 +94,14 @@ Tick a box only when tests or a run prove it. Acceptance text is copied from PLA
 - [x] **SC4** (lead) Legit large refund: Sam approves; gate executes; refund ID posted.
 - [ ] **SC5** (gate-hooks) Cross-vendor email (Codex): held, routed to Priya, Sam cannot approve, Priya denies.
 - [x] **SC6** (gate-hooks) Cross-vendor deploy (OpenCode): held, routed to Alex, 2 failing checks, Alex denies.
-- [ ] **SC7** (gate-hooks) Claude coder force-push: hook held; escalates to `#eng`.
-- [ ] **SC8** (switchboard) Escalation and inbox: Neha gets the card after 18 s at 10x; both inboxes update.
-- [ ] **SC9** (brain) Drill: Sam approves under 2 s; private note; next high card asks to type the amount.
-- [ ] **SC10** (brain) Structuring: third refund held by the aggregate rule.
-- [ ] **SC11** (brain) Earned autonomy: promotion, review card, incident demotes, next refund held.
+- [x] **SC7** (gate-hooks) Claude coder force-push: hook held; Alex refused; card goes to Dev, who denies.
+- [x] **SC8** (switchboard) Escalation and inbox: Neha gets the card after 18 s at 10x; both inboxes update.
+- [x] **SC9** (brain) Drill: Sam approves under 2 s; private note; next high card asks to type the amount.
+- [x] **SC10** (brain) Structuring: third refund held by the aggregate rule.
+- [x] **SC11** (brain) Earned autonomy: promotion, review card, incident demotes, next refund held.
 - [x] **SC12** (gate-hooks) Fail closed: core down gives 503; restart resumes timers.
 - [x] **SC13** (gate-hooks) Evasion: hook denies direct curl with a reason; ledger entry.
-- [ ] **SC14** (proof) Rubber-stamping without Clearance: five cards in under ten seconds, labelled staged.
+- [x] **SC14** (proof) Rubber-stamping without Clearance: five cards in under ten seconds of looking, labelled staged. It claims speed only, since no take included the ₹40,000 refund.
 
 ## Evaluations (PLAN 10)
 

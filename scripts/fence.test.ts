@@ -73,6 +73,25 @@ describe("the machines in fence.sh", () => {
   });
 });
 
+describe("E2's OpenCode baseline", () => {
+  const machine = "clearance-priya-open-base";
+
+  it("shares its machine with nobody, and has no Claude or Codex login", () => {
+    expect(fence(`fence_agents ${machine}`).trim()).toBe("ops-agent-vanilla");
+    expect(fence(`fence_providers ${machine}`).trim()).toBe("opencode");
+    for (const plan of plans) expect(MACHINES[plan.name]).not.toBe(machine);
+    const args = argsOf(machine).join("\n");
+    expect(args).not.toContain(".credentials.json");
+    expect(args).not.toContain("auth.json");
+  });
+
+  it("can't see the other baseline's folder, which holds the same key", () => {
+    const args = argsOf(machine).join("\n");
+    expect(args).toContain("/ops-agent-vanilla");
+    expect(args).not.toContain("/refunds-agent-vanilla");
+  });
+});
+
 describe("fence_args", () => {
   it("shares the network and nothing else", () => {
     const args = argsOf("clearance-priya");

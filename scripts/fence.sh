@@ -15,13 +15,14 @@ FENCE_BRIDGE_URL="${SWITCH_BRIDGE_URL:-http://127.0.0.1:8000}"
 
 # machine -> owner, agents, and which logins it gets. scripts/setup-agents.test.ts checks this against the template.
 # OpenCode has its own machine, with no Claude or Codex login, because a third-party model is on the other end.
-# The baseline has its own because its folder holds the Acme admin key, on purpose.
-FENCE_MACHINES=(clearance-host clearance-priya clearance-priya-base clearance-alex clearance-alex-open)
+# The baseline has its own because its folder holds the Acme admin key, on purpose. E2's OpenCode baseline has both
+# reasons, so it shares with nobody. Only scripts/setup-e2.ts starts that one: `just demo` doesn't need it.
+FENCE_MACHINES=(clearance-host clearance-priya clearance-priya-base clearance-priya-open-base clearance-alex clearance-alex-open)
 
 fence_owner() {
   case "$1" in
     clearance-host) echo admin ;;
-    clearance-priya | clearance-priya-base) echo priya ;;
+    clearance-priya | clearance-priya-base | clearance-priya-open-base) echo priya ;;
     clearance-alex | clearance-alex-open) echo alex ;;
     *) return 1 ;;
   esac
@@ -31,6 +32,7 @@ fence_agents() {
   case "$1" in
     clearance-priya) echo "refunds-agent support-agent" ;;
     clearance-priya-base) echo "refunds-agent-vanilla" ;;
+    clearance-priya-open-base) echo "ops-agent-vanilla" ;;
     clearance-alex) echo "coder reviewer" ;;
     clearance-alex-open) echo "ops-agent" ;;
     *) echo "" ;;
@@ -41,6 +43,7 @@ fence_providers() {
   case "$1" in
     clearance-priya) echo "claude codex" ;;
     clearance-priya-base) echo "claude" ;;
+    clearance-priya-open-base) echo "opencode" ;;
     clearance-alex) echo "claude cursor" ;;
     clearance-alex-open) echo "opencode" ;;
     *) echo "" ;;
@@ -197,16 +200,32 @@ fence_env() {
     "PATH=$(fence_path)" "TMPDIR=/tmp" "DISABLE_AUTOUPDATER=1")
 }
 
-# True when this host can make the fence at all. Says why when not, with the two usual remedies.
+# True when this host can make the fence at all. Says why when not, with the two usual remedies and the two ways on.
 fence_supported() {
-  local out
-  if ! command -v bwrap >/dev/null 2>&1; then
-    echo "bubblewrap is not installed, and agents do not run without the fence. On Debian or Ubuntu: sudo apt install bubblewrap" >&2
+  local out bwrap="${CLEARANCE_BWRAP:-bwrap}"
+  if ! command -v "$bwrap" >/dev/null 2>&1; then
+    echo "bubblewrap is not installed, and agents do not run without the fence unless you say so. On Debian or Ubuntu: sudo apt install bubblewrap. Without it: just demo --no-agents for the scripted spine with no agents and no key, or just demo --no-fence to run agents with no sandbox." >&2
     return 1
   fi
-  if ! out="$(bwrap --unshare-user --unshare-pid --ro-bind / / --dev /dev --proc /proc --tmpfs /tmp true 2>&1)"; then
+  if ! out="$("$bwrap" --unshare-user --unshare-pid --ro-bind / / --dev /dev --proc /proc --tmpfs /tmp true 2>&1)"; then
     echo "bwrap is installed but cannot make a sandbox here: $out" >&2
-    echo "On Ubuntu 24.04 or later, AppArmor blocks it unless the profile is loaded: sudo apt install apparmor-profiles && sudo apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict" >&2
+    echo "On Ubuntu 24.04 or later, AppArmor blocks it unless the profile is loaded: sudo apt install apparmor-profiles && sudo apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict. Otherwise: just demo --no-agents, or just demo --no-fence." >&2
     return 1
   fi
 }
+
+# Stated once wherever agents are about to run without the fence, so nobody gets there by accident.
+fence_off_warning() {
+  cat >&2 <<'WARNING'
+WARNING: --no-fence. Agents run with no sandbox, as you, on this machine. Here is what that loses:
+  - They can read your home directory: SSH keys, cloud credentials, your Claude login, other projects.
+  - They can read this repo's .env and data/, which hold the Acme admin key and every agent's tokens. With that key an
+    agent can call Acme directly, so the gate is not a boundary on this run. Hooks are only a guardrail.
+  - They can reach the Docker socket and see other processes.
+Clearance's cards, routing and refusals work as usual. Use this on a machine or account you can throw away.
+WARNING
+}
+
+# What a process is, without /proc, which macOS has not got.
+fence_cmdline() { ps -p "$1" -o command= 2>/dev/null; }
+fence_comm() { ps -p "$1" -o comm= 2>/dev/null; }

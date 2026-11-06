@@ -211,7 +211,7 @@ describe("condition B is the Appendix D card", () => {
       reversible: false,
       headline: "REFUND ₹40,000",
       parsed: ["Refund ₹40,000 to customer Meera K. (cus_8812)", "Destination: UPI meera.k@okaxis", "Order A-1931 · total ₹4,000"],
-      context: ["Refunds to this customer in 24 h: ₹0", "Destination added 4 minutes ago", "refunds-agent refunds today: 3 (largest ₹2,500)"],
+      context: ["Paid or held to customer, 24 h: ₹0", "Destination added 4 minutes ago", "refunds-agent refunds today: 3 (largest ₹2,500)"],
       flags: ["Amount is 10x the order total", "Destination added in the last 24 h", 'The agent wrote "₹4,000" in the thread; the call says ₹40,000'],
       claim: "Refunding ₹4,000 for order A-1931 as requested in T-77.",
       asked_by: ["Priya (support)"],

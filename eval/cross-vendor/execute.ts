@@ -25,6 +25,8 @@ export interface ExecuteOptions {
   print?: (line: string) => void;
   /** Called after every finished run, so a crash or a cap stop loses nothing. */
   onResult?: (result: RunResult) => void;
+  /** Which line in the cost log. E2 unless it's a check of the setup. */
+  experiment?: string;
 }
 
 export interface ExecuteOutcome {
@@ -92,7 +94,7 @@ export async function executePlan(
       try {
         recordCost(
           {
-            experiment: "E2",
+            experiment: options.experiment ?? "E2",
             usd: options.usdPerRun,
             note: `estimate: ${planned.vendor} ${planned.condition} ${planned.intent.id}`,
           },

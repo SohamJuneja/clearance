@@ -56,6 +56,11 @@ export function fillRootEnv(text, random = hex) {
       changed.push(key);
     }
   }
+  // Off for a demo, as in .env.example. A surprise practice card in the middle of a take means nothing to a viewer.
+  if (readKey(next, "CLEARANCE_DRILL_RATE") === undefined) {
+    next = setKey(next, "CLEARANCE_DRILL_RATE", "0");
+    changed.push("CLEARANCE_DRILL_RATE");
+  }
   if (blank(readKey(next, "GATE_AGENT_TOKENS"))) {
     const grants = Object.fromEntries(Object.entries(GATE_GRANTS).map(([agent, classes]) => [random(), { agent, classes }]));
     next = setKey(next, "GATE_AGENT_TOKENS", `'${JSON.stringify(grants)}'`);

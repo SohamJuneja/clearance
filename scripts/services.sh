@@ -11,7 +11,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUN="${CLEARANCE_RUN_DIR:-$ROOT/data/run}"
 mkdir -p "$RUN"
 TSX="$ROOT/node_modules/.bin/tsx"
-BOOT_ID="$(cat /proc/sys/kernel/random/boot_id 2>/dev/null || echo unknown)"
+BOOT_ID="$(cat /proc/sys/kernel/random/boot_id 2>/dev/null || sysctl -n kern.boottime 2>/dev/null || echo unknown)"
 
 # The process group a service started, or nothing if it was started before this boot: that number may now belong to
 # something else, which must not be signalled, and must not pass for the service being up.
@@ -57,7 +57,7 @@ up_one() {
   # setsid execs in place here (a background job in a non-interactive shell is not a group leader), so
   # $! is both the pid and the new session's process group.
   cd "$ROOT"
-  setsid "$TSX" --env-file=.env "$(entry "$name")" >>"$RUN/$name.log" 2>&1 </dev/null &
+  "$ROOT/scripts/new-session.sh" "$TSX" --env-file=.env "$(entry "$name")" >>"$RUN/$name.log" 2>&1 </dev/null &
   echo $! >"$RUN/$name.pgid"
   echo "$BOOT_ID" >"$RUN/$name.boot"
   for _ in $(seq 1 40); do

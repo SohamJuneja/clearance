@@ -81,11 +81,15 @@ export async function privateChatCheck(world: PrivateChatWorld): Promise<LiveRes
   }
   // Long enough for anything else the agent was going to say. A session announces itself in seconds.
   await new Promise((done) => setTimeout(done, world.quietMs ?? 20_000));
+  // Switch itself posts this into a new direct room, in the agent's name, whoever is allowed to talk to it (delivery/
+  // recipient.py). It is the room being made, not the agent hearing anything. Only these exact words are let through.
+  const greeting = `Hi! I'm ${agent} — how can I help?`;
   const spoke = (await sam.recent(channel, { limit: 30 })).filter(
     (post) =>
       post.create_at >= first.create_at &&
       post.user_id !== me.id &&
-      !NOT_PERMITTED.test(postText(post)),
+      !NOT_PERMITTED.test(postText(post)) &&
+      postText(post).trim() !== greeting,
   );
 
   const after = await world.readAgent();

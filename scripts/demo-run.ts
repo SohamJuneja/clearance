@@ -28,7 +28,7 @@ import {
   type ServiceControl,
   type WorldSetup,
 } from "./demo/runner.ts";
-import { freshRoom, setBaselineAutoMode } from "./demo/fresh-room.ts";
+import { freshRoom, setBaseline } from "./demo/fresh-room.ts";
 import { greetClearance, personaTokens } from "./demo/greet.ts";
 import { archiveStrayRooms } from "./demo/stray-rooms.ts";
 import { serviceCommand } from "./demo/services.ts";
@@ -150,8 +150,13 @@ function saveRun(result: ScenarioResult): void {
   );
 }
 
-/** The baseline scenes differ only in this, and changing it restarts the agent, so it comes before the room. */
-const BASELINE_AUTO_MODE: Record<string, boolean> = { SC1: true, SC2: false, SC2T: false };
+/** How the baseline scenes differ. SC14 is staged, and says so: Sam answers because anyone may. */
+const BASELINE: Record<string, { autoMode: boolean; anyoneMayAnswer: boolean }> = {
+  SC1: { autoMode: true, anyoneMayAnswer: false },
+  SC2: { autoMode: false, anyoneMayAnswer: false },
+  SC2T: { autoMode: false, anyoneMayAnswer: false },
+  SC14: { autoMode: false, anyoneMayAnswer: true },
+};
 
 /**
  * What every take starts from: a new room and new sessions, then the world reset, then each person's hello to
@@ -159,8 +164,8 @@ const BASELINE_AUTO_MODE: Record<string, boolean> = { SC1: true, SC2: false, SC2
  */
 async function startTake(id: string, room: string | undefined, setup: WorldSetup, args: Args): Promise<void> {
   const log = (line: string) => process.stdout.write(`    ${line}\n`);
-  const autoMode = BASELINE_AUTO_MODE[id];
-  if (autoMode !== undefined) await setBaselineAutoMode(autoMode, log);
+  const baseline = BASELINE[id];
+  if (baseline) await setBaseline(baseline.autoMode, baseline.anyoneMayAnswer, log);
   if (args.fresh && room) await freshRoom(room, log);
   // Or the agent's next hold needs two approvers: see scripts/demo/stray-rooms.ts.
   await archiveStrayRooms(Object.keys(OWNERS), log);
@@ -206,7 +211,7 @@ async function main(): Promise<number> {
   for (const scenario of chosen) {
     const result = await runScenario(scenario, {
       ...options,
-      reset: (setup) => startTake(scenario.id, scenario.prompt?.room, setup, args),
+      reset: (setup) => startTake(scenario.id, scenario.room, setup, args),
     });
     results.push(result);
     saveRun(result);

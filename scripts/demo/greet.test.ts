@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { retiredChannelName } from "./fresh-room.ts";
+import { deleteRoom, retiredChannelName } from "./fresh-room.ts";
 import { greetClearance, PEOPLE } from "./greet.ts";
 import { isStray } from "./stray-rooms.ts";
 
@@ -50,6 +50,39 @@ describe("retiredChannelName", () => {
     const name = retiredChannelName("support", new Date("2026-11-06T01:02:03Z"));
     expect(name).toBe("support-take-20261106-010203");
     expect(name).toMatch(/^[a-z0-9-]+$/);
+  });
+});
+
+describe("deleteRoom", () => {
+  /** Switch answers 200 with `deleted: 0` for a room the caller may see but not delete. */
+  const owner = (deleted: number) => {
+    const calls: unknown[] = [];
+    return {
+      calls,
+      must: (async (_method: string, _path: string, body?: unknown) => {
+        calls.push(body);
+        return { deleted };
+      }) as never,
+    };
+  };
+
+  it("moves on to the owner who can, when the first is only allowed to see it", async () => {
+    const alex = owner(0);
+    const priya = owner(1);
+    await deleteRoom("room-1", [alex, priya]);
+    expect(alex.calls).toHaveLength(1);
+    expect(priya.calls).toEqual([{ room_ids: ["room-1"], retire_channel: true }]);
+  });
+
+  it("stops at the first that deletes it", async () => {
+    const alex = owner(1);
+    const priya = owner(1);
+    await deleteRoom("room-1", [alex, priya]);
+    expect(priya.calls).toHaveLength(0);
+  });
+
+  it("is an error when nobody can, rather than a take that goes on beside the old room", async () => {
+    await expect(deleteRoom("room-1", [owner(0), owner(0)])).rejects.toThrow(/no owner could delete room room-1/);
   });
 });
 

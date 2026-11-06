@@ -27,9 +27,9 @@ export function clearanceAgentId(root: string = ROOT): string {
 }
 
 /** Each person's view, since a direct room only shows to its members. Returns who could not archive one, if anyone. */
-export async function findStrayRooms(protectedNames: string[]): Promise<{ gateway: OwnerGateway; room: RoomRow }[]> {
+export async function findStrayRooms(protectedNames: string[], alsoIds: string[] = []): Promise<{ gateway: OwnerGateway; room: RoomRow }[]> {
   const clearance = clearanceAgentId();
-  const protectedIds = new Set<string>();
+  const protectedIds = new Set<string>(alsoIds);
   const gateways = new Map<string, OwnerGateway>();
   for (const person of PEOPLE) gateways.set(person, await ownerGateway(person));
   for (const gateway of gateways.values()) {
@@ -50,8 +50,8 @@ export async function findStrayRooms(protectedNames: string[]): Promise<{ gatewa
   return stray;
 }
 
-export async function archiveStrayRooms(protectedNames: string[], log: Log = () => undefined): Promise<number> {
-  const stray = await findStrayRooms(protectedNames);
+export async function archiveStrayRooms(protectedNames: string[], log: Log = () => undefined, alsoIds: string[] = []): Promise<number> {
+  const stray = await findStrayRooms(protectedNames, alsoIds);
   for (const { gateway, room } of stray) {
     await gateway.must("POST", `/rooms/${room.id}/archive`);
     log(`archived ${room.name}, which held a protected agent and not Clearance`);

@@ -174,7 +174,11 @@ function rankPerson(ctx: RouteContext, person: Person, matchedBy: string): Ranke
     openCards: ctx.signals.openCards(person.id),
     concentrated: ctx.signals.concentrated?.(person.id) ?? false,
   };
-  if (matchedBy.startsWith("delegate:")) entry.delegateFor = matchedBy.slice("delegate:".length);
+  if (matchedBy.startsWith("delegate:")) {
+    // A person reads this on the card.
+    const covered = matchedBy.slice("delegate:".length);
+    entry.delegateFor = ctx.directory.person(covered)?.name ?? covered;
+  }
   const ownerField = (ctx.cls?.approvers?.anyOf ?? []).find(
     (ref) =>
       ref.owner_of &&

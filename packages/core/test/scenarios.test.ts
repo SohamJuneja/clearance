@@ -264,7 +264,7 @@ describe("SC10: structuring, and PLAN 7.3 on low tier", () => {
     expect(third.decision).toBe("hold");
     expect(third.flags?.map((flag) => flag.code)).toContain("aggregate_limit");
     expect(third.reason).toContain("refunds to one customer over ₹10,000 in 24 h need finance approval");
-    expect(h.chat.cardIn("dm-sam").detail).toContain("Refunds to this customer in 24 h: ₹8,000");
+    expect(h.chat.cardIn("dm-sam").detail).toContain("Paid or held to customer, 24 h: ₹8,000");
   });
 
   it("the sum resets once earlier refunds fall out of the window", async () => {

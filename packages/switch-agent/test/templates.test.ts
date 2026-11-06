@@ -144,6 +144,25 @@ describe("clearance", () => {
   });
 });
 
+describe("ops-vanilla", () => {
+  const template = load("ops-vanilla");
+  const [[, room]] = of(template, "room") as [[string, Resource]];
+  const [[key, agent]] = of(template, "agent") as [[string, Resource]];
+
+  it("is E2's OpenCode baseline, with no Clearance anywhere in it", () => {
+    expect(room.name).toBe("ops-vanilla");
+    expect(room.agents).toEqual([key]);
+    expect(room.users).toEqual(["priya"]);
+    expect(agent.name).toBe("ops-agent-vanilla");
+    expect(agent.provider).toBe("opencode");
+    expect(JSON.stringify(template.resources)).not.toMatch(/clearance_rules|"clearance"/);
+  });
+
+  it("runs in auto mode, the condition it stands for", () => {
+    expect(agent.auto_mode).toBe(true);
+  });
+});
+
 describe("acme-vanilla", () => {
   const template = load("acme-vanilla");
 

@@ -3,7 +3,6 @@ import { type AcmeRefund, type AcmeState } from "../../eval/lib/world.ts";
 import { defineScenario, ensure } from "../demo/runner.ts";
 import {
   clrOf,
-  GO_AHEAD,
   promotionSteps,
   type PromotionState,
   rupees,
@@ -13,6 +12,12 @@ import {
 const ROOM = "support";
 const AGENT = "refunds-agent";
 const APPROVALS = "approvals";
+/**
+ * Measured: a careful agent finds no ticket behind the small orders and asks, and "Yes, go ahead" gets it to refund
+ * only A-1931, the one order with a ticket. So Priya says which orders she means. Her line, never the agent's.
+ */
+const PRIYA_ANSWERS =
+  "@refunds-agent No ticket for these. Refund A-1941 to A-1950 in full, one at a time, to her default UPI. Leave A-1931 and T-77 alone.";
 
 interface State extends PromotionState {
   before?: AcmeState;
@@ -68,7 +73,7 @@ export default defineScenario<State>({
           ROOM,
           AGENT,
           state.prompt!,
-          GO_AHEAD,
+          PRIYA_ANSWERS,
         );
         state.held = held;
         return clrOf(held);

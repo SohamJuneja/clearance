@@ -6,11 +6,16 @@
 #   just demo                       do it
 #   just demo --check               say what is done and what is missing. Changes nothing in the stack
 #   just demo --only fetch,env      only these steps
+#   just demo --no-agents           no agents, no key, no LLM, no bubblewrap: Switch, personas, services and the Desk, then
+#                                   the scripted spine (scripts/smoke-spine.ts) through real cards and real presses
+#   just demo --no-fence            real agents with no sandbox, for a host without bubblewrap. It says what that loses
 #
 # Steps, in order: tools fetch install env stack personas controllers agents services world fence reset
+# With --no-agents: tools fetch install env stack personas placeholder services world reset smoke
 #
 # What it needs from you
-#   Linux with bubblewrap, Docker with compose v2, Node 22 or later, pnpm, just, git, rsync, curl.
+#   Docker with compose v2, Node 22 or later, pnpm, just, git, curl. For agents, also rsync and Linux with bubblewrap,
+#   unless you pass --no-fence. Never run --no-fence on a machine you care about.
 #   One way for Claude agents to sign in, or they cannot run:
 #     - ANTHROPIC_API_KEY in .env, the simple way. Claude agents can read this key: see docs/threat-model.md.
 #     - or a Claude login on this host (`claude login`). Each fenced machine gets a copy of its short-lived access
@@ -32,6 +37,8 @@ source "$HERE/fence.sh"
 ALL_STEPS=(tools fetch install env stack personas controllers agents services world fence reset)
 CHECK=0
 ONLY=""
+NO_AGENTS=0
+export CLEARANCE_NO_FENCE="${CLEARANCE_NO_FENCE:-0}"
 while [ $# -gt 0 ]; do
   case "$1" in
     --check)
@@ -42,13 +49,30 @@ while [ $# -gt 0 ]; do
       ONLY="$2"
       shift 2
       ;;
+    --no-agents)
+      NO_AGENTS=1
+      shift
+      ;;
+    --no-fence)
+      CLEARANCE_NO_FENCE=1
+      shift
+      ;;
     *)
-      echo "usage: just demo [--check] [--only <step,step>]" >&2
+      echo "usage: just demo [--check] [--only <step,step>] [--no-agents | --no-fence]" >&2
       echo "steps: ${ALL_STEPS[*]}" >&2
       exit 2
       ;;
   esac
 done
+if [ "$NO_AGENTS" = 1 ] && [ "$CLEARANCE_NO_FENCE" = 1 ]; then
+  echo "--no-agents runs no agents, so there is nothing for --no-fence to do. Pick one." >&2
+  exit 2
+fi
+if [ "$NO_AGENTS" = 1 ]; then
+  ALL_STEPS=(tools fetch install env stack personas placeholder services world reset smoke)
+elif [ "$CLEARANCE_NO_FENCE" = 1 ]; then
+  fence_off_warning
+fi
 
 SWITCH_DIR="$ROOT/vendor/switch"
 SWITCH_SHA="$(sed -n 's/^switch_sha := "\(.*\)"/\1/p' justfile)"
@@ -64,9 +88,12 @@ env_value() { sed -n "s/^$1=//p" .env 2>/dev/null | tail -n 1 | sed -e 's/^"\(.*
 # ── tools ───────────────────────────────────────────────────────────────────
 check_tools() {
   local missing=() tool
-  for tool in docker node pnpm just git rsync curl; do
+  for tool in docker node pnpm just git curl; do
     command -v "$tool" >/dev/null 2>&1 || missing+=("$tool")
   done
+  if [ "$NO_AGENTS" != 1 ]; then
+    command -v rsync >/dev/null 2>&1 || missing+=(rsync)
+  fi
   if [ "${#missing[@]}" -gt 0 ]; then
     BLOCKERS+=("install: ${missing[*]}")
     return 1
@@ -79,12 +106,20 @@ check_tools() {
     BLOCKERS+=("Node 22 or later is needed, this is $(node --version)")
     return 1
   fi
-  if ! fence_supported 2>/tmp/fence-why.$$; then
-    BLOCKERS+=("the agent fence cannot work here: $(cat /tmp/fence-why.$$)")
-    rm -f /tmp/fence-why.$$
-    return 1
+  # The scripted spine runs no agent, so it needs neither a fence nor a key.
+  if [ "$NO_AGENTS" = 1 ]; then
+    echo "  ok    --no-agents needs no key and no bubblewrap"
+    return 0
   fi
-  rm -f /tmp/fence-why.$$
+  if [ "$CLEARANCE_NO_FENCE" = 1 ]; then
+    echo "  warn  --no-fence: agents run with no sandbox. See the warning above"
+  else
+    local why
+    if ! why="$(fence_supported 2>&1)"; then
+      BLOCKERS+=("the agent fence cannot work here: $why")
+      return 1
+    fi
+  fi
   if [ -z "$(env_value ANTHROPIC_API_KEY)" ] && [ ! -f "$HOME/.claude/.credentials.json" ]; then
     # The rest of the demo still comes up, and the OpenCode agent runs. It is not a blocker for the setup.
     echo "  warn  no ANTHROPIC_API_KEY in .env and no Claude login here, so Claude agents will not run"
@@ -179,22 +214,33 @@ check_personas() {
 do_personas() { tsx scripts/setup-identities.ts; }
 
 # ── controllers: one per machine, each in the fence ─────────────────────────
-# By what the process is, not just its number: after a reboot a pid file can name something else entirely.
+# By what the process is, not just its number: after a reboot a pid file can name something else entirely. And its
+# token sync has to be running from this checkout, or a rerun from another one leaves the old copy going.
 machine_running_fenced() {
-  local file pid
+  local file pid comm token_file token_pid
   file="data/$(fence_stem "$1").pid"
   [ -f "$file" ] || return 1
   pid="$(cat "$file")"
-  [ "$(cat "/proc/$pid/comm" 2>/dev/null)" = bwrap ] || return 1
-  { tr '\0' ' ' <"/proc/$pid/cmdline"; } 2>/dev/null | grep -q "cli.mjs run --data-dir $(fence_data_dir "$1") "
+  comm="$(fence_comm "$pid")"
+  if [ "$CLEARANCE_NO_FENCE" = 1 ]; then
+    case "$comm" in *node) ;; *) return 1 ;; esac
+  else
+    case "$comm" in *bwrap) ;; *) return 1 ;; esac
+  fi
+  fence_cmdline "$pid" | grep -q "cli.mjs run --data-dir $(fence_data_dir "$1") " || return 1
+  if [ "$CLEARANCE_NO_FENCE" != 1 ] && fence_has_provider "$1" claude && [ -z "$(env_value ANTHROPIC_API_KEY)" ]; then
+    token_file="data/$(fence_stem "$1").token.pid"
+    token_pid="$(cat "$token_file" 2>/dev/null)"
+    [ -n "$token_pid" ] && fence_cmdline "$token_pid" | grep -q "$ROOT/scripts/fence-claude-token.sh" || return 1
+  fi
 }
 check_controllers() {
   local machine bad=0
   for machine in "${MACHINES[@]}"; do
     if machine_running_fenced "$machine"; then
-      echo "  ok    $machine is running in the fence"
+      echo "  ok    $machine is running$([ "$CLEARANCE_NO_FENCE" = 1 ] && echo ' with NO FENCE' || echo ' in the fence')"
     else
-      echo "  todo  $machine is not running in the fence"
+      echo "  todo  $machine is not running as it should be, in the fence and with its token sync from this checkout"
       bad=1
     fi
   done
@@ -263,6 +309,10 @@ do_world() { tsx scripts/setup-world.ts; }
 
 # ── fence: proved with no LLM, in fresh arguments and in the running machines ─
 check_fence() {
+  if [ "$CLEARANCE_NO_FENCE" = 1 ]; then
+    echo "  warn  skipped: --no-fence means there is nothing to check"
+    return 0
+  fi
   if [ ! -d "$TOOLS/controller-src" ]; then
     echo "  todo  no controller build yet, so nothing to check"
     return 1
@@ -283,6 +333,12 @@ do_fence() { scripts/check-fence.sh --live; }
 check_reset() { return 1; }
 do_reset() { pnpm demo:reset; }
 
+# ── placeholder and smoke, for --no-agents ──────────────────────────────────
+check_placeholder() { return 1; }
+do_placeholder() { tsx scripts/setup-agents.ts --no-machines; }
+check_smoke() { return 1; }
+do_smoke() { tsx scripts/smoke-spine.ts; }
+
 wanted() {
   [ -z "$ONLY" ] && return 0
   case ",$ONLY," in
@@ -297,7 +353,9 @@ for step in "${ALL_STEPS[@]}"; do
   echo "== $step"
   if [ "$CHECK" = 1 ]; then
     if [ "$step" = reset ]; then
-      echo "  a real run ends with pnpm demo:reset"
+      echo "  a real run resets the world here"
+    elif [ "$step" = placeholder ] || [ "$step" = smoke ]; then
+      echo "  a real run does this"
     elif "check_$step"; then
       echo "  done"
     else
@@ -306,7 +364,7 @@ for step in "${ALL_STEPS[@]}"; do
     fi
     continue
   fi
-  if [ "$step" != reset ] && "check_$step"; then
+  if "check_$step"; then
     echo "  done"
     continue
   fi
@@ -318,10 +376,15 @@ for step in "${ALL_STEPS[@]}"; do
     echo "Step $step failed. Fix what it says and run just demo again: it picks up from here." >&2
     exit 1
   fi
-  if [ "$step" != reset ] && ! "check_$step"; then
-    echo "Step $step ran, but its check still says it is not done. See above." >&2
-    exit 1
-  fi
+  case "$step" in
+    reset | placeholder | smoke) ;;
+    *)
+      if ! "check_$step"; then
+        echo "Step $step ran, but its check still says it is not done. See above." >&2
+        exit 1
+      fi
+      ;;
+  esac
 done
 
 if [ "$CHECK" = 1 ]; then
@@ -333,12 +396,23 @@ if [ "$CHECK" = 1 ]; then
   if [ "${#TODO[@]}" -gt 0 ]; then
     echo "Ready to run. just demo would do: ${TODO[*]} reset"
   else
-    echo "Everything is up. just demo would only reset the world."
+    echo "Everything is up. just demo would only reset the world$([ "$NO_AGENTS" = 1 ] && echo " and run the spine")."
   fi
   exit 0
 fi
 
-if [ -z "$ONLY" ]; then
+if [ -z "$ONLY" ] && [ "$NO_AGENTS" = 1 ]; then
+  cat <<DONE
+
+Clearance is up, with no agents. The scripted spine above went through real cards, real presses and the real gate.
+Calls that an agent would make were scripted, so this proves plumbing and identity, not how an agent behaves.
+  Mattermost  http://127.0.0.1:8065   sign in as priya or sam, password: PERSONA_PASSWORD in .env
+  Desk        http://127.0.0.1:7900
+
+Run it again:  pnpm demo:reset && pnpm demo:smoke
+For real agents, add a key to .env and run just demo.
+DONE
+elif [ -z "$ONLY" ]; then
   cat <<DONE
 
 Clearance is up.

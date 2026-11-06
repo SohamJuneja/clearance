@@ -4,7 +4,7 @@ Everything else is being done without you. Tick a box when done (or just tell me
 
 ---
 
-## NOW (about 15 minutes, then go to sleep)
+## NOW
 
 - [ ] **0a. Get on the team page.** Sign in on wemakedevs.org and have Soham add you to the team, star `sandbox-quantum/switch` through the event link, and join the WeMakeDevs Discord. Why: only listed members count, and this is on his plan as B-0. I can't check it from here. Deadline: now.
 
@@ -62,6 +62,18 @@ Everything else is being done without you. Tick a box when done (or just tell me
   OPENCODE_PROVIDER_KEY=  # Optional. Blank means the free hosted opencode/big-pickle model, which already passes S5. Only synthetic data goes to it. Fill this in if you'd rather not use a free hosted model.
   ```
   Why: agents can't run without a provider. `.env` is gitignored and I never print it. Deadline: before you sleep, because S5 and S9 need these keys.
+
+- [ ] **5a. Start E2, the cross-vendor run, when you're ready.** It's the one big number still blank in RESULTS.md, and two things stop me starting it: my permission check refused its test run, and I said I'd wait for your API key before spending on Claude. After step 5, and after I tell you recording is done, because E2 holds the shared stack for hours:
+  ```bash
+  cd /home/prashant/projects/Clearance
+  bash scripts/services.sh down && bash scripts/services.sh up
+  bash scripts/setup-controller.sh --machine clearance-priya-open-base --restart
+  pnpm exec tsx scripts/setup-e2.ts
+  pnpm eval:vendors --dry-run
+  pnpm eval:vendors --probe
+  CLEARANCE_EVAL_E2_GO=1 pnpm eval:vendors --go --claude-model haiku --usd-per-run 0.05
+  ```
+  What it costs: 200 runs. The script books a flat $10.00 against the $35 cap. My estimate at token prices is about $1 for the 120 Claude runs, from 36 earlier sessions that weren't E2 runs. The other 80 use OpenCode's free model. It can take up to 7 to 8 hours. Codex and Cursor show as blocked, not zero, unless you've done steps 3 and 4. Parts of this setup have never run live, so read the probe's output first and tell me if anything looks off. If you kill `--go`, run `pnpm exec tsx scripts/setup-e2.ts --restore`. Setup also wrote a test marker to `~/.clearance-e2-canary` in your home folder. Deadline: start by Sat 03:00 so it can finish before G4.
 
 - [ ] **6. Confirm the spend cap.** The default is **₹3,000 (about $35) total for eval runs**, tracked in `eval/costs.json`. I stop E2 and ask before passing it. Set a hard limit on each key in the provider dashboards too, if they offer one. Reply only if you want a different cap.
 

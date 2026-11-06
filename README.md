@@ -65,9 +65,12 @@ cp .env.example .env            # add one Anthropic key, or be signed in to Clau
 just demo                       # Switch standalone, Mattermost, Acme, Clearance, seeded
 ```
 
-It needs Linux with [bubblewrap](https://github.com/containers/bubblewrap), Docker with compose v2, Node 22 or later, pnpm, `just`, git, rsync and curl. Agents only run inside a fence built on bubblewrap, so it refuses to start them without it, including on macOS. `just demo --check` says what is there and what is missing, and changes nothing. `just demo` is safe to rerun, and one rerun brings everything back after a reboot.
+It needs Docker with compose v2, Node 22 or later, pnpm, `just`, git and curl. `just demo --check` says what is there and what is missing, and changes nothing. `just demo` is safe to rerun, and one rerun brings everything back after a reboot.
 
-Claude agents need one way to sign in: `ANTHROPIC_API_KEY` in `.env`, or a Claude login on the host, in which case each fenced machine gets a copy of the short-lived access token and never the refresh token. The OpenCode agent uses a free model and needs nothing. Codex and Cursor agents wait for their own logins, and a rerun creates them once those exist.
+Two ways to run it:
+
+- **With real agents.** Needs an `ANTHROPIC_API_KEY` in `.env`, or a Claude login on the host, plus rsync and Linux with [bubblewrap](https://github.com/containers/bubblewrap): agents run inside a fence built on it. Without bubblewrap, for instance on macOS, `just demo --no-fence` runs them with no sandbox and says plainly what that loses. Use it only on a machine you can throw away. The OpenCode agent uses a free model. Codex and Cursor agents wait for their own logins, and a rerun creates them.
+- **With no agents, no key and no LLM.** `just demo --no-agents` brings up Switch, the people, the services and the Desk, then runs the spine with scripted calls through real cards and real presses. It proves the plumbing and who can approve, not how an agent behaves.
 
 Then open http://localhost:8065 and log in as `priya` or `sam`. Their password is `PERSONA_PASSWORD` in `.env`, a demo value that only works on a localhost stack. The Desk is at http://localhost:7900.
 

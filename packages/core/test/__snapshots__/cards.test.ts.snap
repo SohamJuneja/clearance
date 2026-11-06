@@ -1,56 +1,5 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`cards from real calls: snapshots across fixture calls > 'SC3 refund, 10x the order, new destin…' 1`] = `
-[
-  {
-    "detail": "The call (parsed from what the agent ran, not from its words)
-  Refund ₹40,000 to customer Meera K. (cus_8812)
-  Destination: UPI meera.k@okaxis
-  Order A-1931 · total ₹4,000
-
-Context
-  Refunds to this customer in 24 h: ₹0
-  Destination added 4 minutes ago
-  refunds-agent refunds today: 0
-
-Flags
-  ⚠ Amount is 10x the order total
-  ⚠ Destination added in the last 24 h
-
-Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
-Why you: finance approver on duty. Can't approve: Priya (requester, agent owner).
-Policy: refunds over ₹10,000 need 1 finance approver · expires 14:25 IST
-
-@clearance why CLR-0001",
-    "roomId": "dm-sam",
-    "title": "CLR-0001 · REFUND ₹40,000 · HIGH · irreversible",
-  },
-  {
-    "detail": "The call (parsed from what the agent ran, not from its words)
-  Refund ₹40,000 to customer Meera K. (cus_8812)
-  Destination: UPI meera.k@okaxis
-  Order A-1931 · total ₹4,000
-
-Context
-  Refunds to this customer in 24 h: ₹0
-  Destination added 4 minutes ago
-  refunds-agent refunds today: 0
-
-Flags
-  ⚠ Amount is 10x the order total
-  ⚠ Destination added in the last 24 h
-
-Asked by Priya (support) through refunds-agent (Claude Code, owned by Priya)
-Why here: copy for this room; Sam (finance, on duty) decides. Can't approve: Priya (requester, agent owner).
-Policy: refunds over ₹10,000 need 1 finance approver · expires 14:25 IST
-
-@clearance why CLR-0001",
-    "roomId": "#support",
-    "title": "CLR-0001 · REFUND ₹40,000 · HIGH · irreversible",
-  },
-]
-`;
-
 exports[`cards from real calls: snapshots across fixture calls > 'SC3 with the agent\\'s words on record' 1`] = `
 [
   {
@@ -60,7 +9,7 @@ exports[`cards from real calls: snapshots across fixture calls > 'SC3 with the a
   Order A-1931 · total ₹4,000
 
 Context
-  Refunds to this customer in 24 h: ₹0
+  Paid or held to customer, 24 h: ₹0
   Destination added 4 minutes ago
   refunds-agent refunds today: 0
 
@@ -84,7 +33,7 @@ Policy: refunds need 1 finance approver · expires 14:25 IST
   Order A-1931 · total ₹4,000
 
 Context
-  Refunds to this customer in 24 h: ₹0
+  Paid or held to customer, 24 h: ₹0
   Destination added 4 minutes ago
   refunds-agent refunds today: 0
 
@@ -113,7 +62,7 @@ exports[`cards from real calls: snapshots across fixture calls > 'SC3, ₹4,000 
   Order A-1931 · total ₹4,000
 
 Context
-  Refunds to this customer in 24 h: ₹0
+  Paid or held to customer, 24 h: ₹0
   Destination added 4 minutes ago
   refunds-agent refunds today: 0
 
@@ -135,7 +84,7 @@ Policy: refunds need 1 finance approver · expires 14:25 IST
   Order A-1931 · total ₹4,000
 
 Context
-  Refunds to this customer in 24 h: ₹0
+  Paid or held to customer, 24 h: ₹0
   Destination added 4 minutes ago
   refunds-agent refunds today: 0
 
@@ -162,7 +111,7 @@ exports[`cards from real calls: snapshots across fixture calls > 'SC4 legit larg
   Order A-2004 · total ₹40,000
 
 Context
-  Refunds to this customer in 24 h: ₹0
+  Paid or held to customer, 24 h: ₹0
   Destination added 83 days ago
   refunds-agent refunds today: 0
 
@@ -181,7 +130,7 @@ Policy: refunds over ₹10,000 need 1 finance approver · expires 14:25 IST
   Order A-2004 · total ₹40,000
 
 Context
-  Refunds to this customer in 24 h: ₹0
+  Paid or held to customer, 24 h: ₹0
   Destination added 83 days ago
   refunds-agent refunds today: 0
 
@@ -291,7 +240,7 @@ exports[`cards from real calls: snapshots across fixture calls > 'force push thr
   Run: git push --force origin main
 
 Context
-  Not a tracked pull request: nothing to look up
+  Rewrites the branch's history
 
 Flags
   ⚠ Could not verify diff_lines, touches_auth from systems of record: treated as risky
@@ -303,14 +252,14 @@ Policy: merges to main need 1 eng approver · expires 14:25 IST
 
 @clearance why CLR-0001",
     "roomId": "dm-dev",
-    "title": "CLR-0001 · MERGE · HIGH · reversible",
+    "title": "CLR-0001 · FORCE PUSH · HIGH · irreversible",
   },
   {
     "detail": "The call (parsed from what the agent ran, not from its words)
   Run: git push --force origin main
 
 Context
-  Not a tracked pull request: nothing to look up
+  Rewrites the branch's history
 
 Flags
   ⚠ Could not verify diff_lines, touches_auth from systems of record: treated as risky
@@ -322,7 +271,7 @@ Policy: merges to main need 1 eng approver · expires 14:25 IST
 
 @clearance why CLR-0001",
     "roomId": "#eng",
-    "title": "CLR-0001 · MERGE · HIGH · reversible",
+    "title": "CLR-0001 · FORCE PUSH · HIGH · irreversible",
   },
 ]
 `;
@@ -383,7 +332,7 @@ exports[`cards from real calls: snapshots across fixture calls > 'nobody known t
   Order A-2004 · total ₹40,000
 
 Context
-  Refunds to this customer in 24 h: ₹0
+  Paid or held to customer, 24 h: ₹0
   Destination added 83 days ago
   refunds-agent refunds today: 0
 
@@ -405,7 +354,7 @@ Policy: refunds over ₹10,000 need 2 finance approvers · expires 14:25 IST
   Order A-2004 · total ₹40,000
 
 Context
-  Refunds to this customer in 24 h: ₹0
+  Paid or held to customer, 24 h: ₹0
   Destination added 83 days ago
   refunds-agent refunds today: 0
 
@@ -427,7 +376,7 @@ Policy: refunds over ₹10,000 need 2 finance approvers · expires 14:25 IST
   Order A-2004 · total ₹40,000
 
 Context
-  Refunds to this customer in 24 h: ₹0
+  Paid or held to customer, 24 h: ₹0
   Destination added 83 days ago
   refunds-agent refunds today: 0
 
@@ -604,7 +553,7 @@ exports[`cards from real calls: snapshots across fixture calls > 'small refund, 
   Order A-404 · total unknown
 
 Context
-  Refunds to this customer in 24 h: ₹0
+  Paid or held to customer, 24 h: ₹0
   Destination added 83 days ago
   refunds-agent refunds today: 0
 
@@ -626,7 +575,7 @@ Policy: refunds need 1 finance approver · expires 14:25 IST
   Order A-404 · total unknown
 
 Context
-  Refunds to this customer in 24 h: ₹0
+  Paid or held to customer, 24 h: ₹0
   Destination added 83 days ago
   refunds-agent refunds today: 0
 
@@ -694,7 +643,7 @@ The call (parsed from what the agent ran, not from its words)
   Order A-1931 · total ₹4,000
 
 Context
-  Refunds to this customer in 24 h: ₹0
+  Paid or held to customer, 24 h: ₹0
   Destination added 4 minutes ago
   refunds-agent refunds today: 0
 
@@ -717,7 +666,7 @@ The call (parsed from what the agent ran, not from its words)
   Order A-1931 · total ₹4,000
 
 Context
-  Refunds to this customer in 24 h: ₹0
+  Paid or held to customer, 24 h: ₹0
   Destination added 4 minutes ago
   refunds-agent refunds today: 0
 
@@ -740,7 +689,7 @@ The call (parsed from what the agent ran, not from its words)
   Order A-1931 · total ₹4,000
 
 Context
-  Refunds to this customer in 24 h: ₹0
+  Paid or held to customer, 24 h: ₹0
   Destination added 4 minutes ago
   refunds-agent refunds today: 0
 
@@ -764,7 +713,7 @@ exports[`cards from real calls: snapshots across fixture calls > writes the fall
   Run: git push --force origin main
 
 Context
-  Not a tracked pull request: nothing to look up
+  Rewrites the branch's history
 
 Flags
   ⚠ Could not verify diff_lines, touches_auth from systems of record: treated as risky
@@ -776,14 +725,14 @@ Policy: merges to main need 1 eng approver · expires 14:25 IST
 
 @clearance why CLR-0001",
     "roomId": "#approvals",
-    "title": "CLR-0001 · MERGE · HIGH · reversible",
+    "title": "CLR-0001 · FORCE PUSH · HIGH · irreversible",
   },
   {
     "detail": "The call (parsed from what the agent ran, not from its words)
   Run: git push --force origin main
 
 Context
-  Not a tracked pull request: nothing to look up
+  Rewrites the branch's history
 
 Flags
   ⚠ Could not verify diff_lines, touches_auth from systems of record: treated as risky
@@ -795,7 +744,7 @@ Policy: merges to main need 1 eng approver · expires 14:25 IST
 
 @clearance why CLR-0001",
     "roomId": "#eng",
-    "title": "CLR-0001 · MERGE · HIGH · reversible",
+    "title": "CLR-0001 · FORCE PUSH · HIGH · irreversible",
   },
 ]
 `;

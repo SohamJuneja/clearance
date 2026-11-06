@@ -7,7 +7,8 @@ const random = () => `token-${++counter}`;
 describe("fillRootEnv", () => {
   it("fills blanks and placeholders, and gives every agent its own gate token", () => {
     const { text, changed } = fillRootEnv("# comment\nCLEARANCE_INTERNAL_TOKEN=change-me\nACME_ADMIN_KEY=\nGATE_AGENT_TOKENS=\n", random);
-    expect(changed).toEqual(["CLEARANCE_INTERNAL_TOKEN", "ACME_ADMIN_KEY", "STUDY_LINK_SECRET", "GATE_AGENT_TOKENS"]);
+    expect(changed).toEqual(["CLEARANCE_INTERNAL_TOKEN", "ACME_ADMIN_KEY", "STUDY_LINK_SECRET", "CLEARANCE_DRILL_RATE", "GATE_AGENT_TOKENS"]);
+    expect(readKey(text, "CLEARANCE_DRILL_RATE")).toBe("0");
     expect(text).toContain("# comment");
     expect(readKey(text, "CLEARANCE_INTERNAL_TOKEN")).toMatch(/^token-/);
     const grants = JSON.parse(readKey(text, "GATE_AGENT_TOKENS")!) as Record<string, { agent: string; classes: string[] }>;

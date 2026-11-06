@@ -16,6 +16,8 @@ export type InboxItem = {
   handle: string | null;
   class: string;
   tier: string;
+  /** This card asks for a typed value, and refuses a word answer. */
+  typed: boolean;
   what: string;
   room: string | null;
   age_s: number;
@@ -93,6 +95,7 @@ export function listInbox(sources: InboxSources, userId: string): InboxItem[] {
         handle: row.handle,
         class: request.cls,
         tier: request.tier,
+        typed: row.confirm_field !== null,
         what: inboxWhat(headline),
         room: room ? directory.roomName(room) : null,
         age_s: Math.round((nowMs - request.createdAtMs) / 1000),
@@ -129,8 +132,8 @@ function inboxLine(item: InboxItem, roomId: string): string {
 function howToAnswer(items: InboxItem[], roomId: string): string {
   const here = items.filter((item) => item.card_room === roomId);
   const coded = here.filter((item) => item.handle);
-  // A critical card asks for a typed value, so "yes" is no example for it.
-  const example = coded.find((item) => item.tier !== "critical")?.handle;
+  // A critical card asks for a typed value, and so does any card after a missed drill. "yes" is no example for those.
+  const example = coded.find((item) => item.tier !== "critical" && !item.typed)?.handle;
   if (example) return `Reply here with a code, like \`${example} yes\` or \`${example} no\`, or use the card's buttons.`;
   if (coded.length > 0) return "Reply here with a code as its card says, or use the card's buttons.";
   if (here.length > 0) return "Use the buttons on the cards above.";

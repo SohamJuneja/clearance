@@ -1,6 +1,8 @@
 /** F6: card text is a pure function, content order is fixed, and copy matches Appendix D. */
 import type { Action, OpenCardInput } from "@clearance/contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describeCall } from "../src/cards/describe.js";
+import { uniqueFlags } from "../src/risk/flags.js";
 import { oneLine } from "../src/format.js";
 import { DETAIL_BUDGET, PROMPT_BUDGET, renderCard, renderedCost, renderPrompt, type CardView } from "../src/cards/render.js";
 import {
@@ -24,7 +26,7 @@ const APPENDIX_VIEW: CardView = {
   reversible: false,
   call: ["Refund ₹40,000 to customer Meera K. (cus_8812)", "Destination: UPI meera.k@okaxis", "Order A-1931 · total ₹4,000"],
   context: [
-    "Refunds to this customer in 24 h: ₹0",
+    "Paid or held to customer, 24 h: ₹0",
     "Destination added 4 minutes ago",
     "refunds-agent refunds today: 3 (largest ₹2,500)",
   ],
@@ -64,7 +66,7 @@ describe("renderCard", () => {
   Order A-1931 · total ₹4,000
 
 Context
-  Refunds to this customer in 24 h: ₹0
+  Paid or held to customer, 24 h: ₹0
   Destination added 4 minutes ago
   refunds-agent refunds today: 3 (largest ₹2,500)
 
@@ -172,7 +174,7 @@ Policy: refunds over ₹10,000 need 1 finance approver · expires 15:42 IST
       const { detail } = renderCard(viewCosting(DETAIL_BUDGET + 1));
       expect(renderedCost(detail)).toBeLessThanOrEqual(DETAIL_BUDGET);
       expect(detail).not.toContain("Agent's claim");
-      expect(detail).toContain("Refunds to this customer in 24 h");
+      expect(detail).toContain("Paid or held to customer, 24 h");
       expect(detail).toContain("refunds-agent refunds today");
     });
 
@@ -397,5 +399,51 @@ describe("cards from real calls: snapshots across fixture calls", () => {
       expect(renderedCost(card.detail)).toBeLessThanOrEqual(DETAIL_BUDGET);
     }
     expect(h.chat.cards.map(snapshotOf)).toMatchSnapshot();
+  });
+});
+
+describe("a push that can overwrite a branch", () => {
+  const describePush = (command: string) =>
+    describeCall({
+      cls: "merge",
+      call: { target: "shell", args: { command } },
+      extracted: {},
+      lookups: {},
+      currency: "INR",
+      agent: "coder",
+      priorSum: null,
+      agentActivity: null,
+      serviceOwner: null,
+    } as unknown as Parameters<typeof describeCall>[0]);
+
+  it.each([
+    "git push --force origin main",
+    "git push --force-with-lease origin main",
+    "git push -f origin main",
+    "git push origin +feature:main",
+    "git -c core.pager=cat push --force origin main",
+    "git status && git push --force origin main",
+  ])("calls %s a force push and not reversible", (command) => {
+    const description = describePush(command);
+    expect(description.headline).toBe("FORCE PUSH");
+    expect(description.reversible).toBe(false);
+  });
+
+  it.each([
+    "git push origin main",
+    "git push origin main && rm -f notes.txt",
+    "git status && git log -f",
+  ])("doesn't call %s a force push", (command) => {
+    const description = describePush(command);
+    expect(description.headline).toBe("MERGE");
+    expect(description.reversible).toBeUndefined();
+  });
+});
+
+describe("uniqueFlags", () => {
+  it("says a thing once when two rules say the same, as a customer's and a destination's 24 h totals do", () => {
+    const flag = { code: "aggregate_limit", text: "With this call the 24h total reaches ₹23,600, over the ₹10,000 limit" };
+    const other = { code: "new_destination", text: "Destination added in the last 24 h" };
+    expect(uniqueFlags([flag, other, { ...flag }])).toEqual([flag, other]);
   });
 });

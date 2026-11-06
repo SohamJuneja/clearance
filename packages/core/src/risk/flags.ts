@@ -35,6 +35,16 @@ function ruleFlagText(code: string, extracted: Record<string, unknown>, _currenc
   }
 }
 
+/** Two rules can say the same thing, as a customer's and a destination's 24 h totals do. A card says it once. */
+export function uniqueFlags(flags: Flag[]): Flag[] {
+  const seen = new Set<string>();
+  return flags.filter((flag) => {
+    if (seen.has(flag.text)) return false;
+    seen.add(flag.text);
+    return true;
+  });
+}
+
 export function aggregateFlag(prior: number, value: number, over: number, windowText: string, currency: string): Flag {
   const total = formatMoney(prior + value, currency);
   return {

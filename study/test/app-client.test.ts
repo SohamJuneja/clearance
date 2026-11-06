@@ -1,9 +1,8 @@
 /**
  * Runs the real browser client (app/public/app.js) against the real server through a small fake DOM.
  *
- * This repo's environment rules out Playwright, so this is what stands between a typo in the client
- * and a participant finding it. It proves the client's logic and its calls to the server. It says
- * nothing about layout: how it looks on a phone needs a person to check it.
+ * It proves the client's logic and its calls to the server, and it runs with the unit tests. It says nothing
+ * about layout, or about a browser's own behaviour: `pnpm study:e2e` covers those in real browsers at phone size.
  */
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import type { Server } from "node:http";
@@ -30,6 +29,8 @@ class FakeNode {
   autocomplete = "";
   rows = 0;
   maxLength = 0;
+  attributes = new Map<string, string>();
+  focused = false;
   private ownText = "";
   constructor(readonly tag: string) {}
 
@@ -42,9 +43,15 @@ class FakeNode {
   addEventListener(type: string, listener: (event?: unknown) => void) {
     this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
   }
-  fire(type: string) {
+  fire(type: string, event?: unknown) {
     if (this.disabled) return;
-    for (const listener of this.listeners.get(type) ?? []) listener();
+    for (const listener of this.listeners.get(type) ?? []) listener(event);
+  }
+  setAttribute(name: string, value: string) {
+    this.attributes.set(name, value);
+  }
+  focus() {
+    this.focused = true;
   }
   click() {
     this.fire("click");
@@ -96,7 +103,7 @@ afterEach(async () => {
 });
 
 /** Boots the client for one participant and hands back ways to read and press what it drew. */
-async function open(participant: string) {
+async function open(participant: string, options: { tapGuardMs?: number } = {}) {
   const root = new FakeNode("div");
   const document = fakeDocument();
   let clock = 1000;
@@ -120,6 +127,7 @@ async function open(participant: string) {
     setTimeout: (callback: () => void) => timers.push(callback),
     clearTimeout: () => {},
     scrollToTop: () => {},
+    ...options,
   });
   const flush = async () => {
     for (let i = 0; i < 4; i += 1) {
@@ -344,15 +352,168 @@ describe("the client, driving the real server", () => {
     expect(page.button("Send").disabled).toBe(false);
   });
 
+  /** p03's first typed card, with the practice cards behind it. */
+  async function atTypedCard(options: { tapGuardMs?: number } = {}) {
+    const page = await open("p03", options);
+    await passConsent(page);
+    await page.press("Continue");
+    page.advanceClock(1000);
+    await page.press("Approve");
+    page.advanceClock(1000);
+    await page.press("Allow once");
+    while (!page.root.all().some((n) => n.className === "confirm-input")) {
+      page.advanceClock(1000);
+      await page.press("Deny");
+    }
+    page.advanceClock(1000);
+    return { page, input: page.root.all().find((n) => n.className === "confirm-input")! };
+  }
+
+  it("says what to do when Send is pressed on an empty box, rather than nothing", async () => {
+    const { page, input } = await atTypedCard();
+    await page.press("Send");
+    expect(page.text()).toContain('Type the value first, or press "No, deny".');
+    expect(input.focused, "the cursor goes to the box").toBe(true);
+  });
+
+  it("sends on Enter, which is the Go key on a phone keyboard", async () => {
+    const { page, input } = await atTypedCard();
+    const before = log("p03").filter((e) => e.type === "confirm_wrong").length;
+    let prevented = false;
+    input.value = "wrong";
+    input.fire("keydown", { key: "a", preventDefault: () => (prevented = true) });
+    await page.flush();
+    expect(prevented).toBe(false);
+    expect(log("p03").filter((e) => e.type === "confirm_wrong")).toHaveLength(before);
+    input.fire("keydown", { key: "Enter", preventDefault: () => (prevented = true) });
+    await page.flush();
+    expect(prevented).toBe(true);
+    expect(log("p03").filter((e) => e.type === "confirm_wrong")).toHaveLength(before + 1);
+  });
+
+  it("will not let a phone change the value being typed, and keeps it to what the server reads", async () => {
+    const { input } = await atTypedCard();
+    expect(input.attributes.get("autocapitalize")).toBe("none");
+    expect(input.attributes.get("autocorrect")).toBe("off");
+    expect(input.attributes.get("spellcheck")).toBe("false");
+    expect(input.maxLength).toBe(200);
+  });
+
+  it("asks once before stopping, because it can't be undone", async () => {
+    const page = await open("p01");
+    await passConsent(page);
+    await page.press("Continue");
+    page.button("Stop the study").click();
+    expect(page.text()).toContain("Stop the study for good?");
+    expect(page.text()).toContain("open the same link later");
+    expect(log("p01").some((e) => e.type === "stopped"), "the first tap records nothing").toBe(false);
+
+    await page.press("Keep going");
+    expect(page.text()).not.toContain("Stop the study for good?");
+    expect(page.button("Allow once")).toBeTruthy();
+    expect(log("p01").some((e) => e.type === "stopped")).toBe(false);
+  });
+
+  it("does not count time spent on that question as time on the card", async () => {
+    const page = await open("p01");
+    await passConsent(page);
+    await page.press("Continue");
+    page.button("Stop the study").click();
+    await page.press("Keep going");
+    await page.press("Allow once");
+    expect(log("p01").find((e) => e.type === "practice")).toMatchObject({ interrupted: true });
+  });
+
+  it("flags a card the page opened on, because its clock started late", async () => {
+    const page = await open("p01");
+    await passConsent(page);
+    await page.press("Continue");
+    await page.press("Allow once");
+    await page.press("Approve");
+    await page.press("Decline");
+
+    const reloaded = await open("p01");
+    reloaded.advanceClock(300);
+    await reloaded.press("Decline");
+    const decisions = log("p01").filter((e) => e.type === "decision");
+    expect(decisions.map((e) => (e as { interrupted: boolean }).interrupted)).toEqual([false, true]);
+    await reloaded.press("Decline");
+    expect(log("p01").filter((e) => e.type === "decision").at(-1)).toMatchObject({ interrupted: false });
+  });
+
+  it("flags a card that had a failed send, because the clock ran through it", async () => {
+    const page = await open("p01");
+    await passConsent(page);
+    await page.press("Continue");
+    const closed = new Promise((resolve) => server.close(resolve));
+    server.closeAllConnections();
+    await closed;
+    page.button("Allow once").click();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(page.text()).toContain("Your answers so far are safe");
+    server = createLabServer({ resultsDir: dir, secret: SECRET, synthetic: true });
+    await new Promise<void>((resolve) => server.listen(Number(new URL(base).port), "127.0.0.1", resolve));
+    await page.press("Try again");
+    await page.press("Allow once");
+    expect(log("p01").find((e) => e.type === "practice")).toMatchObject({ interrupted: true });
+  });
+
+  it("still takes an answer from a phone put down for hours, with its time capped and flagged", async () => {
+    const page = await open("p01");
+    await passConsent(page);
+    await page.press("Continue");
+    await page.press("Allow once");
+    await page.press("Approve");
+    page.advanceClock(5 * 60 * 60 * 1000);
+    await page.press("Decline");
+    expect(page.text()).toContain("card 2 of 12");
+    expect(log("p01").find((e) => e.type === "decision")).toMatchObject({ ms: 60 * 60 * 1000, interrupted: true });
+  });
+
+  it("ignores a tap in the moment after a card appears, so a double tap can't answer the next card", async () => {
+    const page = await open("p01", { tapGuardMs: 600 });
+    await passConsent(page);
+    await page.press("Continue");
+    page.advanceClock(1000);
+    await page.press("Allow once");
+    page.advanceClock(1000);
+    await page.press("Approve");
+    expect(log("p01").filter((e) => e.type === "practice")).toHaveLength(2);
+
+    page.advanceClock(200);
+    const first = page.button("Decline");
+    first.click();
+    await page.flush();
+    expect(log("p01").filter((e) => e.type === "decision"), "too soon: nobody has read it").toHaveLength(0);
+    expect(first.disabled, "and it isn't locked, so the next tap counts").toBe(false);
+
+    page.advanceClock(400);
+    first.click();
+    await page.flush();
+    expect(log("p01").filter((e) => e.type === "decision")).toHaveLength(1);
+    expect(log("p01").find((e) => e.type === "decision")).toMatchObject({ ms: 600 });
+  });
+
+  it("ignores a typed Send in that moment too", async () => {
+    const { page, input } = await atTypedCard({ tapGuardMs: 600 });
+    input.value = "wrong";
+    page.advanceClock(-1000 + 100);
+    const before = log("p03").length;
+    await page.press("Send");
+    expect(log("p03")).toHaveLength(before);
+  });
+
   it("offers a way to stop on every screen after consent", async () => {
     const page = await open("p01");
     await passConsent(page);
     expect(page.button("Stop the study")).toBeTruthy();
     await page.press("Continue");
     expect(page.button("Stop the study")).toBeTruthy();
-    await page.press("Stop the study");
+    page.button("Stop the study").click();
+    await page.press("Yes, stop");
     expect(page.text()).toContain("You've stopped the study");
     expect(page.buttons()).toHaveLength(0);
+    expect(log("p01").at(-1)!.type).toBe("stopped");
   });
 
   it("a reload lands on the same card", async () => {

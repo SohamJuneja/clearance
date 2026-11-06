@@ -40,6 +40,11 @@ export const DEBRIEF_DATA = "Raw results are deleted after the hackathon is judg
 
 export const STOPPED_MESSAGE = "You've stopped the study. Nothing else will be recorded. Thank you for your time.";
 
+/** Stopping can't be undone and the link sits under every card, so it asks once. Pausing needs no stop at all. */
+export const STOP_QUESTION = "Stop the study for good? You can't pick it up again afterwards. If you only need a pause, close this page and open the same link later: it picks up where you left off.";
+export const STOP_KEEP_GOING = "Keep going";
+export const STOP_YES = "Yes, stop";
+
 // In Switch (study/bot): the same study, as real cards in a private room.
 
 export const SWITCH_WELCOME =
@@ -67,4 +72,5 @@ export const CONFIRM_REASK = 'That doesn\'t match the card. Try once more, or pr
 
 /** On a typed card in the Lab, whose box needs only the value where the real card takes a code and quotes. */
 export const LAB_TYPED_HINT = "Just the value is enough here. No code or quotes needed.";
+export const LAB_TYPED_EMPTY = 'Type the value first, or press "No, deny".';
 export const CONFIRM_FAILED = "That didn't match either, so this request was not approved.";

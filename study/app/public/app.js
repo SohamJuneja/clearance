@@ -24,12 +24,16 @@ export function parseInline(line) {
 
 const MENTION = /^@you$/;
 
+/** Shown when the server can't be reached, which can be before any text has come from it. */
+const NOT_THROUGH = "Something went wrong and that didn't go through. Check your connection and try again. Your answers so far are safe.";
+
 export function boot(env) {
-  const { root, document, fetch, pathname, now, afterPaint, setTimeout, clearTimeout, scrollToTop } = env;
+  const { root, document, fetch, pathname, now, afterPaint, setTimeout, clearTimeout, scrollToTop, tapGuardMs = 0 } = env;
   const token = pathname.split("/").filter(Boolean).pop();
   let copy = null;
   let hiddenDuringCard = false;
   let timing = { requestId: null, at: null };
+  let firstDraw = true;
 
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") hiddenDuringCard = true;
@@ -69,22 +73,31 @@ export function boot(env) {
       const data = await call(action, body);
       copy = data.copy;
       draw(data.step, data.notice);
-    } catch (error) {
-      root.replaceChildren(
-        el(
-          "main",
-          "panel",
-          el("p", "error", `Something went wrong: ${error.message}`),
-          button("Try again", "primary", () => void advance("state")),
-        ),
-      );
+    } catch {
+      // The clock is still running on whatever card this was, through however long this takes to clear.
+      hiddenDuringCard = true;
+      root.replaceChildren(el("main", "panel", el("p", "error", NOT_THROUGH), button("Try again", "primary", () => void advance("state"))));
     }
   }
 
-  const stopLink = () =>
-    button("Stop the study", "stop", () => {
-      void advance("stop", {});
+  /** Asks once first: this can't be undone, and it sits just under the buttons someone is tapping. */
+  const stopLink = (beforeStop) => {
+    const area = el("div", "stop-area");
+    const ask = button("Stop the study", "stop", () => {
+      // Time spent on this question is not time spent on the card.
+      hiddenDuringCard = true;
+      area.replaceChildren(
+        el("p", "stop-question", copy.stopQuestion),
+        button(copy.stopKeepGoing, "card-button", () => area.replaceChildren(ask)),
+        button(copy.stopYes, "stop-yes", () => {
+          if (beforeStop) beforeStop();
+          void advance("stop", {});
+        }),
+      );
     });
+    area.append(ask);
+    return area;
+  };
 
   function panel(...children) {
     return el("main", "panel", ...children);
@@ -179,16 +192,22 @@ export function boot(env) {
     return body;
   }
 
-  function drawCard(step, notice) {
+  function drawCard(step, notice, openedHere) {
     // A re-asked card is redrawn with the same id. It is still one decision, so the clock keeps running.
     const isNewCard = timing.requestId !== step.request_id;
     if (isNewCard) {
       timing = { requestId: step.request_id, at: null };
-      hiddenDuringCard = false;
+      // A page that opens on a card, from a reload or a second tab, starts its clock late. Its time isn't a real one.
+      hiddenDuringCard = openedHere;
     }
+    // A double tap's second tap lands on whatever has just been drawn under the finger. That is not an answer to it.
+    const drawnAt = now();
+    const settled = () => now() - drawnAt >= tapGuardMs;
     const answer = (fields) => {
       const ms = Math.max(1, Math.round(now() - (timing.at ?? now())));
-      void advance("answer", { request_id: step.request_id, ms, interrupted: hiddenDuringCard, ...fields });
+      // A phone put down for hours must not leave its owner unable to answer. Past the limit, nobody was reading.
+      const overLimit = ms > copy.maxCardMs;
+      void advance("answer", { request_id: step.request_id, ms: Math.min(ms, copy.maxCardMs), interrupted: hiddenDuringCard || overLimit, ...fields });
     };
 
     const controls = el("div", "actions");
@@ -197,20 +216,39 @@ export function boot(env) {
       for (const node of lockable) node.disabled = true;
     };
     if (step.card.typeToConfirm) {
+      const hint = el("p", "typed-hint", copy.typedHint);
       const input = el("input", "confirm-input");
       input.type = "text";
       input.autocomplete = "off";
       input.placeholder = "Type your answer";
-      const send = button("Send", "primary", () => {
-        if (!input.value.trim()) return;
+      input.maxLength = 200;
+      // A phone must not change the value being confirmed, or make it look wrong to the person typing it.
+      input.setAttribute("autocapitalize", "none");
+      input.setAttribute("autocorrect", "off");
+      input.setAttribute("spellcheck", "false");
+      input.setAttribute("enterkeyhint", "send");
+      const sendTyped = () => {
+        if (!settled()) return;
+        if (!input.value.trim()) {
+          hint.textContent = copy.typedEmpty;
+          input.focus();
+          return;
+        }
         lock();
         answer({ typed: input.value });
+      };
+      input.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        if (!lockable[0].disabled) sendTyped();
       });
+      const send = button("Send", "primary", sendTyped);
       lockable.push(send);
-      controls.append(el("p", "typed-hint", copy.typedHint), input, send);
+      controls.append(hint, input, send);
     }
     for (const label of step.card.buttons) {
       const node = button(label, "card-button", () => {
+        if (!settled()) return;
         lock();
         answer({ label });
       });
@@ -277,11 +315,7 @@ export function boot(env) {
     };
     if (left <= 0) go.disabled = false;
     else timer = setTimeout(tick, 1000);
-    const stop = button("Stop the study", "stop", () => {
-      clearTimeout(timer);
-      void advance("stop", {});
-    });
-    root.replaceChildren(panel(el("h1", null, "Take a short break"), counter, go, stop));
+    root.replaceChildren(panel(el("h1", null, "Take a short break"), counter, go, stopLink(() => clearTimeout(timer))));
   }
 
   function drawComment() {
@@ -316,6 +350,8 @@ export function boot(env) {
   }
 
   function draw(step, notice) {
+    const openedHere = firstDraw;
+    firstDraw = false;
     switch (step.step) {
       case "consent":
         return drawConsent();
@@ -323,7 +359,7 @@ export function boot(env) {
         return drawBriefing();
       case "practice":
       case "card":
-        return drawCard(step, notice);
+        return drawCard(step, notice, openedHere);
       case "confidence":
         return drawConfidence(step);
       case "break":

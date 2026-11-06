@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { StudyEvent } from "../../study/lib/events";
 import { analyse, WILCOXON_MIN_N } from "./analysis";
 import { syntheticSession, type SyntheticConditionPlan } from "./fixtures/synthetic";
-import { DEFAULT_OUT_FILE, DEFAULT_RESULTS_DIR, readResults, runStudyEval } from "./run";
+import { DEFAULT_OUT_FILE, DEFAULT_RESULTS_DIR, pathsFromEnv, readResults, runStudyEval } from "./run";
 import { bootstrapMeanCi, median, quantile, spread, wilcoxonSignedRank } from "./stats";
 
 const AT = "2026-11-06T00:00:00.000Z";
@@ -322,6 +322,23 @@ describe("eval:study, the runner", () => {
   it("ignores other files in the directory", () => {
     writeFileSync(join(dir, "notes.txt"), "not results");
     expect(readResults(dir)).toEqual([]);
+  });
+
+  it("reads a rehearsal's folder from STUDY_RESULTS_DIR, and keeps its report out of eval/out", () => {
+    writeSession("p01.jsonl", syntheticSession(id(1), { A: plan({ catches: 1 }), B: plan({ catches: 3 }) }));
+    const paths = pathsFromEnv({ STUDY_RESULTS_DIR: dir });
+    expect(paths).toEqual({ resultsDir: dir, outFile: join(dir, "study-report.json") });
+    const report = runStudyEval(paths);
+    expect(report.participants.completed).toBe(1);
+    expect(report.synthetic).toBe(true);
+    expect(report.headline, "a rehearsal reports no number").toBeNull();
+    expect(report.label).toMatch(/Not a result/);
+    expect(readResults(dir), "its own report is not read back as results").toHaveLength(syntheticSession(id(1), { A: plan(), B: plan() }).length);
+  });
+
+  it("without STUDY_RESULTS_DIR, reads the real results and writes eval/out", () => {
+    expect(pathsFromEnv({})).toEqual({ resultsDir: DEFAULT_RESULTS_DIR, outFile: DEFAULT_OUT_FILE });
+    expect(pathsFromEnv({ STUDY_RESULTS_DIR: DEFAULT_RESULTS_DIR }), "naming the real folder is the same thing").toEqual({ resultsDir: DEFAULT_RESULTS_DIR, outFile: DEFAULT_OUT_FILE });
   });
 
   it("the real results directory refuses synthetic events and writes no report", () => {

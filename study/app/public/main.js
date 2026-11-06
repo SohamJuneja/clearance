@@ -11,4 +11,11 @@ boot({
   setTimeout: window.setTimeout.bind(window),
   clearTimeout: window.clearTimeout.bind(window),
   scrollToTop: () => window.scrollTo(0, 0),
+  // Under any real read of a card, and over the gap in a double tap.
+  tapGuardMs: 600,
+});
+
+// Back and forward can restore this page from memory, as it was. The server knows where the session really is.
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) window.location.reload();
 });

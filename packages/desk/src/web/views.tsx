@@ -77,13 +77,13 @@ function QueueRow({ item, nowMs }: { item: QueueItem; nowMs: number }) {
           </ul>
         ) : null}
       </td>
-      <td>
+      <td data-label="Tier">
         <TierMark tier={item.tier} />
         <div className="muted small" data-testid={`queue-score-${item.id}`}>
           Score {item.score}
         </div>
       </td>
-      <td data-testid={`queue-waiting-${item.id}`}>
+      <td data-label="Waiting on" data-testid={`queue-waiting-${item.id}`}>
         {item.waiting_on.length > 0 ? (
           item.waiting_on.map((holder) => (
             <div key={holder.person}>
@@ -103,14 +103,14 @@ function QueueRow({ item, nowMs }: { item: QueueItem; nowMs: number }) {
           </div>
         ) : null}
       </td>
-      <td className="num" data-testid={`queue-age-${item.id}`}>
+      <td className="num" data-label="Age" data-testid={`queue-age-${item.id}`}>
         {formatAge(item.created_at, nowMs)}
       </td>
-      <td>
+      <td data-label="Escalation">
         <div data-testid={`queue-escalation-${item.id}`}>{escalationText(item)}</div>
         {escalationNote(item) ? <div className="muted small">{escalationNote(item)}</div> : null}
       </td>
-      <td className="num" data-testid={`queue-expires-${item.id}`}>
+      <td className="num" data-label="Expires" data-testid={`queue-expires-${item.id}`}>
         {formatUntil(item.expires_at, nowMs)}
       </td>
     </tr>
@@ -132,7 +132,7 @@ export function QueueTab({ data, nowMs }: { data: QueueView; nowMs: number }) {
       {sorted.length === 0 ? (
         <Empty title="No open requests listed.">Held requests appear here once an agent is stopped.</Empty>
       ) : (
-        <table data-testid="queue-table">
+        <table className="stack" data-testid="queue-table">
           <thead>
             <tr>
               <th>Request</th>
@@ -171,11 +171,12 @@ export function ChainBadge({ verify }: { verify: LedgerVerification }) {
   );
 }
 
-function matches(entry: LedgerEntry, type: string, request: string, text: string): boolean {
+function matches(entry: LedgerEntry, names: Record<string, string>, type: string, request: string, text: string): boolean {
   if (type && entry.type !== type) return false;
-  if (request && !(entry.request_id ?? "").toLowerCase().includes(request.toLowerCase())) return false;
-  if (text && !JSON.stringify(entry.payload).toLowerCase().includes(text.toLowerCase())) return false;
-  return true;
+  if (request && !(entry.request_id ?? "").toLowerCase().includes(request.trim().toLowerCase())) return false;
+  // What the row says as well as what it holds: someone searches for the words they can see.
+  const searched = `${summariseEntry(entry.type, entry.payload, names)} ${JSON.stringify(entry.payload)}`.toLowerCase();
+  return !text || searched.includes(text.trim().toLowerCase());
 }
 
 export function LedgerTab({ data, verify }: { data: LedgerView; verify: LedgerVerification }) {
@@ -183,7 +184,7 @@ export function LedgerTab({ data, verify }: { data: LedgerView; verify: LedgerVe
   const [request, setRequest] = useState("");
   const [text, setText] = useState("");
   const types = useMemo(() => [...new Set(data.entries.map((entry) => entry.type))].sort(), [data.entries]);
-  const filtered = useMemo(() => data.entries.filter((entry) => matches(entry, type, request, text)).reverse(), [data.entries, type, request, text]);
+  const filtered = useMemo(() => data.entries.filter((entry) => matches(entry, data.names, type, request, text)).reverse(), [data.entries, data.names, type, request, text]);
   const shown = filtered.slice(0, ROW_LIMIT);
   const filtering = Boolean(type || request || text);
 
@@ -235,7 +236,7 @@ export function LedgerTab({ data, verify }: { data: LedgerView; verify: LedgerVe
       {shown.length === 0 ? (
         <Empty title={filtering ? "No entries match these filters." : "The ledger is empty."}>{filtering ? null : "Core writes its first entry when it loads a policy."}</Empty>
       ) : (
-        <table data-testid="ledger-table">
+        <table className="stack" data-testid="ledger-table">
           <thead>
             <tr>
               <th className="num">#</th>
@@ -248,12 +249,18 @@ export function LedgerTab({ data, verify }: { data: LedgerView; verify: LedgerVe
           <tbody>
             {shown.map((entry) => (
               <tr key={entry.seq} data-testid={`ledger-row-${entry.seq}`}>
-                <td className="num muted">{entry.seq}</td>
-                <td className="nowrap num-left">{formatDateTime(Date.parse(entry.at))}</td>
-                <td className="nowrap" data-testid={`ledger-type-${entry.seq}`}>
+                <td className="num muted" data-label="Entry">
+                  {entry.seq}
+                </td>
+                <td className="nowrap num-left" data-label="Time">
+                  {formatDateTime(Date.parse(entry.at))}
+                </td>
+                <td className="nowrap" data-label="Type" data-testid={`ledger-type-${entry.seq}`}>
                   {sentenceCase(entry.type)}
                 </td>
-                <td className="nowrap">{entry.request_id ?? <span className="muted">–</span>}</td>
+                <td className="nowrap" data-label="Request">
+                  {entry.request_id ?? <span className="muted">–</span>}
+                </td>
                 <td className="cell-wide">
                   <details>
                     <summary>{summariseEntry(entry.type, entry.payload, data.names) || "Details"}</summary>
@@ -382,7 +389,7 @@ const scopeId = (row: { agent: string; class: string; bucket: string }) => `${ro
 
 function ReplayTable({ rows }: { rows: BucketReplay[] }) {
   return (
-    <table data-testid="replay-table">
+    <table className="stack" data-testid="replay-table">
       <thead>
         <tr>
           <th>Scope</th>
@@ -402,42 +409,42 @@ function ReplayTable({ rows }: { rows: BucketReplay[] }) {
           const id = `replay-${scopeId(row)}`;
           return (
             <tr key={scopeKey(row)} data-testid={id}>
-              <td>
+              <td className="stack-full">
                 <div className="strong">{row.agent}</div>
                 <div className="muted small">
                   {sentenceCase(row.class)} · {row.label}
                 </div>
               </td>
-              <td className="nowrap" data-testid={`${id}-level`}>
+              <td className="nowrap" data-label="Level" data-testid={`${id}-level`}>
                 {row.proposed_level ? `${row.level} to ${row.proposed_level}` : row.level}
                 <div className="muted small">Highest {row.max_level}</div>
               </td>
-              <td className="num">
+              <td className="num" data-label="Approvals counted">
                 <span data-testid={`${id}-counted`}>
                   {formatCount(row.counted)} of {formatCount(row.needs.approvals)}
                 </span>
                 <div className="muted small">{row.window_days} days</div>
               </td>
-              <td className="num" data-testid={`${id}-fast`}>
+              <td className="num" data-label="Too fast to count" data-testid={`${id}-fast`}>
                 {formatCount(row.fast_excluded)}
               </td>
-              <td className="num" data-testid={`${id}-denied`}>
+              <td className="num" data-label="Denied" data-testid={`${id}-denied`}>
                 {formatCount(row.denied)}
               </td>
-              <td className="num" data-testid={`${id}-incidents`}>
+              <td className="num" data-label="Incidents" data-testid={`${id}-incidents`}>
                 {formatCount(row.incidents)}
               </td>
-              <td className="num" data-testid={`${id}-approvers`}>
+              <td className="num" data-label="Approvers" data-testid={`${id}-approvers`}>
                 {row.approvers} of {row.needs.min_distinct_approvers}
               </td>
-              <td className="num">
+              <td className="num" data-label="Would have run alone">
                 <span data-testid={`${id}-auto`}>{formatCount(row.would_auto)}</span>
                 <div className="muted small" data-testid={`${id}-auto-split`}>
                   {formatCount(row.would_auto_approved)} approved, {formatCount(row.would_auto_denied)} denied
                 </div>
               </td>
-              <td data-testid={`${id}-meets`}>{row.meets_criteria ? <Status kind="good">Met</Status> : <Status kind="idle">Not yet</Status>}</td>
-              <td className="nowrap" data-testid={`${id}-evidence`}>
+              <td data-label="Bar for promotion" data-testid={`${id}-meets`}>{row.meets_criteria ? <Status kind="good">Met</Status> : <Status kind="idle">Not yet</Status>}</td>
+              <td className="nowrap" data-label="Evidence" data-testid={`${id}-evidence`}>
                 {formatCount(row.real_events)} real
                 {row.synthetic_events > 0 ? <div className="muted small">{formatCount(row.synthetic_events)} synthetic</div> : null}
               </td>
@@ -522,7 +529,7 @@ export function AutonomyTab({ data, replay }: { data: AutonomyView; replay: Repl
         {data.levels.length === 0 ? (
           <Empty title="Every agent is at L0, Always ask.">Core stores a level only once it changes from the default.</Empty>
         ) : (
-          <table data-testid="autonomy-table">
+          <table className="stack" data-testid="autonomy-table">
             <thead>
               <tr>
                 <th>Agent</th>
@@ -535,13 +542,15 @@ export function AutonomyTab({ data, replay }: { data: AutonomyView; replay: Repl
             <tbody>
               {data.levels.map((row) => (
                 <tr key={scopeKey(row)} data-testid={`autonomy-row-${scopeId(row)}`}>
-                  <td className="strong">{row.agent}</td>
-                  <td>{sentenceCase(row.class)}</td>
-                  <td>{sentenceCase(row.bucket)}</td>
-                  <td>
+                  <td className="strong stack-full">{row.agent}</td>
+                  <td data-label="Class">{sentenceCase(row.class)}</td>
+                  <td data-label="Scope">{sentenceCase(row.bucket)}</td>
+                  <td data-label="Level">
                     <LadderMark level={row.level} /> <span data-testid={`autonomy-level-${scopeId(row)}`}>{row.level}</span>
                   </td>
-                  <td className="nowrap">{formatDateTime(row.since)}</td>
+                  <td className="nowrap" data-label="Since">
+                    {formatDateTime(row.since)}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -552,7 +561,7 @@ export function AutonomyTab({ data, replay }: { data: AutonomyView; replay: Repl
         {data.proposals.length === 0 ? (
           <Empty title="No promotion has been proposed yet.">Core proposes one when a scope clears its bar.</Empty>
         ) : (
-          <table data-testid="proposal-table">
+          <table className="stack" data-testid="proposal-table">
             <thead>
               <tr>
                 <th>Proposal</th>
@@ -571,14 +580,14 @@ export function AutonomyTab({ data, replay }: { data: AutonomyView; replay: Repl
                       <pre>{proposal.detail}</pre>
                     </details>
                   </td>
-                  <td data-testid={`proposal-${proposal.id}-state`}>{sentenceCase(proposal.state)}</td>
-                  <td>
+                  <td data-label="State" data-testid={`proposal-${proposal.id}-state`}>{sentenceCase(proposal.state)}</td>
+                  <td data-label="Signed">
                     <span data-testid={`proposal-${proposal.id}-signed`}>
                       {proposal.signed_by.length} of {proposal.quorum}
                     </span>
                     {proposal.signed_by.length > 0 ? <div className="muted small">{joinNames(proposal.signed_by)}</div> : null}
                   </td>
-                  <td className="nowrap">{proposal.decided_at ? `Decided ${formatDateTime(Date.parse(proposal.decided_at))}` : `Expires ${formatDateTime(Date.parse(proposal.expires_at))}`}</td>
+                  <td className="nowrap stack-full" data-label="When">{proposal.decided_at ? `Decided ${formatDateTime(Date.parse(proposal.decided_at))}` : `Expires ${formatDateTime(Date.parse(proposal.expires_at))}`}</td>
                 </tr>
               ))}
             </tbody>
@@ -595,7 +604,7 @@ export function AutonomyTab({ data, replay }: { data: AutonomyView; replay: Repl
         {load.by_class.length === 0 ? (
           <Empty title="No real traffic yet." />
         ) : (
-          <table data-testid="load-table">
+          <table className="stack" data-testid="load-table">
             <thead>
               <tr>
                 <th>Class</th>
@@ -607,14 +616,14 @@ export function AutonomyTab({ data, replay }: { data: AutonomyView; replay: Repl
             <tbody>
               {load.by_class.map((row) => (
                 <tr key={row.class}>
-                  <td>{sentenceCase(row.class)}</td>
-                  <td className="num" data-testid={`load-${row.class}-actions`}>
+                  <td className="strong-on-phone stack-full">{sentenceCase(row.class)}</td>
+                  <td className="num" data-label="Agent actions" data-testid={`load-${row.class}-actions`}>
                     {formatCount(row.agent_actions)}
                   </td>
-                  <td className="num" data-testid={`load-${row.class}-decisions`}>
+                  <td className="num" data-label="Human decisions" data-testid={`load-${row.class}-decisions`}>
                     {formatCount(row.human_decisions)}
                   </td>
-                  <td className="num" data-testid={`load-${row.class}-per-100`}>
+                  <td className="num" data-label="Per 100" data-testid={`load-${row.class}-per-100`}>
                     {formatRate(row.per_100)}
                   </td>
                 </tr>
@@ -627,7 +636,7 @@ export function AutonomyTab({ data, replay }: { data: AutonomyView; replay: Repl
         {history.length === 0 ? (
           <Empty title="No promotions or demotions recorded yet." />
         ) : (
-          <table data-testid="autonomy-history">
+          <table className="stack" data-testid="autonomy-history">
             <thead>
               <tr>
                 <th>Time</th>
@@ -638,8 +647,12 @@ export function AutonomyTab({ data, replay }: { data: AutonomyView; replay: Repl
             <tbody>
               {history.map((entry) => (
                 <tr key={entry.seq}>
-                  <td className="nowrap">{formatDateTime(Date.parse(entry.at))}</td>
-                  <td className="nowrap">{sentenceCase(entry.type)}</td>
+                  <td className="nowrap" data-label="Time">
+                    {formatDateTime(Date.parse(entry.at))}
+                  </td>
+                  <td className="nowrap" data-label="Event">
+                    {sentenceCase(entry.type)}
+                  </td>
                   <td className="cell-wide">{summariseEntry(entry.type, entry.payload, data.names)}</td>
                 </tr>
               ))}
@@ -652,6 +665,9 @@ export function AutonomyTab({ data, replay }: { data: AutonomyView; replay: Repl
 }
 
 // ── People ───────────────────────────────────────────────────────────────────
+
+/** "eng-leads" is an id in team.yaml. On a page it reads as "Eng leads". */
+const plainName = (id: string) => sentenceCase(id.replace(/-/g, " "));
 
 function teamDrillsText(drills: TeamDrills): string {
   const why = "so that nobody's own result can be worked out.";
@@ -678,7 +694,7 @@ function TeamView({ data }: { data: PeopleView }) {
       </p>
       <p className="muted small after-stats">Time to answer isn't totalled here, because medians don't add up across people.</p>
       <Section title="The team">
-        <table data-testid="people-table">
+        <table className="stack" data-testid="people-table">
           <thead>
             <tr>
               <th>Person</th>
@@ -690,10 +706,10 @@ function TeamView({ data }: { data: PeopleView }) {
           <tbody>
             {data.people.map((row) => (
               <tr key={row.id} data-testid={`people-row-${row.id}`}>
-                <td className="strong">{row.name}</td>
-                <td>{row.groups.map(sentenceCase).join(", ") || "–"}</td>
-                <td>{row.roles.map(sentenceCase).join(", ") || "–"}</td>
-                <td data-testid={`people-away-${row.id}`}>
+                <td className="strong stack-full">{row.name}</td>
+                <td data-label="Groups">{row.groups.map(plainName).join(", ") || "–"}</td>
+                <td data-label="Roles">{row.roles.map(plainName).join(", ") || "–"}</td>
+                <td className="stack-full" data-label="Away" data-testid={`people-away-${row.id}`}>
                   {row.away ? `Until ${formatDateTime(Date.parse(row.away.until))}${row.away.delegate_to ? `, ${data.people.find((person) => person.id === row.away?.delegate_to)?.name ?? row.away.delegate_to} covering` : ""}` : <span className="muted">–</span>}
                 </td>
               </tr>
@@ -714,7 +730,7 @@ const TIER_ORDER = ["low", "medium", "high", "critical"];
 function TierChart({ byTier }: { byTier: PersonDetail["stats"]["by_tier"] }) {
   const longest = Math.max(0, ...TIER_ORDER.map((tier) => byTier[tier]?.median_latency_ms ?? 0));
   return (
-    <table className="tier-chart" data-testid="person-tier-chart">
+    <table className="tier-chart fits" data-testid="person-tier-chart">
       <thead>
         <tr>
           <th>Tier</th>
@@ -782,7 +798,7 @@ export function PersonRecord({ data }: { data: PersonDetail }) {
           <p className="muted small section-foot">Careful review takes longer as risk rises. Bars that stay flat across tiers can mean cards aren't being read.</p>
         </Section>
         <Section title="Attention signals">
-          <table data-testid="person-signals">
+          <table className="fits" data-testid="person-signals">
             <tbody>
               <tr>
                 <td>Fast approvals</td>
@@ -1050,7 +1066,7 @@ export function PolicyTab({ data, simulate }: { data: PolicyView; simulate: Simu
         </Section>
       ) : null}
       <Section title="Classes">
-        <table data-testid="policy-table">
+        <table className="stack" data-testid="policy-table">
           <thead>
             <tr>
               <th>Class</th>
@@ -1066,22 +1082,28 @@ export function PolicyTab({ data, simulate }: { data: PolicyView; simulate: Simu
           <tbody>
             {data.classes.map((row) => (
               <tr key={row.name} data-testid={`policy-class-${row.name}`}>
-                <td>
+                <td className="stack-full">
                   <div className="strong">{sentenceCase(row.name)}</div>
                 </td>
                 {row.decision === "deny" ? (
-                  <td colSpan={7} className="muted">
+                  <td colSpan={7} className="muted stack-full">
                     Always denied, with a reason. Never routed to anyone.
                   </td>
                 ) : (
                   <>
-                    <td className="num">{row.base ?? "–"}</td>
-                    <td className="num">{row.rules}</td>
-                    <td>{row.approvers ?? "–"}</td>
-                    <td>{row.quorum || "–"}</td>
-                    <td>{row.reversible === null ? "–" : row.reversible ? "Yes" : "No"}</td>
-                    <td className="num">{row.escalation_steps}</td>
-                    <td>{row.max_level ?? "–"}</td>
+                    <td className="num" data-label="Base score">
+                      {row.base ?? "–"}
+                    </td>
+                    <td className="num" data-label="Rules">
+                      {row.rules}
+                    </td>
+                    <td data-label="Approvers">{row.approvers ?? "–"}</td>
+                    <td data-label="Quorum">{row.quorum || "–"}</td>
+                    <td data-label="Reversible">{row.reversible === null ? "–" : row.reversible ? "Yes" : "No"}</td>
+                    <td className="num" data-label="Ladder steps">
+                      {row.escalation_steps}
+                    </td>
+                    <td data-label="Highest autonomy">{row.max_level ?? "–"}</td>
                   </>
                 )}
               </tr>

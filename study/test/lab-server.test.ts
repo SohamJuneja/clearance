@@ -245,6 +245,19 @@ describe("phones are messy", () => {
     expect(events("p01")).toHaveLength(before);
   });
 
+  it("a second tab still open can't turn a finished session into a stopped one", async () => {
+    await toCards("p01");
+    await finishBlock("p01", firstButton);
+    await post("p01", "confidence", { block: 1, value: 3 });
+    await post("p01", "break");
+    await finishBlock("p01", firstButton);
+    await post("p01", "confidence", { block: 2, value: 3 });
+    await post("p01", "comment", { text: "" });
+    expect((await post("p01", "stop")).step.step).toBe("debrief");
+    expect(events("p01").some((e) => e.type === "stopped")).toBe(false);
+    expect(events("p01").at(-1)!.type).toBe("session_end");
+  });
+
   it("refuses a button that is not on the card", async () => {
     const first = await toCards("p01");
     const res = await fetch(`${api("p01")}/answer`, { method: "POST", body: JSON.stringify({ request_id: first.step.request_id, ms: 100, label: "Approve" }) });

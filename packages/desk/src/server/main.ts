@@ -30,6 +30,7 @@ if (!existsSync(resolve(distDir, "index.html"))) {
 }
 if (!synthetic && (!token || token === PLACEHOLDER)) {
   console.error("desk: CLEARANCE_INTERNAL_TOKEN is missing or still the placeholder. Generate one with: openssl rand -hex 24");
+  console.error("desk: to look around without core, on labelled synthetic data: pnpm desk:fixture");
   process.exit(1);
 }
 

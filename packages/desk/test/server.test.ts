@@ -191,6 +191,7 @@ describe("failing honestly", () => {
       expect(res.status, route).toBe(502);
       expect(body.error, route).toBe("core_unreachable");
       expect(body.message, route).toContain("not answering");
+      expect(body.message, `${route} says what to do about it`).toContain("just demo");
     }
     core = await startFakeCore();
   });

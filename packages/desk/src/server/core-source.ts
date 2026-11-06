@@ -30,7 +30,7 @@ export function httpCore(options: { url: string; token: string; fetchImpl?: type
       });
     } catch {
       // The cause can carry the request, so it stays out of the message.
-      throw new CoreUnavailable(`Core is not answering at ${url}`);
+      throw new CoreUnavailable(`Core is not answering at ${url}. Start the stack with: just demo. To look around without it, on labelled synthetic data: pnpm desk:fixture.`);
     }
     return { status: res.status, body: await res.text(), contentType: res.headers.get("content-type") ?? "application/json" };
   };

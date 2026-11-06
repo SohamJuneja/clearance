@@ -102,7 +102,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 
 .card-button { background: var(--bg); color: var(--accent); border: 1px solid var(--accent); font-weight: 600; }
 .primary { display: block; background: var(--accent); color: #fff; border: 1px solid var(--accent); font-weight: 600; }
-.stop { display: block; background: none; border: none; color: var(--muted); text-decoration: underline; padding: 8px 0; margin-top: 16px; }
+.stop-area { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; }
+.stop { display: block; background: none; border: none; color: var(--muted); text-decoration: underline; padding: 8px 0; }
+.stop-question { flex-basis: 100%; margin: 0; }
+.stop-yes { background: var(--bg); color: var(--text); border: 1px solid var(--muted); }
 
 .choices { display: flex; gap: 8px; margin: 8px 0 16px; }
 .choice { flex: 1; background: var(--bg); color: var(--text); border: 1px solid var(--line); padding: 8px 0; }

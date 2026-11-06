@@ -29,6 +29,7 @@
     "study:bot": "tsx study/bot/main.ts",
     "study:expose": "bash scripts/study-expose.sh",
     "study:rehearse": "tsx study/tools/rehearsal.ts",
+    "study:e2e": "tsx study/e2e/run.ts",
     "demo:reset": "tsx scripts/demo-reset.ts",
     "demo:smoke": "tsx --env-file=.env scripts/smoke-spine.ts",
     "demo:run": "tsx scripts/demo-run.ts",

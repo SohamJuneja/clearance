@@ -1,5 +1,6 @@
 /**
- * `pnpm eval:study`: reads study/results/*.jsonl and writes eval/out/study.json.
+ * `pnpm eval:study`: reads study/results/*.jsonl and writes eval/out/study.json. With STUDY_RESULTS_DIR, it reads a
+ * rehearsal's folder instead, and writes its report there.
  *
  * It only ever reports what is in the results directory. No results means n = 0 and a null headline,
  * never a placeholder. Synthetic events (from a dry run or a test) in the real results directory stop
@@ -48,6 +49,15 @@ export function runStudyEval(options: { resultsDir?: string; realResultsDir?: st
   return report;
 }
 
+/**
+ * Where the command reads and writes. STUDY_RESULTS_DIR is the Lab's own variable, so a rehearsal can be checked the
+ * way it was run. Its report goes beside it, so that eval/out only ever holds what came from the real results.
+ */
+export function pathsFromEnv(env: Record<string, string | undefined>): { resultsDir: string; outFile: string } {
+  const chosen = env.STUDY_RESULTS_DIR ? resolve(env.STUDY_RESULTS_DIR) : DEFAULT_RESULTS_DIR;
+  return { resultsDir: chosen, outFile: chosen === DEFAULT_RESULTS_DIR ? DEFAULT_OUT_FILE : resolve(chosen, "study-report.json") };
+}
+
 function printSummary(report: StudyReport, outFile: string): void {
   const { participants } = report;
   console.log(report.label);
@@ -67,7 +77,8 @@ function printSummary(report: StudyReport, outFile: string): void {
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
-    printSummary(runStudyEval(), DEFAULT_OUT_FILE);
+    const paths = pathsFromEnv(process.env);
+    printSummary(runStudyEval(paths), paths.outFile);
   } catch (error) {
     console.error(`eval:study FAILED: ${(error as Error).message}`);
     process.exitCode = 1;

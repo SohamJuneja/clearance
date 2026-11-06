@@ -19,6 +19,8 @@ import {
   BREAK_SECONDS,
   BRIEFING,
   CONFIDENCE_QUESTION,
+  CONFIRM_FAILED,
+  CONFIRM_REASK,
   CONSENT,
   CONSENT_AGREE,
   DEBRIEF_ACKNOWLEDGE,
@@ -29,9 +31,13 @@ import {
   FAMILIARITY_QUESTION,
   FREE_TEXT_HINT,
   FREE_TEXT_QUESTION,
+  LAB_TYPED_EMPTY,
   LAB_TYPED_HINT,
   REPLICA_NOTICE,
   ROLE_OPTIONS,
+  STOP_KEEP_GOING,
+  STOP_QUESTION,
+  STOP_YES,
   STOPPED_MESSAGE,
 } from "../lib/materials";
 import { answerRecord, assignGroup, deriveStep, locate, resolveAnswer, type Sets, type Step } from "../lib/protocol";
@@ -50,6 +56,7 @@ const STATIC_FILES: Record<string, string> = {
 };
 
 const MAX_BODY_BYTES = 16 * 1024;
+/** The longest time a card can record. The client stops its clock here, so anything over it is not a real timing. */
 const MAX_CARD_MS = 60 * 60 * 1000;
 
 export function linkToken(participant: string, secret: string): string {
@@ -153,13 +160,18 @@ const INDEX_HTML = `<!doctype html>
 
 const NOT_A_LINK = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Approval Lab</title></head><body><p>This isn't a valid study link. Please check the link you were sent.</p></body></html>`;
 
-/** The fixed text the page shows, sent once so the client holds no copy of its own. */
+/** The fixed text the page shows, and the one limit it must keep to, so the client holds no copy of its own. */
 const COPY = {
   consent: CONSENT,
   consentAgree: CONSENT_AGREE,
   briefing: BRIEFING,
   replicaNotice: REPLICA_NOTICE,
   typedHint: LAB_TYPED_HINT,
+  typedEmpty: LAB_TYPED_EMPTY,
+  stopQuestion: STOP_QUESTION,
+  stopKeepGoing: STOP_KEEP_GOING,
+  stopYes: STOP_YES,
+  maxCardMs: MAX_CARD_MS,
   roles: ROLE_OPTIONS,
   familiarityQuestion: FAMILIARITY_QUESTION,
   confidenceQuestion: CONFIDENCE_QUESTION,
@@ -195,11 +207,11 @@ export function createLabServer(options: LabOptions): Server {
     if (outcome.kind === "invalid") throw new HttpError(400, outcome.reason);
     if (outcome.kind === "reask") {
       record(participant, { type: "confirm_wrong", request_id: body.request_id });
-      return { step: stateFor(participant), notice: "That doesn't match the card. Try once more, or choose No." };
+      return { step: stateFor(participant), notice: CONFIRM_REASK };
     }
 
     record(participant, answerRecord(group, step, located, outcome, { ms: body.ms, interrupted: body.interrupted }, body.typed !== undefined));
-    const notice = outcome.decision === "confirm_failed" ? "That didn't match either, so this request was not approved." : undefined;
+    const notice = outcome.decision === "confirm_failed" ? CONFIRM_FAILED : undefined;
     return { step: stateFor(participant), notice };
   };
 
@@ -210,8 +222,9 @@ export function createLabServer(options: LabOptions): Server {
     const current = stateFor(participant);
     if (action === "answer") return handleAnswer(participant, raw);
     if (action === "stop") {
-      // Before consent there is nothing to keep, and nothing is written.
-      if (current.step !== "stopped" && current.step !== "consent") record(participant, { type: "stopped" });
+      // Before consent there is nothing to keep, so nothing is written. After the end there is nothing to stop: a
+      // second tab still showing a card must not turn a finished session into a stopped one.
+      if (current.step !== "stopped" && current.step !== "consent" && current.step !== "debrief") record(participant, { type: "stopped" });
       return { step: current.step === "consent" ? current : stateFor(participant) };
     }
     if (action === "consent") {

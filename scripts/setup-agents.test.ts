@@ -11,6 +11,8 @@ import {
   OWNERS,
   planAgents,
   prepareDirectory,
+  refreshHookFiles,
+  staleHookFiles,
   setUpAgentDirectory,
   withContainment,
   writeContainment,
@@ -142,6 +144,54 @@ describe("agentNeedsUpdate", () => {
     expect(agentNeedsUpdate({ ...want, model: "opus" }, want)).toBe(true);
     expect(agentNeedsUpdate({ ...want, directory: "/other" }, want)).toBe(true);
     expect(agentNeedsUpdate({ ...want, auto_mode: false }, want)).toBe(true);
+  });
+});
+
+describe("an agent's hook files, in a folder that already exists", () => {
+  /** SYNTHETIC: a small template and a clone of it. */
+  function clone(): { source: string; dir: string } {
+    const base = mkdtempSync(join(tmpdir(), "hook-files-"));
+    onTestFinished(() => rmSync(base, { recursive: true, force: true }));
+    const source = join(base, "source");
+    mkdirSync(join(source, ".claude"), { recursive: true });
+    writeFileSync(join(source, ".claude/settings.json"), "old");
+    writeFileSync(join(source, "README.md"), "the template");
+    const dir = join(base, "agent");
+    prepareDirectory(source, dir, join(base, ".origin"));
+    return { source, dir };
+  }
+
+  it("finds nothing stale when they match", () => {
+    const { source, dir } = clone();
+    expect(staleHookFiles(source, dir)).toEqual([]);
+    expect(refreshHookFiles(source, dir)).toEqual([]);
+  });
+
+  it("finds a changed one, and brings it up to date as a commit", () => {
+    const { source, dir } = clone();
+    writeFileSync(join(source, ".claude/settings.json"), "new");
+    expect(staleHookFiles(source, dir)).toEqual([".claude/settings.json"]);
+    expect(refreshHookFiles(source, dir)).toEqual([".claude/settings.json"]);
+    expect(readFileSync(join(dir, ".claude/settings.json"), "utf8")).toBe("new");
+    expect(staleHookFiles(source, dir)).toEqual([]);
+    const status = execFileSync("git", ["status", "--porcelain"], { cwd: dir, encoding: "utf8" });
+    expect(status).not.toContain(".claude/settings.json");
+  });
+
+  it("adds one the folder doesn't have yet", () => {
+    const { source, dir } = clone();
+    mkdirSync(join(source, ".opencode/plugins"), { recursive: true });
+    writeFileSync(join(source, ".opencode/plugins/clearance.ts"), "plugin");
+    expect(refreshHookFiles(source, dir)).toEqual([".opencode/plugins/clearance.ts"]);
+    expect(readFileSync(join(dir, ".opencode/plugins/clearance.ts"), "utf8")).toBe("plugin");
+  });
+
+  it("leaves the agent's other work alone", () => {
+    const { source, dir } = clone();
+    writeFileSync(join(dir, "README.md"), "the agent's edit");
+    writeFileSync(join(source, ".claude/settings.json"), "new");
+    refreshHookFiles(source, dir);
+    expect(readFileSync(join(dir, "README.md"), "utf8")).toBe("the agent's edit");
   });
 });
 

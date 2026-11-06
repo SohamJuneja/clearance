@@ -30,11 +30,11 @@ export function createGateClient(options: GateClientOptions): GateClient {
   const lookupTimeoutMs = options.lookupTimeoutMs ?? 5_000;
 
   return {
-    async execute(requestId: string, callHash: string): Promise<ExecuteResult> {
+    async execute(requestId: string, callHash: string, options?: { lookOnly?: boolean }): Promise<ExecuteResult> {
       const res = await fetch(`${base}/internal/execute/${encodeURIComponent(requestId)}`, {
         method: "POST",
         headers: { authorization, "content-type": "application/json" },
-        body: JSON.stringify({ call_hash: callHash }),
+        body: JSON.stringify({ call_hash: callHash, ...(options?.lookOnly ? { look_only: true } : {}) }),
         redirect: "error",
         signal: AbortSignal.timeout(executeTimeoutMs),
       });

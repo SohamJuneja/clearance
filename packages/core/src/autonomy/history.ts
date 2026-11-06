@@ -67,6 +67,11 @@ function fromRow(row: Row): BucketEvent {
 export class BucketEventStore {
   constructor(private readonly db: Db) {}
 
+  /** Something allowed to run alone turned out not to have run, so it was never evidence or spend. */
+  forgetAuto(requestId: string): void {
+    this.db.prepare(`DELETE FROM bucket_events WHERE request_id = ? AND outcome = 'auto'`).run(requestId);
+  }
+
   add(event: NewBucketEvent): void {
     this.db
       .prepare(

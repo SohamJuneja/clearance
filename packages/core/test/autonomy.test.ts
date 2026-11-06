@@ -185,7 +185,7 @@ describe("in core", () => {
   });
   afterEach(() => h.core.close());
 
-  const SMALL = { order_id: "A-1931", customer_id: "cus_8812", amount: 2000, destination: "rohan.s@okhdfc" };
+  const SMALL = { order_id: "A-1931", customer_id: "cus_8812", amount: 2000, destination: "meera.k@oksbi" };
 
   const press = (card: OpenedCard, who: string, answer = "allow") =>
     h.core.onApprovalOutcome({
@@ -494,9 +494,11 @@ describe("in core", () => {
       const run = async (index: number) => {
         const customer = `cus_real_${index}`;
         const destination = `upi${index}@okaxis`;
+        const order = `A-real-${index}`;
         (world.customers as Record<string, Record<string, unknown>>)[customer] = { id: customer, name: "Someone" };
-        (world.destinations as Record<string, Record<string, unknown>>)[destination] = { id: destination, age_hours: 720 };
-        const response = await smallRefund({ ...SMALL, customer_id: customer, destination });
+        (world.orders as Record<string, Record<string, unknown>>)[order] = { id: order, customer_id: customer, total: 4000 };
+        (world.destinations as Record<string, Record<string, unknown>>)[destination] = { id: destination, customer_id: customer, age_hours: 720 };
+        const response = await smallRefund({ ...SMALL, order_id: order, customer_id: customer, destination });
         h.clock.advance(MINUTE);
         return response.request_id as string;
       };
@@ -631,7 +633,7 @@ describe("in core", () => {
     it("a forced hold still holds: the 24 h rule is not skipped", async () => {
       const held = await smallRefund({ ...SMALL, amount: 4000 });
       expect(held.decision).toBe("allow");
-      const second = await smallRefund({ ...SMALL, amount: 4000, order_id: "A-2004" });
+      const second = await smallRefund({ ...SMALL, amount: 4000, order_id: "A-1941" });
       expect(second.decision).toBe("allow");
       const third = await smallRefund({ ...SMALL, amount: 4000, order_id: "A-1931" });
       expect(third.decision).toBe("hold");
@@ -647,13 +649,14 @@ describe("in core", () => {
   describe("L3: silent up to a daily cap", () => {
     beforeEach(() => setLevel("L3"));
 
-    const another = (index: number, amount = 4000) => ({ ...SMALL, amount, customer_id: `cus_l3_${index}`, destination: `upi${index}@okaxis` });
+    const another = (index: number, amount = 4000) => ({ ...SMALL, amount, order_id: `A-l3-${index}`, customer_id: `cus_l3_${index}`, destination: `upi${index}@okaxis` });
 
     function knownCustomers(count: number): void {
       const world = h.lookup.world as Record<string, Record<string, Record<string, unknown>>>;
       for (let index = 0; index < count; index += 1) {
         (world.customers as Record<string, Record<string, unknown>>)[`cus_l3_${index}`] = { id: `cus_l3_${index}`, name: "Someone" };
-        (world.destinations as Record<string, Record<string, unknown>>)[`upi${index}@okaxis`] = { id: `upi${index}@okaxis`, age_hours: 720 };
+        (world.orders as Record<string, Record<string, unknown>>)[`A-l3-${index}`] = { id: `A-l3-${index}`, customer_id: `cus_l3_${index}`, total: 4000 };
+        (world.destinations as Record<string, Record<string, unknown>>)[`upi${index}@okaxis`] = { id: `upi${index}@okaxis`, customer_id: `cus_l3_${index}`, age_hours: 720 };
       }
     }
 
@@ -809,7 +812,7 @@ describe("in core", () => {
       expect(h.gate.calls).toEqual([expect.objectContaining({ requestId: held.request_id })]);
       expect(level()).toBe("L2");
       expect(ledger("demoted")).toEqual([]);
-      expect((await smallRefund({ ...SMALL, amount: 1000, order_id: "A-2004" })).decision).toBe("allow");
+      expect((await smallRefund({ ...SMALL, amount: 1000, order_id: "A-1941" })).decision).toBe("allow");
     });
 
     it("denied: the denial rule demotes at once", async () => {
@@ -818,7 +821,7 @@ describe("in core", () => {
       expect(level()).toBe("L0");
       expect(ledger("demoted")[0]?.payload).toMatchObject({ reason: "denial", from: "L2", by: "sam" });
       expect(posted().at(-1)).toContain(`because Sam denied ${held.request_id}`);
-      expect((await smallRefund({ ...SMALL, amount: 1000, order_id: "A-2004" })).decision).toBe("hold");
+      expect((await smallRefund({ ...SMALL, amount: 1000, order_id: "A-1941" })).decision).toBe("hold");
     });
 
     it("an incident still demotes at once", async () => {

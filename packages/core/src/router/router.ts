@@ -130,6 +130,9 @@ function candidatesFor(ctx: RouteContext): { person: Person; matchedBy: string }
   direct.sort((a, b) => refIndex(a.matchedBy) - refIndex(b.matchedBy));
   const out = [...direct];
   for (const { person } of direct) {
+    // Standing in for someone gives you what they had on this request. Someone who asked for it, or has already used
+    // their approval, has nothing to hand on, or a requester could name who approves.
+    if (exclusionsFor(ctx, person.id).some((reason) => reason !== "away")) continue;
     const delegate = ctx.signals.away(person.id)?.delegateTo;
     const target = delegate ? ctx.directory.person(delegate) : null;
     if (target && !out.some((entry) => entry.person.id === target.id)) {
@@ -246,6 +249,7 @@ export function route(ctx: RouteContext, need: number): RouteTrace {
   const excluded: RouteTrace["excluded"] = [];
   const ranked: RankedPerson[] = [];
   const capped: RouteTrace["capped"] = [];
+  const overCap: RankedPerson[] = [];
 
   for (const { person, matchedBy } of matched) {
     const reasons = exclusionsFor(ctx, person.id);
@@ -254,8 +258,14 @@ export function route(ctx: RouteContext, need: number): RouteTrace {
       continue;
     }
     const entry = rankPerson(ctx, person, matchedBy);
-    if (entry.openCards >= cap) capped.push({ id: entry.id, name: entry.name, openCards: entry.openCards });
-    else ranked.push(entry);
+    // The cap decides who's asked first, and never who may approve: being busy can't hand a decision to someone else,
+    // or an agent could move one by filling people's cards.
+    if (entry.openCards >= cap) {
+      capped.push({ id: entry.id, name: entry.name, openCards: entry.openCards });
+      overCap.push(entry);
+    } else {
+      ranked.push(entry);
+    }
   }
 
   // Requesters and owners outside the rule still belong in the trace: they are the people asking why not.
@@ -268,14 +278,14 @@ export function route(ctx: RouteContext, need: number): RouteTrace {
     excluded.push({ id, name: person.name, reasons });
   }
 
-  ranked.sort(
-    (a, b) =>
-      Number(a.concentrated) - Number(b.concentrated) ||
-      RANK_ORDER.indexOf(a.rank) - RANK_ORDER.indexOf(b.rank) ||
-      a.openCards - b.openCards,
-  );
+  const byRank = (a: RankedPerson, b: RankedPerson) =>
+    Number(a.concentrated) - Number(b.concentrated) ||
+    RANK_ORDER.indexOf(a.rank) - RANK_ORDER.indexOf(b.rank) ||
+    a.openCards - b.openCards;
+  ranked.sort(byRank);
+  overCap.sort(byRank);
 
-  const chosen = ranked
+  const chosen = [...ranked, ...overCap]
     .filter((entry) => !ctx.alreadyRouted.includes(entry.id))
     .slice(0, Math.max(0, need))
     .map((entry) => entry.id);

@@ -126,6 +126,8 @@ export function summariseEntry(type: string, payload: Record<string, unknown>, n
       return `Reported by ${name(text("reported_by")) ?? "someone"}: ${text("note") ?? "no note"}`;
     case "break_glass":
       return `By ${name(text("by")) ?? "someone"}: ${text("reason") ?? "no reason given"}`;
+    case "outcome_unknown":
+      return `Nobody can say whether it ran: ${text("error") ?? "the gate never said"}`;
     case "edit_proposed":
       return `${name(text("by")) ?? "Someone"} offered ${text("to") ?? "?"} instead of ${text("from") ?? "?"}`;
     case "edit_withdrawn":

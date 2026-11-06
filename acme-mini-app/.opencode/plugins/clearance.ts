@@ -54,12 +54,22 @@ async function ask(directory: string, input: ToolCall, output: ToolOutput): Prom
   }
 }
 
+/** What an agent talks in a room with. These alone skip Clearance. Everything else goes to core, and is refused if core is away. */
+const SWITCH_CHAT_TOOLS = [
+  "connect_to_room",
+  "list_rooms",
+  "read_context",
+  "list_participants",
+  "post_message",
+  "send_targeted_message",
+];
+
 export default {
   id: "clearance",
   server: async ({ directory }: { directory: string }) => ({
     "tool.execute.before": async (input: ToolCall, output: ToolOutput): Promise<void> => {
-      // Switch's own room tools stay usable, so an outage cannot silence the agent.
-      if (input.tool.startsWith("switch_")) return;
+      // Those stay usable, so an outage cannot silence the agent.
+      if (SWITCH_CHAT_TOOLS.some((tool) => input.tool === `switch_${tool}`)) return;
       const refusal = await ask(directory, input, output);
       if (refusal !== null) throw new Error(refusal);
     },

@@ -3,7 +3,7 @@
  * come out, and anything they cannot read is a PayloadError, which the hook route turns into a deny.
  */
 import { posix } from "node:path";
-import type { Action, Vendor } from "@clearance/contracts";
+import { canonicalJson, type Action, type Vendor } from "@clearance/contracts";
 
 /** `agent` comes from the working directory, resolved by the caller; never from the payload. */
 export type AdapterContext = { agent: string; id: string; at: string };
@@ -86,6 +86,69 @@ export function patchPaths(patch: unknown): string[] {
   return [...new Set(paths)];
 }
 
+/** What a write would do to a file. An approval is bound to all of it, so nothing that changes the result is left out. */
+export type Written = { content?: string; replaces?: string };
+
+const textOf = (value: unknown): string | undefined =>
+  value === undefined || value === null
+    ? undefined
+    : typeof value === "string"
+      ? value
+      : canonicalJson(value);
+
+/**
+ * For a tool with a field of new text. Everything else in its input goes in `replaces`, so a field a later version adds
+ * still counts, except the path, which is the Action's own, and the description, which is only the agent's claim.
+ */
+export function writtenBy(
+  input: Record<string, unknown>,
+  fields: { content: string; path: string },
+): Written {
+  const { [fields.content]: content, [fields.path]: _path, description: _claim, ...rest } = input;
+  const text = textOf(content);
+  return {
+    ...(text !== undefined ? { content: text } : {}),
+    ...(Object.keys(rest).length > 0 ? { replaces: canonicalJson(rest) } : {}),
+  };
+}
+
+/** Several edits to one file. The new text of each is what gets shown; all of it is bound. */
+export function writtenByEdits(
+  input: Record<string, unknown>,
+  newText: string,
+): Written {
+  const edits = Array.isArray(input.edits) ? input.edits : [];
+  const text = edits
+    .map((edit) => asRecord(edit)?.[newText])
+    .filter((value): value is string => typeof value === "string")
+    .join("\n");
+  return { content: text, replaces: canonicalJson(input.edits ?? null) };
+}
+
+/** Each file in a patch: what it adds is what gets shown, and its whole section is bound. */
+export function writtenByPatch(patch: unknown): (path: string) => Written {
+  const text = requireString(patch, "patch text");
+  const sections = new Map<string, Written>();
+  const headers = [...text.matchAll(/^\*\*\* (?:Add|Update|Delete) File: .*$/gm)];
+  headers.forEach((header, index) => {
+    const start = header.index;
+    const end = headers[index + 1]?.index ?? text.length;
+    const section = text.slice(start, end).replace(/^\*\*\* End Patch\s*$/m, "");
+    const added = section
+      .split("\n")
+      .filter((line) => line.startsWith("+"))
+      .map((line) => line.slice(1));
+    const written: Written = {
+      ...(added.length > 0 ? { content: added.join("\n") } : {}),
+      replaces: section,
+    };
+    for (const match of section.matchAll(/^\*\*\* (?:Add File|Update File|Delete File|Move to): (.+)$/gm)) {
+      sections.set(match[1]!.trim(), written);
+    }
+  });
+  return (path) => sections.get(path) ?? { content: text };
+}
+
 /** A search reads whatever its pattern matches, so `**\/.env*` has to reach the `.env` rules. */
 export function searchTarget(path: unknown, pattern: unknown): string {
   const dir = typeof path === "string" && path.length > 0 ? path : ".";
@@ -115,20 +178,32 @@ function base(info: CallInfo, id: string) {
   };
 }
 
-export function shellAction(info: CallInfo, command: string): Action[] {
-  return [{ ...base(info, info.ctx.id), kind: "shell", shell: { command } }];
+/** `workdir` is the vendor's own argument for where to run it, which changes what the line means. */
+export function shellAction(info: CallInfo, command: string, workdir?: string): Action[] {
+  return [
+    {
+      ...base(info, info.ctx.id),
+      kind: "shell",
+      shell: { command, ...(workdir ? { workdir } : {}) },
+    },
+  ];
 }
 
 export function fileActions(
   info: CallInfo,
   kind: "file_write" | "file_read",
   paths: string[],
+  written: (path: string) => Written = () => ({}),
 ): Action[] {
-  return paths.map((path, index) => ({
-    ...base(info, index === 0 ? info.ctx.id : `${info.ctx.id}.${index}`),
-    kind,
-    file: { path: normalizePath(path, info.cwd) },
-  }));
+  return paths.map((path, index) => {
+    const what = written(path);
+    return {
+      ...base(info, index === 0 ? info.ctx.id : `${info.ctx.id}.${index}`),
+      kind,
+      file: { path: normalizePath(path, info.cwd) },
+      ...(Object.keys(what).length > 0 ? { written: what } : {}),
+    };
+  });
 }
 
 export function httpAction(info: CallInfo, url: string): Action[] {

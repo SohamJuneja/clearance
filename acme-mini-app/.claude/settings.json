@@ -4,7 +4,7 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "^(?!mcp__switch__|ToolSearch$).*",
+        "matcher": "^(?!mcp__switch__(connect_to_room|list_rooms|read_context|list_participants|post_message|send_targeted_message)$|ToolSearch$).*",
         "hooks": [
           {
             "type": "http",

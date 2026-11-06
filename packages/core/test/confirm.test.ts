@@ -494,7 +494,7 @@ describe("after a rubber-stamp flag", () => {
 
   it("does not spend the flag on a low or medium card", async () => {
     h.core.people.store.setFriction("sam", "fast_approval");
-    await h.core.check(gateRefund({ order_id: "A-1931", customer_id: "cus_8812", amount: 2000, destination: "rohan.s@okhdfc" }));
+    await h.core.check(gateRefund({ order_id: "A-1931", customer_id: "cus_8812", amount: 2000, destination: "meera.k@oksbi" }));
     expect(h.chat.cardIn("dm-sam").kind).toBe("approval");
     expect(h.core.people.store.friction("sam")).toBe("fast_approval");
   });

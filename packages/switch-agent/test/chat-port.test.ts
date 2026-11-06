@@ -229,6 +229,34 @@ describe("openCard", () => {
   });
 });
 
+describe("a card whose first attempt got through", () => {
+  const conflict = new SwitchApiError(409, "/agent-sessions/s/approvals", {
+    code: "REQUEST_CONFLICT",
+    message: "already opened with different content",
+  });
+
+  it("counts as open when Switch says this id is already open, since the id is ours and used once", async () => {
+    const { chat, agent } = port();
+    agent.openApproval = () => Promise.reject(conflict);
+    const result = await chat.openCard({ ...approvalCard, requestId: "card-ours" });
+    expect(result.switchRequestId).toBe("card-ours");
+  });
+
+  it("still fails without an id of ours, where a conflict can't be read that way", async () => {
+    const { chat, agent } = port();
+    agent.openApproval = () => Promise.reject(conflict);
+    await expect(chat.openCard(approvalCard)).rejects.toThrow(/409/);
+  });
+
+  it("still fails on any other refusal", async () => {
+    const { chat, agent } = port();
+    agent.openApproval = () => Promise.reject(new SwitchApiError(409, "/x", { code: "SESSION_CLOSED" }));
+    await expect(chat.openCard({ ...approvalCard, requestId: "card-ours" })).rejects.toThrow(/409/);
+    agent.openApproval = () => Promise.reject(new SwitchApiError(500, "/x", { code: "REQUEST_CONFLICT" }));
+    await expect(chat.openCard({ ...approvalCard, requestId: "card-ours" })).rejects.toThrow(/500/);
+  });
+});
+
 describe("closeCard", () => {
   it("closes the card it is told to", async () => {
     const { chat, closed } = port();

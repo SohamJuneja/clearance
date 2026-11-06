@@ -352,7 +352,7 @@ describe("scenes.yaml", () => {
     if (numbers?.kind !== "numbers") throw new Error("no numbers scene");
     const lines: Record<string, RegExp> = {
       E1: /Bad outcomes prevented/,
-      AUDIT: /independent review/,
+      AUDIT: /Independent reviews/,
       E2: /Risky actions/,
       E3: /Tool calls with no card/,
       E6: /Human decisions/,

@@ -10,7 +10,7 @@
  * the agent's claim, then context lines. The parsed call, the flags and the expiry always stay.
  */
 import type { Tier } from "@clearance/contracts";
-import { joinNames, oneLine } from "../format.js";
+import { joinNames, oneLine, withoutHidden } from "../format.js";
 
 export const TITLE_MAX = 500;
 export const DETAIL_BUDGET = 960;
@@ -57,7 +57,7 @@ function clip(text: string, max: number): string {
 function renderTitle(view: CardView): string {
   const tail = ` · ${view.tier.toUpperCase()} · ${reversibility(view.reversible)}`;
   const head = `${view.id} · `;
-  return `${head}${clip(view.headline, TITLE_MAX - head.length - tail.length)}${tail}`;
+  return `${head}${clip(withoutHidden(view.headline), TITLE_MAX - head.length - tail.length)}${tail}`;
 }
 
 type Shrink = {
@@ -140,11 +140,12 @@ function keepTail(text: string, budget: number): string {
 }
 
 export function renderCard(view: CardView): { title: string; detail: string } {
-  return { title: renderTitle(view), detail: fit(view, DETAIL_BUDGET, (shrink) => assembleDetail(view, shrink)) };
+  return { title: renderTitle(view), detail: withoutHidden(fit(view, DETAIL_BUDGET, (shrink) => assembleDetail(view, shrink))) };
 }
 
 /** For text this file doesn't lay out: cut from the end until it fits, since over budget the card can't be answered. */
-export function clipToBudget(text: string, budget = DETAIL_BUDGET): string {
+export function clipToBudget(raw: string, budget = DETAIL_BUDGET): string {
+  const text = withoutHidden(raw);
   let cost = 0;
   let end = 0;
   while (end < text.length) {
@@ -161,8 +162,8 @@ export function renderReviewCard(view: CardView, level: string, note: string): {
   const tail = ` · ran on its own at ${level}`;
   const head = `${view.id} · REVIEW · `;
   return {
-    title: `${head}${clip(view.headline, TITLE_MAX - head.length - tail.length)}${tail}`,
-    detail: `${note}\n\n${fit(view, DETAIL_BUDGET - renderedCost(`${note}\n\n`), (shrink) => assembleDetail(view, shrink))}`,
+    title: `${head}${clip(withoutHidden(view.headline), TITLE_MAX - head.length - tail.length)}${tail}`,
+    detail: withoutHidden(`${note}\n\n${fit(view, DETAIL_BUDGET - renderedCost(`${note}\n\n`), (shrink) => assembleDetail(view, shrink))}`),
   };
 }
 
@@ -170,7 +171,7 @@ export function renderReviewCard(view: CardView, level: string, note: string): {
 export function renderCounterTitle(view: CardView, was: string): string {
   const head = `${view.id} · COUNTER · `;
   const tail = ` instead of ${was}`;
-  return `${head}${clip(view.headline, TITLE_MAX - head.length - tail.length)}${tail}`;
+  return `${head}${clip(withoutHidden(view.headline), TITLE_MAX - head.length - tail.length)}${tail}`;
 }
 
 /**
@@ -178,7 +179,7 @@ export function renderCounterTitle(view: CardView, was: string): string {
  * `ask` is the question itself ("To approve, type the refund amount in rupees, ...") and always stays.
  */
 export function renderPrompt(view: CardView, ask: string): string {
-  return fit(view, PROMPT_BUDGET, (shrink) => {
+  return withoutHidden(fit(view, PROMPT_BUDGET, (shrink) => {
     const sections = [ask, callSection(view, shrink)];
     const context = view.context.slice(0, shrink.contextLines);
     if (context.length > 0) sections.push(["Context", ...context.map((text) => `  ${clip(text, shrink.lineMax)}`)].join("\n"));
@@ -187,5 +188,5 @@ export function renderPrompt(view: CardView, ask: string): string {
     if (claim) sections.push(`Agent's claim (unverified): "${claim}"`);
     sections.push(who(view, shrink).join("\n"));
     return sections.join("\n\n");
-  });
+  }));
 }

@@ -416,7 +416,7 @@ Mirror: Clearance creates one room document per day in `#approvals` named `clear
 - **L1 Fast lane**: one eligible approver, no type-to-confirm.
 - **L2 Auto with review**: executes, then posts a review card that can reverse or demote within 24 h.
 - **L3 Auto within budget**: executes silently up to a daily cap; summary in the daily digest.
-A class's `max_level` in the policy decides how far it can climb. Irreversible classes normally stop at L1. Refunds are a stated exception: `reversible: false`, yet allowed up to L3 inside a small-amount bucket. The critical tier never runs on its own.
+A class's `max_level` in the policy decides how far it can climb. Irreversible classes normally stop at L1. Refunds are a stated exception: `reversible: false`, yet allowed up to L3 inside a small-amount bucket. The critical tier never runs on its own, and neither does a call with any flag on it (changed Nov 7, after the second review): a flag is something a person would want to see, so at L2 and L3 it holds. That includes a destination or order belonging to a different customer, and an identical call that ran in the last 24 h.
 **Promotion.** Clearance proposes a promotion when, inside the scope bucket over the last 7 days: at least 20 approved requests, 0 denials, 0 incidents, 0 approved-with-edits, at least 2 different approvers, and none of the counted approvals were fast approvals (F10). Before proposing, it **replays** the proposed rule over the history (borrowed from OneDecision): "would have auto-approved 22; all 22 were approved by people; 0 would have auto-approved a denied request." The proposal is a card to the class's policy owners with `quorum: 2`; both must approve.
 **Demotion.** Instant, to L0, on any incident (`@clearance incident CLR-0042 <note>`) or any denial inside the bucket. Demotion needs no approval; promotion always does.
 **Above the normal range.** An amount above the bucket's 95th percentile holds that one call for a person, flagged `above_normal_range` on the card, and does not demote. If the person approves, the level stays. If they deny, the denial rule above demotes at once. A call with missing data still can't run on its own. (This replaced "an anomaly demotes", which by definition fires on about 5% of normal traffic. It was changed after seeing the first E6 result on synthetic data, and E6 publishes both numbers.)
@@ -1201,7 +1201,7 @@ See section 11. Headline metrics: catch rate on flawed requests, false-deny rate
 | ID | Metric | Baseline | Clearance | Data | Script |
 |---|---|---|---|---|---|
 | E1 | Bad outcomes prevented (of 25) | B-auto: _ / B-ask: _ | _ | 25 scripted cases; a managed agent in a private chat isn't covered by these 25 | `pnpm eval:authority` |
-| AUDIT | Breaks an independent review found, re-checked apart from the 25 | n/a | Audit: _ of 5 | F1 to F5, each fixed after the review | `pnpm eval:authority` |
+| AUDIT | Breaks independent reviews found, re-checked apart from the 25 | n/a | Audit: _ of 5 | Two reviews, each break fixed after its review | `pnpm eval:authority` |
 | E2 | Risky actions executed without an eligible human (of 20 per vendor) | Claude _, Codex _, OpenCode _, Cursor _ | Claude _, Codex _, OpenCode _, Cursor _ | 360 agent runs | `pnpm eval:vendors` |
 | E2 | Safe actions interrupted (of 20 per vendor) | _ | _ | same | same |
 | E2 | Tried another route after a hold | n/a | _ of _ holds | real sessions | `pnpm eval:behaviour` |

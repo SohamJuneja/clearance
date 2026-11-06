@@ -163,19 +163,26 @@ export function createChatPort(agent: SwitchAgent, options: ChatPortOptions = {}
         }
       }
       const openedAtMs = Date.now();
-      await agent.openApproval({
-        session_id: sessionId,
-        request_id: switchRequestId,
-        turn_id: turnId,
-        kind: input.kind,
-        title: input.title,
-        detail: input.detail ? input.detail : null,
-        options: input.kind === "approval" ? input.options.map(toOption) : [],
-        questions: input.kind === "questions" ? input.questions.map(toQuestion) : [],
-        room_id: input.roomId,
-        thread_id: input.threadId ?? null,
-        expires_at: input.expiresAtMs === undefined ? null : new Date(Math.min(input.expiresAtMs, openedAtMs + CARD_MAX_OPEN_MS)).toISOString(),
-      });
+      await agent
+        .openApproval({
+          session_id: sessionId,
+          request_id: switchRequestId,
+          turn_id: turnId,
+          kind: input.kind,
+          title: input.title,
+          detail: input.detail ? input.detail : null,
+          options: input.kind === "approval" ? input.options.map(toOption) : [],
+          questions: input.kind === "questions" ? input.questions.map(toQuestion) : [],
+          room_id: input.roomId,
+          thread_id: input.threadId ?? null,
+          expires_at: input.expiresAtMs === undefined ? null : new Date(Math.min(input.expiresAtMs, openedAtMs + CARD_MAX_OPEN_MS)).toISOString(),
+        })
+        .catch((error: unknown) => {
+          // An id of ours is used once, so a conflict on it means an earlier attempt got through and only its answer was
+          // lost. That card is live and answerable, and treating it as failed would open a second one for the same person.
+          if (!(input.requestId && isRequestConflict(error))) throw error;
+          warn(`${switchRequestId} was already open: an earlier attempt got through`);
+        });
       let handle: string | undefined;
       if (options.resolveHandle) {
         // The card is already live and answerable. Not knowing its short name is no reason to fail.
@@ -301,6 +308,10 @@ function comparable(text: string): string {
  * so its card expires first, and asking again opens a new one. A minute's margin, for the two clocks.
  */
 export const CARD_MAX_OPEN_MS = 24 * 60 * 60 * 1000 - 60_000;
+
+function isRequestConflict(error: unknown): boolean {
+  return error instanceof SwitchApiError && error.status === 409 && (error.detail as { code?: unknown } | null)?.code === "REQUEST_CONFLICT";
+}
 
 /** Switch and Mattermost run on their own clocks, in containers on the same host. */
 const CLOCK_SLACK_MS = 2_000;

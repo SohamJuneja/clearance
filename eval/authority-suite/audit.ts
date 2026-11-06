@@ -108,16 +108,14 @@ export const AUDIT_CHECKS: AuditCheck[] = [
     badOutcome: "ops-agent spends coder's single-use grant",
     async run(world, findings) {
       const id = await grantedPush(world, findings);
-      for (const [claim, value] of [
-        ["agent_type", "coder"],
-        ["cwd", agentCwd("coder")],
-      ] as const) {
-        const stolen = await world.claudeHook(
-          "ops-agent",
-          "Bash",
-          { command: push },
-          { [claim]: value },
-        );
+      // A grant is bound to the directory too, so someone really trying this claims both.
+      for (const claims of [
+        { agent_type: "coder" },
+        { cwd: agentCwd("coder") },
+        { agent_type: "coder", cwd: agentCwd("coder") },
+      ]) {
+        const claim = Object.keys(claims).join(" and ");
+        const stolen = await world.claudeHook("ops-agent", "Bash", { command: push }, claims);
         findings.bad(`ops-agent's token spent coder's grant by claiming ${claim}`, stolen.allow);
         findings.control(
           `the refusal names both agents (${claim})`,

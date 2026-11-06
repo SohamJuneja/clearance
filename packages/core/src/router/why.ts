@@ -91,7 +91,10 @@ function cantApproveSentence(trace: RouteTrace): string {
 
 /** The card's "Why you:" line. */
 export function whyYou(trace: RouteTrace, id: string): string {
-  return `${firstSentenceForYou(trace, id)}${cantApproveSentence(trace)}`;
+  // Optional: the study builds its frozen cards from a hand-made trace, with no cards to have too many of.
+  const busy = trace.capped?.find((entry) => entry.id === id);
+  const over = busy ? ` You have ${busy.openCards} open cards, over the limit, but nobody else eligible is free.` : "";
+  return `${firstSentenceForYou(trace, id)}${over}${cantApproveSentence(trace)}`;
 }
 
 /** A card's "Why you:" for the copy in the origin room, where nobody in particular is being asked. */

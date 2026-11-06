@@ -20,6 +20,10 @@ const ADDED_COLUMNS: [table: string, column: string, definition: string][] = [
   ["activity", "last_message_id", "TEXT"],
   ["routes", "counter_amount", "INTEGER"],
   ["routes", "counter_try", "INTEGER"],
+  ["routes", "open_state", "TEXT"],
+  ["requesters", "sent_at", "INTEGER"],
+  ["room_voices", "sent_at", "INTEGER"],
+  ["room_voices", "named_unknown", "INTEGER NOT NULL DEFAULT 0"],
 ];
 
 function addMissingColumns(db: Database.Database): void {

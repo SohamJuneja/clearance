@@ -18,6 +18,9 @@ import {
   requireString,
   searchTarget,
   shellAction,
+  writtenBy,
+  writtenByEdits,
+  writtenByPatch,
   type AdapterContext,
   type CallInfo,
   type HookOutcome,
@@ -63,14 +66,22 @@ export function opencodeToActions(payload: unknown, ctx: AdapterContext): Action
 
   switch (tool) {
     case "bash":
-      return shellAction(info, requireCommand(args.command));
+      return shellAction(info, requireCommand(args.command), optionalString(args.workdir));
     case "edit":
+      return fileActions(info, "file_write", [requireString(args.filePath, "filePath")], () =>
+        writtenBy(args, { content: "newString", path: "filePath" }),
+      );
     case "write":
+      return fileActions(info, "file_write", [requireString(args.filePath, "filePath")], () =>
+        writtenBy(args, { content: "content", path: "filePath" }),
+      );
     case "multiedit":
-      return fileActions(info, "file_write", [requireString(args.filePath, "filePath")]);
+      return fileActions(info, "file_write", [requireString(args.filePath, "filePath")], () =>
+        writtenByEdits(args, "newString"),
+      );
     case "apply_patch":
     case "patch":
-      return fileActions(info, "file_write", patchPaths(args.patchText));
+      return fileActions(info, "file_write", patchPaths(args.patchText), writtenByPatch(args.patchText));
     case "read":
       return fileActions(info, "file_read", [requireString(args.filePath, "filePath")]);
     case "glob":

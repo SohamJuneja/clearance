@@ -19,6 +19,8 @@ import {
   requireString,
   searchTarget,
   shellAction,
+  writtenBy,
+  writtenByEdits,
   type AdapterContext,
   type CallInfo,
   type HookOutcome,
@@ -56,11 +58,21 @@ export function claudeToActions(payload: unknown, ctx: AdapterContext): Action[]
     case "PowerShell":
       return shellAction(info, requireCommand(input.command));
     case "Write":
+      return fileActions(info, "file_write", [requireString(input.file_path, "file_path")], () =>
+        writtenBy(input, { content: "content", path: "file_path" }),
+      );
     case "Edit":
+      return fileActions(info, "file_write", [requireString(input.file_path, "file_path")], () =>
+        writtenBy(input, { content: "new_string", path: "file_path" }),
+      );
     case "MultiEdit":
-      return fileActions(info, "file_write", [requireString(input.file_path, "file_path")]);
+      return fileActions(info, "file_write", [requireString(input.file_path, "file_path")], () =>
+        writtenByEdits(input, "new_string"),
+      );
     case "NotebookEdit":
-      return fileActions(info, "file_write", [requireString(input.notebook_path, "notebook_path")]);
+      return fileActions(info, "file_write", [requireString(input.notebook_path, "notebook_path")], () =>
+        writtenBy(input, { content: "new_source", path: "notebook_path" }),
+      );
     case "Read":
       return fileActions(info, "file_read", [requireString(input.file_path, "file_path")]);
     case "Glob":

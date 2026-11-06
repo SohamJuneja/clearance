@@ -229,6 +229,39 @@ function copySource(source: string, dir: string): void {
  * A working copy of the source, as a real repo. A plain directory gets a shared local bare origin, so a
  * `git push` that gets through is visible and can never leave this machine. An existing folder is left alone.
  */
+/**
+ * What makes an agent stop at Clearance. A folder that exists keeps everything else, since that's the agent's work, but
+ * these have to match the template: an agent on old ones runs on old rules, and nothing else would say so.
+ */
+export const HOOK_FILES = [
+  ".claude/settings.json",
+  ".codex/hooks.json",
+  ".cursor/hooks.json",
+  ".opencode/plugins/clearance.ts",
+];
+
+export function staleHookFiles(source: string, dir: string): string[] {
+  return HOOK_FILES.filter((file) => {
+    const wanted = join(source, file);
+    if (!existsSync(wanted)) return false;
+    const held = join(dir, file);
+    return !existsSync(held) || readFileSync(held, "utf8") !== readFileSync(wanted, "utf8");
+  });
+}
+
+/** Brings them up to date, as a commit, so the agent's own `git status` stays clean. Says which changed. */
+export function refreshHookFiles(source: string, dir: string): string[] {
+  const stale = staleHookFiles(source, dir);
+  if (stale.length === 0) return [];
+  for (const file of stale) {
+    mkdirSync(dirname(join(dir, file)), { recursive: true });
+    writeFileSync(join(dir, file), readFileSync(join(source, file)));
+  }
+  git(dir, "add", "--", ...stale);
+  git(dir, "commit", "-q", "-m", "Clearance hook files, from the template");
+  return stale;
+}
+
 export function prepareDirectory(source: string, dir: string, originsDir: string): "created" | "kept" {
   // An empty folder counts as new: the fence makes every agent's folder, so it can bind them before they are filled.
   if (existsSync(dir) && readdirSync(dir).length > 0) return "kept";
@@ -362,6 +395,8 @@ async function main(): Promise<void> {
     const base = values.base ? resolve(values.base) : (machine.status?.machine?.workspaces_dir ?? defaultWorkspacesDir());
     const target = join(base, name);
     const folder = prepareDirectory(source, target, join(base, ".origin"));
+    const refreshed = folder === "kept" ? refreshHookFiles(source, target) : [];
+    if (refreshed.length > 0) console.log(`${name}: updated ${refreshed.join(", ")} from the template`);
     // Codex keys hook trust by the real path, so a symlinked base has to be resolved first.
     const dir = realpathSync(target);
     setUpAgentDirectory(dir, {

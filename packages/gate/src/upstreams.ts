@@ -135,6 +135,21 @@ export class CoreClient {
     return { ok: true, response: result.data };
   }
 
+  /** What ran alone didn't go through. If core can't be told the agent still knows, from the gate's answer, so nothing waits on this. */
+  async reportRunFailed(id: string, report: { never_ran: boolean; error: string }): Promise<void> {
+    try {
+      await fetch(`${this.base}/v1/requests/${encodeURIComponent(id)}/run-failed`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${this.token}`, "content-type": "application/json" },
+        body: JSON.stringify(report),
+        redirect: "error",
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+    } catch (error) {
+      console.error(`could not tell core that ${id} did not run: ${(error as Error).message}`);
+    }
+  }
+
   async request(id: string): Promise<CoreRequest> {
     let res: Response;
     let text: string;

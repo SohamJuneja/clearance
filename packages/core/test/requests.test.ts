@@ -84,6 +84,8 @@ describe("request lifecycle", () => {
     ["APPROVED", "EXECUTED"],
     ["APPROVED", "GRANTED"],
     ["APPROVED", "VOIDED"],
+    ["APPROVED", "OUTCOME_UNKNOWN"],
+    ["BREAK_GLASS", "OUTCOME_UNKNOWN"],
     ["BREAK_GLASS", "EXECUTED"],
     ["BREAK_GLASS", "GRANTED"],
     ["BREAK_GLASS", "VOIDED"],
@@ -135,8 +137,8 @@ describe("request lifecycle", () => {
     }
   });
 
-  it("reaches AUTO only by being created there, and it goes nowhere from there", () => {
-    expect(TRANSITIONS.AUTO).toEqual([]);
+  it("reaches AUTO only by being created there, and leaves it only if the gate reports the run didn't go through", () => {
+    expect(TRANSITIONS.AUTO).toEqual(["VOIDED", "OUTCOME_UNKNOWN"]);
     for (const state of RequestStateSchema.options) expect(TRANSITIONS[state]).not.toContain("AUTO");
   });
 

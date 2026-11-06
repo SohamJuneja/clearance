@@ -154,7 +154,7 @@ describe("F1, second layer: nobody can tell who asked, so two people decide", ()
   });
 
   it("applies whatever the tier: a low refund, and L1's one-approver fast lane", async () => {
-    const small = { order_id: "A-1931", customer_id: "cus_8812", amount: 2000, destination: "rohan.s@okhdfc" };
+    const small = { order_id: "A-1931", customer_id: "cus_8812", amount: 2000, destination: "meera.k@oksbi" };
     const low = await h.core.check(gateRefund(small));
     expect(low.tier).toBe("low");
     expect(h.core.stores.requests.require(low.request_id as string).quorumRequired).toBe(2);
@@ -450,7 +450,7 @@ describe("refunds fanned out across customers to one destination", () => {
 
   beforeEach(async () => {
     h.core.stores.autonomy.setLevel("refunds-agent", "refund", "small", "L3", h.clock.nowMs());
-    (h.lookup.world.destinations as Record<string, Record<string, unknown>>)[ONE_UPI] = { id: ONE_UPI, age_hours: 720 };
+    (h.lookup.world.destinations as Record<string, Record<string, unknown>>)[ONE_UPI] = { id: ONE_UPI, customer_id: "cus_8812", age_hours: 720 };
     for (const customer of ["cus_a", "cus_b", "cus_c", "cus_d"]) {
       (h.lookup.world.customers as Record<string, Record<string, unknown>>)[customer] = { id: customer, name: "Someone" };
     }
@@ -458,8 +458,13 @@ describe("refunds fanned out across customers to one destination", () => {
   });
 
   it("holds the one that takes that UPI ID over ₹10,000 in 24 h, even at L3", async () => {
-    expect((await h.core.check(gateRefund(refund("cus_a")))).decision).toBe("allow");
-    expect((await h.core.check(gateRefund(refund("cus_b")))).decision).toBe("allow");
+    // A UPI ID taking refunds for other customers is held from the first (B18). The running total still counts them.
+    for (const customer of ["cus_a", "cus_b"]) {
+      const early = await h.core.check(gateRefund(refund(customer)));
+      expect(early.decision).toBe("hold");
+      expect(early.flags?.map((flag) => flag.code)).toContain("destination_other_customer");
+      expect(early.flags?.map((flag) => flag.code)).not.toContain("aggregate_limit");
+    }
     const third = await h.core.check(gateRefund(refund("cus_c")));
     expect(third.decision).toBe("hold");
     expect(third.flags?.map((flag) => flag.code)).toContain("aggregate_limit");
@@ -479,7 +484,8 @@ describe("refunds fanned out across customers to one destination", () => {
     await h.core.check(gateRefund(refund("cus_b")));
     h.clock.advance(24 * 60 * MINUTE + MINUTE);
     await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@refunds-agent refund it"));
-    expect((await h.core.check(gateRefund(refund("cus_c")))).decision).toBe("allow");
+    const later = await h.core.check(gateRefund(refund("cus_c")));
+    expect(later.flags?.map((flag) => flag.code)).not.toContain("aggregate_limit");
   });
 });
 

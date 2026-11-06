@@ -9,7 +9,7 @@ import { chatMessage, gateRefund, hookShell, makeHarness, MINUTE, PARTICIPANTS, 
 
 const TOKEN = "test-internal-token";
 const auth = { authorization: `Bearer ${TOKEN}` };
-const SMALL = { order_id: "A-1931", customer_id: "cus_8812", amount: 2000, destination: "rohan.s@okhdfc" };
+const SMALL = { order_id: "A-1931", customer_id: "cus_8812", amount: 2000, destination: "meera.k@oksbi" };
 
 let dir: string;
 beforeEach(() => {
@@ -83,7 +83,7 @@ describe("mode: shadow", () => {
     h.core.stores.autonomy.setLevel("refunds-agent", "refund", "small", "L2", h.clock.nowMs());
     const run = (order: string) => h.core.check(gateRefund({ ...SMALL, amount: 4000, order_id: order }));
     expect((await run("A-1931")).would_decide).toBe("allow");
-    expect((await run("A-2004")).would_decide).toBe("allow");
+    expect((await run("A-1941")).would_decide).toBe("allow");
     const third = await run("A-1932");
     expect(third).toMatchObject({ decision: "allow", would_decide: "hold" });
     expect(third.flags?.map((flag) => flag.code)).toContain("aggregate_limit");
@@ -176,7 +176,7 @@ describe("POST /v1/policy/simulate over the last N actions", () => {
 
   it("rebuilds the 24 h window as it goes, at each call's own time, rather than reading today's", async () => {
     h.core.stores.autonomy.setLevel("refunds-agent", "refund", "small", "L2", h.clock.nowMs());
-    for (const order of ["A-1931", "A-2004", "A-1932"]) {
+    for (const order of ["A-1931", "A-1941", "A-1932"]) {
       await h.core.check(gateRefund({ ...SMALL, amount: 4000, order_id: order }, { at: new Date(h.clock.nowMs()).toISOString() }));
       h.clock.advance(MINUTE);
     }

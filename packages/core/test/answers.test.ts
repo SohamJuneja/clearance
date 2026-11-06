@@ -303,10 +303,11 @@ describe("an eligible approval", () => {
     expect(h.core.stores.ledger.list({ requestId: id }).at(-1)?.payload).toMatchObject({ ok: false, error: "call_hash mismatch" });
   });
 
-  it("gives up after five minutes when the gate stays down, and says so", async () => {
+  it("gives up after five minutes when the gate refuses every connection, and says it did not run, which is known", async () => {
     const { id } = await heldSc4();
     h.gate.respond = () => {
-      throw new Error("gate down");
+      // What fetch throws when nothing is listening: the request was never sent.
+      throw Object.assign(new Error("gate down"), { cause: { code: "ECONNREFUSED" } });
     };
     await press(h.chat.cardIn("dm-sam"), PARTICIPANTS.sam);
     h.clock.advance(4 * MINUTE);
@@ -316,6 +317,30 @@ describe("an eligible approval", () => {
     await h.core.tick();
     expect(state(id)).toBe("VOIDED");
     expect(h.chat.targeted.at(-1)?.body).toBe(`${id} approved by Sam but it did not run: gate down. Tell Priya and stop.`);
+    const before = h.gate.calls.length;
+    h.clock.advance(MINUTE);
+    await h.core.tick();
+    expect(h.gate.calls).toHaveLength(before);
+  });
+
+  it.each([
+    ["a plain error", () => new Error("gate down")],
+    ["a timeout", () => Object.assign(new Error("The operation was aborted due to timeout"), { name: "TimeoutError" })],
+  ])("gives up after five minutes on %s, which may have reached the gate, and never says it did not run", async (_name, failure) => {
+    const { id } = await heldSc4();
+    h.gate.respond = () => {
+      throw failure();
+    };
+    await press(h.chat.cardIn("dm-sam"), PARTICIPANTS.sam);
+    h.clock.advance(5 * MINUTE + 1);
+    await h.core.tick();
+    expect(state(id)).toBe("OUTCOME_UNKNOWN");
+    const told = [...h.chat.targeted, ...h.chat.messages].map((message) => message.body);
+    expect(told.join("\n")).not.toContain("did not run");
+    expect(h.chat.targeted.at(-1)?.body).toContain(`${id} approved by Sam, but nobody can say whether it ran`);
+    expect(h.chat.targeted.at(-1)?.body).toContain("Do not retry it");
+    expect(h.chat.messages.at(-1)?.body).toContain(`${id}: nobody can say whether this ran`);
+    expect(h.core.stores.ledger.list({ requestId: id }).map((entry) => entry.type)).toContain("outcome_unknown");
     const before = h.gate.calls.length;
     h.clock.advance(MINUTE);
     await h.core.tick();

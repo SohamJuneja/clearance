@@ -2,7 +2,7 @@
  * What the gate does, independent of transport. HTTP routes and MCP tools both call `perform`, so
  * there is one path through core's `check` and one place that holds or executes a call.
  */
-import type { Action, ExecuteResult } from "@clearance/contracts";
+import { GATE_WORDS, type Action, type ExecuteResult } from "@clearance/contracts";
 import { ulid } from "ulid";
 import type { GateConfig } from "./config.js";
 import { AMOUNT_EDITABLE, LOOKUP_PATHS, OPERATIONS, type Operation } from "./operations.js";
@@ -45,6 +45,7 @@ const STATE_TO_STATUS: Record<string, string> = {
   EXECUTED: "executed",
   CONSUMED: "executed",
   EDITED: "edited",
+  OUTCOME_UNKNOWN: "outcome_unknown",
   AUTO: "executed",
   DENIED: "denied",
   VOIDED: "denied",
@@ -112,14 +113,25 @@ export class GateService {
         return unavailable("core held a call without request_id or call_hash");
       return this.hold(principal, op, args, requestId, callHash, reason);
     }
+    // Only earned autonomy allows with a request id. Core has it down as having run, so it has to hear if it didn't.
     try {
       const res = await this.send(op, args);
+      if (requestId && res.status >= 400) {
+        await this.core.reportRunFailed(requestId, { never_ran: res.status < 500, error: `acme answered ${res.status}` });
+      }
       return {
         status: res.status,
         body: res.value,
         raw: { text: res.text, contentType: res.contentType },
       };
     } catch (err) {
+      if (requestId) {
+        const neverRan = err instanceof UpstreamError && err.notSent;
+        await this.core.reportRunFailed(requestId, {
+          never_ran: neverRan,
+          error: neverRan ? "acme was not reached" : `${GATE_WORDS.outcomeUnknown}: acme did not answer`,
+        });
+      }
       return upstreamDown(err);
     }
   }
@@ -229,6 +241,20 @@ export class GateService {
     });
   }
 
+  /** What happened to a call, and nothing else: asking this can't start it. */
+  async look(requestId: string, callHash: string): Promise<{ status: number; result: ExecuteResult }> {
+    const row = this.store.get(requestId);
+    if (!row) return { status: 404, result: { ok: false, alreadyExecuted: false, error: GATE_WORDS.unknownRequest } };
+    if (row.call_hash !== callHash) {
+      return { status: 409, result: { ok: false, alreadyExecuted: false, error: "call_hash does not match the stored call" } };
+    }
+    const running = this.inFlight.get(requestId);
+    if (running) await running;
+    const current = this.store.get(requestId) ?? row;
+    if (current.state === "held") return { status: 409, result: { ok: false, alreadyExecuted: false, error: GATE_WORDS.nothingStarted } };
+    return this.answerFromRow(current);
+  }
+
   /** Execute-on-approval. Core asks; the gate runs exactly the stored call, at most once. */
   async execute(
     requestId: string,
@@ -239,7 +265,7 @@ export class GateService {
       case "unknown_request":
         return {
           status: 404,
-          result: { ok: false, alreadyExecuted: false, error: "unknown request" },
+          result: { ok: false, alreadyExecuted: false, error: GATE_WORDS.unknownRequest },
         };
       case "hash_mismatch":
         return {
@@ -315,7 +341,8 @@ export class GateService {
       const args = JSON.parse(row.body ?? "{}") as Record<string, unknown>;
       const res = await this.send(op, args, row.request_id);
       const ok = res.status >= 200 && res.status < 300;
-      const error = ok ? undefined : `upstream answered ${res.status}`;
+      // A 4xx is Acme saying no. A 5xx is Acme falling over, perhaps after doing it, so nobody can say.
+      const error = ok ? undefined : res.status >= 500 ? `${GATE_WORDS.outcomeUnknown}: acme answered ${res.status}` : `upstream answered ${res.status}`;
       this.store.finish(row.request_id, { ok, status: res.status, result: res.value, error });
       return {
         status: 200,
@@ -335,11 +362,11 @@ export class GateService {
           result: {
             ok: false,
             alreadyExecuted: false,
-            error: "acme was not reached; nothing ran and a retry is safe",
+            error: GATE_WORDS.nothingRan,
           },
         };
       }
-      const error = "outcome unknown: acme did not answer, so the gate will not run this again";
+      const error = `${GATE_WORDS.outcomeUnknown}: acme did not answer, so the gate will not run this again`;
       this.store.markUnknown(row.request_id, error);
       return { status: 502, result: { ok: false, alreadyExecuted: false, error } };
     }
@@ -360,10 +387,10 @@ export class GateService {
     }
     const error =
       row.state === "unknown"
-        ? (row.error ?? "outcome unknown")
+        ? (row.error ?? GATE_WORDS.outcomeUnknown)
         : row.state === "held"
-          ? "acme was not reached; nothing ran and a retry is safe"
-          : "another gate process is executing this request";
+          ? GATE_WORDS.nothingRan
+          : GATE_WORDS.busy;
     return { status: 409, result: { ok: false, alreadyExecuted: false, error } };
   }
 
@@ -431,6 +458,8 @@ export class GateService {
 function pendingMessage(status: string, id: string, editedTo?: string): string {
   if (status === "pending")
     return `PENDING ${id}: still waiting for approval. Do not try another way.`;
+  if (status === "outcome_unknown")
+    return `${id}: nobody can say whether it ran. Do not retry it. A person has to check.`;
   if (status === "edited")
     return `${id} did not run and will not. An approver edited it${editedTo ? ` to ${editedTo}` : ""}. Do not try it again.`;
   return `${id} is ${status}.`;

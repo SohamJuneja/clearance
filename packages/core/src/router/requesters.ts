@@ -23,6 +23,16 @@ const NOTICES_TO_READ_PAST = 20;
 /** Real time on purpose: an agent's turn takes as long as it takes, whatever CLEARANCE_TIME_SCALE says. */
 export const REQUESTER_WINDOW_MS = 10 * 60_000;
 
+/**
+ * Someone who asked and has had no reply from the agent is still waiting on its turn, however long that takes, so they
+ * can't approve what comes out of it. All core can see of a turn is the agent's messages, so its next message in that room
+ * is what ends one: an agent that posts progress as it goes ends this early, and one that never answers lasts until this.
+ */
+const TURN_MAX_MS = 60 * 60_000;
+
+/** A voice is kept this long, past the window, so one delivered late can still bar its sender while a request is open. */
+const VOICE_KEEP_MS = 40 * 60_000;
+
 const MENTION = /(?<![\w.@-])@([A-Za-z0-9][\w-]*(?:\.[\w-]+)*)/g;
 
 export function mentionedNames(body: string): string[] {
@@ -31,6 +41,9 @@ export function mentionedNames(body: string): string[] {
 
 /** Answering a card in the room: `A12 yes`, `A12 1`, `A12 "40000"`, `A12 q1="40000"`. That is a decision, not a request. */
 const CARD_ANSWER = /^\s*A\d+(\s+(yes|no|\d+|"[^"]*"|\w+="[^"]*"))?\s*$/i;
+
+/** When it was sent, as far as anyone says. Switch gives 0 when it doesn't know, and arrival time then stands in. */
+const sentAt = (evt: ChatMessageEvent): number | null => (evt.timestampMs > 0 ? evt.timestampMs : null);
 
 export class RequesterTracker {
   constructor(
@@ -42,13 +55,14 @@ export class RequesterTracker {
   observe(evt: ChatMessageEvent): void {
     const senderAgent = this.directory.agentForSender(evt.sender, evt.senderName);
     if (senderAgent) this.recordAgentMessage(senderAgent, evt);
-    const mentioned = mentionedNames(evt.body).filter((name) => this.directory.isAgent(name));
+    const named = mentionedNames(evt.body);
+    const mentioned = [...new Set(named.flatMap((name) => this.directory.agentNamed(name) ?? []))];
     const senderPerson = this.directory.personByParticipant(evt.sender);
     const onBehalfOf = this.identifyDisplayName(evt.onBehalfOf);
     if (mentioned.length === 0) {
       if (!senderAgent && !this.namesClearance(evt.body) && !CARD_ANSWER.test(evt.body)) {
         for (const userId of new Set([senderPerson?.id ?? (onBehalfOf ? null : evt.sender), onBehalfOf])) {
-          if (userId) this.recordVoice(evt.roomId, userId);
+          if (userId) this.recordVoice(evt, userId, named.some((name) => !this.directory.knowsMention(name)));
         }
       }
       return;
@@ -75,11 +89,13 @@ export class RequesterTracker {
     return mentionedNames(body).some((name) => name.toLowerCase() === "clearance");
   }
 
-  /** Who spoke where, for the window and no longer. Only that: what they said isn't kept. */
-  private recordVoice(room: string, userId: string): void {
+  /** Who spoke where, for as long as that can matter and no longer. Only that: what they said isn't kept. */
+  private recordVoice(evt: ChatMessageEvent, userId: string, namedUnknown: boolean): void {
     const now = this.clock.nowMs();
-    this.db.prepare(`DELETE FROM room_voices WHERE at <= ?`).run(now - REQUESTER_WINDOW_MS);
-    this.db.prepare(`INSERT INTO room_voices (room, user_id, at) VALUES (?, ?, ?)`).run(room, userId, now);
+    this.db.prepare(`DELETE FROM room_voices WHERE at <= ?`).run(now - VOICE_KEEP_MS);
+    this.db
+      .prepare(`INSERT INTO room_voices (room, user_id, at, sent_at, named_unknown) VALUES (?, ?, ?, ?, ?)`)
+      .run(evt.roomId, userId, now, sentAt(evt), namedUnknown ? 1 : 0);
   }
 
   /** The person's id, or the name as given when it maps to nobody: that keeps them a requester and widens nothing. */
@@ -90,8 +106,8 @@ export class RequesterTracker {
 
   private record(agent: string, evt: ChatMessageEvent, userId: string, onBehalfOf: string | null): void {
     this.db
-      .prepare(`INSERT INTO requesters (agent, room, thread, user_id, on_behalf_of, at) VALUES (?, ?, ?, ?, ?, ?)`)
-      .run(agent, evt.roomId, evt.threadId ?? null, userId, onBehalfOf, this.clock.nowMs());
+      .prepare(`INSERT INTO requesters (agent, room, thread, user_id, on_behalf_of, at, sent_at) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+      .run(agent, evt.roomId, evt.threadId ?? null, userId, onBehalfOf, this.clock.nowMs(), sentAt(evt));
   }
 
   private recordAgentMessage(agent: string, evt: ChatMessageEvent): void {
@@ -117,6 +133,59 @@ export class RequesterTracker {
          ) GROUP BY user_id ORDER BY first`,
       )
       .all({ agent, since, room: room ?? null }) as { user_id: string }[];
+    return rows.map((row) => row.user_id);
+  }
+
+  /**
+   * People who, in the window, addressed a name we don't know in a room this agent isn't known to be in. That name could be
+   * this agent under an alias, which only Switch knows, so they may have asked and can't be counted as having asked.
+   */
+  possibleAskers(agent: string): string[] {
+    const rows = this.db
+      .prepare(
+        `SELECT DISTINCT user_id FROM room_voices WHERE named_unknown = 1 AND at > @since AND room NOT IN (
+           SELECT room FROM agent_messages WHERE agent = @agent
+           UNION
+           SELECT room FROM requesters WHERE agent = @agent
+         )`,
+      )
+      .all({ agent, since: this.clock.nowMs() - REQUESTER_WINDOW_MS }) as { user_id: string }[];
+    return rows.map((row) => row.user_id);
+  }
+
+  /** People past the window who are still waiting on what they asked this agent for: see TURN_MAX_MS. */
+  stillWaitingOn(agent: string): string[] {
+    const now = this.clock.nowMs();
+    const asked = this.db
+      .prepare(`SELECT user_id, room, at FROM requesters WHERE agent = @agent AND at > @longest AND at <= @window`)
+      .all({ agent, longest: now - TURN_MAX_MS, window: now - REQUESTER_WINDOW_MS }) as { user_id: string; room: string; at: number }[];
+    // What Switch posts in the agent's name isn't the agent answering. "I'll pick this up when I'm back" means it's still to come.
+    const replied = (ask: { room: string; at: number }) =>
+      (this.db.prepare(`SELECT body FROM agent_messages WHERE agent = ? AND room = ? AND at >= ?`).all(agent, ask.room, ask.at) as { body: string }[]).some(
+        (row) => !isSwitchNotice(row.body),
+      );
+    return [...new Set(asked.filter((ask) => !replied(ask)).map((ask) => ask.user_id))];
+  }
+
+  /**
+   * People whose message was sent in the window before `atMs` and only reached us after it. Who asked is fixed when a call
+   * is held, but the stream is read one frame at a time and only opens after core starts serving, so an ask can be
+   * overtaken by the call it led to. Asked at answer time, so it bars them however late it came.
+   */
+  askedBeforeArriving(agent: string, atMs: number): string[] {
+    const rows = this.db
+      .prepare(
+        `SELECT DISTINCT user_id FROM (
+           SELECT user_id, at, sent_at FROM requesters WHERE agent = @agent
+           UNION ALL
+           SELECT user_id, at, sent_at FROM room_voices WHERE room IN (
+             SELECT room FROM agent_messages WHERE agent = @agent
+             UNION
+             SELECT room FROM requesters WHERE agent = @agent
+           )
+         ) WHERE at >= @atMs AND sent_at <= @atMs AND sent_at > @since`,
+      )
+      .all({ agent, atMs, since: atMs - REQUESTER_WINDOW_MS }) as { user_id: string }[];
     return rows.map((row) => row.user_id);
   }
 

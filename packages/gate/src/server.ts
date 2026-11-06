@@ -26,7 +26,7 @@ declare module "fastify" {
 export type GateServerOptions = { logger?: FastifyServerOptions["logger"] };
 
 const MAX_HINT_LENGTH = 512;
-const ExecuteBody = z.object({ call_hash: z.string().min(1) }).strict();
+const ExecuteBody = z.object({ call_hash: z.string().min(1), look_only: z.boolean().optional() }).strict();
 const EditBody = z
   .object({
     call_hash: z.string().min(1),
@@ -174,7 +174,9 @@ export function buildGateServer(
           .status(400)
           .send({ ok: false, alreadyExecuted: false, error: "body must be {call_hash}" });
       }
-      const { status, result } = await service.execute(req.params.requestId, body.data.call_hash);
+      const { status, result } = body.data.look_only
+        ? await service.look(req.params.requestId, body.data.call_hash)
+        : await service.execute(req.params.requestId, body.data.call_hash);
       return reply.status(status).send(result);
     },
   );

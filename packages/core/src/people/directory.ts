@@ -43,6 +43,8 @@ export function loadIdentities(path: string | undefined): Identities {
   return IdentitiesSchema.parse(JSON.parse(readFileSync(path, "utf8")));
 }
 
+const BROADCAST_MENTIONS = new Set(["all", "channel", "here"]);
+
 export class Directory {
   private readonly people = new Map<string, Person>();
   private readonly byParticipant = new Map<string, Person>();
@@ -136,6 +138,22 @@ export class Directory {
 
   isAgent(name: string): boolean {
     return this.agentNames.has(name);
+  }
+
+  /** The agent a mention means. Switch matches mentions without regard to case, so this has to. */
+  agentNamed(mention: string): string | null {
+    if (this.agentNames.has(mention)) return mention;
+    const lower = mention.toLowerCase();
+    return [...this.agentNames].find((name) => name.toLowerCase() === lower) ?? null;
+  }
+
+  /** Whether a mention means anything we know of. One that doesn't could be an agent's alias, which only Switch knows. */
+  knowsMention(mention: string): boolean {
+    const lower = mention.toLowerCase();
+    if (BROADCAST_MENTIONS.has(lower) || this.agentNamed(mention)) return true;
+    return this.all().some((person) =>
+      [person.id, person.userName, person.name, ...person.groups, ...person.roles, ...person.roles.map((role) => `${role}s`)].some((name) => name.toLowerCase() === lower),
+    );
   }
 
   /** On the team file. Anything else is denied whatever it asks for. */

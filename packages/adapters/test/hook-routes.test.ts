@@ -539,6 +539,95 @@ describe("multi-file patches", () => {
   });
 });
 
+describe("a grant on one file of a patch", () => {
+  const patch = () => load("codex-pretooluse-apply-patch");
+  const write = () => ({
+    hook_event_name: "PreToolUse",
+    cwd: "/home/agent/support-agent",
+    tool_name: "Write",
+    tool_input: { file_path: "a", content: "x" },
+  });
+  /** docs/note.md has a grant waiting, and the rest of the patch is fine. */
+  const oneGrant = (action: Action): CheckResponse => {
+    if (action.file?.path !== "docs/note.md") return { decision: "allow", reason: "safe" };
+    return action.defer_grants
+      ? { decision: "allow", reason: "waiting", grant_pending: true }
+      : { decision: "allow", reason: "Approved", grant_consumed: true };
+  };
+  const spent = () => checks.filter((check) => !check.defer_grants).map((check) => check.file?.path);
+
+  it("a call on one file is asked once, and spends as it always did", async () => {
+    const res = await post("codex", write());
+    expect(res.json()).toEqual({});
+    expect(checks).toHaveLength(1);
+    expect(checks[0]?.defer_grants).toBeUndefined();
+  });
+
+  it("asks about every file without spending, then spends only where there's a grant", async () => {
+    decide = oneGrant;
+    const res = await post("codex", patch());
+    expect(res.json()).toEqual({});
+    expect(checks.filter((check) => check.defer_grants)).toHaveLength(5);
+    expect(spent()).toEqual(["docs/note.md"]);
+  });
+
+  it("spends nothing when a later file is refused", async () => {
+    decide = (action) =>
+      action.file?.path === "tests/old.test.ts"
+        ? { decision: "hold", reason: "HELD CLR-9", request_id: "CLR-9" }
+        : oneGrant(action);
+    const res = await post("codex", patch());
+    expect(decisionOf("codex", res.json())).toEqual({ deny: true, reason: "HELD CLR-9" });
+    expect(spent()).toEqual([]);
+  });
+
+  it("spends nothing when a later file can't be answered", async () => {
+    decide = (action) => {
+      if (action.file?.path === "tests/old.test.ts") throw new Error("core fell over");
+      return oneGrant(action);
+    };
+    const res = await post("codex", patch());
+    expect(decisionOf("codex", res.json()).deny).toBe(true);
+    expect(spent()).toEqual([]);
+  });
+
+  it("is a deny if the grant has gone by the time it's spent", async () => {
+    decide = (action) =>
+      action.defer_grants ? oneGrant(action) : { decision: "hold", reason: "HELD CLR-9", request_id: "CLR-9" };
+    const res = await post("codex", patch());
+    expect(decisionOf("codex", res.json())).toEqual({ deny: true, reason: "HELD CLR-9" });
+  });
+
+  it("is a deny if the spending answer is nonsense", async () => {
+    decide = (action) => (action.defer_grants ? oneGrant(action) : ({ nonsense: true } as unknown as CheckResponse));
+    const res = await post("codex", patch());
+    expect(decisionOf("codex", res.json()).deny).toBe(true);
+  });
+});
+
+describe("one allow reused for a call's second event", () => {
+  const event = (hook_event_name: string, content: string) => ({
+    hook_event_name,
+    session_id: "s",
+    turn_id: "t",
+    cwd: "/home/agent/support-agent",
+    tool_name: "Write",
+    tool_input: { file_path: "a", content },
+  });
+
+  it("is for what was checked, not just the same path", async () => {
+    await post("codex", event("PreToolUse", "good"));
+    await post("codex", event("PermissionRequest", "evil"));
+    expect(checks.map((check) => check.written?.content)).toEqual(["good", "evil"]);
+  });
+
+  it("still saves asking again for the same content", async () => {
+    await post("codex", event("PreToolUse", "good"));
+    await post("codex", event("PermissionRequest", "good"));
+    expect(checks).toHaveLength(1);
+  });
+});
+
 describe("Codex PreToolUse then PermissionRequest for one call", () => {
   const pre = () => load("codex-pretooluse-stubmodel");
   const perm = () => load("codex-permissionrequest-bash");

@@ -76,7 +76,7 @@ export function isBatch(approvalTimes: number[], nowMs: number, config: StampCon
   return approvalTimes.filter((at) => at >= since && at <= nowMs).length >= config.batchApprovals;
 }
 
-const FLAGS_WORTH_STOPPING_FOR = new Set(["mismatch", "new_destination"]);
+const FLAGS_WORTH_STOPPING_FOR = new Set(["mismatch", "new_destination", "destination_other_customer", "order_other_customer"]);
 
 export function ignoredFlags(flags: Flag[]): string[] {
   return flags.map((flag) => flag.code).filter((code) => FLAGS_WORTH_STOPPING_FOR.has(code));

@@ -78,8 +78,8 @@ const gate: GatePort = {
 const lookup: LookupPort = {
   lookup: async (kind, id) => {
     if (kind === "customers") return { id, name: "Synthetic customer" };
-    if (kind === "orders") return { id, total: 1_000_000 };
-    if (kind === "destinations") return { id, age_hours: 720 };
+    if (kind === "orders") return { id, customer_id: `cus_wk2_${Number(id.slice(2)) - 5000}`, total: 1_000_000 };
+    if (kind === "destinations") return { id, customer_id: `cus_wk2_${id.replace(/^synthetic-wk2-|@okhdfc$/g, "")}`, age_hours: 720 };
     return null;
   },
 };

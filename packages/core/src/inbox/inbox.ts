@@ -55,7 +55,7 @@ function sharedRoutesFor(sources: InboxSources, userId: string): RouteRow[] {
   const rows = sources.db
     .prepare(
       `SELECT r.* FROM routes r JOIN requests q ON q.id = r.request_id
-       WHERE r.user_id IS NULL AND r.step IN ('fallback', 'group') AND r.closed_at IS NULL AND q.state IN ('HELD', 'ROUTED')`,
+       WHERE r.user_id IS NULL AND r.step IN ('fallback', 'group') AND r.closed_at IS NULL AND r.open_state IS NULL AND q.state IN ('HELD', 'ROUTED')`,
     )
     .all() as RouteRow[];
   return rows.filter((row) => {

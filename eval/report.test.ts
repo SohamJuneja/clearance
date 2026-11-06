@@ -319,6 +319,16 @@ describe("eval:report", () => {
       audit: { passed: 4, total: 5, found_by: "a review", per_check: [] },
     };
 
+    it("adds a second review to the audit's line, and to the negative results, without touching E1's count", () => {
+      write({ "authority.json": { ...authority, audit: { passed: 5, total: 5 }, second_review: { passed: 28, total: 28 } } });
+      report();
+      const text = readFileSync(resultsPath, "utf8");
+      const rows = parseResults(text);
+      expect(selectRow(rows, "E1").clearance).toBe("3");
+      expect(selectRow(rows, "AUDIT").clearance).toBe("Audit: 5 of 5; second review: 28 of 28");
+      expect(text).toContain("reproduced 28 more breaks");
+    });
+
     it("keeps the audit on its own line: it never changes E1's count", () => {
       write({ "authority.json": authority });
       report();

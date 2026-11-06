@@ -203,6 +203,23 @@ export async function answerCard(
   return approver.sayBeside(card, `${handleOf(card)} ${decision}`);
 }
 
+/** What a card that asks for a typed value wants, read off the card the way a person would. */
+export function counterAnswer(card: MattermostPost): string {
+  const text = postText(card).replaceAll("\u200b", "");
+  if (/type the last 4 characters of the destination/i.test(text)) {
+    const destination = /Destination: \S+ (\S+)/.exec(text)?.[1];
+    ensure(destination, `no destination on the card: ${text.slice(0, 300)}`);
+    return destination.slice(-4);
+  }
+  if (/type the CLR number/i.test(text)) return clrOf(card);
+  if (/type the refund amount/i.test(text)) {
+    const amount = /REFUND ₹([\d,]+)/.exec(text)?.[1]?.replaceAll(",", "");
+    ensure(amount, `no amount on the card: ${text.slice(0, 300)}`);
+    return amount;
+  }
+  return "yes";
+}
+
 /**
  * Trying to approve a card. A questions card, which is what a critical card is, takes a typed value and refuses
  * `A12 yes`, so what's typed there is what the card asks for.

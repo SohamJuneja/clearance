@@ -11,8 +11,8 @@ import type { Ledger } from "../ledger/ledger.js";
 export const TRANSITIONS: Record<RequestState, RequestState[]> = {
   HELD: ["ROUTED", "EXPIRED", "CANCELLED"],
   ROUTED: ["APPROVED", "DENIED", "EXPIRED", "CANCELLED", "BREAK_GLASS", "EDITED"],
-  APPROVED: ["EXECUTED", "GRANTED", "VOIDED"],
-  BREAK_GLASS: ["EXECUTED", "GRANTED", "VOIDED"],
+  APPROVED: ["EXECUTED", "GRANTED", "VOIDED", "OUTCOME_UNKNOWN"],
+  BREAK_GLASS: ["EXECUTED", "GRANTED", "VOIDED", "OUTCOME_UNKNOWN"],
   GRANTED: ["CONSUMED", "VOIDED"],
   DENIED: [],
   EXPIRED: [],
@@ -20,8 +20,10 @@ export const TRANSITIONS: Record<RequestState, RequestState[]> = {
   EXECUTED: [],
   CONSUMED: [],
   VOIDED: [],
-  AUTO: [],
+  /** The gate reported that what ran alone didn't go through. */
+  AUTO: ["VOIDED", "OUTCOME_UNKNOWN"],
   EDITED: [],
+  OUTCOME_UNKNOWN: [],
 };
 
 const DECIDED: RequestState[] = ["APPROVED", "DENIED", "EXPIRED", "CANCELLED", "BREAK_GLASS", "EDITED"];
@@ -229,9 +231,10 @@ export class RequestStore {
     return request;
   }
 
+  /** A drill isn't a call: a real one that happens to match it is still a real one. */
   findOpen(callHash: string, agent: string): RequestRecord | null {
     const row = this.db
-      .prepare(`SELECT * FROM requests WHERE call_hash = ? AND agent = ? AND state IN ('HELD', 'ROUTED') ORDER BY created_at DESC LIMIT 1`)
+      .prepare(`SELECT * FROM requests WHERE call_hash = ? AND agent = ? AND is_drill = 0 AND state IN ('HELD', 'ROUTED') ORDER BY created_at DESC LIMIT 1`)
       .get(callHash, agent) as Row | undefined;
     return row ? fromRow(row) : null;
   }
@@ -256,7 +259,7 @@ export class RequestStore {
     const rows = this.db
       .prepare(
         `SELECT * FROM requests WHERE state = 'AUTO' AND expires_at > ? AND json_extract(evidence, '$.level') = 'L2'
-           AND id NOT IN (SELECT request_id FROM routes)`,
+           AND id NOT IN (SELECT request_id FROM routes WHERE open_state IS NOT 'failed')`,
       )
       .all(nowMs) as Row[];
     return rows.map(fromRow);
@@ -278,8 +281,32 @@ export class RequestStore {
     this.db.prepare(`UPDATE requests SET evidence = ? WHERE id = ?`).run(JSON.stringify(evidence), id);
   }
 
+  /** Before it's sent: dying in between has to read as "it may have reached the gate". */
   noteExecutionAttempt(id: string): number {
     this.db.prepare(`UPDATE requests SET exec_attempts = exec_attempts + 1 WHERE id = ?`).run(id);
     return this.require(id).execAttempts;
+  }
+
+  /** That attempt can't have reached the gate. Attempts are only ever "may have". */
+  takeBackExecutionAttempt(id: string): void {
+    this.db.prepare(`UPDATE requests SET exec_attempts = MAX(exec_attempts - 1, 0) WHERE id = ?`).run(id);
+  }
+
+  /** The gate says nothing has run, which answers for every attempt so far. */
+  clearExecutionAttempts(id: string): void {
+    this.db.prepare(`UPDATE requests SET exec_attempts = 0 WHERE id = ?`).run(id);
+  }
+
+  /** The latest time this exact call ran, or may have, since then. Drills run nothing. */
+  lastRun(callHash: string, agent: string, sinceMs: number): { requestId: string; atMs: number; unknown: boolean } | null {
+    const row = this.db
+      .prepare(
+        `SELECT id, state, COALESCE(decided_at, created_at) AS at FROM requests
+         WHERE call_hash = ? AND agent = ? AND state IN ('EXECUTED', 'CONSUMED', 'AUTO', 'OUTCOME_UNKNOWN') AND is_drill = 0
+           AND COALESCE(decided_at, created_at) > ?
+         ORDER BY at DESC, id DESC LIMIT 1`,
+      )
+      .get(callHash, agent, sinceMs) as { id: string; state: RequestState; at: number } | undefined;
+    return row ? { requestId: row.id, atMs: row.at, unknown: row.state === "OUTCOME_UNKNOWN" } : null;
   }
 }

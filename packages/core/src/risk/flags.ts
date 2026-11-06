@@ -30,6 +30,10 @@ function ruleFlagText(code: string, extracted: Record<string, unknown>, _currenc
       return `Attachments hold ${new Intl.NumberFormat("en-IN").format(toNumber(extracted.rows) ?? 0)} rows`;
     case "outside_hours":
       return "Outside business hours";
+    case "destination_other_customer":
+      return `The destination belongs to ${oneLine(extracted.destination_customer ?? "another customer")}, not ${oneLine(extracted.customer ?? "this customer")}`;
+    case "order_other_customer":
+      return `The order belongs to ${oneLine(extracted.order_customer ?? "another customer")}, not ${oneLine(extracted.customer ?? "this customer")}`;
     default:
       return code.replace(/_/g, " ");
   }
@@ -87,6 +91,21 @@ export function requesterUnknownFlag(quorum: number): Flag {
   };
 }
 
+export function requesterUnlinkedFlag(quorum: number): Flag {
+  return {
+    code: "requester_unlinked",
+    text: `Asked from an account linked to nobody on the team, which could be one of the approvers, so this needs ${COUNT_WORDS[quorum] ?? quorum} approvals from different people.`,
+  };
+}
+
+export function ranRecentlyFlag(requestId: string, when: string): Flag {
+  return { code: "ran_recently", text: `An identical call ran as ${requestId} at ${when}` };
+}
+
+export function mayHaveRunFlag(requestId: string, when: string): Flag {
+  return { code: "may_have_run", text: `An identical call, ${requestId}, may have run at ${when}: nobody could confirm it` };
+}
+
 export function agentElsewhereFlag(quorum: number): Flag {
   return {
     code: "agent_elsewhere",
@@ -102,13 +121,31 @@ export function agentReachUnknownFlag(quorum: number): Flag {
 }
 
 export function unparsedFlag(reason: string): Flag {
-  return { code: "unparsed", text: `Could not read this shell line with confidence: ${reason}` };
+  return { code: "unparsed", text: `Could not read this shell line with confidence: ${oneLine(reason)}` };
 }
 
 export function dynamicArgsFlag(words: string[]): Flag {
   return { code: "dynamic_args", text: `Some values are only known when it runs: ${oneLine(words.join(", "), 120)}` };
 }
 
-export function authorUnknownFlag(field: string): Flag {
+/** With `quorum` when asking again could have told us: then the author could be one of the people approving. */
+export function authorUnknownFlag(field: string, quorum?: number): Flag {
+  if (quorum !== undefined) {
+    return { code: `${field}_unknown`, text: `Could not tell who the ${field} is, so this needs ${COUNT_WORDS[quorum] ?? quorum} approvals from different people` };
+  }
   return { code: `${field}_unknown`, text: `Could not tell who the ${field} is, so nobody was excluded for it` };
+}
+
+export function messagesLostFlag(quorum: number): Flag {
+  return {
+    code: "messages_lost",
+    text: `Some messages never reached Clearance, so it can't be sure who asked. This needs ${COUNT_WORDS[quorum] ?? quorum} approvals from different people.`,
+  };
+}
+
+export function possibleAliasFlag(quorum: number): Flag {
+  return {
+    code: "possible_alias",
+    text: `Someone addressed a name Clearance doesn't know, which could be this agent under an alias, so this needs ${COUNT_WORDS[quorum] ?? quorum} approvals from different people.`,
+  };
 }

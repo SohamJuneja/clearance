@@ -39,7 +39,7 @@ Clip: the full video.
 
 Clearance is our entry to Flip the Switch: one approval policy across agent vendors, the right other person, the real call in front of them, and a way to tell whether approvers are still reading.
 
-We scored {{E1}} on our own authority suite. Then an independent review found {{AUDIT_BREAKS}} breaks the suite had missed, including a way to approve your own refund. We fixed them, and they're re-checked on their own line.
+We scored {{E1}} on our own authority suite. Then an independent review found {{AUDIT_BREAKS}} breaks the suite had missed, including a way to approve your own refund. We fixed them. A second review, on code that passed all of that, reproduced {{SECOND_REVIEW_BREAKS}} more, including a denial that could vanish while its card was opening. Those are fixed too, and all of them are re-checked on their own line.
 
 Our first autonomy rule gave {{E6_ORIGINAL}} human decisions per 100 agent actions on a synthetic week, against {{E6_BEFORE}} before promotion. We changed the rule after seeing that, and it now gives {{E6_AFTER}}. Both numbers are published.
 

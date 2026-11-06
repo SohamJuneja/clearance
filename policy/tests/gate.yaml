@@ -30,7 +30,7 @@ cases:
   - name: small refund stays held at L0 even at low tier (F11 always ask)
     gate:
       endpoint: POST /acme/refunds
-      args: { order_id: A-1931, customer_id: cus_8812, amount: 2000, destination: rohan.s@okhdfc }
+      args: { order_id: A-1931, customer_id: cus_8812, amount: 2000, destination: meera.k@oksbi }
     expect: { decision: hold, class: refund, tier: low, score: 20, flags: [], step: class_hold }
   - name: the spine scene, ₹4,000 to a newly added UPI ID, is medium
     gate:
@@ -40,24 +40,24 @@ cases:
   - name: over the order by more than 3x and over the limit is critical
     gate:
       endpoint: POST /acme/refunds
-      args: { order_id: A-1931, customer_id: cus_8812, amount: 15000, destination: rohan.s@okhdfc }
+      args: { order_id: A-1931, customer_id: cus_8812, amount: 15000, destination: meera.k@oksbi }
     expect: { decision: hold, class: refund, tier: critical, score: 85, flags: [amount_vs_order] }
   - name: a Sunday adds nothing, since the demo policy's hours are always on
     at: "2026-11-08T14:00:00+05:30"
     gate:
       endpoint: POST /acme/refunds
-      args: { order_id: A-1931, customer_id: cus_8812, amount: 2000, destination: rohan.s@okhdfc }
+      args: { order_id: A-1931, customer_id: cus_8812, amount: 2000, destination: meera.k@oksbi }
     expect: { decision: hold, class: refund, tier: low, score: 20, flags: [] }
   - name: nor does a weekday evening
     at: "2026-11-04T21:30:00+05:30"
     gate:
       endpoint: POST /acme/refunds
-      args: { order_id: A-1931, customer_id: cus_8812, amount: 2000, destination: rohan.s@okhdfc }
+      args: { order_id: A-1931, customer_id: cus_8812, amount: 2000, destination: meera.k@oksbi }
     expect: { decision: hold, class: refund, score: 20, flags: [] }
   - name: unknown order cannot lower risk, adds the points and flags missing data
     gate:
       endpoint: POST /acme/refunds
-      args: { order_id: A-404, customer_id: cus_8812, amount: 2000, destination: rohan.s@okhdfc }
+      args: { order_id: A-404, customer_id: cus_8812, amount: 2000, destination: meera.k@oksbi }
     expect: { decision: hold, class: refund, tier: medium, score: 50, flags: [missing_data] }
   - name: unknown destination is treated as new
     gate:
@@ -68,12 +68,12 @@ cases:
     lookups_down: true
     gate:
       endpoint: POST /acme/refunds
-      args: { order_id: A-1931, customer_id: cus_8812, amount: 2000, destination: rohan.s@okhdfc }
+      args: { order_id: A-1931, customer_id: cus_8812, amount: 2000, destination: meera.k@oksbi }
     expect: { decision: hold, class: refund, tier: high, score: 75, flags: [missing_data] }
   - name: non-numeric amount cannot slip under the threshold
     gate:
       endpoint: POST /acme/refunds
-      args: { order_id: A-1931, customer_id: cus_8812, amount: "40,000", destination: rohan.s@okhdfc }
+      args: { order_id: A-1931, customer_id: cus_8812, amount: "40,000", destination: meera.k@oksbi }
     expect: { decision: hold, class: refund, tier: critical, flags: [missing_data] }
   - name: numeric string amount is read as a number
     gate:
@@ -87,13 +87,13 @@ cases:
     autonomy: { cls: refund, bucket: small, level: L3 }
     gate:
       endpoint: POST /acme/refunds
-      args: { order_id: A-1931, customer_id: cus_8812, amount: 4000, destination: rohan.s@okhdfc }
+      args: { order_id: A-1931, customer_id: cus_8812, amount: 4000, destination: meera.k@oksbi }
     expect: { decision: hold, class: refund, tier: low, flags: [aggregate_limit], step: class_hold }
   - name: SC10 first small refund runs under L3, below the 24 h sum
     autonomy: { cls: refund, bucket: small, level: L3 }
     gate:
       endpoint: POST /acme/refunds
-      args: { order_id: A-1931, customer_id: cus_8812, amount: 4000, destination: rohan.s@okhdfc }
+      args: { order_id: A-1931, customer_id: cus_8812, amount: 4000, destination: meera.k@oksbi }
     expect: { decision: allow, class: refund, tier: low, step: autonomy }
   - name: prior refunds older than the window do not count
     prior:
@@ -101,13 +101,13 @@ cases:
     autonomy: { cls: refund, bucket: small, level: L3 }
     gate:
       endpoint: POST /acme/refunds
-      args: { order_id: A-1931, customer_id: cus_8812, amount: 4000, destination: rohan.s@okhdfc }
+      args: { order_id: A-1931, customer_id: cus_8812, amount: 4000, destination: meera.k@oksbi }
     expect: { decision: allow, class: refund, step: autonomy }
   - name: L1 autonomy is still a human decision
     autonomy: { cls: refund, bucket: small, level: L1 }
     gate:
       endpoint: POST /acme/refunds
-      args: { order_id: A-1931, customer_id: cus_8812, amount: 4000, destination: rohan.s@okhdfc }
+      args: { order_id: A-1931, customer_id: cus_8812, amount: 4000, destination: meera.k@oksbi }
     expect: { decision: hold, class: refund, step: class_hold }
   - name: L3 in the small bucket does not reach a large refund
     autonomy: { cls: refund, bucket: small, level: L3 }

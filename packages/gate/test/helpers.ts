@@ -152,6 +152,7 @@ export type FakeCore = {
   checks: { action: Action; authorization: string | undefined }[];
   decide: (decider: Decider) => void;
   requests: Map<string, { status: number; body: string }>;
+  runFailures: { id: string; body: unknown; authorization: string | undefined }[];
   requestAuth: () => string | undefined;
   close: () => Promise<void>;
 };
@@ -178,6 +179,11 @@ export async function startFakeCore(): Promise<FakeCore> {
     }
     return reply.status(200).send(out);
   });
+  const runFailures: FakeCore["runFailures"] = [];
+  app.post("/v1/requests/:id/run-failed", async (req) => {
+    runFailures.push({ id: (req.params as { id: string }).id, body: req.body, authorization: req.headers.authorization });
+    return { ok: true };
+  });
   app.get("/v1/requests/:id", async (req, reply) => {
     lastRequestAuth = req.headers.authorization;
     const entry = requests.get((req.params as { id: string }).id);
@@ -192,6 +198,7 @@ export async function startFakeCore(): Promise<FakeCore> {
       decider = d;
     },
     requests,
+    runFailures,
     requestAuth: () => lastRequestAuth,
     close: () => app.close(),
   };

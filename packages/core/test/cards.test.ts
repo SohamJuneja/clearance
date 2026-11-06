@@ -304,7 +304,7 @@ describe("cards from real calls: snapshots across fixture calls", () => {
     { name: "SC4 legit large refund", action: () => gateRefund(REFUND_SC4) },
     {
       name: "small refund, unknown order",
-      action: () => gateRefund({ order_id: "A-404", customer_id: "cus_8812", amount: 2000, destination: "rohan.s@okhdfc" }),
+      action: () => gateRefund({ order_id: "A-404", customer_id: "cus_8812", amount: 2000, destination: "meera.k@oksbi" }),
     },
     {
       name: "prod deploy with failing checks",

@@ -177,6 +177,59 @@ describe("asking", () => {
   });
 });
 
+describe("an answer that beats the card's own opening (B13)", () => {
+  const answerDuringOpen = (reply: (card: OpenedCard) => Promise<void>) => {
+    const open = h.chat.openCard.bind(h.chat);
+    let done = false;
+    h.chat.openCard = async (input) => {
+      const result = await open(input);
+      if (input.title.includes("COUNTER") && !done) {
+        done = true;
+        await reply(h.chat.cards.at(-1) as OpenedCard);
+      }
+      return result;
+    };
+  };
+
+  it("a yes still counts, and it runs once", async () => {
+    const id = await held();
+    answerDuringOpen((card) => typed(card, PARTICIPANTS.sam, '"hdfc"'));
+    await counter(PARTICIPANTS.sam, id, "4000");
+    expect(state(id)).toBe("EDITED");
+    expect(h.gate.calls).toHaveLength(1);
+    expect(h.core.stores.routes.openForRequest(id)).toEqual([]);
+  });
+
+  it("a No still counts, and the original is left waiting", async () => {
+    const id = await held();
+    answerDuringOpen((card) => declined(card, PARTICIPANTS.sam));
+    await counter(PARTICIPANTS.sam, id, "4000");
+    expect(state(id)).toBe("ROUTED");
+    expect(entry(id, "edit_withdrawn")?.payload).toMatchObject({ reason: "declined" });
+    expect(h.gate.calls).toEqual([]);
+  });
+
+  it("an offer that fails to open leaves no card on record, but a late answer to it still counts", async () => {
+    const id = await held();
+    const open = h.chat.openCard.bind(h.chat);
+    let opened: OpenedCard | null = null;
+    // Switch posted it, and the answer to that never reached us.
+    h.chat.openCard = async (input) => {
+      await open(input);
+      opened = h.chat.cards.at(-1) as OpenedCard;
+      throw new Error("timed out");
+    };
+    await counter(PARTICIPANTS.sam, id, "4000");
+    h.chat.openCard = open;
+    expect(lastReply()).toContain("Nothing changed");
+    expect(h.core.stores.routes.openForRequest(id).filter((row) => row.step === "counter")).toEqual([]);
+    expect(h.core.stores.routes.askedToType(id, "sam")).toBe(false);
+    await typed(opened as unknown as OpenedCard, PARTICIPANTS.sam, '"hdfc"');
+    expect(state(id)).toBe("EDITED");
+    expect(h.gate.calls).toHaveLength(1);
+  });
+});
+
 describe("ordinary cards", () => {
   it("are what they were: no new button, no new words", async () => {
     const id = await held();
@@ -864,6 +917,145 @@ describe("what's told, and what's kept", () => {
     expect(csv.body.split("\n")[0]).toContain("edited_by");
     expect(csv.body).toContain(id);
     await app.close();
+  });
+});
+
+describe("the second review's breaks, on the counter path", () => {
+  it("B5: an edit nobody can confirm says so, and says the original truly didn't run", async () => {
+    h.gate.respond = () => ({ ok: false, alreadyExecuted: false, error: "outcome unknown: acme did not answer, so the gate will not run this again" });
+    const { id } = await editedAndDone();
+    const next = allRequests().find((other) => other !== id) as string;
+    expect(state(next)).toBe("OUTCOME_UNKNOWN");
+    expect(toAgent().at(-1)).toBe(`${id} did not run and will not, but nobody can say whether ${next}, ₹4,000 instead of ₹40,000, ran: acme did not answer, so the gate will not run this again. Do not retry it. A person has to check. Tell Priya and stop.`);
+    expect(replies().join("\n")).toContain(`Nobody can say whether ${next} ran. ${id} did not.`);
+    expect(replies().join("\n")).not.toContain(`${next} did not run`);
+  });
+
+  it("B5: an edit sent and not answered ends unknown, not voided, and an edit never sent ends voided", async () => {
+    h.gate.respond = () => {
+      throw new Error("socket hang up");
+    };
+    const { id } = await editedAndDone();
+    const next = allRequests().find((other) => other !== id) as string;
+    h.clock.advance(5 * MINUTE + 1_000);
+    await h.core.tick();
+    expect(state(next)).toBe("OUTCOME_UNKNOWN");
+    expect(h.gate.looks).toEqual([next]);
+  });
+
+  it("B6: an offer of a call that just ran says so on its card, and on the request", async () => {
+    const done = await held({ ...REFUND_SC4, amount: 4000 });
+    await press(plainCards("dm-sam")[0] as OpenedCard, PARTICIPANTS.sam);
+    expect(state(done)).toBe("EXECUTED");
+    const id = await held();
+    await counter(PARTICIPANTS.neha, id, "4000");
+    expect(lastCounterCard().questions[0]?.prompt).toContain(`An identical call ran as ${done}`);
+    await typed(lastCounterCard(), PARTICIPANTS.neha, '"hdfc"');
+    const next = allRequests().find((other) => ![done, id].includes(other)) as string;
+    expect(h.core.stores.requests.require(next).flags.map((flag) => flag.code)).toContain("ran_recently");
+  });
+
+  it("B7: someone whose ask arrived after the hold can't counter it", async () => {
+    await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@refunds-agent refund it"));
+    const id = (await h.core.check(gateRefund(REFUND_SC4))).request_id as string;
+    await h.core.onMessage(chatMessage(PARTICIPANTS.sam, "@refunds-agent refund it", { roomId: "#finance", timestampMs: h.clock.nowMs() - MINUTE }));
+    await counter(PARTICIPANTS.sam, id, "4000");
+    expect(counterCards()).toEqual([]);
+    expect(lastReply()).toContain(`Sam can't counter ${id}`);
+  });
+
+  it("B7: and someone whose ask arrived while the offer was open can't confirm it", async () => {
+    const id = await held();
+    await counter(PARTICIPANTS.sam, id, "4000");
+    await h.core.onMessage(chatMessage(PARTICIPANTS.sam, "@refunds-agent refund it", { roomId: "#finance", timestampMs: h.clock.nowMs() - MINUTE }));
+    await typed(lastCounterCard(), PARTICIPANTS.sam, '"hdfc"');
+    expect(state(id)).toBe("ROUTED");
+    expect(allRequests()).toEqual([id]);
+  });
+
+  it("B8: a requester linked to nobody keeps the edit at two people", async () => {
+    await h.core.onMessage(chatMessage(PARTICIPANTS.guest, "@refunds-agent refund it"));
+    const id = (await h.core.check(gateRefund(REFUND_SC4))).request_id as string;
+    await counter(PARTICIPANTS.sam, id, "4000");
+    await typed(lastCounterCard(), PARTICIPANTS.sam, '"hdfc"');
+    const next = allRequests().find((other) => other !== id) as string;
+    expect(h.core.stores.requests.require(next).quorumRequired).toBe(2);
+    expect(h.core.stores.requests.require(next).flags.map((flag) => flag.code)).toContain("requester_unlinked");
+    expect(h.gate.calls).toEqual([]);
+  });
+
+  it("B9: the delegate of the person who asked can't counter", async () => {
+    await h.core.onMessage(chatMessage(PARTICIPANTS.neha, "@refunds-agent refund it"));
+    const id = (await h.core.check(gateRefund(REFUND_SC4))).request_id as string;
+    h.core.people.store.setAway("neha", h.clock.nowMs() + 60 * MINUTE, "dev");
+    await counter(PARTICIPANTS.dev, id, "4000");
+    expect(counterCards()).toEqual([]);
+  });
+
+  it("B10, B12: someone who asked elsewhere, or is still waiting on the agent, stays barred from the edit too", async () => {
+    await h.core.onMessage(chatMessage(PARTICIPANTS.neha, "@refunds-agent refund it", { roomId: "#finance" }));
+    const id = await held(REFUND_CRITICAL);
+    await counter(PARTICIPANTS.neha, id, "120000");
+    expect(counterCards()).toEqual([]);
+    await counter(PARTICIPANTS.sam, id, "120000");
+    await typed(lastCounterCard(), PARTICIPANTS.sam, '"hdfc"');
+    const next = allRequests().find((other) => other !== id) as string;
+    // Critical, so it needs a second person, and Neha can't be that person. It goes where the policy sends it.
+    expect(h.chat.cards.filter((card) => card.roomId === "dm-neha" && card.title.includes(next))).toEqual([]);
+    expect(state(next)).toBe("ROUTED");
+  });
+
+  it("B11, B14: doubts about who asked carry over to the edit", async () => {
+    h.core.onStreamGap();
+    const gapped = await held();
+    expect(h.core.stores.requests.require(gapped).quorumRequired).toBe(2);
+    h.clock.advance(11 * MINUTE); // Past the gap, but it was true when this was held.
+    await counter(PARTICIPANTS.sam, gapped, "4000");
+    await typed(lastCounterCard(), PARTICIPANTS.sam, '"hdfc"');
+    const next = allRequests().find((other) => other !== gapped) as string;
+    expect(h.core.stores.requests.require(next).quorumRequired).toBe(2);
+    expect(h.core.stores.requests.require(next).flags.map((flag) => flag.code)).toContain("messages_lost");
+  });
+
+  it("B18: a lower amount doesn't make someone else's destination all right", async () => {
+    const id = await held({ order_id: "A-1931", customer_id: "cus_8812", amount: 3000, destination: "rohan.s@okhdfc" });
+    await counter(PARTICIPANTS.sam, id, "2000");
+    expect(lastCounterCard().questions[0]?.prompt).toContain("The destination belongs to cus_2044, not cus_8812");
+    await typed(lastCounterCard(), PARTICIPANTS.sam, '"hdfc"');
+    const next = allRequests().find((other) => other !== id) as string;
+    expect(h.core.stores.requests.require(next).flags.map((flag) => flag.code)).toContain("destination_other_customer");
+  });
+
+  it("B19: a drill answers like a real request, to someone who can't counter", async () => {
+    const real = await held();
+    const drill = await h.core.sendDrill("neha");
+    if (!drill.ok) throw new Error("no drill");
+    const answer = async (id: string) => {
+      await counter(PARTICIPANTS.dev, id, "1");
+      return lastReply().replace(id, "ID");
+    };
+    expect(await answer(drill.requestId)).toMatch(/^Dev can't counter ID \(/);
+    expect((await answer(real)).split(".")[0]).toBe((await answer(drill.requestId)).split(".")[0]);
+  });
+
+  it("B22: a gate that doesn't have the original yet gets asked again, rather than voiding the edit", async () => {
+    h.gate.respondEdit = () => ({ ok: false, error: "unknown request" });
+    const { id } = await editedAndDone();
+    const next = allRequests().find((other) => other !== id) as string;
+    expect(state(next)).toBe("APPROVED");
+    h.gate.respondEdit = () => ({ ok: true });
+    h.clock.advance(6_000);
+    await h.core.tick();
+    expect(state(next)).toBe("EXECUTED");
+    expect(h.gate.calls).toHaveLength(1);
+  });
+
+  it("B23: an edit that needs a second person goes to someone eligible, however busy", async () => {
+    const id = await held(REFUND_CRITICAL);
+    await counter(PARTICIPANTS.sam, id, "120000");
+    await typed(lastCounterCard(), PARTICIPANTS.sam, '"hdfc"');
+    const next = allRequests().find((other) => other !== id) as string;
+    expect(h.core.stores.routes.forRequest(next).map((row) => row.card_room)).not.toContain("#approvals");
   });
 });
 

@@ -42,6 +42,14 @@ function record(kind: string, data: Record<string, unknown>): void {
   appendFileSync(chatLog, `${JSON.stringify({ ...data, kind, at: Date.now() })}\n`);
 }
 
+/**
+ * Stand-ins for the seconds a real card takes to open. Switch makes a card answerable before it says anything back, so
+ * an answer can arrive first, and until it does say, core may do anything else it has to.
+ */
+const whileOpening = new Map<string, { answeredBy: string; answer: string }>();
+const held = new Map<string, Promise<void>>();
+const release = new Map<string, () => void>();
+
 let cardCounter = 0;
 const chat: ChatPort = {
   async openCard(input: OpenCardInput): Promise<OpenCardResult> {
@@ -49,10 +57,24 @@ const chat: ChatPort = {
     // The pid keeps ids unique across a restart of this process, as Switch's are.
     const result: OpenCardResult = {
       sessionId: "eval-session",
-      switchRequestId: `sr-${process.pid}-${cardCounter}`,
+      switchRequestId: input.requestId ?? `sr-${process.pid}-${cardCounter}`,
       handle: `A${process.pid % 1000}${cardCounter}`,
     };
     record("card", { ...input, ...result });
+    const answer = whileOpening.get(input.roomId);
+    if (answer) {
+      whileOpening.delete(input.roomId);
+      await core.onApprovalOutcome({
+        sessionId: result.sessionId,
+        switchRequestId: result.switchRequestId,
+        kind: "approval",
+        state: "answered",
+        answer: answer.answer,
+        answeredBy: answer.answeredBy,
+        answeredAtMs: Date.now(),
+      });
+    }
+    await held.get(input.roomId);
     return result;
   },
   async closeCard(sessionId, switchRequestId) {
@@ -135,6 +157,26 @@ await app.register(async (scope) => {
       level as Parameters<typeof core.stores.autonomy.setLevel>[3],
       clock.nowMs(),
     );
+    return { ok: true };
+  });
+  scope.post("/eval/answer-while-opening", async (request) => {
+    const { roomId, answeredBy, answer } = request.body as Record<string, string>;
+    whileOpening.set(roomId as string, { answeredBy: answeredBy as string, answer: answer as string });
+    return { ok: true };
+  });
+  scope.post("/eval/hold-open", async (request) => {
+    const { roomId } = request.body as { roomId: string };
+    held.set(roomId, new Promise<void>((done) => release.set(roomId, done)));
+    return { ok: true };
+  });
+  scope.post("/eval/release-open", async (request) => {
+    const { roomId } = request.body as { roomId: string };
+    release.get(roomId)?.();
+    held.delete(roomId);
+    return { ok: true };
+  });
+  scope.post("/eval/stream-gap", async () => {
+    core.onStreamGap();
     return { ok: true };
   });
   scope.post("/eval/tick", async () => {

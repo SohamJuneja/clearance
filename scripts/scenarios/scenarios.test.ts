@@ -83,7 +83,7 @@ describe("the scenarios", () => {
   it("keep the extra scenes out of the numbered list, which is PLAN's", () => {
     const numbered = SCENARIOS.map((scenario) => scenario.id);
     for (const extra of ["SC2T", "SCBG", "SCDG"]) expect(numbered).not.toContain(extra);
-    expect(EXTRA_SCENARIOS.map((scenario) => scenario.id)).toEqual(["SC2T", "SCBG", "SCDG"]);
+    expect(EXTRA_SCENARIOS.map((scenario) => scenario.id)).toEqual(["SC2T", "SCBG", "SCDG", "SCCO", "SCFW", "SCOU"]);
   });
 
   it("SC3 follows the real route: no mismatch, no 10x, and the amount it can't promise isn't required", () => {
@@ -107,6 +107,10 @@ describe("the scenarios", () => {
       const mentions = /10x|order total/i.test(scenario.stepNames.join("\n"));
       expect(mentions, scenario.id).toBe(scenario.id === "SC9");
     }
+  });
+
+  it("keeps the live checks for F20, file writes and an unknown outcome out of the video", () => {
+    for (const id of ["SCCO", "SCFW", "SCOU"]) expect(findScenario(id)?.inVideo, id).toBe(false);
   });
 
   it("SC9 runs with no surprise drills", () => {

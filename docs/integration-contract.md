@@ -61,17 +61,34 @@ Lead wires all of this together in `packages/core/src/main.ts` at integration.
 - Core unreachable or non-200: the gate returns 503 for anything that is not a plain read. Fail closed.
 - `decision: allow` executes now and returns the result. `decision: hold` stores the call and returns `202 {status:"pending", request_id, poll_after_s:15, message}`, where `message` is core's `reason` verbatim. `decision: deny` returns `403 {status:"denied", message}`.
 
+## Gate to core, when an autonomous run fails
+
+`POST {CORE}/v1/requests/:id/run-failed`, body `{never_ran, error}`. Core records an allow from earned autonomy as having run, so the gate says if it didn't. Only requests in `AUTO` change.
+
 ## Core to gate
 
 Header `Authorization: Bearer $CLEARANCE_INTERNAL_TOKEN`.
 
-- `POST {GATE}/internal/execute/:requestId`, body `{call_hash}`, response `ExecuteResult`. The gate refuses when `call_hash` differs from what it stored. Exactly-once by `request_id` inside a SQLite transaction; a second call returns `{ok:true, alreadyExecuted:true, result}` with the original result.
+- `POST {GATE}/internal/execute/:requestId`, body `{call_hash, look_only?}`, response `ExecuteResult`. With `look_only` it reports what happened and can't start anything. `readExecuteResult` in contracts says what each answer means: ran, retry, unknown or refused. The gate refuses when `call_hash` differs from what it stored. Exactly-once by `request_id` inside a SQLite transaction; a second call returns `{ok:true, alreadyExecuted:true, result}` with the original result.
 - `POST {GATE}/internal/edit/:requestId`, body `{call_hash, new_request_id, new_call_hash, amount}`, response `{ok, error?}`. Closes a held refund and holds a copy under the new id with only the amount changed, lower and whole, in one step. Asking again for the same edit gets the same answer; 409 is a refusal, and core voids the edit. The original can't run afterwards, and `GET /pending/:id` answers `status: "edited"` with `edited_to`.
 - `GET {GATE}/internal/lookup/:kind/:id`, returns JSON or 404. Kinds: `orders`, `customers`, `destinations`, `ci`, `github`, `pulls`, `services`, `tickets`, `files`.
 
 ## Hash
 
-`call_hash = sha256(canonicalJson({class, target, args}))`, computed by core. `canonicalJson` is in contracts. For hooks, `args` is `{command}` or `{path}` or the MCP args.
+`call_hash = sha256(canonicalJson({class, target, args, bound?}))`, computed by core. `canonicalJson` is in contracts. For hooks, `args` is `{command}` or `{path}` or the MCP args. `args` is what a card shows, and it can't tell every call apart, so `bound` holds the rest. It's left out when empty, so a plain command with no known directory hashes over the first three alone.
+
+| `bound` key | On | What it is |
+|---|---|---|
+| `words` | shell | The words as the shell would treat them, when the text alone can't say: quoted text marked as literal, and a substitution's source. |
+| `setup` | shell | Earlier commands on the line that change where or how this one runs. |
+| `cwd` | shell, relative file paths | The directory, with the tool's own `workdir` applied. |
+| `line` | shell, shell writes | The whole line, when the command repeats or is fed from the line, or it writes a file. |
+| `repeats` | shell | It can run more than once. The card says so. |
+| `run` | shell, shell writes | The second or later run of the same call on one line. |
+| `content_sha256` | file writes | Over `Action.written`: `content`, and `replaces` for an edit. |
+| `preview`, `chars` | file writes | What a card shows of the content, and how long all of it is. |
+
+A call touching several files is checked with `Action.defer_grants`. Core answers as usual, except that a grant is left unspent, with `grant_pending: true` and nothing recorded. The hook route asks again without the flag once every file can proceed. No agent can set it, since adapters build the Action.
 
 ## Acme HTTP (port 7800, header `x-acme-admin-key: $ACME_ADMIN_KEY`, amounts are integer rupees)
 

@@ -11,6 +11,8 @@ import {
   ActionSchema,
   ApprovalOutcomeEventSchema,
   ChatMessageEventSchema,
+  GATE_WORDS,
+  readExecuteResult,
   RequestStateSchema,
   type Action,
   type ApprovalOutcomeEvent,
@@ -66,7 +68,7 @@ import { loadPolicy, loadTeam, parseDuration, parsePolicy, PolicyLoadError, type
 import type { TeamFile } from "./policy/schema.js";
 import { OPEN_STATES, RequestStore, type NewRequest, type RequestRecord } from "./requests/store.js";
 import { AggregateStore } from "./risk/aggregates.js";
-import { agentElsewhereFlag, agentReachUnknownFlag, authorUnknownFlag, requesterUnknownFlag, uniqueFlags } from "./risk/flags.js";
+import { agentElsewhereFlag, agentReachUnknownFlag, authorUnknownFlag, messagesLostFlag, possibleAliasFlag, requesterUnknownFlag, requesterUnlinkedFlag, uniqueFlags } from "./risk/flags.js";
 import {
   evidenceLines,
   ignoredFlags,
@@ -77,7 +79,8 @@ import {
   tMinMs,
 } from "./rubberstamp/signals.js";
 import { AgentReachCheck, type AgentReach } from "./router/reach.js";
-import { RequesterTracker } from "./router/requesters.js";
+import { DRILL_RESULT_GROUP } from "./ledger/mirror.js";
+import { RequesterTracker, REQUESTER_WINDOW_MS } from "./router/requesters.js";
 import { assessAnswer, route, type Refusal, type RouteContext, type RouteTrace } from "./router/router.js";
 import { RouteStore, type RouteRow, type RouteStep } from "./router/routes.js";
 import { TraceStore } from "./router/traces.js";
@@ -204,6 +207,19 @@ const STALE_COMMAND_MS = 10 * 60_000;
 /** The hash of the policy file when it was last acted on. Only a file that differs from this is news. */
 const POLICY_FILE_SEEN = "policy_file_seen";
 
+/** How far back an identical call counts as having just run: as long as the windows that add refunds up. */
+const REPEAT_WINDOW_MS = DAY_MS;
+
+/** Refused or unroutable: nothing left the machine, so that attempt can't have reached the gate. */
+const NEVER_SENT = new Set(["ECONNREFUSED", "ENOTFOUND", "EHOSTUNREACH", "ENETUNREACH", "EAI_AGAIN"]);
+
+function neverSent(error: unknown): boolean {
+  const { code, cause } = error as { code?: unknown; cause?: { code?: unknown } };
+  return NEVER_SENT.has(String(cause?.code ?? code));
+}
+
+const STREAM_GAP_AT = "stream_gap_at";
+
 /** How long two people have to sign something. */
 const PROPOSAL_TTL_MS = 3 * DAY_MS;
 const POLICY_QUORUM_DEFAULT = 2;
@@ -225,7 +241,7 @@ type Verdict =
   | { kind: "needs_typed"; person: Person }
   | { kind: "drill"; person: Person; caught: boolean; latencyMs: number };
 
-type CardPlace = { roomId: string; threadId?: string | undefined; named?: boolean };
+type CardPlace = { roomId: string; threadId?: string | undefined; named?: boolean; closed?: boolean };
 
 type ReviewVerdict =
   | { kind: "closed" }
@@ -287,10 +303,7 @@ export class Clearance implements ClearanceCore {
   private policyError: string | null = null;
   private ticking = false;
   private readonly lastExecuteAttempt = new Map<string, number>();
-  private readonly coveringProposals = new Map<string, Promise<void>>();
   private readonly executing = new Set<string>();
-  /** Requests whose first cards are being opened right now. They are HELD meanwhile, which the tick's retry reads as failed. */
-  private readonly opening = new Set<string>();
   private readonly reach: AgentReachCheck;
 
   constructor(private readonly deps: CoreDeps) {
@@ -323,6 +336,7 @@ export class Clearance implements ClearanceCore {
     };
     this.people.store.sync(this.team);
     this.traces = new TraceStore(db, deps.clock);
+    this.stores.routes.abandonOpening();
     const firstBoot = db.prepare(`SELECT 1 FROM policy_versions LIMIT 1`).get() === undefined;
     this.recordPolicyVersion(this.currentPolicy);
     if (firstBoot) this.setMeta(POLICY_FILE_SEEN, this.currentPolicy.hash);
@@ -664,7 +678,7 @@ export class Clearance implements ClearanceCore {
   }
 
   /** GET /v1/digest (F22): the last day. Drills only as totals: who missed one is that person's business. */
-  digest(): Record<string, unknown> & { text: string } {
+  digest(): Record<string, unknown> & { text: string; room_text: string } {
     const { db, events } = this.stores;
     const now = this.deps.clock.nowMs();
     const since = now - DAY_MS;
@@ -687,6 +701,7 @@ export class Clearance implements ClearanceCore {
       break_glass: (db.prepare(`SELECT COUNT(*) AS n FROM ledger WHERE type = 'break_glass' AND at > ?`).get(new Date(since).toISOString()) as { n: number }).n,
       ran_alone: inState("AUTO"),
       edited: inState("EDITED"),
+      outcome_unknown: inState("OUTCOME_UNKNOWN"),
     };
     const groups = new Map<string, { agent: string; cls: string; bucket: string; ran: number; spent: number }>();
     for (const event of events.autoRuns(since)) {
@@ -715,16 +730,22 @@ export class Clearance implements ClearanceCore {
       .get(since) as { sent: number; caught: number; missed: number };
     const incidents = this.stores.incidents.all().filter((row) => row.at > since).length;
     const money = (value: number) => (currency ? formatMoney(value, currency) : String(value));
-    const lines = [
+    const summary = (drillLine: string) => [
       `Clearance digest, last 24 h: ${tally.held} held, ${tally.approved} approved, ${tally.denied} denied, ${tally.expired} expired, ${tally.break_glass} break-glass, ${tally.ran_alone} ran alone.`,
       tally.edited === 0 ? null : `${tally.edited} edited: an approver said yes to a smaller amount, as a new request.`,
+      tally.outcome_unknown === 0 ? null : `${tally.outcome_unknown} with an unknown outcome: sent, and nobody can say whether it ran. A person has to check.`,
       medianDecisionMs === null ? null : `Median time to a decision: ${Math.round(medianDecisionMs / 1000)} s.`,
       ...autonomy.map((row) => {
         const spent = row.cap !== null ? `, ${money(row.spent)} of its ${money(row.cap)} daily cap` : "";
         return `${row.agent} ran ${row.ran} of ${row.label} on its own${spent}.`;
       }),
-      `Incidents: ${incidents}. Drills: ${drills.sent} sent, ${drills.caught} caught, ${drills.missed} missed.`,
-    ].filter((line): line is string => line !== null);
+      `Incidents: ${incidents}.${drillLine}`,
+    ].filter((line): line is string => line !== null).join("\n");
+    // The room sees what the Desk's team view sees: only finished drills, only in whole groups. "1 sent" while it's still
+    // open is a request in someone's inbox with a label on it, and one person's result is theirs.
+    const finished = db.prepare(`SELECT result FROM drills WHERE at > ? AND result IN ('caught', 'missed', 'expired') ORDER BY at`).all(since) as { result: string }[];
+    const whole = finished.slice(0, finished.length - (finished.length % DRILL_RESULT_GROUP));
+    const wholeCount = (result: string) => whole.filter((row) => row.result === result).length;
     return {
       since: new Date(since).toISOString(),
       until: new Date(now).toISOString(),
@@ -733,7 +754,8 @@ export class Clearance implements ClearanceCore {
       autonomy,
       incidents,
       drills,
-      text: lines.join("\n"),
+      text: summary(` Drills: ${drills.sent} sent, ${drills.caught} caught, ${drills.missed} missed.`),
+      room_text: summary(whole.length > 0 ? ` Drills: ${whole.length} finished, ${wholeCount("caught")} caught, ${wholeCount("missed")} missed.` : ""),
     };
   }
 
@@ -755,7 +777,7 @@ export class Clearance implements ClearanceCore {
     }
     if (!due || row.value === day) return;
     remember(day);
-    await this.announce(this.digest().text);
+    await this.announce(this.digest().room_text);
   }
 
   /** What `mode: shadow` has logged, newest first. */
@@ -892,6 +914,7 @@ export class Clearance implements ClearanceCore {
       clock: this.deps.clock,
       aggregates: this.stores.aggregates,
       autonomy: this.stores.autonomy,
+      lastRun: this.lastRunOf,
     });
     return { ...this.responseFor(evaluation), step: evaluation.step, hold_summary: evaluation.holdSummary ?? null };
   }
@@ -903,21 +926,27 @@ export class Clearance implements ClearanceCore {
     const { grants } = this.stores;
     if (!this.people.directory.isTeamAgent(action.agent.name)) return this.denyUnknownAgent(action);
     const shadowing = this.currentPolicy.file.mode === "shadow";
+    // The same action delivered twice is one call, not a repeat of itself.
+    const seen = this.stores.db.prepare(`SELECT 1 FROM actions WHERE id = ?`).get(action.id) !== undefined;
     const evaluation = await evaluateAction(action, {
       policy: this.currentPolicy,
       lookup: this.deps.lookup,
       clock: this.deps.clock,
       aggregates: this.stores.aggregates,
       autonomy: this.stores.autonomy,
+      lastRun: seen ? undefined : this.lastRunOf,
       // Only a hook call retries under a grant. An approved gate call runs through gate.execute.
       grants:
         action.source === "hook"
           ? {
               has: (hash, a) => grants.has(hash, a.agent.name),
-              consumeAll: (hashes, a) => grants.consumeAll(hashes, a.agent.name, a.id),
+              consumeAll: (hashes, a) => (a.defer_grants ? { requestIds: hashes } : grants.consumeAll(hashes, a.agent.name, a.id)),
             }
           : undefined,
     });
+    if (action.defer_grants && evaluation.step === "grant") {
+      return { decision: "allow", reason: "An approval is waiting for this.", grant_pending: true };
+    }
     if (shadowing && evaluation.decision !== "deny") return this.inShadow(action, evaluation);
     switch (evaluation.decision) {
       case "allow":
@@ -941,13 +970,27 @@ export class Clearance implements ClearanceCore {
     await this.handleCommand(evt, person?.id ?? null);
   }
 
+  /**
+   * Switch says stream events were lost for good. The record of who asked may be missing people for as long as anyone
+   * counts as having asked, so holds in that time take two. It's kept in the database because it stays true across a restart.
+   */
+  onStreamGap(): void {
+    this.setMeta(STREAM_GAP_AT, String(this.deps.clock.nowMs()));
+  }
+
+  private messagesLostRecently(now: number): boolean {
+    const at = Number(this.getMeta(STREAM_GAP_AT) ?? Number.NaN);
+    return now - at <= REQUESTER_WINDOW_MS;
+  }
+
   async onApprovalOutcome(input: ApprovalOutcomeEvent): Promise<void> {
     const parsed = ApprovalOutcomeEventSchema.safeParse(input);
     if (!parsed.success) return;
     const evt = parsed.data;
     const { routes, answers, requests } = this.stores;
     const card = routes.bySwitchRequest(evt.switchRequestId);
-    if (!card || card.session_id !== evt.sessionId) return; // Not one of our cards.
+    // Not one of our cards. While it's opening we don't know its session yet, and the id is one only we could have chosen.
+    if (!card || (card.session_id !== "" && card.session_id !== evt.sessionId)) return;
     if (evt.state !== "answered") {
       routes.close(card.id);
       return;
@@ -991,9 +1034,10 @@ export class Clearance implements ClearanceCore {
       const now = this.deps.clock.nowMs();
       for (const request of requests.listExpired(now)) await this.expire(request);
       grants.voidExpired();
-      // A card that could not be opened (Switch down) is retried until the request expires.
+      // A card that could not be opened (Switch down) is retried until the request expires. A drill has one person, and
+      // going to someone else isn't a retry: it expires if that person's card never opened.
       for (const request of requests.listInState(["HELD"])) {
-        if (!this.opening.has(request.id)) await this.routeAndOpen(request, "primary");
+        if (!request.isDrill) await this.routeAndOpen(request, "primary");
       }
       for (const timer of timers.due(now)) await this.fireEscalation(timer);
       for (const request of requests.listInState(["APPROVED", "BREAK_GLASS"])) await this.retryExecution(request);
@@ -1001,9 +1045,7 @@ export class Clearance implements ClearanceCore {
       for (const request of requests.awaitingReview(now)) await this.openReview(request);
       await this.expireProposals(now);
       // A pass already running covers it, and the clock shouldn't wait on a card that's slow to open.
-      for (const proposal of this.stores.proposals.allOpen()) {
-        if (!this.coveringProposals.has(proposal.id)) await this.coverProposal(proposal);
-      }
+      for (const proposal of this.stores.proposals.allOpen()) await this.coverProposal(proposal);
       await this.openMissingGlassReviews();
       await this.chaseGlassReviews(now);
       await this.sendDigestIfDue(now);
@@ -1015,6 +1057,9 @@ export class Clearance implements ClearanceCore {
   close(): void {
     this.stores.db.close();
   }
+
+  private readonly lastRunOf = (callHash: string, agent: string) =>
+    this.stores.requests.lastRun(callHash, agent, this.deps.clock.nowMs() - this.deps.clock.scaledMs(REPEAT_WINDOW_MS));
 
   // ── Decisions ──────────────────────────────────────────────────────────────
 
@@ -1104,12 +1149,7 @@ export class Clearance implements ClearanceCore {
     });
     const { request, isNew } = write.immediate();
     if (isNew) {
-      this.opening.add(request.id);
-      try {
-        await this.routeAndOpen(request, "primary");
-      } finally {
-        this.opening.delete(request.id);
-      }
+      await this.routeAndOpen(request, "primary");
       await this.maybeRollDrill(request);
     }
     const response: CheckResponse = {
@@ -1137,11 +1177,13 @@ export class Clearance implements ClearanceCore {
     // else's request. Nobody on record there is nobody known, even if the agent is busy in other rooms.
     const askedIn = drill ? undefined : action.session?.switchRoomId;
     const everyoneAsking = edit
-      ? [...edit.requesterIds, ...(this.evidenceOf(edit).askedElsewhereIds ?? [])]
+      ? this.routeContext(edit).requesterIds
       : drill
         ? [drill.askedBy]
         : requesters.requestersOf(action.agent.name);
     const requesterIds = edit ? edit.requesterIds : askedIn === undefined ? everyoneAsking : requesters.requestersOf(action.agent.name, directory.roomId(askedIn));
+    // Not on record for this call, but still waiting on this agent's turn, so what comes out of it may be theirs.
+    const stillWaiting = drill || edit ? [] : requesters.stillWaitingOn(action.agent.name);
     const agentOwnerIds = directory.agentOwners(action.agent.name, action.agent.ownerUserId);
     const origin = edit
       ? edit.originRoom
@@ -1177,6 +1219,15 @@ export class Clearance implements ClearanceCore {
     // Nobody can tell who asked, so whoever it was could be the one approving. Of two different people, only one can be.
     const unknownQuorum = Math.max(stated, policy.defaults.unknown_requester_quorum ?? UNKNOWN_REQUESTER_QUORUM);
     if (requesterIds.length === 0) flags.push(requesterUnknownFlag(unknownQuorum));
+    // On record, but as nobody we can tell apart from an approver: an unlinked account, or a name matching no one.
+    const unlinked = requesterIds.some((id) => !directory.person(id));
+    if (unlinked) flags.push(requesterUnlinkedFlag(unknownQuorum));
+    // An edit carries these from what it replaces: its own hold is later, but who asked hasn't changed.
+    const carried = (code: string) => edit?.flags.some((flag) => flag.code === code) ?? false;
+    const lost = !drill && (edit ? carried("messages_lost") : this.messagesLostRecently(now));
+    if (lost) flags.push(messagesLostFlag(unknownQuorum));
+    const alias = !drill && (edit ? carried("possible_alias") : requesters.possibleAskers(action.agent.name).some((id) => !requesterIds.includes(id)));
+    if (alias) flags.push(possibleAliasFlag(unknownQuorum));
     // The same reasoning when someone is on record but the record may not be everyone.
     if (reach === "elsewhere") flags.push(agentElsewhereFlag(unknownQuorum));
     if (reach === "unknown") flags.push(agentReachUnknownFlag(unknownQuorum));
@@ -1184,10 +1235,16 @@ export class Clearance implements ClearanceCore {
 
     // A name the policy excludes (a merge's author, say) that we cannot pin to a person: flag it, keep the hold.
     const authorIds: string[] = [];
+    let authorLookupFailed = false;
     for (const field of cls?.approvers?.exclude ?? []) {
       const resolved = directory.resolveAuthor(evaluation.extracted[field]);
       authorIds.push(...resolved);
-      if (resolved.length === 0) flags.push(authorUnknownFlag(field));
+      if (resolved.length > 0) continue;
+      // The call names a pull request and nobody could say who wrote it, so that person could be the one approving, as
+      // with an unknown requester. A plain `git push` has no author to find, and that's no reason to ask for two people.
+      const couldHaveKnown = evaluation.extracted[field] === undefined && evaluation.extracted.pr !== undefined;
+      if (couldHaveKnown) authorLookupFailed = true;
+      flags.push(authorUnknownFlag(field, couldHaveKnown ? unknownQuorum : undefined));
     }
 
     const window = evaluation.aggregates[0];
@@ -1220,7 +1277,7 @@ export class Clearance implements ClearanceCore {
     if (evaluation.level) evidence.level = evaluation.level;
     if (evaluation.autoEligible !== undefined) evidence.autoEligible = evaluation.autoEligible;
     // A room on a call is only the agent's word for it, so someone asking elsewhere still can't approve.
-    const askedElsewhereIds = everyoneAsking.filter((id) => !requesterIds.includes(id));
+    const askedElsewhereIds = [...new Set([...everyoneAsking, ...stillWaiting])].filter((id) => !requesterIds.includes(id));
     if (askedElsewhereIds.length > 0) evidence.askedElsewhereIds = askedElsewhereIds;
     const claim = action.agentClaim ?? said[0];
     if (claim) evidence.agentClaim = claim;
@@ -1242,7 +1299,7 @@ export class Clearance implements ClearanceCore {
       originThread: origin?.thread ?? null,
       evidence: evidence as unknown as Record<string, unknown>,
       flags,
-      quorumRequired: requesterIds.length === 0 ? unknownQuorum : asked,
+      quorumRequired: requesterIds.length === 0 || unlinked || lost || alias || authorLookupFailed ? unknownQuorum : asked,
       expiresAtMs: now + this.deps.clock.scaledMs(policy.requestTtlMs),
       ...(drill ? { isDrill: true } : {}),
     };
@@ -1278,22 +1335,27 @@ export class Clearance implements ClearanceCore {
   /** Fail closed: nothing runs, every card closes, and the people waiting are told. */
   private async expire(request: RequestRecord): Promise<void> {
     const { requests, ledger, aggregates, drills } = this.stores;
+    // Whoever got here first has dealt with it: the tick's list can be a card-closing old by the time it reaches this one.
+    const stillOpen = () => OPEN_STATES.includes(requests.require(request.id).state);
     if (request.isDrill) {
-      const write = this.stores.db.transaction(() => {
+      const write = this.stores.db.transaction((): boolean => {
+        if (!stillOpen()) return false;
         requests.transition(request.id, "EXPIRED");
         drills.setResult(request.id, "expired", null);
         ledger.append("drill_result", request.id, { result: "expired", user_id: drills.byRequest(request.id)?.user_id ?? null });
+        return true;
       });
-      write.immediate();
-      await this.closeOpenCards(request);
+      if (write.immediate()) await this.closeOpenCards(request);
       return;
     }
-    const write = this.stores.db.transaction(() => {
+    const write = this.stores.db.transaction((): boolean => {
+      if (!stillOpen()) return false;
       requests.transition(request.id, "EXPIRED");
       ledger.append("expired", request.id, { after_ms: this.deps.clock.nowMs() - request.createdAtMs });
       aggregates.voidRequest(request.id);
+      return true;
     });
-    write.immediate();
+    if (!write.immediate()) return;
     await this.closeOpenCards(request);
     const minutes = formatPolicyMinutes(this.currentPolicy.requestTtlMs);
     const asker = this.requesterNames(request);
@@ -1414,8 +1476,7 @@ export class Clearance implements ClearanceCore {
     const request = write.immediate();
     const trace = route(this.routeContext(request), 1);
     const single: RouteTrace = { ...trace, chosen: [personId], fallback: null };
-    this.opening.add(request.id);
-    const opened = await this.dispatch(request, single, "primary", false).finally(() => this.opening.delete(request.id));
+    const opened = await this.dispatch(request, single, "primary", false);
     if (opened === 0) {
       // Nobody will ever see it, and the tick must not route it to someone else.
       const undo = this.stores.db.transaction(() => {
@@ -1427,7 +1488,8 @@ export class Clearance implements ClearanceCore {
       return { ok: false, reason: "the card could not be opened" };
     }
     this.traces.add(request.id, single);
-    requests.transition(request.id, "ROUTED");
+    // They may have answered it already.
+    if (requests.require(request.id).state === "HELD") requests.transition(request.id, "ROUTED");
     return { ok: true, requestId: request.id };
   }
 
@@ -1838,16 +1900,33 @@ export class Clearance implements ClearanceCore {
     if (state !== "APPROVED" && state !== "BREAK_GLASS") return;
     this.executing.add(request.id);
     this.lastExecuteAttempt.set(request.id, this.deps.clock.nowMs());
-    this.stores.requests.noteExecutionAttempt(request.id);
+    const { requests } = this.stores;
+    let sending = false;
     let result: ExecuteResult;
     try {
-      result = (await this.editAtGate(request)) ?? (await this.deps.gate.execute(request.id, request.callHash));
+      const refused = await this.editAtGate(request);
+      if (refused) {
+        result = refused;
+      } else {
+        sending = true;
+        requests.noteExecutionAttempt(request.id);
+        result = await this.deps.gate.execute(request.id, request.callHash);
+      }
     } catch (error) {
       // The gate is exactly-once by request id, so trying again is safe. The tick does that.
       this.lastExecuteError.set(request.id, (error as Error).message);
+      if (sending && neverSent(error)) requests.takeBackExecutionAttempt(request.id);
       return;
     } finally {
       this.executing.delete(request.id);
+    }
+    if (readExecuteResult(result) === "retry") {
+      // Asking again is safe, and it's what the gate has asked for.
+      this.lastExecuteError.set(request.id, result.error ?? "the gate asked to try again");
+      if (result.error !== GATE_WORDS.busy) requests.clearExecutionAttempts(request.id);
+      // The gate stores a held call only once `check` has answered it, so this one is about to be there. Next tick.
+      if (result.error === GATE_WORDS.unknownRequest) this.lastExecuteAttempt.delete(request.id);
+      return;
     }
     await this.finishExecution(request, result);
   }
@@ -1867,11 +1946,17 @@ export class Clearance implements ClearanceCore {
       newCallHash: request.callHash,
       amount: edit.to,
     });
+    // The gate stores a held call once `check` has answered it, so it may not have this one yet. That's not a refusal.
+    if (answer.error === GATE_WORDS.unknownRequest) throw new Error(answer.error);
     return answer.ok ? null : { ok: false, alreadyExecuted: false, error: answer.error ?? "the gate refused the edit" };
   }
 
   private async finishExecution(request: RequestRecord, result: ExecuteResult): Promise<void> {
     const { requests, ledger, answers } = this.stores;
+    if (readExecuteResult(result) === "unknown") {
+      await this.recordOutcomeUnknown(request, result.error ?? GATE_WORDS.outcomeUnknown);
+      return;
+    }
     const write = this.stores.db.transaction(() => {
       requests.transition(request.id, result.ok ? "EXECUTED" : "VOIDED");
       ledger.append("executed", request.id, {
@@ -1907,6 +1992,33 @@ export class Clearance implements ClearanceCore {
     }
   }
 
+  /**
+   * It was sent and nobody can say what happened. It's never tried again and never called failed, because a retry after
+   * "did not run" is how a refund goes out twice. A person has to look, and the next card for this call says so.
+   */
+  private async recordOutcomeUnknown(request: RequestRecord, error: string): Promise<void> {
+    const { requests, ledger, answers } = this.stores;
+    const why = error.replace(new RegExp(`^${GATE_WORDS.outcomeUnknown}:?\\s*`), "") || "the gate never said";
+    const write = this.stores.db.transaction(() => {
+      requests.transition(request.id, "OUTCOME_UNKNOWN");
+      ledger.append("outcome_unknown", request.id, { error: why, attempts: requests.require(request.id).execAttempts });
+    });
+    write.immediate();
+    this.lastExecuteAttempt.delete(request.id);
+    this.lastExecuteError.delete(request.id);
+    const counted = answers.countedApprovers(request.id);
+    const names = counted.length > 0 ? this.approverNames(counted) : `break-glass by ${this.breakGlassBy(request.id) ?? "someone"}`;
+    const edit = this.evidenceOf(request).editOf;
+    const asker = this.requesterWords(request);
+    const what = edit
+      ? `${edit.requestId} did not run and will not, but nobody can say whether ${request.id}, ${this.money(edit.to)} instead of ${this.money(edit.from)}, ran`
+      : request.state === "AUTO"
+        ? `Nobody can say whether ${request.id} ran`
+        : `${request.id} approved by ${names}, but nobody can say whether it ran`;
+    await this.notifyAgent(request, `${what}: ${why}. Do not retry it. A person has to check. Tell ${asker} and stop.`);
+    await this.say(request, `${request.id}: nobody can say whether this ran (${why}). Nobody should retry it until a person has checked.`);
+  }
+
   private breakGlassBy(requestId: string): string | null {
     const entry = this.stores.ledger.list({ requestId }).find((row) => row.type === "break_glass");
     if (!entry) return null;
@@ -1917,14 +2029,46 @@ export class Clearance implements ClearanceCore {
   /** An approved gate call whose execute did not get an answer. Hook calls are never left in APPROVED. */
   private async retryExecution(request: RequestRecord): Promise<void> {
     if (request.source !== "gate") return;
+    // Still waiting on an attempt, which can take longer than a tick and end any way at all.
+    if (this.executing.has(request.id)) return;
     const now = this.deps.clock.nowMs();
     if (now - (request.decidedAtMs ?? now) > EXECUTE_GIVE_UP_AFTER_MS) {
-      const error = this.lastExecuteError.get(request.id) ?? "the gate did not answer";
-      await this.finishExecution(request, { ok: false, alreadyExecuted: false, error });
+      await this.giveUpOnExecution(request);
       return;
     }
     const last = this.lastExecuteAttempt.get(request.id) ?? 0;
     if (now - last >= EXECUTE_RETRY_EVERY_MS) await this.executeApproved(request);
+  }
+
+  /**
+   * Too old to run now, so this only ever finds out. An attempt that was never sent can't have run, and that's known. One
+   * that may have been sent gets a last look, which can't start anything. If the gate still won't say, nobody knows.
+   */
+  private async giveUpOnExecution(request: RequestRecord): Promise<void> {
+    const { requests } = this.stores;
+    const lastError = this.lastExecuteError.get(request.id) ?? "the gate did not answer";
+    if (requests.require(request.id).execAttempts === 0) {
+      await this.finishExecution(request, { ok: false, alreadyExecuted: false, error: lastError });
+      return;
+    }
+    this.executing.add(request.id);
+    let result: ExecuteResult;
+    try {
+      result = await this.deps.gate.execute(request.id, request.callHash, { lookOnly: true });
+    } catch (error) {
+      await this.recordOutcomeUnknown(request, (error as Error).message);
+      return;
+    } finally {
+      this.executing.delete(request.id);
+    }
+    if (readExecuteResult(result) !== "retry") {
+      await this.finishExecution(request, result);
+    } else if (result.error === GATE_WORDS.busy) {
+      await this.recordOutcomeUnknown(request, result.error);
+    } else {
+      // Nothing ran, and it's too late to start: a retry was safe until now.
+      await this.finishExecution(request, { ok: false, alreadyExecuted: false, error: result.error ?? lastError });
+    }
   }
 
   // ── Routing and cards ──────────────────────────────────────────────────────
@@ -1935,7 +2079,7 @@ export class Clearance implements ClearanceCore {
 
   /** Everything the router needs to know right now about a request. Used to route and to re-check answers. */
   private routeContext(request: RequestRecord): RouteContext {
-    const { directory, store } = this.people;
+    const { directory, store, requesters } = this.people;
     const { routes, answers } = this.stores;
     const evidence = this.evidenceOf(request);
     const open = routes.openForRequest(request.id);
@@ -1950,7 +2094,14 @@ export class Clearance implements ClearanceCore {
       className: request.cls,
       tier: request.tier,
       quorumRequired: request.quorumRequired,
-      requesterIds: [...request.requesterIds, ...(evidence.askedElsewhereIds ?? [])],
+      // Everyone who can't approve this for having asked: on record for it, asking elsewhere, or an ask that came late.
+      requesterIds: [
+        ...new Set([
+          ...request.requesterIds,
+          ...(evidence.askedElsewhereIds ?? []),
+          ...(request.isDrill ? [] : requesters.askedBeforeArriving(request.agent, request.createdAtMs)),
+        ]),
+      ],
       agentOwnerIds: evidence.agentOwnerIds,
       authorIds: evidence.authorIds,
       extracted: evidence.extracted,
@@ -2000,7 +2151,7 @@ export class Clearance implements ClearanceCore {
       if (requests.require(request.id).state === "HELD") requests.transition(request.id, "ROUTED");
     });
     write.immediate();
-    if (trace.fallback && !openFallback) {
+    if (trace.fallback && !openFallback && OPEN_STATES.includes(requests.require(request.id).state)) {
       const fallback = trace.fallback;
       await this.say(request, `Nobody eligible for ${request.id}: ${fallback.reason}. Posted to ${fallback.room} for ${fallback.group}.`);
     }
@@ -2014,34 +2165,41 @@ export class Clearance implements ClearanceCore {
     personBody?: (person: Person) => string,
   ): Promise<number> {
     const { directory } = this.people;
-    const { routes } = this.stores;
+    const { routes, requests } = this.stores;
     const headline = this.evidenceOf(request).description.headline;
     const userNames = (ids: string[]) => ids.flatMap((id) => directory.person(id)?.userName ?? []);
+    // Each card takes a moment to open. Anything may have happened in that moment, so each one looks again.
+    const decided = () => !OPEN_STATES.includes(requests.require(request.id).state);
+    const holds = (id: string) => routes.openForRequest(request.id).some((row) => row.user_id === id && row.step !== "counter");
     let opened = 0;
     for (const id of trace.chosen) {
       const person = directory.person(id);
-      if (!person) continue;
+      if (!person || holds(id)) continue;
+      if (decided()) return opened;
       const place = await this.tryOpen(request, trace, { kind: "person", id }, async () => {
         const { roomId } = await this.deps.chat.ensureDirectRoom({ userName: person.userName });
         return { roomId };
       }, step, id, [id]);
       if (!place) continue;
       opened += 1;
+      if (place.closed) continue;
       const body = personBody?.(person) ?? `${request.id} needs your decision: ${headline}. The card is just above.`;
       // A card that names them has told them. personBody says something the card doesn't, like why they were brought in.
       if (personBody || !(this.deps.runningInbox || place.named)) await this.notifyCard(place, [person.userName], body);
     }
+    if (decided()) return opened;
     const fallbackRoom = trace.fallback ? directory.roomId(trace.fallback.room) : null;
     const fallbackNames = userNames(trace.fallback?.eligible ?? []);
-    if (trace.fallback && fallbackRoom && !openFallback) {
+    if (trace.fallback && fallbackRoom && !openFallback && !routes.openForRequest(request.id).some((row) => row.step === "fallback")) {
       const { group } = trace.fallback;
       // A group is being asked, so the note stays whoever the card names.
       const place = await this.tryOpen(request, trace, { kind: "fallback" }, async () => ({ roomId: fallbackRoom }), "fallback", null, trace.fallback.eligible);
       if (place) {
         opened += 1;
-        await this.notifyCard(place, fallbackNames, `${request.id} needs a decision from ${group}: ${headline}. The card is just above.`);
+        if (!place.closed) await this.notifyCard(place, fallbackNames, `${request.id} needs a decision from ${group}: ${headline}. The card is just above.`);
       }
     }
+    if (decided()) return opened;
     const hasCopy = routes.forRequest(request.id).some((row) => row.step === "origin_copy");
     // A drill is private to the person it was sent to: a copy would show a room a request that vanishes.
     if (opened > 0 && !request.isDrill && request.originRoom && !hasCopy && request.originRoom !== fallbackRoom) {
@@ -2049,7 +2207,7 @@ export class Clearance implements ClearanceCore {
       const threadId = request.originThread ?? undefined;
       const place = await this.tryOpen(request, trace, { kind: "room" }, async () => ({ roomId: originRoom, threadId }), "origin_copy", null, [...request.requesterIds, ...trace.chosen]);
       const targets = trace.chosen.length > 0 ? userNames(trace.chosen) : fallbackNames;
-      if (place && !place.named) await this.notifyCard(place, targets, `${request.id} is waiting for a decision: ${headline}. The card is just above.`);
+      if (place && !place.named && !place.closed) await this.notifyCard(place, targets, `${request.id} is waiting for a decision: ${headline}. The card is just above.`);
     }
     return opened;
   }
@@ -2070,6 +2228,32 @@ export class Clearance implements ClearanceCore {
       }
     }
     return { result: await this.deps.chat.openCard(input), named: false };
+  }
+
+  /**
+   * Every card goes through here, so none can be answered before there's a record of it. The row is written first and
+   * nothing before that waits. If the request was decided while the card was opening, the card is closed once it exists.
+   * Throws when Switch does: the row stays, marked failed, so an answer to a card that opened after all isn't lost.
+   */
+  private async openOnRecord(
+    row: { requestId: string; userId: string | null; step: RouteStep; confirmField?: string | undefined; counter?: { amount: number; tries: number } },
+    where: () => Promise<CardPlace>,
+    input: Omit<OpenCardInput, "roomId" | "threadId" | "requestId">,
+    people: string[],
+  ): Promise<CardPlace & { named: boolean; closed: boolean }> {
+    const { routes } = this.stores;
+    const written = routes.begin({ ...row, switchRequestId: `card-${ulid()}` });
+    try {
+      const { roomId, threadId } = await where();
+      routes.placeAt(written.id, roomId);
+      const { result, named } = await this.openNaming({ roomId, ...(threadId ? { threadId } : {}), ...input, requestId: written.switch_request_id }, people);
+      const closed = routes.opened(written.id, result).closed_at !== null;
+      if (closed) await this.deps.chat.closeCard(result.sessionId, result.switchRequestId).catch(() => undefined);
+      return { roomId, ...(threadId ? { threadId } : {}), named, closed };
+    } catch (error) {
+      routes.failed(written.id);
+      throw error;
+    }
   }
 
   /** Whoever must decide and isn't named on the card is told by name. Targets are names Switch knows, not ids. */
@@ -2128,29 +2312,14 @@ export class Clearance implements ClearanceCore {
           }
         : { kind: "approval" as const, detail, options: CARD_OPTIONS, questions: [] };
     try {
-      const { roomId, threadId } = await where();
-      const { result, named } = await this.openNaming(
-        {
-          roomId,
-          ...(threadId ? { threadId } : {}),
-          title,
-          ...form,
-          expiresAtMs: request.expiresAtMs,
-        },
+      const place = await this.openOnRecord(
+        { requestId: request.id, userId, step, confirmField: typedField ?? undefined },
+        where,
+        { title, ...form, expiresAtMs: request.expiresAtMs },
         nameOneOf,
       );
-      this.stores.routes.add({
-        requestId: request.id,
-        userId,
-        step,
-        cardRoom: roomId,
-        sessionId: result.sessionId,
-        switchRequestId: result.switchRequestId,
-        handle: result.handle,
-        confirmField: typedField ?? undefined,
-      });
       if (typedField && userId) this.people.store.clearFriction(userId);
-      return { roomId, threadId, named };
+      return place;
     } catch {
       return null;
     }
@@ -2171,6 +2340,8 @@ export class Clearance implements ClearanceCore {
     const { routes } = this.stores;
     for (const row of routes.openForRequest(request.id)) {
       routes.close(row.id);
+      // Whoever is opening it closes it, as soon as Switch says it exists.
+      if (row.open_state === "opening") continue;
       try {
         await this.deps.chat.closeCard(row.session_id, row.switch_request_id);
       } catch {
@@ -2258,6 +2429,32 @@ export class Clearance implements ClearanceCore {
     });
   }
 
+  /**
+   * The gate tried to run something earned autonomy allowed, and it didn't go through. Core says "ran" the moment it allows,
+   * because the gate only runs what's allowed, so this is where the record learns otherwise. Called only by the gate.
+   */
+  async autoRunFailed(id: string, report: { neverRan: boolean; error: string }): Promise<"recorded" | "not_found" | "not_auto"> {
+    const { requests, ledger, aggregates, events } = this.stores;
+    const request = requests.get(id);
+    if (!request) return "not_found";
+    if (request.state !== "AUTO") return "not_auto";
+    await this.closeOpenCards(request);
+    if (!report.neverRan) {
+      await this.recordOutcomeUnknown(request, report.error);
+      return "recorded";
+    }
+    const write = this.stores.db.transaction(() => {
+      requests.transition(id, "VOIDED");
+      ledger.append("executed", id, { ok: false, already_executed: false, status: null, result: null, error: report.error });
+      // It moved no money, so it comes off the window and the daily budget, as a denied call does.
+      aggregates.voidRequest(id);
+      events.forgetAuto(id);
+    });
+    write.immediate();
+    await this.say(request, `${id} was allowed to run on its own, and it did not: ${report.error}.`);
+    return "recorded";
+  }
+
   /** L2 and L3: nobody is asked first, and everything is on the record. Core runs nothing: the allow does. */
   private async runOnItsOwn(action: Action, evaluation: Evaluation): Promise<CheckResponse> {
     const { requests } = this.stores;
@@ -2277,24 +2474,18 @@ export class Clearance implements ClearanceCore {
       return created;
     });
     const request = write.immediate();
-    if (level === "L2") await this.openReview(request);
+    if (level === "L2") {
+      // The gate is waiting on this answer to run the call, so it can't wait on Switch. A card that can open at once does;
+      // otherwise it goes on opening after the allow has gone back.
+      const review = this.openReview(request).catch((error: unknown) => console.error(`could not open the review of ${request.id}:`, error));
+      await Promise.race([review, new Promise((done) => setImmediate(done))]);
+    }
     return { ...this.responseFor(evaluation), request_id: request.id };
   }
 
-  /** One at a time per request. A card takes seconds to open and is only on record afterwards, so the tick would open another. */
   private async openReview(request: RequestRecord): Promise<void> {
-    if (this.opening.has(request.id)) return;
-    this.opening.add(request.id);
-    try {
-      await this.openReviewNow(request);
-    } finally {
-      this.opening.delete(request.id);
-    }
-  }
-
-  private async openReviewNow(request: RequestRecord): Promise<void> {
     const { directory } = this.people;
-    const { routes, ledger } = this.stores;
+    const { ledger } = this.stores;
     const ctx = this.routeContext(request);
     const trace = route(ctx, 1);
     const personId = trace.chosen[0];
@@ -2320,20 +2511,12 @@ export class Clearance implements ClearanceCore {
     const note = `${request.agent} ran this on its own at ${level}. Review it: Keep it, Demote the agent to 'always ask', or Reverse, which demotes, reports an incident and asks for it to be undone by hand.`;
     const { title, detail } = renderReviewCard(view, level, note);
     try {
-      const roomId = person ? (await this.deps.chat.ensureDirectRoom({ userName: person.userName })).roomId : (fallbackRoom as string);
-      const { result, named } = await this.openNaming(
-        { roomId, kind: "approval", title, detail, options: REVIEW_OPTIONS, questions: [], expiresAtMs: request.expiresAtMs },
+      const { roomId, named } = await this.openOnRecord(
+        { requestId: request.id, userId: person?.id ?? null, step: "review" },
+        async () => ({ roomId: person ? (await this.deps.chat.ensureDirectRoom({ userName: person.userName })).roomId : (fallbackRoom as string) }),
+        { kind: "approval", title, detail, options: REVIEW_OPTIONS, questions: [], expiresAtMs: request.expiresAtMs },
         person ? [person.id] : (trace.fallback?.eligible ?? []),
       );
-      routes.add({
-        requestId: request.id,
-        userId: person?.id ?? null,
-        step: "review",
-        cardRoom: roomId,
-        sessionId: result.sessionId,
-        switchRequestId: result.switchRequestId,
-        handle: result.handle,
-      });
       const write = this.stores.db.transaction(() => {
         this.traces.add(request.id, trace);
         ledger.append("routed", request.id, { ...(trace as unknown as Record<string, unknown>), review: true });
@@ -2620,33 +2803,20 @@ export class Clearance implements ClearanceCore {
   }
 
   /**
-   * Everyone chosen who hasn't answered holds a live card. Run after opening, and after a card is used up. One at a time
-   * per proposal: a card takes seconds to open and is only on record afterwards, so a pass during that would open another.
+   * Everyone chosen who hasn't answered holds a live card. Run after opening, and after a card is used up. Two passes can
+   * overlap, since a card takes seconds to open, so each one looks again before each card. The row is what it finds.
    */
-  private coverProposal(proposal: Proposal): Promise<void> {
-    const previous = this.coveringProposals.get(proposal.id) ?? Promise.resolve();
-    const running = previous.catch(() => undefined).then(() => this.coverProposalNow(proposal));
-    this.coveringProposals.set(proposal.id, running);
-    const done = () => {
-      if (this.coveringProposals.get(proposal.id) === running) this.coveringProposals.delete(proposal.id);
-    };
-    running.then(done, done);
-    return running;
-  }
-
-  private async coverProposalNow(proposal: Proposal): Promise<void> {
+  private async coverProposal(proposal: Proposal): Promise<void> {
     const { proposals, routes } = this.stores;
-    // It may have closed while this pass was waiting for the last one.
-    if (proposals.get(proposal.id)?.state !== "open") return;
-    const voted = proposals.voters(proposal.id);
-    const open = routes.openForRequest(proposal.id);
     for (const person of this.signers(proposal.exclude, proposal.quorum).chosen) {
-      if (voted.includes(person.id) || open.some((row) => row.user_id === person.id)) continue;
+      // It may have closed while the last card was opening.
+      if (proposals.get(proposal.id)?.state !== "open") return;
+      if (proposals.voters(proposal.id).includes(person.id) || routes.openForRequest(proposal.id).some((row) => row.user_id === person.id)) continue;
       try {
-        const { roomId } = await this.deps.chat.ensureDirectRoom({ userName: person.userName });
-        const { result, named } = await this.openNaming(
+        const { roomId, named, closed } = await this.openOnRecord(
+          { requestId: proposal.id, userId: person.id, step: "proposal" },
+          async () => this.deps.chat.ensureDirectRoom({ userName: person.userName }),
           {
-            roomId,
             kind: "approval",
             title: `${proposal.id} · ${proposal.payload.title}`.slice(0, TITLE_MAX),
             detail: clipToBudget(proposal.payload.detail),
@@ -2656,16 +2826,7 @@ export class Clearance implements ClearanceCore {
           },
           [person.id],
         );
-        routes.add({
-          requestId: proposal.id,
-          userId: person.id,
-          step: "proposal",
-          cardRoom: roomId,
-          sessionId: result.sessionId,
-          switchRequestId: result.switchRequestId,
-          handle: result.handle,
-        });
-        if (!named) await this.notifyCard({ roomId }, [person.userName], `${proposal.id} needs your signature: ${proposal.payload.title}. The card is just above.`);
+        if (!named && !closed) await this.notifyCard({ roomId }, [person.userName], `${proposal.id} needs your signature: ${proposal.payload.title}. The card is just above.`);
       } catch (error) {
         // Usually Switch is down. The next answer, or asking again, covers it.
         console.error(`could not open ${proposal.id}'s card for ${person.userName}: ${(error as Error).message}`);
@@ -2697,6 +2858,12 @@ export class Clearance implements ClearanceCore {
     if (proposal.state !== "open") {
       refuse(["proposal_closed"]);
       await tellRoom(`${proposal.id} is already ${proposal.state}. That answer changed nothing.`);
+      return;
+    }
+    // Past its time it's over, whether or not the tick has got to it. An answer on a request past its expiry is the same.
+    if (proposal.expiresAtMs <= now) {
+      refuse(["proposal_expired"]);
+      await tellRoom(`${proposal.id} has expired. That answer changed nothing.`);
       return;
     }
     const eligible = this.signers(proposal.exclude, proposal.quorum).eligible;
@@ -2738,7 +2905,7 @@ export class Clearance implements ClearanceCore {
     const { routes } = this.stores;
     for (const row of routes.openForRequest(proposal.id)) {
       routes.close(row.id);
-      await this.deps.chat.closeCard(row.session_id, row.switch_request_id).catch(() => undefined);
+      if (row.open_state !== "opening") await this.deps.chat.closeCard(row.session_id, row.switch_request_id).catch(() => undefined);
     }
   }
 
@@ -2907,22 +3074,25 @@ export class Clearance implements ClearanceCore {
     const { directory } = this.people;
     if (!reference) return "Which request? `@clearance breakglass CLR-0042 why it can't wait`.";
     const found = this.findRequest(reference);
-    // A drill has nothing behind it to run, and saying so would give it away.
-    if (!found || found.isDrill) return `I can't find ${reference}.`;
+    if (!found) return `I can't find ${reference}.`;
     const actor = directory.person(actorId);
     const named = this.currentPolicy.file.break_glass?.people ?? [];
-    const refuse = (reasons: string[]) =>
-      ledger.append("ineligible_answer", found.id, { answered_by: null, user_id: actorId, answer: null, reasons, break_glass: true });
+    const refuse = (reasons: string[]) => {
+      if (!found.isDrill) ledger.append("ineligible_answer", found.id, { answered_by: null, user_id: actorId, answer: null, reasons, break_glass: true });
+    };
     if (!named.includes(actorId)) {
       refuse(["not_break_glass_person"]);
       const who = joinNames(named.map((id) => directory.person(id)?.name ?? id));
       return `${actor?.name ?? "That account"} can't break glass on ${found.id}: only ${who || "people named in the policy"} can.`;
     }
-    if (found.requesterIds.includes(actorId)) {
+    if (this.routeContext(found).requesterIds.includes(actorId)) {
       refuse(["requester"]);
       return `${actor?.name ?? "That account"} asked for ${found.id}, so can't break glass on it.`;
     }
     if (!reason) return `Say the reason: \`@clearance breakglass ${found.id} why it can't wait\`.`;
+    // Up to here a drill gets the answers a real request gets, or anyone could tell them apart by asking. Only someone
+    // named for break-glass, with a reason, gets this far, and a drill has nothing behind it to run.
+    if (found.isDrill) return `I can't find ${reference}.`;
 
     if (OPEN_STATES.includes(found.state) && found.expiresAtMs <= this.deps.clock.nowMs()) await this.expire(found);
     const write = this.stores.db.transaction((): RequestRecord | null => {
@@ -3001,6 +3171,7 @@ export class Clearance implements ClearanceCore {
       clock: this.deps.clock,
       aggregates: { sum: (cls, by, key, since) => aggregates.sumWithout(request.id, cls, by, key, since) },
       autonomy,
+      lastRun: this.lastRunOf,
     });
     if (evaluation.decision === "deny") return { ok: false, reason: "policy", why: evaluation.reason };
     if (evaluation.cls !== request.cls) return { ok: false, reason: "policy", why: `the edited call wouldn't be a ${request.cls}` };
@@ -3021,8 +3192,7 @@ export class Clearance implements ClearanceCore {
     const usage = (id: string) => `Which amount? \`@clearance counter ${id} 4000\`.`;
     if (!reference) return usage("CLR-0042");
     const found = this.findRequest(reference, roomId);
-    // A drill has nothing behind it to run, and saying so would give it away.
-    if (!found || found.isDrill || !person) return `I can't find ${reference}.`;
+    if (!found || !person) return `I can't find ${reference}.`;
     if (OPEN_STATES.includes(found.state) && found.expiresAtMs <= this.deps.clock.nowMs()) await this.expire(found);
     const request = requests.require(found.id);
     const { id } = request;
@@ -3031,9 +3201,12 @@ export class Clearance implements ClearanceCore {
     // Who may answer comes first; only then does it matter what they wrote.
     const assessment = assessAnswer(this.routeContext(request), askerId);
     if (!assessment.eligible) {
-      ledger.append("ineligible_answer", id, { answered_by: null, user_id: askerId, answer: null, reasons: assessment.reasons, counter: true });
+      if (!request.isDrill) ledger.append("ineligible_answer", id, { answered_by: null, user_id: askerId, answer: null, reasons: assessment.reasons, counter: true });
       return `${person.name} can't counter ${id} (${exclusionWords(assessment.reasons, this.traces.latest(id)?.label ?? "approver")}). ${this.sentToSentence(request)}`;
     }
+    // Up to here a drill gets the answers a real request gets. Only the person it was sent to gets this far, and it has
+    // nothing behind it to edit.
+    if (request.isDrill) return `I can't find ${reference}.`;
     if (request.source !== "gate") {
       return `${id} can't be edited: the agent runs its own command, and nothing can make it re-run a different one. Approve or deny it, and ask for a new request if it should be different.`;
     }
@@ -3087,10 +3260,10 @@ export class Clearance implements ClearanceCore {
     });
     const field = counterField(this.evidenceOf(request).extracted);
     try {
-      const { roomId } = await this.deps.chat.ensureDirectRoom({ userName: person.userName });
-      const { result, named } = await this.openNaming(
+      const { roomId, named, closed } = await this.openOnRecord(
+        { requestId: request.id, userId: person.id, step: "counter", confirmField: field, counter: { amount: to, tries } },
+        async () => this.deps.chat.ensureDirectRoom({ userName: person.userName }),
         {
-          roomId,
           title: renderCounterTitle(view, this.money(from)),
           kind: "questions",
           detail: "",
@@ -3109,18 +3282,7 @@ export class Clearance implements ClearanceCore {
         },
         [person.id],
       );
-      this.stores.routes.add({
-        requestId: request.id,
-        userId: person.id,
-        step: "counter",
-        cardRoom: roomId,
-        sessionId: result.sessionId,
-        switchRequestId: result.switchRequestId,
-        handle: result.handle,
-        confirmField: field,
-        counter: { amount: to, tries },
-      });
-      if (!named) await this.notifyCard({ roomId }, [person.userName], `${request.id}: your offer of ${this.money(to)} is waiting for you to confirm it. The card is just above.`);
+      if (!named && !closed) await this.notifyCard({ roomId }, [person.userName], `${request.id}: your offer of ${this.money(to)} is waiting for you to confirm it. The card is just above.`);
       return { roomId };
     } catch {
       return null;
@@ -3205,21 +3367,17 @@ export class Clearance implements ClearanceCore {
     }
 
     const { created, approved } = outcome;
-    // The tick reads a HELD request nobody is opening as one to open, and this one is being opened.
-    if (!approved) this.opening.add(created.id);
-    try {
-      await this.closeOpenCards(request);
-      await this.tellOriginCopy(request, `${id} edited by ${person.name}: ${offer} instead of ${this.money(from)}, as ${created.id}.`);
-      if (approved) {
-        await reply(`${created.id} carries it: ${offer} instead of ${this.money(from)}. Sent to run.`);
-        await this.executeApproved(created);
-        if (requests.require(created.id).state === "VOIDED") await reply(`${created.id} did not run, and neither did ${id}. ${request.agent} has been told.`);
-        return;
-      }
-      await this.routeAndOpen(created, "primary");
-    } finally {
-      this.opening.delete(created.id);
+    await this.closeOpenCards(request);
+    await this.tellOriginCopy(request, `${id} edited by ${person.name}: ${offer} instead of ${this.money(from)}, as ${created.id}.`);
+    if (approved) {
+      await reply(`${created.id} carries it: ${offer} instead of ${this.money(from)}. Sent to run.`);
+      await this.executeApproved(created);
+      const ended = requests.require(created.id).state;
+      if (ended === "VOIDED") await reply(`${created.id} did not run, and neither did ${id}. ${request.agent} has been told.`);
+      if (ended === "OUTCOME_UNKNOWN") await reply(`Nobody can say whether ${created.id} ran. ${id} did not. ${request.agent} has been told, and a person has to check.`);
+      return;
     }
+    await this.routeAndOpen(created, "primary");
     await reply(`${created.id} carries it: ${offer} instead of ${this.money(from)}. It still needs another approver.`);
     await this.notifyAgent(created, `${id} did not run and will not. ${person.name} offered ${offer} instead, as ${created.id}, which still needs another approver. Wait to be told about ${created.id}.`);
   }
@@ -3334,38 +3492,25 @@ export class Clearance implements ClearanceCore {
 
   /** Who may review a break-glass: the policy owners, but not the person who did it or the people who asked for it. */
   private glassReviewers(request: RequestRecord, actorId: string): { eligible: Person[]; chosen: Person[] } {
-    return this.signers([actorId, ...request.requesterIds], 1);
+    return this.signers([actorId, ...this.routeContext(request).requesterIds], 1);
   }
 
   private async openGlassReview(request: RequestRecord, actorId: string, reason: string): Promise<void> {
-    const key = `glass:${request.id}`;
-    if (this.opening.has(key)) return;
-    this.opening.add(key);
-    try {
-      await this.openGlassReviewNow(request, actorId, reason);
-    } finally {
-      this.opening.delete(key);
-    }
-  }
-
-  private async openGlassReviewNow(request: RequestRecord, actorId: string, reason: string): Promise<void> {
     const { routes } = this.stores;
     const { directory } = this.people;
     const evidence = this.evidenceOf(request);
     const actor = directory.person(actorId)?.name ?? actorId;
     const expiresAtMs = this.deps.clock.nowMs() + this.glassReviewWindow();
-    const open = routes.openForRequest(request.id).filter((row) => row.step === "glass_review");
     const { chosen } = this.glassReviewers(request, actorId);
     if (chosen.length === 0) {
       await this.announce(`Nobody can review the break-glass on ${request.id}: every policy owner did it or asked for it. Someone needs to look at it.`);
       return;
     }
     for (const person of chosen) {
-      if (open.some((row) => row.user_id === person.id)) continue;
+      // Two passes can overlap, since a card takes seconds to open. The row is what the other one finds.
+      if (routes.openForRequest(request.id).some((row) => row.step === "glass_review" && row.user_id === person.id)) continue;
       try {
-        const { roomId } = await this.deps.chat.ensureDirectRoom({ userName: person.userName });
-        const { result, named } = await this.openNaming({
-          roomId,
+        const { roomId, named, closed } = await this.openOnRecord({ requestId: request.id, userId: person.id, step: "glass_review" }, async () => this.deps.chat.ensureDirectRoom({ userName: person.userName }), {
           kind: "approval",
           title: `${request.id} · BREAK-GLASS REVIEW · ${evidence.description.headline}`.slice(0, TITLE_MAX),
           detail: clipToBudget(
@@ -3379,16 +3524,7 @@ export class Clearance implements ClearanceCore {
           questions: [],
           expiresAtMs,
         }, [person.id]);
-        routes.add({
-          requestId: request.id,
-          userId: person.id,
-          step: "glass_review",
-          cardRoom: roomId,
-          sessionId: result.sessionId,
-          switchRequestId: result.switchRequestId,
-          handle: result.handle,
-        });
-        if (!named) await this.notifyCard({ roomId }, [person.userName], `${request.id} needs your review: ${actor} broke glass on it. The card is just above.`);
+        if (!named && !closed) await this.notifyCard({ roomId }, [person.userName], `${request.id} needs your review: ${actor} broke glass on it. The card is just above.`);
       } catch {
         // The page has gone out. The overdue chase is what finally surfaces a review nobody could be shown.
       }
@@ -3436,7 +3572,7 @@ export class Clearance implements ClearanceCore {
     const rows = db
       .prepare(
         `SELECT DISTINCT request_id FROM ledger WHERE type = 'break_glass'
-           AND request_id NOT IN (SELECT request_id FROM routes WHERE step = 'glass_review')`,
+           AND request_id NOT IN (SELECT request_id FROM routes WHERE step = 'glass_review' AND open_state IS NOT 'failed')`,
       )
       .all() as { request_id: string }[];
     for (const row of rows) {
@@ -3456,7 +3592,7 @@ export class Clearance implements ClearanceCore {
     for (const row of routes.overdueGlassReviews(now - this.glassReviewWindow())) {
       seen.add(row.request_id);
       routes.close(row.id);
-      await this.deps.chat.closeCard(row.session_id, row.switch_request_id).catch(() => undefined);
+      if (row.open_state !== "opening") await this.deps.chat.closeCard(row.session_id, row.switch_request_id).catch(() => undefined);
     }
     for (const id of seen) {
       const request = requests.require(id);

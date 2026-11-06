@@ -25,7 +25,12 @@ export type RouteRow = {
   /** Set on a counter card: the amount on offer, and how many wrong values came before this card. */
   counter_amount: number | null;
   counter_try: number | null;
+  /** "opening" until Switch has answered, "failed" if it never did. Null is an open card, or an answered one. */
+  open_state: string | null;
 };
+
+/** On every query about cards that exist: one that failed to open is on record only so a late answer to it still counts. */
+const NOT_FAILED = `open_state IS NOT 'failed'`;
 
 /** Cards that exist in Switch for each request. An open card is one nobody has answered or closed. */
 export class RouteStore {
@@ -67,8 +72,49 @@ export class RouteStore {
     return this.db.prepare(`SELECT * FROM routes WHERE id = ?`).get(result.lastInsertRowid) as RouteRow;
   }
 
+  /**
+   * The row for a card about to be opened, under an id we chose. Switch can deliver an answer as soon as the card is live,
+   * which is before it tells us anything, and an answer to a card with no row would be lost for good. It's on record
+   * here before anything can wait, so anything looking for who already holds a card sees this one too.
+   */
+  begin(input: {
+    requestId: string;
+    userId: string | null;
+    step: RouteStep;
+    switchRequestId: string;
+    confirmField?: string | undefined;
+    counter?: { amount: number; tries: number } | undefined;
+  }): RouteRow {
+    const row = this.add({ ...input, cardRoom: "", sessionId: "" });
+    this.db.prepare(`UPDATE routes SET open_state = 'opening' WHERE id = ?`).run(row.id);
+    return { ...row, open_state: "opening" };
+  }
+
+  /** Where it's going, once a direct room has been found or made. */
+  placeAt(id: number, roomId: string): void {
+    this.db.prepare(`UPDATE routes SET card_room = ? WHERE id = ?`).run(roomId, id);
+  }
+
+  /** Live, and people have been able to see it from now. An answer that beat this keeps the time it was measured from. */
+  opened(id: number, result: { sessionId: string; switchRequestId: string; handle?: string | undefined }): RouteRow {
+    this.db
+      .prepare(`UPDATE routes SET session_id = ?, switch_request_id = ?, handle = ?, open_state = NULL, notified_at = CASE WHEN closed_at IS NULL THEN ? ELSE notified_at END WHERE id = ?`)
+      .run(result.sessionId, result.switchRequestId, result.handle ?? null, this.clock.nowMs(), id);
+    return this.db.prepare(`SELECT * FROM routes WHERE id = ?`).get(id) as RouteRow;
+  }
+
+  /** Switch said no, or never answered. It may be live anyway, so the row stays for an answer to find. */
+  failed(id: number): void {
+    this.db.prepare(`UPDATE routes SET open_state = 'failed', closed_at = COALESCE(closed_at, ?) WHERE id = ?`).run(this.clock.nowMs(), id);
+  }
+
+  /** At startup: whatever was opening when the last process stopped won't finish, and its request needs routing again. */
+  abandonOpening(): void {
+    this.db.prepare(`UPDATE routes SET open_state = 'failed', closed_at = COALESCE(closed_at, ?) WHERE open_state = 'opening'`).run(this.clock.nowMs());
+  }
+
   forRequest(requestId: string): RouteRow[] {
-    return this.db.prepare(`SELECT * FROM routes WHERE request_id = ? ORDER BY id`).all(requestId) as RouteRow[];
+    return this.db.prepare(`SELECT * FROM routes WHERE request_id = ? AND ${NOT_FAILED} ORDER BY id`).all(requestId) as RouteRow[];
   }
 
   openForRequest(requestId: string): RouteRow[] {
@@ -102,7 +148,7 @@ export class RouteStore {
   /** How many typed cards this person has been shown, so the field asked for can rotate. */
   confirmCount(userId: string): number {
     const row = this.db
-      .prepare(`SELECT COUNT(*) AS count FROM routes WHERE user_id = ? AND confirm_field IS NOT NULL AND step != 'counter'`)
+      .prepare(`SELECT COUNT(*) AS count FROM routes WHERE user_id = ? AND confirm_field IS NOT NULL AND step != 'counter' AND ${NOT_FAILED}`)
       .get(userId) as { count: number };
     return row.count;
   }
@@ -110,7 +156,7 @@ export class RouteStore {
   /** How many typed cards this request has shown to a room rather than a person. */
   roomConfirmCount(requestId: string): number {
     const row = this.db
-      .prepare(`SELECT COUNT(*) AS count FROM routes WHERE request_id = ? AND user_id IS NULL AND confirm_field IS NOT NULL`)
+      .prepare(`SELECT COUNT(*) AS count FROM routes WHERE request_id = ? AND user_id IS NULL AND confirm_field IS NOT NULL AND ${NOT_FAILED}`)
       .get(requestId) as { count: number };
     return row.count;
   }
@@ -119,7 +165,7 @@ export class RouteStore {
   askedToType(requestId: string, userId: string): boolean {
     return (
       this.db
-        .prepare(`SELECT 1 FROM routes WHERE request_id = ? AND user_id = ? AND confirm_field IS NOT NULL AND step != 'counter' LIMIT 1`)
+        .prepare(`SELECT 1 FROM routes WHERE request_id = ? AND user_id = ? AND confirm_field IS NOT NULL AND step != 'counter' AND ${NOT_FAILED} LIMIT 1`)
         .get(requestId, userId) !== undefined
     );
   }
@@ -156,7 +202,7 @@ export class RouteStore {
     return this.db
       .prepare(
         `SELECT r.* FROM routes r JOIN requests q ON q.id = r.request_id
-         WHERE r.user_id = ? AND r.closed_at IS NULL AND r.step != 'counter' AND q.state IN ('HELD', 'ROUTED') ORDER BY r.notified_at DESC, r.id DESC`,
+         WHERE r.user_id = ? AND r.closed_at IS NULL AND r.open_state IS NULL AND r.step != 'counter' AND q.state IN ('HELD', 'ROUTED') ORDER BY r.notified_at DESC, r.id DESC`,
       )
       .all(userId) as RouteRow[];
   }

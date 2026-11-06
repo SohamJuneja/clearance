@@ -45,10 +45,10 @@ Missing data never lowers risk. A lookup that found nothing, or a field of the w
 |---|---|
 | `request_ttl` | How long a held request stays open |
 | `grant_ttl` | How long an approved call's retry stays valid |
-| `max_open_cards_per_person` | The router passes over someone with this many cards open, and the trace says so |
+| `max_open_cards_per_person` | A preference: the router tries someone with fewer cards first. If everyone eligible is over it, someone eligible still gets the card, and the card and the trace say so. Being busy never widens who may approve |
 | `exclude_requester` | The person who asked can't approve |
 | `exclude_agent_owner_from` | The tier at which the agent's owner stops being able to approve |
-| `unknown_requester_quorum` | At least 2. When nobody can tell who asked, this many different people must approve, since only one of them can be the person who asked |
+| `unknown_requester_quorum` | At least 2. When nobody can tell who asked, this many different people must approve, since only one of them can be the person who asked. A flag on the card says which of these it is: nobody on record, a requester linked to nobody on the team, an agent also working where Clearance can't see, someone addressing a name Clearance doesn't know (it could be an alias) in the last 10 minutes, stream messages lost in the last 10 minutes, or a call naming a pull request whose author couldn't be looked up |
 | `gate_hosts` | A `curl` or `wget` whose every URL is one of these is left to the gate |
 | `readable_outside` | Paths outside the agent's folder that may be read without a hold |
 | `unknown_protected_action` | `hold` or `deny` |
@@ -109,7 +109,7 @@ refund:
 | `summary` | How the card's policy line names the class |
 | `decision`, `reason` | `decision: deny` refuses the call and never routes it, and `reason` is what the agent is told |
 | `extract` | Named fields, each an expression. Later expressions can read them |
-| `risk` | `base` plus the `points` of each `add` rule that holds. `flag` puts a line on the card. `why` gives the words for the reason and the policy line |
+| `risk` | `base` plus the `points` of each `add` rule that holds. A rule that can't be worked out counts as holding, and says what couldn't be verified, unless it has `if_unknown: skip`: then it adds nothing to the card, but the call can't run by itself. `flag` puts a line on the card. `why` gives the words for the reason and the policy line |
 | `aggregate` | A sliding window. If `sum` for one `by` key goes `over` the limit inside `window`, `then` holds or denies, whatever the score says. Paid and open requests count. Denied and expired ones leave the window |
 | `reversible` | The card's title says so. A single call can overrule it: a force push is in the merge class and reads irreversible |
 | `approvers` | See below |
@@ -134,6 +134,8 @@ An agent climbs a ladder per agent, class and bucket:
 | L2 | Runs, then posts a review card that can reverse it or demote the agent |
 | L3 | Runs silently up to `daily_cap`, with a line in the digest |
 
+A call with any flag on it never runs by itself: at L2 and L3 it's held for a person, as it would be at L0. So is a call whose ownership can't be checked, with `if_unknown: skip` below, and an identical call that ran in the last 24 h, whose card says when and as which request. At L0 and L1 that repeat is only a flag: a person can see it and approve it again.
+
 `max_level` is how far the class can go. `promote_after` is what Clearance needs before it proposes a promotion, and a promotion always needs people to sign it. Demotion is instant on an incident or a denial, and needs nobody's approval. Forced holds, missing data and the critical tier never run on their own. An amount above the bucket's 95th percentile holds that one call for a person and doesn't demote.
 
 ### Approving a smaller amount
@@ -152,10 +154,24 @@ That opens a question card to them, in their direct room: "Approve ₹4,000 inst
 | What | Only the amount, only down, to a whole number above zero. An increase is refused: that's a new request for the agent to make, not an edit. Destination, customer and order are never editable. The command takes no other value, and the gate builds the new call from the one it stored. |
 | Hook calls | Refused. Nothing can make an agent re-run a different command. |
 | Policy | The edited call goes through the normal policy path before anything runs, with the amount it replaces left out of the 24 h window. A `deny` leaves the original waiting. The new tier sets the quorum, so an edit can't skip one: if that tier needs more people than the one who offered, it's held and routed as usual. An approval of the original doesn't carry over, because it was for a different call. A quorum raised because nobody knows who asked, or because the agent is working somewhere Clearance can't see, carries over. |
-| Running it | On a yes the original ends as `EDITED` and can't run, and a new request with its own id and hash carries the edit. The gate runs that exactly once. A gate that doesn't answer leaves it retrying, and after 5 minutes it's voided, as for any approved call. A gate that refuses the edit voids it at once. The gate checks the rules again itself and only allows edits on `refund`. |
+| Running it | On a yes the original ends as `EDITED` and can't run, and a new request with its own id and hash carries the edit. The gate runs that exactly once. A gate that doesn't answer leaves it retrying under the same rule as any approved call, below. A gate that refuses the edit voids it at once. The gate checks the rules again itself and only allows edits on `refund`. |
 | Records | The ledger has `edit_proposed`, `edit_withdrawn` and `edited`, which holds both amounts, both hashes and who made it. `approved` and `executed` appear only on the new request. The audit export has `edited_by`, `edited_to` and `edit_of`. |
 | The agent | It's told "CLR-0042 did not run and will not", then what ran instead, or that the edit still needs someone. |
 | Promotion | An approval with edits counts against promotion. Both requests are recorded as edited, neither counts towards `promote_after`, and either one blocks promotion while it's in the window. |
+
+### When a call may or may not have run
+
+Core keeps asking the gate to run an approved call for 5 minutes. After that it only asks what happened, in a way that can't start anything, because an approval that old shouldn't run now.
+
+| What's known | State | What people are told |
+|---|---|---|
+| It ran | `EXECUTED` | That it ran |
+| It didn't: the gate refused, every attempt had its connection refused, or the gate says nothing started | `VOIDED` | That it did not run |
+| Nobody can say: an attempt may have reached the gate and no answer came, or the gate sent it to Acme and heard nothing or got a 5xx | `OUTCOME_UNKNOWN` | The agent and the room: nobody can say whether it ran, don't retry it, a person has to check |
+
+`OUTCOME_UNKNOWN` is the end. Nothing tries that call again, and the card for the same call asked for again says it may have run. The ledger entry is `outcome_unknown`.
+
+The same goes for what earned autonomy allowed. Core records it as having run when it allows it, so the gate tells core if the run didn't go through. Then it's `VOIDED`, off the window and the budget, or `OUTCOME_UNKNOWN`, which stays on them.
 
 ## Expressions
 

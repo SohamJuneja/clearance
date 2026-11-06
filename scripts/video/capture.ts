@@ -20,7 +20,6 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { promisify } from "node:util";
 import {
@@ -34,7 +33,13 @@ import {
 import { REPO_ROOT, setting } from "../../eval/lib/paths.ts";
 import { loadPersonaToken, type MattermostPost, Persona } from "../../eval/lib/persona.ts";
 import type { PersonaWindow } from "../demo/person.ts";
-import type { CaptureOutput, CaptureSession, PersonName, Recorder, WatchSpec } from "../demo/runner.ts";
+import type {
+  CaptureOutput,
+  CaptureSession,
+  PersonName,
+  Recorder,
+  WatchSpec,
+} from "../demo/runner.ts";
 import type { SeenRecord } from "./scenes.ts";
 
 const execFileAsync = promisify(execFile);
@@ -463,6 +468,14 @@ function displayName(persona: string): string {
 }
 
 /**
+ * Where a take's frames wait to be encoded: in the take's own folder, on disk, and gone once it's encoded. /tmp is memory
+ * on the demo host, so frames kept there spend what a recording is shortest of, and a full /tmp kills the take mid-scene.
+ */
+export function frameScratch(directory: string): string {
+  return mkdtempSync(join(directory, "frames-"));
+}
+
+/**
  * The address a browser has to use. Mattermost only upgrades a websocket whose Origin is its SiteURL, which Switch's
  * compose locks to localhost, and over 127.0.0.1 the page loads and works but never hears a new post. A take then shows
  * only what its own person typed, and pressing a card fails because the card never appears.
@@ -476,7 +489,7 @@ export function createRecorder(options: { root?: string } = {}): Recorder {
   return {
     async begin(spec): Promise<CaptureSession> {
       const directory = nextTakeDirectory(spec.scenarioId, options.root);
-      const scratch = mkdtempSync(join(tmpdir(), `capture-${spec.scenarioId}-`));
+      const scratch = frameScratch(directory);
       const browser = await launchBrowser();
       const windows = new Map<PersonName, MattermostWindow>();
       const casts = new Map<PersonName, Screencast>();
@@ -509,7 +522,8 @@ export function createRecorder(options: { root?: string } = {}): Recorder {
         for (const watch of spec.watch ?? ([] as WatchSpec[])) {
           const window = windows.get(watch.persona);
           const cast = casts.get(watch.persona);
-          if (!window || !cast) throw new Error(`${watch.label}: ${watch.persona} isn't being recorded`);
+          if (!window || !cast)
+            throw new Error(`${watch.label}: ${watch.persona} isn't being recorded`);
           stopWatching.push(
             watchVisible(window.page, watch.text, (atS) => {
               seen.push({ label: watch.label, persona: watch.persona, t: atS - cast.videoStartS });

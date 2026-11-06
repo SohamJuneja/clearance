@@ -1,11 +1,12 @@
 import { existsSync, mkdtempSync, readlinkSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { runInNewContext } from "node:vm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   browserUrl,
   frameDurations,
+  frameScratch,
   nextTakeDirectory,
   OUTPUT,
   pointLatest,
@@ -15,8 +16,22 @@ import {
 describe("whether text is really on screen", () => {
   const VIEW = { width: 960, height: 1080 };
   const PATTERN = "Priya can't approve CLR-\\d+ \\(requester\\)";
-  type Box = { left: number; top: number; right: number; bottom: number; width: number; height: number };
-  const at = (top: number, height = 20): Box => ({ left: 100, top, right: 700, bottom: top + height, width: 600, height });
+  type Box = {
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+    width: number;
+    height: number;
+  };
+  const at = (top: number, height = 20): Box => ({
+    left: 100,
+    top,
+    right: 700,
+    bottom: top + height,
+    width: 600,
+    height,
+  });
   const probe = runInNewContext(`(${VISIBLE_TEXT_PROBE})`) as (
     doc: unknown,
     view: { width: number; height: number },
@@ -55,7 +70,8 @@ describe("whether text is really on screen", () => {
   });
 
   it("doesn't take the card's own line, which also says who can't approve", () => {
-    const card = "Why here: copy for this room; Sam (finance, on duty) decides. Can't approve: Priya (requester).";
+    const card =
+      "Why here: copy for this room; Sam (finance, on duty) decides. Can't approve: Priya (requester).";
     expect(probe(page(card, at(780)), VIEW, PATTERN)).toBe(false);
   });
 
@@ -153,6 +169,11 @@ describe("takes", () => {
     pointLatest(second);
     expect(readlinkSync(join(root, "SC3", "latest"))).toBe("2");
     expect(statSync(join(root, "SC3", "latest")).isDirectory()).toBe(true);
+  });
+
+  it("keeps a take's frames in its own folder, because /tmp is memory on the demo host", () => {
+    const take = nextTakeDirectory("SC3", root);
+    expect(dirname(frameScratch(take))).toBe(take);
   });
 
   it("counts past latest when numbering", () => {

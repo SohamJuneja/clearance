@@ -411,7 +411,7 @@ describe("naming the approver on the card", () => {
     await dm(PARTICIPANTS.sam, "dm-sam", "sw_sam_1");
     h.core.stores.autonomy.setLevel("refunds-agent", "refund", "small", "L2", h.clock.nowMs());
     await asked();
-    await h.core.check(gateRefund({ order_id: "A-1931", customer_id: "cus_8812", amount: 2000, destination: "rohan.s@okhdfc" }));
+    await h.core.check(gateRefund({ order_id: "A-1931", customer_id: "cus_8812", amount: 2000, destination: "meera.k@oksbi" }));
     expect(lastCard("dm-sam").title).toContain("REVIEW");
     expect(lastCard("dm-sam").mentionMessageId).toBe("sw_sam_1");
     expect(notified("dm-sam")).toEqual([]);
@@ -585,7 +585,7 @@ describe("business hours in the demo policy", () => {
       const other = makeHarness({ policyPath: path, now: Date.parse(when) });
       try {
         await other.core.onMessage(chatMessage(PARTICIPANTS.priya, "@refunds-agent refund it"));
-        return await other.core.check(gateRefund({ order_id: "A-1931", customer_id: "cus_8812", amount: 2000, destination: "rohan.s@okhdfc" }));
+        return await other.core.check(gateRefund({ order_id: "A-1931", customer_id: "cus_8812", amount: 2000, destination: "meera.k@oksbi" }));
       } finally {
         other.core.close();
       }

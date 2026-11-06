@@ -7,7 +7,8 @@
  *
  * A shell line goes through that pipeline once per sub-command, and the most severe result wins. So `ls && git
  * push` is held, `git push && rm -rf /` cannot ride on a push grant, and what cannot be read with confidence is
- * held. For a hook call, call_hash covers the risky sub-command in normalised form, not the raw bytes.
+ * held. For a hook call, call_hash covers the risky sub-command in normalised form, not the raw bytes, and also
+ * whatever that form can't say: the directory, what came before it on the line, whether it repeats.
  */
 import type { Action, CanonicalCall, Clock, Decision, Flag, LookupPort, Tier } from "@clearance/contracts";
 import { capLevel, levelAllowsWithoutHuman, type AutonomyStore, type Level } from "../autonomy/store.js";
@@ -20,15 +21,20 @@ import {
   isSafe,
   leavesAgentDir,
   normaliseCall,
+  shellDirectory,
   subCommandCall,
   type NormalCall,
+  type ShellPlace,
 } from "../classify/classify.js";
 import { parseShell, type ParsedShell, type SubCommand } from "../classify/shell.js";
 import { toNumber } from "../format.js";
+import { formatClockWithZone } from "../time.js";
 import { callHash } from "../hash.js";
 import type { AggregateStore } from "../risk/aggregates.js";
 import {
   outsideAgentDirFlag,
+  mayHaveRunFlag,
+  ranRecentlyFlag,
   aboveNormalRangeFlag,
   aggregateFlag,
   overCapFlag,
@@ -61,6 +67,8 @@ export type EngineDeps = {
   aggregates: Pick<AggregateStore, "sum">;
   autonomy: Pick<AutonomyStore, "levelFor"> & Partial<Pick<AutonomyStore, "ceiling" | "spentToday">>;
   grants?: GrantPort | undefined;
+  /** The last time this exact call ran, or may have. Only `check` asks: a replay of history is all repeats. */
+  lastRun?: ((callHash: string, agent: string) => { requestId: string; atMs: number; unknown: boolean } | null) | undefined;
 };
 
 export type Step =
@@ -120,7 +128,7 @@ export type Evaluation = {
 type Identity = Pick<Evaluation, "call" | "callHash">;
 
 function identityOf(call: NormalCall | null, clsName: string): Identity {
-  const canonical: CanonicalCall = { class: clsName, target: call?.target ?? "", args: call?.args ?? {} };
+  const canonical: CanonicalCall = { class: clsName, target: call?.target ?? "", args: call?.args ?? {}, ...(call?.bound ? { bound: call.bound } : {}) };
   return { call: canonical, callHash: callHash(canonical) };
 }
 
@@ -290,13 +298,15 @@ function classifySubCommand(
   command: SubCommand,
   action: Action,
   policy: CompiledPolicy,
+  place: ShellPlace,
 ): { safe: boolean; viaGateClass: string | null; risky: Risky[] } {
   const risky: Risky[] = [];
   let safe = true;
   let viaGateClass: string | null = null;
+  const directory = place.cwd ? { cwd: place.cwd } : {};
 
   if (command.effective) {
-    const call = subCommandCall(command);
+    const call = subCommandCall(command, place);
     if (!isSafe(call, policy)) {
       safe = false;
       const hit = firstClass(call, policy);
@@ -310,7 +320,8 @@ function classifySubCommand(
     }
   }
   for (const path of command.writes) {
-    const call = fileCall("file_write", path, action.agent.cwd);
+    // What goes into the file is somewhere on the line, so an approval to write it is for that line.
+    const call = fileCall("file_write", path, action.agent.cwd, { ...directory, ...(place.line !== undefined ? { line: place.line } : {}) });
     if (isSafe(call, policy)) continue;
     safe = false;
     if (isProtected(call, policy)) {
@@ -318,7 +329,10 @@ function classifySubCommand(
     }
   }
   for (const path of command.reads) {
-    const call = fileCall("file_read", path, action.agent.cwd);
+    const call = fileCall("file_read", path, action.agent.cwd, {
+      ...directory,
+      ...(command.boundToLine && place.line !== undefined ? { line: place.line } : {}),
+    });
     if (!leavesAgentDir(call, action.agent.cwd, policy)) continue;
     safe = false;
     risky.push({ call, cls: null, identity: identityOf(call, UNKNOWN_PROTECTED_CLASS), dynamic: [], outside: path });
@@ -354,8 +368,9 @@ async function evaluateShell(action: Action, line: NormalCall, deps: EngineDeps)
   }
 
   // 3 and 4, per sub-command. Safe only applies when every part is safe.
-  const parts = parsed.commands.map((command) => classifySubCommand(command, action, policy));
-  const risky = dedupe(parts.flatMap((part) => part.risky));
+  const place: ShellPlace = { cwd: shellDirectory(action), line: line.subject };
+  const parts = parsed.commands.map((command) => classifySubCommand(command, action, policy, place));
+  const risky = numberRepeats(parts.flatMap((part) => part.risky));
 
   if (risky.length === 0) {
     const viaGateClass = parts.find((part) => part.viaGateClass)?.viaGateClass;
@@ -377,12 +392,18 @@ async function evaluateShell(action: Action, line: NormalCall, deps: EngineDeps)
   return mostSevere(action, without.length > 0 ? without : risky, deps);
 }
 
-function dedupe(risky: Risky[]): Risky[] {
-  const seen = new Set<string>();
-  return risky.filter((part) => {
-    if (seen.has(part.identity.callHash)) return false;
-    seen.add(part.identity.callHash);
-    return true;
+/**
+ * The same call twice on a line is two runs, and a single-use grant covers one. So the second gets an identity of its
+ * own and needs its own approval. The first keeps the plain one, which is what an earlier approval of it is for.
+ */
+function numberRepeats(risky: Risky[]): Risky[] {
+  const seen = new Map<string, number>();
+  return risky.map((part) => {
+    const run = (seen.get(part.identity.callHash) ?? 0) + 1;
+    seen.set(part.identity.callHash, run);
+    if (run === 1) return part;
+    const call: NormalCall = { ...part.call, bound: { ...part.call.bound, run } };
+    return { ...part, call, identity: identityOf(call, part.identity.call.class) };
   });
 }
 
@@ -480,10 +501,15 @@ async function assessClass(
   // Risk. An unknown condition counts as true, and we say so.
   let score = cls.risk.base;
   const fired: FiredRule[] = [];
+  let unchecked = false;
   for (const rule of cls.risk.add) {
     const result = await evaluateExpression(rule.when, scope);
     if (result === false) continue;
     const certain = result === true;
+    if (!certain && rule.skipIfUnknown) {
+      unchecked = true;
+      continue;
+    }
     score += rule.points;
     const firedRule: FiredRule = { source: rule.when.source, points: rule.points, certain };
     if (rule.flag) firedRule.flag = rule.flag;
@@ -527,7 +553,14 @@ async function assessClass(
   let level = cls.autonomy && bucket !== null ? capLevel(deps.autonomy.levelFor(action.agent.name, cls.name, bucket), cls.autonomy.maxLevel) : null;
   // L3 gets to be silent because it has a budget. Without one, someone still looks: it asks for a review, as L2 does.
   if (level === "L3" && inBucket?.dailyCap === undefined) level = "L2";
-  const autoEligible = !forceHold && missing.size === 0 && tier !== "critical";
+  const repeat = deps.lastRun?.(identity.callHash, action.agent.name);
+  if (repeat) {
+    const when = formatClockWithZone(repeat.atMs, policy.defaults.business_hours.tz);
+    flags.push(repeat.unknown ? mayHaveRunFlag(repeat.requestId, when) : ranRecentlyFlag(repeat.requestId, when));
+  }
+
+  // A flag is something a person would want to see, so a flagged call doesn't run with nobody looking (F11).
+  const autoEligible = !forceHold && missing.size === 0 && tier !== "critical" && flags.length === 0 && !unchecked;
 
   const amount = toNumber(extracted.amount);
   let overCap = false;

@@ -8,6 +8,8 @@
  *   pnpm demo:run --list         what exists, with prompts
  *   pnpm demo:run SC3 --record   also capture each persona's browser to docs/media/raw/, starting from clean direct
  *                                messages with Clearance and a clean #approvals. A plain run leaves those as they are
+ *   --restart-agents             restart every running agent first, as a recorded take always does, so nothing an earlier
+ *                                run set going reaches this one
  *   --layout <full|half>         record in this layout, whatever the scene asks: SC6 is full while SC5 is missing
  *   --no-reset                   skip scripts/demo-reset.ts
  *   --no-fresh                   keep the room and the agent's memory of it. By default each take starts in a new
@@ -50,19 +52,20 @@ interface Args {
   reset: boolean;
   fresh: boolean;
   layout?: "full" | "half";
+  restartAgents: boolean;
   agentTimeoutMs?: number;
 }
 
 function usage(message: string): never {
   process.stderr.write(`${message}\n`);
   process.stderr.write(
-    "usage: pnpm demo:run <SC1..SC14|SC2T|all> [--record] [--no-reset] [--no-fresh] [--layout <full|half>] [--agent-timeout <s>] | --list\n",
+    "usage: pnpm demo:run <SC1..SC14|SC2T|all> [--record] [--no-reset] [--no-fresh] [--restart-agents] [--layout <full|half>] [--agent-timeout <s>] | --list\n",
   );
   process.exit(2);
 }
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { ids: [], list: false, record: false, reset: true, fresh: true };
+  const args: Args = { ids: [], list: false, record: false, reset: true, fresh: true, restartAgents: false };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i] as string;
     if (arg === "--") continue;
@@ -70,6 +73,7 @@ function parseArgs(argv: string[]): Args {
     else if (arg === "--record") args.record = true;
     else if (arg === "--no-reset") args.reset = false;
     else if (arg === "--no-fresh") args.fresh = false;
+    else if (arg === "--restart-agents") args.restartAgents = true;
     else if (arg === "--layout") {
       const layout = argv[++i];
       if (layout !== "full" && layout !== "half") usage("--layout takes full or half");
@@ -176,7 +180,7 @@ const BASELINE: Record<string, { autoMode: boolean; anyoneMayAnswer: boolean }> 
  */
 async function startTake(id: string, room: string | undefined, setup: WorldSetup, args: Args): Promise<void> {
   const log = (line: string) => process.stdout.write(`    ${line}\n`);
-  if (args.record) await restartRunningAgents(log);
+  if (args.record || args.restartAgents) await restartRunningAgents(log);
   const baseline = BASELINE[id];
   if (baseline) await setBaseline(baseline.autoMode, baseline.anyoneMayAnswer, log);
   if (args.fresh && room) await freshRoom(room, log);

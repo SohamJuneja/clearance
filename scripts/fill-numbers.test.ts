@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { fill, valuesFrom, type NumberSources } from "./fill-numbers.ts";
 
 const sources = (): NumberSources => ({
-  authority: { clearance: { prevented: 25, total: 25 }, audit: { passed: 5, total: 5 } },
+  authority: { clearance: { prevented: 25, total: 25 }, audit: { passed: 5, total: 5 }, second_review: { passed: 28, total: 28 } },
   autonomy: {
     synthetic: true,
     human_decisions_per_100: { before: 100, after: 25.8 },
@@ -28,6 +28,7 @@ describe("valuesFrom", () => {
     expect(valuesFrom(sources())).toEqual({
       E1: "25 of 25",
       AUDIT_BREAKS: "5",
+      SECOND_REVIEW_BREAKS: "28",
       E6_BEFORE: "100",
       E6_AFTER: "25.8",
       E6_ORIGINAL: "79.2",
@@ -56,6 +57,12 @@ describe("valuesFrom", () => {
     const changed = sources();
     changed.authority.audit.passed = 4;
     expect(() => valuesFrom(changed)).toThrow(/audit/i);
+  });
+
+  it("refuses to say the second review's breaks are fixed while one is open", () => {
+    const changed = sources();
+    changed.authority.second_review.passed = 27;
+    expect(() => valuesFrom(changed)).toThrow(/second review/);
   });
 
   it("refuses a week that isn't labelled synthetic", () => {

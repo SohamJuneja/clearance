@@ -121,6 +121,8 @@ const ClassSchema = z
               .object({
                 when: z.string(),
                 points: z.number(),
+                /** `skip`: not knowing isn't a reason to flag this, though the call still can't run with nobody looking. */
+                if_unknown: z.literal("skip").optional(),
                 flag: z.string().optional(),
                 /** Words for the reason text and the card's policy line: "refunds over ₹10,000". */
                 why: z.string().optional(),

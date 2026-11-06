@@ -30,7 +30,8 @@ safe:                    # pass silently, no card ("quiet on safe work")
   - { file_read: '.' }
   - { gate: 'GET /acme/*' }
   - { mcp: 'check_clearance' }
-  - { mcp: 'switch/*' }  # Switch's own chat tools; update_agent_detail is denied below, and deny comes first
+  # What an agent talks in a room with and looks around with. Any other Switch tool changes a room, an agent or a template, so it gets a card.
+  - { mcp: '^switch/(connect_to_room|list_rooms|read_context|list_participants|post_message|send_targeted_message|list_roles|get_role_detail|assume_role|release_role|list_linked_rooms|list_references|list_all_references|load_internal_documents|list_all_rooms|get_room_detail|list_bridges|list_reference_types|list_room_groups|get_room_group_detail|get_template_guide|list_templates|get_template|get_template_status|list_agents|get_agent_detail|get_my_context|list_machines|get_advanced_config|list_managed_agents)$' }
   - { mcp: '^builtin/(Task|Agent|TodoWrite|TodoRead|ToolSearch|AskUserQuestion|ExitPlanMode|WebSearch|Skill|SlashCommand|BashOutput|KillShell|KillBash|task|todowrite|todoread|question|skill|websearch)$' }
 
 protected:               # no class matched and one of these did: PLAN 7.3 step 6. Gate writes are always protected.
@@ -57,6 +58,8 @@ classes:
       order: 'args.order_id'
       order_total: 'lookup("orders", args.order_id).total'
       destination_age_hours: 'lookup("destinations", args.destination).age_hours'
+      destination_customer: 'lookup("destinations", args.destination).customer_id'
+      order_customer: 'lookup("orders", args.order_id).customer_id'
     risk:
       base: 20
       add:
@@ -65,6 +68,9 @@ classes:
         - { when: 'amount > 3 * order_total', points: 30, flag: amount_vs_order }
         - { when: 'destination_age_hours < 24', points: 25, flag: new_destination }
         - { when: 'outside_hours()', points: 5, flag: outside_hours }
+        # Money going somewhere the customer named on the call doesn't own. No points: a flag is what holds it.
+        - { when: 'destination_customer != customer', points: 0, flag: destination_other_customer, if_unknown: skip }
+        - { when: 'order_customer != customer', points: 0, flag: order_other_customer, if_unknown: skip }
     aggregate:                         # anti-structuring: ten small refunds do not slip under the threshold
       - { sum: amount, by: customer, window: 24h, over: 10000, then: hold, why: 'refunds to one customer over ₹10,000 in 24 h' }
       - { sum: amount, by: destination, window: 24h, over: 10000, then: hold, why: 'refunds to one destination over ₹10,000 in 24 h' }
@@ -172,6 +178,11 @@ classes:
       - { shell: '(^|/)git\s+push\s+.*--force' }
       - { shell: '(^|/)git\s+push(\s+-\S+)*(\s+[^\s-]\S*)?\s*$' }   # no branch named: it may well be main
       - { shell: '(^|/)git\s+push\b.*(\bHEAD\b|\$)' }                          # a branch only known at run time
+      - { shell: '(^|/)git\s+push\b.*\s--(mirror|all|prune|delete|tags)\b' }     # every branch, or removing one
+      - { shell: '(^|/)git\s+push\b.*\s-[a-zA-Z]*[fd][a-zA-Z]*(\s|$)' }          # -f, -d, and either in a cluster
+      - { shell: '(^|/)git\s+push\b.*\s(\+|:)\S' }                              # a forced refspec, or deleting a branch by refspec
+      - { shell: '(^|/)git\s+push\b.*\s@(\s|:|$)' }                              # @ is HEAD
+      - { shell: '(^|/)git\s+push\b.*\*' }                                        # a wildcard refspec reaches every branch
     extract:
       repo: 'args.repo'
       pr: 'args.pr'
@@ -223,7 +234,7 @@ classes:
     match:
       - { gate: 'DELETE /acme/records/*' }
       - { mcp: 'delete_records', via_gate: true }
-      - { shell: '(^|/)rm\s+(\S+\s+)*(/|~|\.\.|\$|`)' }   # outside the tree, or a target only known at run time
+      - { shell: '(^|/)(rm|rmdir|shred|unlink)\s+(\S+\s+)*(/|~|\.\.|\$|`)' }   # outside the tree, or a target only known at run time
       - { shell: '(^|/)find\s(.*\s)?-delete(\s|$)' }
       - { shell: '\bDROP\s+TABLE\b' }
     risk: { base: 70 }

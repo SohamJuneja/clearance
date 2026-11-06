@@ -3,7 +3,9 @@
  * Pure: no IO, no clock. Shell lines are split into sub-commands by ./shell.ts first, and each of those is a call.
  */
 import { posix } from "node:path";
-import type { Action } from "@clearance/contracts";
+import { canonicalJson, type Action } from "@clearance/contracts";
+import { previewOf } from "../format.js";
+import { sha256Hex } from "../hash.js";
 import type { CompiledClass, CompiledMatch, CompiledPolicy, MatchKind } from "../policy/load.js";
 import { fetchStaysOnGate } from "./fetch.js";
 import { readsOutside } from "./reads.js";
@@ -18,6 +20,8 @@ export type NormalCall = {
   server?: string;
   target: string;
   args: Record<string, unknown>;
+  /** What a grant is also bound to, beyond `args`. Absent when `args` already says it all. */
+  bound?: Record<string, unknown>;
   /** True when `args` are the call's own structured arguments (gate, MCP), not just the command text. */
   structured: boolean;
   /** A sub-command's words and what came before them, so a helper can read arguments instead of a line of text. */
@@ -89,11 +93,12 @@ export function normaliseCall(action: Action, policy: CompiledPolicy): NormalCal
         target: "shell",
         args: { command: action.shell.command },
         structured: false,
+        ...boundTo({ ...cwdBinding(shellDirectory(action)) }),
       };
     case "file_write":
     case "file_read": {
       if (!action.file) return null;
-      return fileCall(action.kind, action.file.path, action.agent.cwd);
+      return fileCall(action.kind, action.file.path, action.agent.cwd, action.kind === "file_write" ? whatIsWritten(action.written) : {});
     }
     case "http": {
       if (!action.http) return null;
@@ -128,7 +133,38 @@ export function normaliseCall(action: Action, policy: CompiledPolicy): NormalCal
   }
 }
 
-export function fileCall(kind: "file_write" | "file_read", path: string, cwd: string | undefined): NormalCall {
+/** Binds an approval to what would be written, so it can't be spent on writing something else to that path. */
+function whatIsWritten(written: Action["written"]): Record<string, unknown> {
+  const { content, replaces } = written ?? {};
+  if (content === undefined && replaces === undefined) return {};
+  return {
+    content_sha256: sha256Hex(canonicalJson({ content, replaces })),
+    ...(content !== undefined ? { preview: previewOf(content), chars: content.length } : {}),
+  };
+}
+
+const boundTo = (bound: Record<string, unknown>): Pick<NormalCall, "bound"> =>
+  Object.keys(bound).length > 0 ? { bound } : {};
+
+const cwdBinding = (cwd: string | undefined): Record<string, unknown> => (cwd ? { cwd } : {});
+
+/** The directory a shell line runs in: the tool's own argument when it has one, on top of the agent's. */
+export function shellDirectory(action: Action): string | undefined {
+  const { workdir } = action.shell ?? {};
+  const base = action.agent.cwd;
+  if (!workdir) return base ? cleanDirectory(base) : undefined;
+  return cleanDirectory(base ? posix.resolve(base, workdir) : workdir);
+}
+
+const cleanDirectory = (path: string): string => posix.normalize(path).replace(/(.)\/+$/, "$1");
+
+/** `extra` carries the rest of what the call is bound to. A relative path means nothing without its directory. */
+export function fileCall(
+  kind: "file_write" | "file_read",
+  path: string,
+  cwd: string | undefined,
+  extra: Record<string, unknown> = {},
+): NormalCall {
   return {
     kind,
     subject: normalisePath(path, cwd),
@@ -136,11 +172,22 @@ export function fileCall(kind: "file_write" | "file_read", path: string, cwd: st
     target: path,
     args: { path },
     structured: false,
+    ...boundTo({ ...(path.startsWith("/") ? {} : cwdBinding(cwd && cleanDirectory(cwd))), ...extra }),
   };
 }
 
-/** One sub-command as a call. A grant binds to its canonical form. */
-export function subCommandCall(command: SubCommand): NormalCall {
+/** Where a sub-command runs: the directory, and the whole line, for a command that depends on more of it than its words. */
+export type ShellPlace = { cwd?: string | undefined; line?: string | undefined };
+
+/** `cd` to where it already is changes nothing, and agents write it out of habit, so it doesn't count against a grant. */
+function setupThatMatters(setup: string[][], cwd: string | undefined): string[][] {
+  if (!cwd) return setup;
+  return setup.filter(([name, target, ...rest]) => !(name === "cd" && target !== undefined && rest.length === 0 && posix.resolve(cwd, target) === cwd));
+}
+
+/** One sub-command as a call. A grant binds to its canonical form, plus whatever that form can't say. */
+export function subCommandCall(command: SubCommand, place: ShellPlace = {}): NormalCall {
+  const setup = setupThatMatters(command.setup, place.cwd);
   return {
     kind: "shell",
     subject: command.effective,
@@ -150,6 +197,13 @@ export function subCommandCall(command: SubCommand): NormalCall {
     structured: false,
     words: command.words,
     wrappers: command.wrappers,
+    ...boundTo({
+      ...(command.boundWords ? { words: command.boundWords } : {}),
+      ...(setup.length > 0 ? { setup } : {}),
+      ...cwdBinding(place.cwd),
+      ...(command.boundToLine && place.line !== undefined ? { line: place.line } : {}),
+      ...(command.repeats ? { repeats: true } : {}),
+    }),
   };
 }
 

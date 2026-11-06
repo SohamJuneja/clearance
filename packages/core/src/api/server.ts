@@ -57,6 +57,9 @@ const MAX_REPLAY = 500;
 
 const CancelBody = z.object({ by: z.string().optional() }).nullish();
 
+/** From the gate: what ran alone didn't go through. `never_ran` means that's known; otherwise nobody can say. */
+const RunFailedBody = z.object({ never_ran: z.boolean(), error: z.string().min(1).max(500) }).strict();
+
 /** `approver` is what the demo client sends; `person` is the documented name. */
 const DrillBody = z.object({ person: z.string().optional(), approver: z.string().optional(), flaw: z.string().optional() });
 
@@ -171,6 +174,13 @@ export function buildServer(core: Clearance, options: ServerOptions): FastifyIns
     scope.get<{ Params: { id: string } }>("/v1/people/:id/stats", async (request, reply) => {
       const stats = core.personStats(request.params.id);
       return stats ?? reply.code(404).send({ error: `no person ${request.params.id}` });
+    });
+
+    scope.post<{ Params: { id: string } }>("/v1/requests/:id/run-failed", async (request, reply) => {
+      const parsed = RunFailedBody.safeParse(request.body);
+      if (!parsed.success) return badRequest(reply, "body must be {never_ran, error}");
+      const answer = await core.autoRunFailed(request.params.id, { neverRan: parsed.data.never_ran, error: parsed.data.error });
+      return answer === "not_found" ? reply.code(404).send({ error: `no request ${request.params.id}` }) : { ok: answer === "recorded", answer };
     });
 
     scope.post("/v1/drills/send", async (request, reply) => {

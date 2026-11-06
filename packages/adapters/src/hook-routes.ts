@@ -95,7 +95,14 @@ async function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
 /** Identifies what a call does, leaving out vendor fields that differ between its two events. */
 function callSubject(actions: Action[]): string {
   return canonicalJson(
-    actions.map((a) => ({ kind: a.kind, shell: a.shell, file: a.file, http: a.http, mcp: a.mcp })),
+    actions.map((a) => ({
+      kind: a.kind,
+      shell: a.shell,
+      file: a.file,
+      written: a.written,
+      http: a.http,
+      mcp: a.mcp,
+    })),
   );
 }
 
@@ -150,15 +157,35 @@ export async function hookRoutes(app: FastifyInstance, options: HookRouteOptions
     pairedAllows.set(key, { event, expiresAt: now() + PAIRED_ALLOW_TTL_MS });
   };
 
+  /**
+   * A call that touches several files needs an answer for each, and nothing runs unless all of them can. So no grant is
+   * spent until then: the first pass leaves them alone, and stops at the first refusal, with every approval still good.
+   * This is the rule the engine has for a shell line. Without it, a patch needing two approvals could never get both.
+   * A file without a grant is answered for good in the first pass, so only the ones with a grant are asked twice.
+   */
   const checkAll = async (actions: Action[]): Promise<HookOutcome> => {
-    let last: CheckResponse | undefined;
-    for (const action of actions) {
+    const ask = async (action: Action): Promise<CheckResponse | null> => {
       const parsed = CheckResponseSchema.safeParse(
         await withTimeout(options.check(action), checkTimeoutMs),
       );
-      if (!parsed.success) return deny(UNAVAILABLE);
-      last = parsed.data;
-      if (last.decision !== "allow") return deny(last.reason);
+      return parsed.success ? parsed.data : null;
+    };
+    const several = actions.length > 1;
+    const withGrants: Action[] = [];
+    let last: CheckResponse | undefined;
+    for (const action of actions) {
+      const answer = await ask(several ? { ...action, defer_grants: true } : action);
+      if (!answer) return deny(UNAVAILABLE);
+      if (answer.decision !== "allow") return deny(answer.reason);
+      if (answer.grant_pending) withGrants.push(action);
+      last = answer;
+    }
+    // Spending can't wait on anything, since core is one process and a grant's path through it does no IO.
+    for (const action of withGrants) {
+      const answer = await ask(action);
+      if (!answer) return deny(UNAVAILABLE);
+      if (answer.decision !== "allow") return deny(answer.reason);
+      last = answer;
     }
     return last ? { decision: "allow", reason: last.reason } : deny(UNREADABLE);
   };

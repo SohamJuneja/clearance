@@ -7,6 +7,8 @@
  * What it cannot read with confidence comes back `ok: false`, and the policy engine holds that. Being unsure is
  * never a reason to allow.
  */
+import { posix } from "node:path";
+import { inlineCodeProblem } from "./inline-code.js";
 
 export type SubCommand = {
   /** As written, for a reader. */
@@ -25,11 +27,32 @@ export type SubCommand = {
   words: string[];
   /** What came before the command: wrappers and assignments. An environment can change where a command goes. */
   wrappers: string[];
+  /** The words as a grant binds them. Set only when `canonical` can't tell this command from another: see `Word.bound`. */
+  boundWords?: string[];
+  /** Earlier commands on this line that change where or how this one runs: `cd`, `export`, `git remote`. */
+  setup: string[][];
+  /** It may run more than once: in a loop, or for each thing `find` or `xargs` reads. */
+  repeats: boolean;
+  /** What it does depends on more of the line than its words: a loop, a pipe, a heredoc, `bash -c '...' args`. */
+  boundToLine: boolean;
 };
 
 export type ParsedShell = { ok: boolean; reason?: string; commands: SubCommand[] };
 
-type Word = { text: string; dynamic: boolean; procSub: boolean };
+type Word = {
+  /** With quotes and escapes resolved, and a substitution shortened: what patterns read and a person sees. */
+  text: string;
+  /**
+   * What the shell would really do with it. Quoted text is marked as literal and a substitution keeps its source, so
+   * `'$X'` and `$X`, `'*'` and `*`, or `$(echo a)` and `$(echo b)` stay different, while `"origin"` and `origin`,
+   * which run the same, stay the same.
+   */
+  bound: string;
+  dynamic: boolean;
+  procSub: boolean;
+  /** No quote or escape in it, so a keyword really is one: `"done"` is a command called done. */
+  plain: boolean;
+};
 
 type Builder = {
   start: number;
@@ -52,6 +75,18 @@ const INLINE_CODE_FLAGS = new Set(["-c", "-e", "-m", "-p", "-E", "--eval", "--pr
 const NOT_REAL_FILES = /^\/dev\/(null|stdout|stderr|tty|fd\/\d+)$/;
 const LEADING_KEYWORDS = new Set(["if", "then", "elif", "else", "while", "until", "do", "!", "{"]);
 const CLOSING_KEYWORDS = new Set(["fi", "done", "}", "esac"]);
+const LOOP_OPENERS = new Set(["while", "until"]);
+/** Commands that change what runs after them on the line: the directory, the environment, what a name means. */
+const CHANGES_WHAT_FOLLOWS = new Set([
+  "cd", "pushd", "popd", "export", "declare", "typeset", "readonly", "local", "unset", "set", "shopt", "alias", "unalias",
+  "umask", "ulimit", "trap", "hash", "enable",
+]);
+const GIT_CHANGES_WHAT_FOLLOWS = new Set(["remote", "config"]);
+
+/** Marks text the shell won't interpret. Everything that means something when bare, so `'*'` can't pass for `*`. */
+function literal(text: string): string {
+  return text.replace(/[\\$`"'*?[\]{}~!,#=]/g, "\\$&");
+}
 
 function baseName(word: string): string {
   return word.slice(word.lastIndexOf("/") + 1);
@@ -81,7 +116,35 @@ const WRAPPERS: Record<string, { flagsWithValue: Set<string>; positionals?: numb
   command: { flagsWithValue: new Set() },
   builtin: { flagsWithValue: new Set() },
   setsid: { flagsWithValue: new Set() },
+  doas: { flagsWithValue: new Set(["-u", "-C"]) },
+  pkexec: { flagsWithValue: new Set(["--user"]) },
+  runuser: { flagsWithValue: new Set(["-u", "-g", "-G", "--user", "--group", "--supp-group"]) },
+  busybox: { flagsWithValue: new Set() },
+  toybox: { flagsWithValue: new Set() },
+  flock: { flagsWithValue: new Set(["-w", "-E", "--timeout", "--wait", "--conflict-exit-code"]), positionals: 1 },
+  taskset: { flagsWithValue: new Set(), positionals: 1 },
+  unshare: { flagsWithValue: new Set(["-R", "-w", "-S", "-G", "--root", "--wd", "--setuid", "--setgid"]) },
+  chroot: { flagsWithValue: new Set(["--userspec", "--groups"]), positionals: 1 },
+  chrt: { flagsWithValue: new Set(["-T", "-P", "-D"]), positionals: 1 },
+  nsenter: { flagsWithValue: new Set(["-t", "-S", "-G", "--target", "--setuid", "--setgid"]) },
+  setpriv: { flagsWithValue: new Set() },
+  strace: { flagsWithValue: new Set(["-o", "-e", "-p", "-s", "-u", "-a", "-I", "-b", "-E", "-O", "-P", "-S", "-X"]) },
+  ltrace: { flagsWithValue: new Set(["-o", "-e", "-p", "-s", "-u", "-a", "-n", "-x", "-D", "-F", "-l", "-A"]) },
+  fakeroot: { flagsWithValue: new Set(["-l", "-s", "-i", "-b", "--lib", "--faked"]) },
+  prlimit: { flagsWithValue: new Set() },
+  cpulimit: { flagsWithValue: new Set(["-l", "-p", "-e", "--limit", "--pid", "--exe"]) },
+  numactl: { flagsWithValue: new Set(["-C", "-N", "-m", "-p", "-i", "--cpunodebind", "--membind", "--preferred", "--interleave", "--physcpubind"]) },
+  unbuffer: { flagsWithValue: new Set() },
+  rlwrap: { flagsWithValue: new Set() },
+  "systemd-run": { flagsWithValue: new Set(["-u", "-p", "-M", "-H", "--unit", "--property", "--machine", "--host"]) },
 };
+
+/** Commands that run a string as a shell line, named by `-c` or `--command`. Without one, these read their commands from input. */
+const RUNS_A_STRING = new Set(["script", "su", "sg"]);
+/** These can be given a string the same way, and otherwise just wrap a command. */
+const MAY_RUN_A_STRING = new Set(["flock", "runuser"]);
+/** These run commands this reader has no way to see: they arrive on stdin or in a job file. */
+const RUNS_WHAT_IT_READS = new Set(["parallel", "at", "batch"]);
 
 const GIT_GLOBALS_WITH_VALUE = new Set(["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--super-prefix", "--config-env"]);
 
@@ -97,6 +160,8 @@ const GIT_RISKY_ENVIRONMENT = /^GIT_(CONFIG_(COUNT|PARAMETERS|GLOBAL|SYSTEM|KEY_
 const FIND_RUNS = new Set(["-exec", "-execdir", "-ok", "-okdir"]);
 /** Given a target only known at run time, these are a delete or an overwrite of who knows what. */
 const DESTROYS_ITS_TARGET = new Set(["rm", "rmdir", "unlink", "shred", "truncate", "mv", "dd"]);
+/** A path that climbs, so `./../x` and `src/../../x` read as what they are. Not a flag's value or a URL: those aren't paths here. */
+const CLIMBS = /(^|\/)\.\.(\/|$)/;
 
 /** Commands that read the files they're given. Others might too, but a word like `/x` is only a path if something reads it. */
 const READS_ITS_ARGUMENTS = new Set([
@@ -110,7 +175,10 @@ const NAMES_ITS_PATTERN = new Set(["-e", "--regexp", "-f", "--file", "--expressi
 const LEAVES_THE_TREE = /^(\/|~|\$HOME\b|\$\{HOME\})|(^|\/)\.\.(\/|$)/;
 
 /** A command run by `find` or `xargs`: its arguments come from what those read, and so might the command itself. */
-type Carried = { by: "find" | "xargs"; placeholder: string; prefix: string[] };
+type Carried = { by: "find" | "xargs"; placeholder: string; prefix: Word[] };
+
+/** Shared by every parser reading one line, however nested: what has run so far that the rest depends on. */
+type LineState = { setup: string[][]; assigned: string[] };
 
 class ShellParser {
   pos = 0;
@@ -121,6 +189,10 @@ class ShellParser {
   constructor(
     private readonly src: string,
     private readonly depth: number,
+    private readonly line: LineState = { setup: [], assigned: [] },
+    /** By value into an inner script, so a stray `done` in a string can't close the loop around it. */
+    private loops = 0,
+    private readonly wholeLine = false,
   ) {}
 
   private fail(reason: string): void {
@@ -240,17 +312,21 @@ class ShellParser {
   }
 
   private readProcessSubstitution(): Word {
+    const start = this.pos;
     const opener = this.src[this.pos] as string;
     this.pos += 2;
     this.parseList(")");
-    return { text: `${opener}(…)`, dynamic: true, procSub: true };
+    const bound = this.src.slice(start, this.pos);
+    return { text: `${opener}(…)`, bound, dynamic: true, procSub: true, plain: false };
   }
 
   /** One shell word, with quotes and escapes resolved. Null when there is no word here. */
   private readWord(): Word | null {
     let text = "";
+    let bound = "";
     let dynamic = false;
     let any = false;
+    let plain = true;
     while (this.pos < this.src.length && !this.failure) {
       const c = this.src[this.pos] as string;
       if (/[\s;&|()<>]/.test(c)) break;
@@ -267,10 +343,14 @@ class ShellParser {
           break;
         }
         text += this.src.slice(this.pos + 1, close);
+        bound += literal(this.src.slice(this.pos + 1, close));
+        plain = false;
         this.pos = close + 1;
       } else if (c === '"') {
         const inner = this.readDoubleQuoted();
         text += inner.text;
+        bound += inner.bound;
+        plain = false;
         dynamic ||= inner.dynamic;
       } else if (c === "\\") {
         const next = this.src[this.pos + 1];
@@ -279,31 +359,39 @@ class ShellParser {
           break;
         }
         text += next;
+        bound += literal(next);
+        plain = false;
         this.pos += 2;
       } else if (c === "`") {
+        const start = this.pos;
         text += this.readBacktick();
+        bound += this.src.slice(start, this.pos);
         dynamic = true;
       } else if (c === "$") {
+        const start = this.pos;
         const expansion = this.readDollar();
         text += expansion.text;
+        bound += this.src.slice(start, this.pos);
         dynamic ||= expansion.dynamic;
       } else {
         text += c;
+        bound += c;
         this.pos += 1;
       }
     }
-    return any ? { text, dynamic, procSub: false } : null;
+    return any ? { text, bound, dynamic, procSub: false, plain } : null;
   }
 
-  private readDoubleQuoted(): { text: string; dynamic: boolean } {
+  private readDoubleQuoted(): { text: string; bound: string; dynamic: boolean } {
     this.pos += 1;
     let text = "";
+    let bound = "";
     let dynamic = false;
     while (this.pos < this.src.length && !this.failure) {
       const c = this.src[this.pos] as string;
       if (c === '"') {
         this.pos += 1;
-        return { text, dynamic };
+        return { text, bound, dynamic };
       }
       if (c === "\\") {
         const next = this.src[this.pos + 1];
@@ -312,24 +400,27 @@ class ShellParser {
           // A line continuation disappears.
         } else if ('$`"\\'.includes(next)) {
           text += next;
+          bound += literal(next);
         } else {
           text += `\\${next}`;
+          bound += literal(`\\${next}`);
         }
         this.pos += 2;
-      } else if (c === "`") {
-        text += this.readBacktick();
-        dynamic = true;
-      } else if (c === "$") {
-        const expansion = this.readDollar();
+      } else if (c === "`" || c === "$") {
+        // Inside double quotes it expands, but doesn't split into words, so it isn't the same as the bare form.
+        const start = this.pos;
+        const expansion = c === "`" ? { text: this.readBacktick(), dynamic: true } : this.readDollar();
         text += expansion.text;
+        bound += `"${this.src.slice(start, this.pos)}"`;
         dynamic ||= expansion.dynamic;
       } else {
         text += c;
+        bound += literal(c);
         this.pos += 1;
       }
     }
     this.fail("an unbalanced double quote");
-    return { text, dynamic };
+    return { text, bound, dynamic };
   }
 
   private readBacktick(): string {
@@ -385,9 +476,10 @@ class ShellParser {
   }
 
   /** Commands inside a string the shell will run: backticks and `bash -c`. */
-  private absorb(script: string): void {
+  private absorb(script: string, how: { repeats?: boolean; wholeLine?: boolean } = {}): void {
     if (this.depth >= MAX_DEPTH) return this.fail("commands nested too deeply");
-    const inner = new ShellParser(script, this.depth + 1);
+    const loops = this.loops + (how.repeats ? 1 : 0);
+    const inner = new ShellParser(script, this.depth + 1, this.line, loops, this.wholeLine || how.wholeLine === true);
     inner.parseList(null);
     this.commands.push(...inner.commands);
     if (inner.failure) this.fail(inner.failure);
@@ -400,26 +492,42 @@ class ShellParser {
     const reads = this.resolvePaths(builder.reads);
     if (writes === null || reads === null) return;
     if (builder.words.length === 0) {
-      if (writes.length > 0 || reads.length > 0) {
-        this.commands.push({ raw, effective: "", canonical: "", writes, reads, dynamic: [], words: [], wrappers: [] });
-      }
+      if (writes.length > 0 || reads.length > 0) this.commands.push(this.noCommand(raw, writes, reads));
       return;
     }
 
     // Leading keywords and `{` carry no meaning of their own: what follows them is the command.
     let words = builder.words;
-    while (words[0] && LEADING_KEYWORDS.has(words[0].text)) words = words.slice(1);
+    while (words[0] && LEADING_KEYWORDS.has(words[0].text)) {
+      if (LOOP_OPENERS.has(words[0].text)) this.loops += 1;
+      words = words.slice(1);
+    }
     if (words.length === 0 || (words.length === 1 && CLOSING_KEYWORDS.has((words[0] as Word).text))) {
-      if (writes.length > 0 || reads.length > 0) {
-        this.commands.push({ raw, effective: "", canonical: "", writes, reads, dynamic: [], words: [], wrappers: [] });
-      }
+      const closing = words[0];
+      if (closing?.plain && closing.text === "done") this.loops = Math.max(0, this.loops - 1);
+      if (writes.length > 0 || reads.length > 0) this.commands.push(this.noCommand(raw, writes, reads));
       return;
     }
     const first = (words[0] as Word).text;
-    if (first === "for") return; // The body comes as its own commands, after `do`.
+    if (first === "for") {
+      this.loops += 1; // The body comes as its own commands, after `do`.
+      return;
+    }
     if (first === "case" || first === "select" || first === "function") return this.fail(`a ${first} statement`);
 
     this.finishCommand(words, builder, raw, writes, reads);
+  }
+
+  /** Only a redirect, or assignments with one: there is no command, but what it writes still counts. */
+  private noCommand(raw: string, writes: string[], reads: string[], wrappers: string[] = []): SubCommand {
+    return { raw, effective: "", canonical: "", writes, reads, dynamic: [], words: [], wrappers, setup: [], repeats: false, boundToLine: false };
+  }
+
+  /** From here on, what runs on this line runs under this. */
+  private noteSetup(words: Word[]): void {
+    if (words.length === 0) return;
+    this.line.setup.push(words.map((word) => word.bound));
+    this.line.assigned.push(...words.map((word) => word.text));
   }
 
   private resolvePaths(words: Word[]): string[] | null {
@@ -435,55 +543,59 @@ class ShellParser {
   }
 
   private finishCommand(all: Word[], builder: Builder, raw: string, writes: string[], reads: string[], carriedBy?: Carried): void {
-    const kept: string[] = [...(carriedBy?.prefix ?? [])]; // Wrappers and assignments: they change what runs, so a grant binds to them.
+    const kept: Word[] = [...(carriedBy?.prefix ?? [])]; // Wrappers and assignments: they change what runs, so a grant binds to them.
     let carried = carriedBy;
     let rest = all;
     for (;;) {
       const word = rest[0];
       if (!word) {
-        // Assignments and wrappers with nothing to run. A redirect on one still writes.
+        // Assignments and wrappers with nothing to run. A redirect on one still writes, and what comes next inherits it.
+        this.noteSetup(kept);
         if (writes.length > 0 || reads.length > 0) {
-          this.commands.push({ raw, effective: "", canonical: "", writes, reads, dynamic: [], words: [], wrappers: kept });
+          this.commands.push(this.noCommand(raw, writes, reads, kept.map((one) => one.text)));
         }
         return;
       }
       if (isAssignment(word.text)) {
-        kept.push(word.text);
+        kept.push(word);
         rest = rest.slice(1);
         continue;
       }
-      const wrapper = word.dynamic ? undefined : WRAPPERS[baseName(word.text)];
+      const runner = word.dynamic ? "" : baseName(word.text);
+      if (RUNS_WHAT_IT_READS.has(runner)) return this.fail(`${runner} runs commands that are not on this line`);
+      if ((RUNS_A_STRING.has(runner) || MAY_RUN_A_STRING.has(runner) || runner === "watch") && this.readStringRunner(runner, rest, kept)) return;
+      const wrapper = word.dynamic ? undefined : WRAPPERS[runner];
       if (!wrapper) break;
-      kept.push(word.text);
+      kept.push(word);
       rest = rest.slice(1);
       if (baseName(word.text) === "xargs") carried = { by: "xargs", placeholder: xargsPlaceholder(rest), prefix: [] };
       let positionals = wrapper.positionals ?? 0;
       while (rest[0]) {
         const next = rest[0];
         if (next.text === "--") {
-          kept.push(next.text);
+          kept.push(next);
           rest = rest.slice(1);
           break;
         }
         if (baseName(word.text) === "env" && next.text === "-S") return this.fail("env -S");
         if (next.text.startsWith("-") && next.text.length > 1) {
           const takesValue = wrapper.flagsWithValue.has(next.text);
-          kept.push(next.text);
+          kept.push(next);
           rest = rest.slice(1);
           if (takesValue && rest[0]) {
-            kept.push(rest[0].text);
+            kept.push(rest[0]);
             rest = rest.slice(1);
           }
           continue;
         }
         if (wrapper.assignments && isAssignment(next.text)) {
-          kept.push(next.text);
+          kept.push(next);
           rest = rest.slice(1);
           continue;
         }
         if (positionals > 0) {
           positionals -= 1;
-          kept.push(next.text);
+          kept.push(next);
           rest = rest.slice(1);
           continue;
         }
@@ -501,37 +613,47 @@ class ShellParser {
       if (problem) return this.fail(problem);
     }
     if (name === "git") {
-      const problem = gitProblem(rest, kept);
+      const problem = gitProblem(rest, [...kept.map((word) => word.text), ...this.line.assigned]);
       if (problem) return this.fail(problem);
     }
     if (SHELLS.has(name)) {
-      const inner = this.readShellInvocation(rest);
+      const inner = this.readShellInvocation(rest, kept);
       if (inner === "absorbed") return;
       if (inner === "failed") return;
     } else if (INTERPRETERS.test(name) && !hasScript(rest) && (builder.pipedIn || builder.fed)) {
       return this.fail(`${name} reads its program from input`);
     }
+    const inlineProblem = inlineCodeProblem(name, rest);
+    if (inlineProblem) return this.fail(inlineProblem);
 
     if (name === "find" && !this.readFindChildren(rest, kept, builder)) return;
 
     const writtenBy = writesOf(rest);
     if (writtenBy === null) return this.fail("a path only known at run time");
     const effectiveWords = (name === "git" ? stripGitGlobals(rest) : rest).map((word) => word.text);
-    const canonical = [...kept, ...rest.map((word) => word.text)].join(" ");
+    const everyWord = [...kept, ...rest];
+    const repeats = this.loops > 0 || carried !== undefined;
     this.commands.push({
       raw,
-      effective: effectiveWords.join(" "),
-      canonical,
+      effective: effectiveWords.map((text, index) => (index === 0 ? text : resolveClimb(text))).join(" "),
+      canonical: everyWord.map((word) => word.text).join(" "),
       writes: [...writes, ...writtenBy],
       reads: [...reads, ...pathsReadBy(rest)],
       dynamic: all.filter((word) => word.dynamic).map((word) => word.text),
       words: effectiveWords,
-      wrappers: kept,
+      wrappers: kept.map((word) => word.text),
+      ...(textIsNotEnough(everyWord) ? { boundWords: everyWord.map((word) => word.bound) } : {}),
+      setup: this.line.setup.map((words) => [...words]),
+      repeats,
+      boundToLine: repeats || this.wholeLine || builder.pipedIn || builder.fed,
     });
+    if (CHANGES_WHAT_FOLLOWS.has(name) || (name === "git" && GIT_CHANGES_WHAT_FOLLOWS.has(stripGitGlobals(rest)[1]?.text ?? ""))) {
+      this.noteSetup(everyWord);
+    }
   }
 
   /** `find -exec cmd ... ;` runs cmd: each one is read as a command in its own right. False when one can't be. */
-  private readFindChildren(words: Word[], kept: string[], builder: Builder): boolean {
+  private readFindChildren(words: Word[], kept: Word[], builder: Builder): boolean {
     for (let index = 1; index < words.length; index += 1) {
       const flag = (words[index] as Word).text;
       if (!FIND_RUNS.has(flag)) continue;
@@ -546,7 +668,7 @@ class ShellParser {
         this.fail(`find ${flag} with nothing to run`);
         return false;
       }
-      const prefix = [...kept, ...words.slice(0, index + 1).map((word) => word.text)];
+      const prefix = [...kept, ...words.slice(0, index + 1)];
       const fresh = { ...builder, pipedIn: false, fed: false, words: child, writes: [], reads: [] };
       this.finishCommand(child, fresh, child.map((word) => word.text).join(" "), [], [], { by: "find", placeholder: "{}", prefix });
       if (this.failure) return false;
@@ -555,8 +677,48 @@ class ShellParser {
     return true;
   }
 
+  /**
+   * `script -qc 'x'`, `su user -c 'x'`, `flock file -c 'x'`, `watch x`: the string is the commands. True when this took
+   * care of the command; false when it's an ordinary wrapper after all.
+   */
+  private readStringRunner(name: string, words: Word[], kept: Word[]): boolean {
+    const args = words.slice(1);
+    if (name === "watch") return this.readWatch(words, kept);
+    const wraps = name === "runuser" && runsItsWords(args);
+    const found = name === "flock" ? flockString(args) : wraps ? null : commandString(args);
+    if (found === null) {
+      if (name === "flock" || wraps) return false;
+      this.fail(`${name} reads its commands from input`);
+      return true;
+    }
+    if (found.script === undefined || found.script.dynamic) {
+      this.fail(`${name} -c with a script only known at run time`);
+      return true;
+    }
+    this.noteSetup([...kept, ...words.filter((word) => word !== found.script)]);
+    this.absorb(found.script.text);
+    return true;
+  }
+
+  /** `watch git push` runs the words as one string, over and over. */
+  private readWatch(words: Word[], kept: Word[]): boolean {
+    let index = 1;
+    while (words[index]?.text.startsWith("-")) {
+      const flag = (words[index] as Word).text;
+      index += flag === "-n" || flag === "--interval" || flag === "-q" || flag === "--equexit" ? 2 : 1;
+    }
+    const command = words.slice(index);
+    if (command.length === 0 || command.some((word) => word.dynamic)) {
+      this.fail("watch with a command only known at run time");
+      return true;
+    }
+    this.noteSetup([...kept, ...words.slice(0, index)]);
+    this.absorb(command.map((word) => word.text).join(" "), { repeats: true });
+    return true;
+  }
+
   /** `bash -c "..."` is the commands in the string. A shell with no script on this line reads them from elsewhere. */
-  private readShellInvocation(words: Word[]): "absorbed" | "failed" | "script" {
+  private readShellInvocation(words: Word[], kept: Word[]): "absorbed" | "failed" | "script" {
     const name = baseName((words[0] as Word).text);
     let index = 1;
     let inline = false;
@@ -580,7 +742,9 @@ class ShellParser {
         this.fail(`${name} -c with a script only known at run time`);
         return "failed";
       }
-      this.absorb(next.text);
+      // What it runs under counts, and so do its arguments: `bash -c 'rm -rf "$1"' _ /` says where only out here.
+      this.noteSetup(kept);
+      this.absorb(next.text, { wholeLine: words.length > index + 1 });
       return this.failure ? "failed" : "absorbed";
     }
     if (!next || next.text === "-") {
@@ -593,6 +757,47 @@ class ShellParser {
     }
     return "script";
   }
+}
+
+/**
+ * The string a command runner was given: `-c x`, `-qc x`, `--command x`, `--command=x`. Null when it wasn't given one.
+ * Given more than one, the last wins, so reading the first would miss what runs: that comes back as no script at all.
+ */
+function commandString(args: Word[]): { script: Word | undefined } | null {
+  let found: { script: Word | undefined } | null = null;
+  for (let index = 0; index < args.length; index += 1) {
+    const word = args[index] as Word;
+    if (word.text === "--") break;
+    const attached = word.text.startsWith("--command=");
+    if (!attached && word.text !== "--command" && !/^-[a-zA-Z]*c$/.test(word.text)) continue;
+    if (found) return { script: undefined };
+    found = { script: attached ? { ...word, text: word.text.slice("--command=".length) } : args[index + 1] };
+    if (!attached) index += 1;
+  }
+  return found;
+}
+
+/** `flock file -c x`: only right after the file. Later, a `-c` belongs to the command flock runs, as in `flock file git -c x`. */
+function flockString(args: Word[]): { script: Word | undefined } | null {
+  const valueFlags = WRAPPERS.flock?.flagsWithValue;
+  let index = 0;
+  while (args[index]?.text.startsWith("-")) index += valueFlags?.has((args[index] as Word).text) ? 2 : 1;
+  const after = args.slice(index + 1, index + 3);
+  return after[0] && ["-c", "--command"].includes(after[0].text) ? { script: after[1] } : null;
+}
+
+/** `runuser -u bot cmd args` runs its words, and a `-c` among them is the command's own. */
+function runsItsWords(args: Word[]): boolean {
+  return args.some((word) => word.text === "-u" || word.text === "--user" || word.text.startsWith("--user="));
+}
+
+function resolveClimb(text: string): string {
+  return CLIMBS.test(text) && !/^-|=|:\/\//.test(text) ? posix.normalize(text) : text;
+}
+
+/** The text can't stand for the words when it reads the same for a different command, or hides what the shell will do. */
+function textIsNotEnough(words: Word[]): boolean {
+  return words.some((word) => word.bound !== word.text || word.text === "" || /\s/.test(word.text));
 }
 
 function hasScript(words: Word[]): boolean {
@@ -726,6 +931,8 @@ function writesOf(words: Word[]): string[] | null {
     targets = sedTargets(args);
   } else if (name === "find") {
     targets = args.filter((_word, index) => ["-fprint", "-fprint0", "-fls", "-fprintf"].includes((args[index - 1] as Word | undefined)?.text ?? ""));
+  } else if (name === "git") {
+    targets = gitOutputs(words);
   }
   const paths: string[] = [];
   for (const target of targets) {
@@ -733,6 +940,27 @@ function writesOf(words: Word[]): string[] | null {
     if (!NOT_REAL_FILES.test(target.text)) paths.push(target.text);
   }
   return paths;
+}
+
+/** `git log --output=x` writes x, so a safe-looking read isn't one. `-o` means that only for these two commands. */
+function gitOutputs(words: Word[]): Word[] {
+  const OUTPUT_FLAGS = ["--output", "--output-directory"];
+  const subcommand = stripGitGlobals(words)[1]?.text ?? "";
+  const shortFlag = subcommand === "archive" || subcommand === "format-patch";
+  const targets: Word[] = [];
+  words.slice(1).forEach((word, index, args) => {
+    const { text } = word;
+    const named = OUTPUT_FLAGS.find((flag) => text.startsWith(`${flag}=`));
+    if (named) {
+      targets.push({ ...word, text: text.slice(named.length + 1) });
+    } else if (OUTPUT_FLAGS.includes(text) || (shortFlag && text === "-o")) {
+      const next = args[index + 1];
+      if (next) targets.push(next);
+    } else if (shortFlag && /^-o./.test(text)) {
+      targets.push({ ...word, text: text.slice(2) });
+    }
+  });
+  return targets;
 }
 
 function sedTargets(args: Word[]): Word[] {

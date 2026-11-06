@@ -20,13 +20,25 @@ Vendor hooks catch local actions such as `git push --force`, `rm -rf` and reads 
 
 Because Claude Code's `ask` answer can be bypassed in full-access mode, our hooks only ever answer `allow` or `deny`. A hold is a deny with a reason, and a retry of the exact same call after approval consumes a single-use grant bound to the call's hash.
 
+A grant is for one run of one call. Its hash covers:
+
+- The command's words, with quoting kept wherever it changes what runs. `'$X'` and `$X` differ, and so do `$(echo a)` and `$(echo b)`. `"origin"` and `origin` run the same, so they hash the same.
+- The directory it runs in, including a vendor's own working-directory argument. A relative path means nothing without one.
+- Anything earlier on the line that changes where or how it runs: `cd`, `export`, a bare assignment, `alias`, `git remote`, and what a shell string runs under (`sudo bash -c '...'`).
+- The whole line as written, when the command repeats, is fed from a pipe or heredoc, or gets arguments through `bash -c '...' _ x`.
+- What a file write would put in the file, and for an edit, what it replaces. A write through the shell is bound to its line, which is where its content is.
+
+The same command twice on a line needs two approvals, because a grant covers one run. A grant for a command alone doesn't cover it in a loop. Approving the loop as written does, once, and its card says it repeats. A patch touching several files spends no grant until every file can proceed.
+
+What comes after a command on the line isn't bound. Agents really do change the tail on retry (spike S9), and whatever follows is classified in its own right. So `git push origin main; rm -rf ../x` needs a grant for each.
+
 ## Identity
 
 The requester comes from Switch's `sender` and `on_behalf_of` fields on message events. The approver comes from `answered_by` on Switch's `approval_outcome` event, resolved through identity claims. Nothing an agent writes can change either one. An answer from an account that maps to no known person is ineligible.
 
 The Clearance agent has its own Switch owner, `clearance-admin`. Two agents with the same owner can change each other's addressing policy, so no persona or Acme agent shares that owner.
 
-When we can't tell exactly who asked, we take the cautious reading: everyone who addressed that agent in the last 10 minutes counts as a requester and can't approve.
+When we can't tell exactly who asked, we take the cautious reading: everyone who addressed that agent in the last 10 minutes counts as a requester and can't approve. So does anyone whose message was sent before the hold and arrived after it, and anyone past the 10 minutes who has had no reply from the agent since they asked, for up to an hour. All Clearance can see of an agent's turn is its messages, so an agent that posts progress as it goes ends that second rule early.
 
 That reading only covers rooms Clearance is in. Someone can ask the same agent somewhere it isn't, and leave no trace. If nobody at all is on record, two different people must approve, since only one of them can be the person who asked. If someone else is on record, the request looks attributed, so core also asks Switch, each time it holds a new request, whether the agent is in a room Clearance isn't in or has a live session in one. If it is, or if Switch can't say within 1.5 seconds, two people must approve and the card says why. A call that says which room it came from takes its requesters from that room, though anyone who asked elsewhere in the window still can't approve, because the room on a call is only the agent's word.
 
@@ -50,6 +62,16 @@ OpenCode's agent has its own machine, with no Claude or Codex login bound, becau
 Each protected agent can only be addressed in its own rooms, and Switch enforces it. In a listed room it hears the message. A direct message draws "You're not permitted", and the agent hears nothing. A private chat gets a 403. `scripts/setup-world.ts` sets this, by room id, each time rooms are recreated. Clearance can't check another agent's policy from outside, so `just demo --check` checks it as the owner. If a room that holds the agent and not Clearance still exists, such as one from an old direct message, that agent's requests need two approvers until it is archived, which each take does.
 
 ## Limits
+
+**A grant doesn't bind the world around the call.** It binds the call. A `git remote set-url` or a commit in an earlier call still changes where an approved push goes, or what it pushes, and so does anything in a shell profile. A business action doesn't have this problem, because the gate executes it with the arguments that were approved.
+
+**A card shows a preview of a write or an email's body.** That's the first 160 characters, with the total alongside, because a longer card can't be answered at all. Everything past the preview is approved too, so a person seeing "first 160 of 5000 characters" should say no or ask.
+
+**Reading a shell line isn't running it.** The parser knows the wrappers it lists (`sudo`, `doas`, `busybox`, `flock`, `taskset` and others). One it doesn't list hides the command behind it, as with zsh's `repeat`, `npx` or `make`. A script hides everything in it, and an agent can write one and run it. Hooks catch mistakes and ordinary misbehaviour on the line in front of them, and the gate stays the boundary.
+
+**The scan of inline code can be evaded.** Agents parse JSON with `python3 -c` and `node -e` all the time, so holding every one would bury real calls in cards. Code given to `python`, `node`, `tsx`, `bun`, `deno eval`, `perl`, `ruby`, `php` or `awk` is held when its text writes files, starts a process or reaches the network, or is only known at run time, and plain computation passes. It's a scan of text that starts from an allowed list of imports where the language has them, and it isn't an analysis of a program, so enough ingenuity will get past it. It doesn't read `sed` scripts, whose `e` and `w` commands run things and write files. It doesn't hold reads either: `python3 -c "print(open('/etc/hostname').read())"` passes where `cat` of a path outside the agent's directory would be held. An approved inline line is bound to its exact bytes.
+
+**Switch's tools are checked by name.** Six chat tools skip Clearance, so an outage can't silence an agent. Everything else on Switch goes to core, where looking around stays quiet and anything that changes a room, an agent or a template gets a card. A tool Switch adds later gets a card until the policy names it.
 
 **The fence is about files and processes, not the network.** Network stays shared so loopback reaches core and the gate. So an agent can reach anything on loopback, including Mattermost, Switch's API and database, any other local service, and the host's abstract Unix sockets, though it needs credentials it no longer holds to do much with most of them. It can also reach the internet, so anything it can read, it can send.
 

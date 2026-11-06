@@ -16,7 +16,7 @@ import { chatMessage, gateRefund, hookShell, makeHarness, MINUTE, NOW, PARTICIPA
 const DAY = 24 * 60 * MINUTE;
 const TOKEN = "test-internal-token";
 const auth = { authorization: `Bearer ${TOKEN}` };
-const SMALL = { order_id: "A-1931", customer_id: "cus_8812", amount: 2000, destination: "rohan.s@okhdfc" };
+const SMALL = { order_id: "A-1931", customer_id: "cus_8812", amount: 2000, destination: "meera.k@oksbi" };
 
 function helpers(get: () => Harness) {
   const press = (card: OpenedCard, who: string, answer = "allow") =>
@@ -702,7 +702,7 @@ describe("F22 audit export and digest", () => {
       h.core.stores.autonomy.setLevel("refunds-agent", "refund", "small", "L3", h.clock.nowMs());
       h.clock.advance(MINUTE);
       // A destination of its own: the 24 h rule on one destination would hold this after the ₹40,000 above.
-      (h.lookup.world.destinations as Record<string, Record<string, unknown>>)["other@okaxis"] = { id: "other@okaxis", age_hours: 720 };
+      (h.lookup.world.destinations as Record<string, Record<string, unknown>>)["other@okaxis"] = { id: "other@okaxis", customer_id: "cus_8812", age_hours: 720 };
       await h.core.check(gateRefund({ ...SMALL, destination: "other@okaxis" }));
       await h.core.sendDrill("neha");
       const body = (await get("/v1/digest")).json();

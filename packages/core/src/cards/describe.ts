@@ -5,7 +5,7 @@
  */
 import { parseShell } from "../classify/shell.js";
 import type { CanonicalCall } from "@clearance/contracts";
-import { formatMoney, oneLine, toNumber } from "../format.js";
+import { formatMoney, oneLine, oneLineKeepingEnd, previewLine, previewOf, toNumber } from "../format.js";
 import { formatAgeHours } from "../time.js";
 
 export type DescribeInput = {
@@ -112,7 +112,7 @@ function isForcePush(command: unknown): boolean {
   if (!parsed.ok) return /\bgit\b.*\bpush\b.*\s(--force|-[a-zA-Z]*f[a-zA-Z]*\b|\+)/.test(command);
   return parsed.commands.some(({ words }) => {
     if (words[0] !== "git" || words[1] !== "push") return false;
-    return words.slice(2).some((word) => /^--force(-with-lease)?(=|$)|^-[a-zA-Z]*f[a-zA-Z]*$|^\+/.test(word));
+    return words.slice(2).some((word) => /^--force(-with-lease)?(=|$)|^-[a-zA-Z]*[fd][a-zA-Z]*$|^\+|^:|^--(mirror|delete|prune)$/.test(word));
   });
 }
 
@@ -138,16 +138,18 @@ function describeMerge(input: DescribeInput): CallDescription {
 
 function describeEmail(input: DescribeInput): CallDescription {
   const { extracted: fields } = input;
-  const to = oneLine(fields.to ?? "unknown recipient");
+  const to = oneLineKeepingEnd(fields.to ?? "unknown recipient");
   const shell = fromShell(input);
   const call = shell ?? [`Email to ${to}`];
   if (present(fields.subject)) call.push(`Subject: ${oneLine(fields.subject)}`);
+  const body = input.call.args.body;
+  if (typeof body === "string" && body.length > 0) call.push(previewLine("the body", previewOf(body), body.length));
   const attachments = input.call.args.attachments;
   if (Array.isArray(attachments) && attachments.length > 0) {
     call.push(`Attachments: ${oneLine(attachments.map((name) => String(name)).join(", "))}`);
   }
   const context: string[] = [];
-  if (present(fields.domain)) context.push(`Recipient domain: ${oneLine(fields.domain)}`);
+  if (present(fields.domain)) context.push(`Recipient domain: ${oneLineKeepingEnd(fields.domain)}`);
   const rows = toNumber(fields.rows);
   if (rows !== null && rows > 0) context.push(`Rows in attachments: ${new Intl.NumberFormat("en-IN").format(rows)}`);
   return { headline: shell ? "CUSTOMER EMAIL" : `CUSTOMER EMAIL ${to}`, call, context };
@@ -204,6 +206,12 @@ function describeGeneric(input: DescribeInput): CallDescription {
 
 export function describeCall(input: DescribeInput): CallDescription {
   const description = describeByClass(input);
+  const bound = input.call.bound ?? {};
+  if (typeof bound.preview === "string" && typeof bound.chars === "number") {
+    description.call.push(previewLine("what would be written", bound.preview, bound.chars));
+  }
+  if (bound.repeats === true) description.context.push("Repeats: it can run more than once, and an approval covers this whole line");
+  if (typeof bound.run === "number") description.context.push(`Run ${bound.run} of this same command on this line: each run needs its own approval`);
   if (input.asWritten) description.context.push(`As written: ${oneLine(input.asWritten, 300)}`);
   return description;
 }
@@ -249,7 +257,7 @@ export function describeResult(
     case "merge":
       return `merge of PR #${oneLine(extracted.pr ?? "")}`;
     case "customer_email":
-      return `email to ${oneLine(extracted.to ?? "")}`;
+      return `email to ${oneLineKeepingEnd(extracted.to ?? "")}`;
     default:
       return id ? `${cls} ${id}` : oneLine(target);
   }

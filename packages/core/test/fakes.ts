@@ -65,7 +65,8 @@ export class FakeChat implements ChatPort {
     const number = this.next++;
     const result: OpenCardResult = {
       sessionId: `session-${number}`,
-      switchRequestId: `sw-${number}`,
+      // As the real port does: the id core chose, when it chose one.
+      switchRequestId: input.requestId ?? `sw-${number}`,
       ...(this.giveHandles ? { handle: `A${number}` } : {}),
     };
     this.cards.push({ ...input, ...result, closed: false });
@@ -109,8 +110,11 @@ export class FakeGate implements GatePort {
     status: 200,
     result: { id: "re_7731" },
   });
-  async execute(requestId: string, callHash: string): Promise<ExecuteResult> {
+  /** The requests whose last look asked only what happened, and couldn't have started anything. */
+  readonly looks: string[] = [];
+  async execute(requestId: string, callHash: string, options?: { lookOnly?: boolean }): Promise<ExecuteResult> {
     this.calls.push({ requestId, callHash });
+    if (options?.lookOnly) this.looks.push(requestId);
     return this.respond(requestId, callHash);
   }
   readonly edits: { requestId: string; callHash: string; newRequestId: string; newCallHash: string; amount: number }[] = [];

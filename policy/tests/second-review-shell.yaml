@@ -1,0 +1,131 @@
+# The second independent review: what must now be held, and, just as much, what must not be. A false hold is a regression.
+cases:
+  # Other ways to say a push that reaches main or rewrites a branch.
+  - { name: a mirror push, vendor: claude, agent: coder, shell: "git push origin --mirror", expect: { decision: hold, class: merge } }
+  - { name: every branch, vendor: claude, agent: coder, shell: "git push origin --all", expect: { decision: hold, class: merge } }
+  - { name: every tag, vendor: claude, agent: coder, shell: "git push origin --tags", expect: { decision: hold, class: merge } }
+  - { name: deleting a branch by flag, vendor: claude, agent: coder, shell: "git push -d origin release", expect: { decision: hold, class: merge } }
+  - { name: deleting a branch by refspec, vendor: claude, agent: coder, shell: "git push origin :release", expect: { decision: hold, class: merge } }
+  - { name: a forced refspec, vendor: claude, agent: coder, shell: "git push origin +release", expect: { decision: hold, class: merge } }
+  - { name: -f on its own, vendor: claude, agent: coder, shell: "git push -f origin release", expect: { decision: hold, class: merge } }
+  - { name: -f in a cluster, vendor: claude, agent: coder, shell: "git push -uf origin release", expect: { decision: hold, class: merge } }
+  - { name: "@ is HEAD", vendor: claude, agent: coder, shell: "git push origin @", expect: { decision: hold, class: merge } }
+  - { name: a wildcard refspec, vendor: claude, agent: coder, shell: "git push origin 'refs/heads/*:refs/heads/*'", expect: { decision: hold, class: merge } }
+
+  # Pushes that stay quiet.
+  - { name: a feature branch, vendor: claude, agent: coder, shell: "git push origin feature", expect: { decision: allow } }
+  - { name: a feature branch with -u, vendor: claude, agent: coder, shell: "git push -u origin feature", expect: { decision: allow } }
+  - { name: a long upstream flag, vendor: claude, agent: coder, shell: "git push --set-upstream origin feature", expect: { decision: allow } }
+  - { name: a branch name with a dash and an f, vendor: claude, agent: coder, shell: "git push origin my-fix-d", expect: { decision: allow } }
+  - { name: a dry run, vendor: claude, agent: coder, shell: "git push --dry-run origin feature", expect: { decision: allow } }
+  - { name: follow tags is not all tags, vendor: claude, agent: coder, shell: "git push --follow-tags origin feature", expect: { decision: allow } }
+  - { name: a refspec between feature branches, vendor: claude, agent: coder, shell: "git push origin feature:feature", expect: { decision: allow } }
+
+  # Deletes outside the tree, however they are spelled.
+  - { name: climbing through a dot, vendor: claude, agent: coder, shell: "rm -rf ./../x", expect: { decision: hold, class: delete } }
+  - { name: climbing through a directory, vendor: claude, agent: coder, shell: "rm -rf src/../../x", expect: { decision: hold, class: delete } }
+  - { name: shred, vendor: claude, agent: coder, shell: "shred -u ../x", expect: { decision: hold, class: delete } }
+  - { name: unlink, vendor: claude, agent: coder, shell: "unlink ../x", expect: { decision: hold, class: delete } }
+  - { name: rmdir, vendor: claude, agent: coder, shell: "rmdir ../x", expect: { decision: hold, class: delete } }
+  - { name: rm under busybox, vendor: claude, agent: coder, shell: "busybox rm -rf /", expect: { decision: hold, class: delete } }
+  - { name: rm under doas, vendor: claude, agent: coder, shell: "doas -u root rm -rf /", expect: { decision: hold, class: delete } }
+
+  # Deletes in the tree stay quiet.
+  - { name: rm in the tree, vendor: claude, agent: coder, shell: "rm -rf node_modules dist", expect: { decision: allow } }
+  - { name: rm with a leading dot, vendor: claude, agent: coder, shell: "rm -f ./build/out.log", expect: { decision: allow } }
+  - { name: a path that stays in the tree, vendor: claude, agent: coder, shell: "rm -rf src/../dist", expect: { decision: allow } }
+  - { name: unlink in the tree, vendor: claude, agent: coder, shell: "unlink stale.lock", expect: { decision: allow } }
+
+  # What a wrapper runs is what counts.
+  - { name: flock, vendor: claude, agent: coder, shell: "flock /tmp/l git push origin main", expect: { decision: hold, class: merge } }
+  - { name: flock with a string, vendor: claude, agent: coder, shell: "flock /tmp/l -c 'git push origin main'", expect: { decision: hold, class: merge } }
+  - { name: taskset, vendor: claude, agent: coder, shell: "taskset -c 1 git push origin main", expect: { decision: hold, class: merge } }
+  - { name: unshare, vendor: claude, agent: coder, shell: "unshare git push origin main", expect: { decision: hold, class: merge } }
+  - { name: script with a string, vendor: claude, agent: coder, shell: "script -qc 'git push origin main' /dev/null", expect: { decision: hold, class: merge } }
+  - { name: su with a string, vendor: claude, agent: coder, shell: "su bot -c 'git push origin main'", expect: { decision: hold, class: merge } }
+  - { name: watch runs its words as a line, vendor: claude, agent: coder, shell: "watch -n 1 git push origin main", expect: { decision: hold, class: merge } }
+  - { name: "a -c after flock's command is the command's own", vendor: claude, agent: coder, shell: "flock /tmp/l git push origin main -c x", expect: { decision: hold, class: merge } }
+  - { name: "a -c after runuser's command is the command's own", vendor: claude, agent: coder, shell: "runuser -u bot git push origin main -c x", expect: { decision: hold, class: merge } }
+  - { name: runuser with a string, vendor: claude, agent: coder, shell: "runuser bot -c 'git push origin main'", expect: { decision: hold, class: merge } }
+  - { name: "two strings can't be read, since the last is the one that runs", vendor: claude, agent: coder, shell: "su bot -c ls -c 'git push origin main'", expect: { decision: hold, step: unparsed } }
+  - { name: script with no string reads its commands from input, vendor: claude, agent: coder, shell: "script -q /dev/null", expect: { decision: hold, step: unparsed } }
+  - { name: parallel can't be read, vendor: claude, agent: coder, shell: "parallel git push origin ::: main", expect: { decision: hold, step: unparsed } }
+  - { name: a string only known at run time, vendor: claude, agent: coder, shell: 'script -qc "$CMD" /dev/null', expect: { decision: hold, step: unparsed } }
+  - { name: a wrapper around something ordinary stays quiet, vendor: claude, agent: coder, shell: "flock /tmp/l pnpm test", expect: { decision: allow } }
+
+  # Git writing a file through a flag.
+  - { name: git log writing under .github, vendor: claude, agent: coder, shell: "git log -1 --format=x --output=.github/workflows/x.yml", expect: { decision: hold } }
+  - { name: git diff writing under secrets, vendor: claude, agent: coder, shell: "git diff --output=secrets/x", expect: { decision: hold } }
+  - { name: the flag and its value apart, vendor: claude, agent: coder, shell: "git diff --output .github/x", expect: { decision: hold } }
+  - { name: git archive with -o, vendor: claude, agent: coder, shell: "git archive -o .github/x.tar HEAD", expect: { decision: hold } }
+  - { name: format-patch outside the tree, vendor: claude, agent: coder, shell: "git format-patch --output-directory=../x HEAD~1", expect: { decision: hold } }
+  - { name: an output only known at run time, vendor: claude, agent: coder, shell: 'git diff --output=$X', expect: { decision: hold, step: unparsed } }
+  - { name: git log writing in the tree, vendor: claude, agent: coder, shell: "git log -1 --output=docs/x.txt", expect: { decision: allow } }
+  - { name: an ordinary git log, vendor: claude, agent: coder, shell: "git log --oneline --format=%H -5", expect: { decision: allow, step: safe } }
+
+  # Inline code that does more than compute.
+  - { name: python starting a process, vendor: claude, agent: coder, shell: "python3 -c \"import os; os.system('git push origin main')\"", expect: { decision: hold, step: unparsed } }
+  - { name: python with subprocess, vendor: claude, agent: coder, shell: "python3 -c 'import subprocess; subprocess.run([\"ls\"])'", expect: { decision: hold, step: unparsed } }
+  - { name: python writing a file, vendor: claude, agent: coder, shell: "python3 -c \"open('.github/x','w').write('y')\"", expect: { decision: hold, step: unparsed } }
+  - { name: python reaching the network, vendor: claude, agent: coder, shell: "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://x\")'", expect: { decision: hold, step: unparsed } }
+  - { name: python building code, vendor: claude, agent: coder, shell: "python3 -c \"exec('print(1)')\"", expect: { decision: hold, step: unparsed } }
+  - { name: python importing by another route, vendor: claude, agent: coder, shell: "python3 -c \"__import__('os').system('ls')\"", expect: { decision: hold, step: unparsed } }
+  - { name: python code only known at run time, vendor: claude, agent: coder, shell: 'python3 -c "$CODE"', expect: { decision: hold, step: unparsed } }
+  - { name: node starting a process, vendor: claude, agent: coder, shell: "node -e \"require('child_process').execSync('git push origin main')\"", expect: { decision: hold, step: unparsed } }
+  - { name: node writing a file, vendor: claude, agent: coder, shell: "node -e \"require('fs').writeFileSync('x','y')\"", expect: { decision: hold, step: unparsed } }
+  - { name: node taking the write out of fs, vendor: claude, agent: coder, shell: "node -e \"const {writeFileSync: w} = require('fs'); w('x','y')\"", expect: { decision: hold, step: unparsed } }
+  - { name: node reaching the network, vendor: claude, agent: coder, shell: "node -e \"fetch('http://x')\"", expect: { decision: hold, step: unparsed } }
+  - { name: node choosing what to load at run time, vendor: claude, agent: coder, shell: "node -e \"require('child'+'_process')\"", expect: { decision: hold, step: unparsed } }
+  - { name: node with a module on the side, vendor: claude, agent: coder, shell: "node -r ./evil.js -e 'console.log(1)'", expect: { decision: hold, step: unparsed } }
+  - { name: perl starting a process, vendor: claude, agent: coder, shell: "perl -e 'system(\"git push origin main\")'", expect: { decision: hold, step: unparsed } }
+  - { name: perl with backticks, vendor: claude, agent: coder, shell: "perl -e 'print `ls`'", expect: { decision: hold, step: unparsed } }
+  - { name: perl rewriting files in place, vendor: claude, agent: coder, shell: "perl -pi -e 's/a/b/' x", expect: { decision: hold, step: unparsed } }
+  - { name: perl opening for write, vendor: claude, agent: coder, shell: "perl -e 'open(my $f, \">\", \"x\")'", expect: { decision: hold, step: unparsed } }
+  - { name: ruby starting a process, vendor: claude, agent: coder, shell: "ruby -e 'system(\"ls\")'", expect: { decision: hold, step: unparsed } }
+  - { name: ruby writing a file, vendor: claude, agent: coder, shell: "ruby -e 'File.write(\"x\", \"y\")'", expect: { decision: hold, step: unparsed } }
+  - { name: php starting a process, vendor: claude, agent: coder, shell: "php -r 'system(\"ls\");'", expect: { decision: hold, step: unparsed } }
+  - { name: deno starting a process, vendor: claude, agent: coder, shell: "deno eval 'new Deno.Command(\"ls\")'", expect: { decision: hold, step: unparsed } }
+  - { name: bun starting a process, vendor: claude, agent: coder, shell: "bun -e 'Bun.spawn([\"ls\"])'", expect: { decision: hold, step: unparsed } }
+  - { name: awk starting a process, vendor: claude, agent: coder, shell: "awk 'BEGIN{system(\"ls\")}'", expect: { decision: hold, step: unparsed } }
+  - { name: awk writing a file, vendor: claude, agent: coder, shell: "awk '{print > \"x\"}' y", expect: { decision: hold, step: unparsed } }
+  - { name: awk piping to a command, vendor: claude, agent: coder, shell: "awk '{print | \"sh\"}' y", expect: { decision: hold, step: unparsed } }
+  - { name: inside bash -c too, vendor: claude, agent: coder, shell: "bash -c \"python3 -c 'import os; os.system(1)'\"", expect: { decision: hold, step: unparsed } }
+
+  # Inline code that only computes stays quiet: this is what agents use to read JSON.
+  - { name: python reading JSON from a pipe, vendor: claude, agent: coder, shell: "cat x.json | python3 -c \"import json,sys;print(json.load(sys.stdin)['x'])\"", expect: { decision: allow } }
+  - { name: python doing sums, vendor: claude, agent: coder, shell: "python3 -c 'print(1+1)'", expect: { decision: allow } }
+  - { name: python reading a file, vendor: claude, agent: coder, shell: "python3 -c \"import json;print(json.load(open('package.json'))['version'])\"", expect: { decision: allow } }
+  - { name: python reading a file with a read mode, vendor: claude, agent: coder, shell: "python3 -c \"print(open('x','rb').read())\"", expect: { decision: allow } }
+  - { name: python using os.path, vendor: claude, agent: coder, shell: "python3 -c \"import os;print(os.path.exists('x'), os.environ.get('Y'), os.getcwd())\"", expect: { decision: allow } }
+  - { name: python with a regex and a date, vendor: claude, agent: coder, shell: "python3 -c \"import re,datetime as d;print(re.compile('x').match('x'), d.date.today())\"", expect: { decision: allow } }
+  - { name: python printing through sys, vendor: claude, agent: coder, shell: "python3 -c \"import sys;sys.stdout.write('x')\"", expect: { decision: allow } }
+  - { name: python with ast.literal_eval, vendor: claude, agent: coder, shell: "python3 -c \"import ast;print(ast.literal_eval('1'))\"", expect: { decision: allow } }
+  - { name: a python module, vendor: claude, agent: coder, shell: "python3 -m json.tool x.json", expect: { decision: allow } }
+  - { name: a python script, vendor: claude, agent: coder, shell: "python3 tools/report.py", expect: { decision: allow } }
+  - { name: node reading package.json, vendor: claude, agent: coder, shell: "node -e \"console.log(JSON.parse(require('fs').readFileSync('package.json')).version)\"", expect: { decision: allow } }
+  - { name: node requiring JSON, vendor: claude, agent: coder, shell: "node -p \"require('./package.json').version\"", expect: { decision: allow } }
+  - { name: node writing to stdout, vendor: claude, agent: coder, shell: "node -e \"process.stdout.write('x')\"", expect: { decision: allow } }
+  - { name: node with the eval flag spelled out, vendor: claude, agent: coder, shell: "node --eval='console.log(1)'", expect: { decision: allow } }
+  - { name: a node script, vendor: claude, agent: coder, shell: "node scripts/build.js", expect: { decision: allow } }
+  - { name: perl filtering a file, vendor: claude, agent: coder, shell: "perl -ne 'print if /x/' file", expect: { decision: allow } }
+  - { name: perl substituting to stdout, vendor: claude, agent: coder, shell: "perl -pe 's/a/b/' file", expect: { decision: allow } }
+  - { name: perl splitting fields, vendor: claude, agent: coder, shell: "perl -lane 'print $F[0]' file", expect: { decision: allow } }
+  - { name: perl matching a word that names a call, vendor: claude, agent: coder, shell: "perl -ne 'print if /system/' file", expect: { decision: allow } }
+  - { name: perl reading a file, vendor: claude, agent: coder, shell: "perl -e 'open(my $f, \"<\", \"x\"); print <$f>'", expect: { decision: allow } }
+  - { name: ruby doing sums, vendor: claude, agent: coder, shell: "ruby -e 'puts 1+1'", expect: { decision: allow } }
+  - { name: ruby reading JSON, vendor: claude, agent: coder, shell: "ruby -rjson -e 'puts JSON.parse(STDIN.read)[\"x\"]' < x.json", expect: { decision: allow } }
+  - { name: php printing, vendor: claude, agent: coder, shell: "php -r 'echo strlen(\"x\");'", expect: { decision: allow } }
+  - { name: awk printing a field, vendor: claude, agent: coder, shell: "awk '{print $1}' file", expect: { decision: allow } }
+  - { name: awk with a separator, vendor: claude, agent: coder, shell: "awk -F: '{print $2}' file", expect: { decision: allow } }
+  - { name: awk with a regex alternation, vendor: claude, agent: coder, shell: "awk '/a|b/ {print}' file", expect: { decision: allow } }
+  - { name: awk with a logical or, vendor: claude, agent: coder, shell: "awk '$1 == \"a\" || $2 == \"b\" {print}' file", expect: { decision: allow } }
+  - { name: awk comparing, vendor: claude, agent: coder, shell: "awk '$1 > 5 {print $2}' file", expect: { decision: allow } }
+
+  # Switch's own tools: chat and looking around stay quiet. What changes a room, an agent or a template gets a card.
+  - { name: reading the room, vendor: claude, mcp: { server: switch, tool: read_context, args: {} }, expect: { decision: allow, step: safe } }
+  - { name: a targeted message, vendor: codex, mcp: { server: switch, tool: send_targeted_message, args: { body: hi } }, expect: { decision: allow, step: safe } }
+  - { name: listing agents, vendor: claude, mcp: { server: switch, tool: list_agents, args: {} }, expect: { decision: allow, step: safe } }
+  - { name: making a room, vendor: claude, mcp: { server: switch, tool: create_room, args: { name: x } }, expect: { decision: hold } }
+  - { name: creating an agent, vendor: opencode, mcp: { server: switch, tool: create_agent, args: { name: x } }, expect: { decision: hold } }
+  - { name: giving an agent a service, vendor: claude, mcp: { server: switch, tool: set_agent_service, args: {} }, expect: { decision: hold } }
+  - { name: a Switch tool nobody has heard of, vendor: claude, mcp: { server: switch, tool: post_message_and_more, args: {} }, expect: { decision: hold } }

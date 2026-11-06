@@ -82,7 +82,7 @@ export const MUTATIONS: Mutation[] = [
     source: [
       {
         file: REQUESTERS,
-        find: "if (userId) this.recordVoice(evt.roomId, userId);",
+        find: "if (userId) this.recordVoice(evt, userId, named.some((name) => !this.directory.knowsMention(name)));",
         replace: "",
       },
     ],
@@ -183,9 +183,13 @@ export const MUTATIONS: Mutation[] = [
   {
     id: "update-agent-detail-not-protected",
     target: 22,
-    removes: "protected_config's rule for update_agent_detail",
+    // Two layers now: the deny rule, and a safe list that names Switch's tools rather than allowing them all. Either alone holds it.
+    removes: "protected_config's rule for update_agent_detail, and the named list of Switch's safe tools",
     expect: "flips",
-    policy: [{ find: "      - { mcp: 'update_agent_detail' }\n", replace: "" }],
+    policy: [
+      { find: "      - { mcp: 'update_agent_detail' }\n", replace: "" },
+      { find: "safe:                    # pass silently, no card (\"quiet on safe work\")\n", replace: "safe:\n  - { mcp: 'switch/*' }\n" },
+    ],
   },
   {
     id: "f1-unknown-requester-needs-one",
@@ -195,8 +199,8 @@ export const MUTATIONS: Mutation[] = [
     source: [
       {
         file: CORE,
-        find: "quorumRequired: requesterIds.length === 0 ? unknownQuorum : asked,",
-        replace: "quorumRequired: asked,",
+        find: "quorumRequired: requesterIds.length === 0 || unlinked || lost || alias || authorLookupFailed ? unknownQuorum : asked,",
+        replace: "quorumRequired: unlinked || lost || alias || authorLookupFailed ? unknownQuorum : asked,",
       },
     ],
   },

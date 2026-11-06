@@ -153,6 +153,7 @@ exports[`cards from real calls: snapshots across fixture calls > 'bulk email to 
 The call (parsed from what the agent ran, not from its words)
   Email to auditor.ravi@gmail.com
   Subject: Customer list
+  Preview of the body (all 12 characters): see attached
   Attachments: customers.csv
 
 Context
@@ -174,6 +175,7 @@ Policy: customer emails with bulk data need 1 support-lead approver · expires 1
 The call (parsed from what the agent ran, not from its words)
   Email to auditor.ravi@gmail.com
   Subject: Customer list
+  Preview of the body (all 12 characters): see attached
   Attachments: customers.csv
 
 Context
@@ -549,12 +551,12 @@ exports[`cards from real calls: snapshots across fixture calls > 'small refund, 
   {
     "detail": "The call (parsed from what the agent ran, not from its words)
   Refund ₹2,000 to customer Meera K. (cus_8812)
-  Destination: UPI rohan.s@okhdfc
+  Destination: UPI meera.k@oksbi
   Order A-404 · total unknown
 
 Context
   Paid or held to customer, 24 h: ₹0
-  Destination added 83 days ago
+  Destination added 412 days ago
   refunds-agent refunds today: 0
 
 Flags
@@ -571,12 +573,12 @@ Policy: refunds need 1 finance approver · expires 14:25 IST
   {
     "detail": "The call (parsed from what the agent ran, not from its words)
   Refund ₹2,000 to customer Meera K. (cus_8812)
-  Destination: UPI rohan.s@okhdfc
+  Destination: UPI meera.k@oksbi
   Order A-404 · total unknown
 
 Context
   Paid or held to customer, 24 h: ₹0
-  Destination added 83 days ago
+  Destination added 412 days ago
   refunds-agent refunds today: 0
 
 Flags

@@ -32,8 +32,19 @@ export const ActionSchema = z.object({
     .optional(),
   kind: ActionKindSchema,
   raw: z.unknown(),
-  shell: z.object({ command: z.string() }).optional(),
+  /**
+   * Set by the hook route on a call that touches several files: answer as usual, but leave a grant unspent and say so
+   * with `grant_pending`. Nothing is recorded for that file yet, and the route asks again only once every file can proceed.
+   */
+  defer_grants: z.boolean().optional(),
+  /** `workdir` is the tool's own directory argument, where the vendor has one. It changes what a relative path means. */
+  shell: z.object({ command: z.string(), workdir: z.string().optional() }).optional(),
   file: z.object({ path: z.string() }).optional(),
+  /**
+   * For a file write: `content` is the text it would put there and `replaces` the rest of what decides the result (an
+   * edit's old text and flags). An approval is bound to both, so it can't be reused to write something else to that path.
+   */
+  written: z.object({ content: z.string().optional(), replaces: z.string().optional() }).optional(),
   http: z.object({ method: z.string(), url: z.string(), body: z.unknown().optional() }).optional(),
   mcp: z.object({ server: z.string(), tool: z.string(), args: z.unknown() }).optional(),
   business: z.object({ endpoint: z.string(), args: z.record(z.unknown()) }).optional(),
@@ -68,6 +79,8 @@ export const CheckResponseSchema = z.object({
   flags: z.array(FlagSchema).optional(),
   /** True when a valid single-use grant was consumed by this allow. */
   grant_consumed: z.boolean().optional(),
+  /** Only for an Action with `defer_grants`: this allow rests on a grant, which hasn't been spent. Ask again to spend it. */
+  grant_pending: z.boolean().optional(),
   /** Only under `mode: shadow`: what enforcement would have answered. `decision` is what actually applies. */
   would_decide: DecisionSchema.optional(),
 });
@@ -91,6 +104,8 @@ export const RequestStateSchema = z.enum([
   "AUTO",
   /** An approver offered a smaller amount, and said yes to it (F20). This call won't run; a new request carries the edit. */
   "EDITED",
+  /** Approved and sent, and nobody can say whether it ran. Never tried again: a person has to look. */
+  "OUTCOME_UNKNOWN",
 ]);
 export type RequestState = z.infer<typeof RequestStateSchema>;
 
@@ -110,6 +125,7 @@ export const LedgerEntryTypeSchema = z.enum([
   "promotion_proposed",
   "promotion_signed",
   "promotion_rejected",
+  "outcome_unknown",
   "edit_proposed",
   "edit_withdrawn",
   "edited",
@@ -252,9 +268,33 @@ export const ExecuteResultSchema = z.object({
 });
 export type ExecuteResult = z.infer<typeof ExecuteResultSchema>;
 
+/** What the gate says when it hasn't got a result, word for word, so core and the gate can't drift apart. */
+export const GATE_WORDS = {
+  unknownRequest: "unknown request",
+  nothingRan: "acme was not reached; nothing ran and a retry is safe",
+  nothingStarted: "nothing had started, and it won't now",
+  busy: "another gate process is executing this request",
+  outcomeUnknown: "outcome unknown",
+} as const;
+
+/**
+ * ran: it happened. retry: it hasn't, and asking again is safe. unknown: it may have, and it won't be tried again.
+ * refused: it won't, and asking again can't change that.
+ */
+export function readExecuteResult(result: ExecuteResult): "ran" | "retry" | "unknown" | "refused" {
+  if (result.ok) return "ran";
+  const error = result.error ?? "";
+  if (error.startsWith(GATE_WORDS.outcomeUnknown)) return "unknown";
+  if (error === GATE_WORDS.unknownRequest || error === GATE_WORDS.nothingRan || error === GATE_WORDS.busy) return "retry";
+  return "refused";
+}
+
 export interface GatePort {
-  /** POST /internal/execute/:requestId on the gate. Refuses when call_hash does not match the stored call. */
-  execute(requestId: string, callHash: string): Promise<ExecuteResult>;
+  /**
+   * POST /internal/execute/:requestId on the gate. Refuses when call_hash does not match the stored call. With
+   * `lookOnly` it says what happened and starts nothing: for an approval too old to run now.
+   */
+  execute(requestId: string, callHash: string, options?: { lookOnly?: boolean }): Promise<ExecuteResult>;
   /**
    * POST /internal/edit/:requestId (F20). Closes a held call and holds a copy with a lower amount under a new id, ready
    * for `execute`. Asking again gives the same answer. Throws when the gate can't be reached, so core keeps trying; an
@@ -283,6 +323,8 @@ export const CanonicalCallSchema = z.object({
   class: z.string(),
   target: z.string(),
   args: z.record(z.unknown()),
+  /** What the hash also covers that isn't an argument, present only when `args` alone can't tell two calls apart. */
+  bound: z.record(z.unknown()).optional(),
 });
 export type CanonicalCall = z.infer<typeof CanonicalCallSchema>;
 

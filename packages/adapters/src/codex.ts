@@ -19,6 +19,8 @@ import {
   requireCommand,
   requireString,
   shellAction,
+  writtenBy,
+  writtenByPatch,
   type AdapterContext,
   type CallInfo,
   type HookOutcome,
@@ -53,12 +55,17 @@ export function codexToActions(payload: unknown, ctx: AdapterContext): Action[] 
 
   switch (tool) {
     case "Bash":
-      return shellAction(info, requireCommand(input.command));
+      return shellAction(info, requireCommand(input.command), optionalString(input.workdir));
     case "apply_patch":
-      return fileActions(info, "file_write", patchPaths(input.command));
+      return fileActions(info, "file_write", patchPaths(input.command), writtenByPatch(input.command));
     case "Write":
+      return fileActions(info, "file_write", [requireString(input.file_path, "file_path")], () =>
+        writtenBy(input, { content: "content", path: "file_path" }),
+      );
     case "Edit":
-      return fileActions(info, "file_write", [requireString(input.file_path, "file_path")]);
+      return fileActions(info, "file_write", [requireString(input.file_path, "file_path")], () =>
+        writtenBy(input, { content: "new_string", path: "file_path" }),
+      );
   }
   const mcp = parseMcpName(tool);
   return mcp

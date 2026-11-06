@@ -109,7 +109,7 @@ export type MatchKind = "gate" | "mcp" | "shell" | "file_write" | "file_read" | 
 
 export type CompiledMatch = { kind: MatchKind; pattern: string; re: RegExp; viaGate: boolean };
 
-export type CompiledRule = { when: CompiledExpression; points: number; flag?: string; why?: string };
+export type CompiledRule = { when: CompiledExpression; points: number; flag?: string; why?: string; skipIfUnknown?: boolean };
 
 export type CompiledAggregate = {
   sum: string;
@@ -243,6 +243,7 @@ function compileClass(name: string, source: YamlSource, file: PolicyFile): Compi
     const compiled: CompiledRule = {
       when: compileExpr(rule.when, [...path, "risk", "add", index, "when"], source, known),
       points: rule.points,
+      ...(rule.if_unknown === "skip" ? { skipIfUnknown: true } : {}),
     };
     if (rule.flag) compiled.flag = rule.flag;
     if (rule.why) compiled.why = rule.why;

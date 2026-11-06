@@ -299,6 +299,17 @@ export class IsolatedWorld {
     }
   }
 
+  /** Freezes a service: it holds its connections and answers nothing, which is what "took the call and went quiet" is. */
+  pauseService(service: ServiceName): void {
+    const child = this.processes.get(service);
+    if (child?.pid) process.kill(-child.pid, "SIGSTOP");
+  }
+
+  resumeService(service: ServiceName): void {
+    const child = this.processes.get(service);
+    if (child?.pid) process.kill(-child.pid, "SIGCONT");
+  }
+
   /** Kills a service. SIGKILL by default, because that's what a crash looks like. */
   async killService(service: ServiceName, signal: NodeJS.Signals = "SIGKILL"): Promise<void> {
     const child = this.processes.get(service);
@@ -322,6 +333,7 @@ export class IsolatedWorld {
 
   async stop(): Promise<void> {
     for (const service of ["core", "gate", "acme"] as const) {
+      this.resumeService(service);
       await this.killService(service, "SIGTERM").catch(() => undefined);
     }
     if (!this.keepFiles) rmSync(this.directory, { recursive: true, force: true });

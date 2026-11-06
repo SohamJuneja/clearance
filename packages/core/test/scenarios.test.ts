@@ -234,9 +234,9 @@ describe("SC7: force-push", () => {
 });
 
 describe("SC10: structuring, and PLAN 7.3 on low tier", () => {
-  const small = () => gateRefund({ order_id: "A-1931", customer_id: "cus_8812", amount: 4000, destination: "rohan.s@okhdfc" });
+  const small = () => gateRefund({ order_id: "A-1931", customer_id: "cus_8812", amount: 4000, destination: "meera.k@oksbi" });
   const another = (n: number) =>
-    gateRefund({ order_id: `A-${n}`, customer_id: "cus_8812", amount: 4000, destination: "rohan.s@okhdfc" });
+    gateRefund({ order_id: `A-${n}`, customer_id: "cus_8812", amount: 4000, destination: "meera.k@oksbi" });
 
   it("at L0, a small refund is held whatever its tier: low does not mean allow", async () => {
     await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@refunds-agent refund Meera's small orders"));
@@ -250,7 +250,7 @@ describe("SC10: structuring, and PLAN 7.3 on low tier", () => {
     await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@refunds-agent refund Meera's small orders"));
     const lookups = h.lookup.world;
     for (const n of [1, 2, 3]) {
-      (lookups.orders as Record<string, Record<string, unknown>>)[`A-${n}`] = { id: `A-${n}`, total: 4000 };
+      (lookups.orders as Record<string, Record<string, unknown>>)[`A-${n}`] = { id: `A-${n}`, customer_id: "cus_8812", total: 4000 };
     }
 
     const first = await gateCheck(another(1));
@@ -270,9 +270,9 @@ describe("SC10: structuring, and PLAN 7.3 on low tier", () => {
   it("the sum resets once earlier refunds fall out of the window", async () => {
     h.core.stores.autonomy.setLevel("refunds-agent", "refund", "small", "L3", h.clock.nowMs());
     await gateCheck(small());
-    await gateCheck(gateRefund({ order_id: "A-1931", customer_id: "cus_8812", amount: 4001, destination: "rohan.s@okhdfc" }));
+    await gateCheck(gateRefund({ order_id: "A-1931", customer_id: "cus_8812", amount: 4001, destination: "meera.k@oksbi" }));
     h.clock.advance(24 * 3_600_000 + 1);
-    const later = await gateCheck(gateRefund({ order_id: "A-1931", customer_id: "cus_8812", amount: 4002, destination: "rohan.s@okhdfc" }));
+    const later = await gateCheck(gateRefund({ order_id: "A-1931", customer_id: "cus_8812", amount: 4002, destination: "meera.k@oksbi" }));
     expect(later.decision).toBe("allow");
   });
 });

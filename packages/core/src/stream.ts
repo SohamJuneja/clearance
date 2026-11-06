@@ -38,6 +38,7 @@ type StreamCore = {
   stores: { db: Db };
   onMessage(event: ChatMessageEvent): Promise<void>;
   onApprovalOutcome(event: ApprovalOutcomeEvent): Promise<void>;
+  onStreamGap(): void;
 };
 
 /** What to pass `agent.start`. `afterMessage` is whatever else wants a message, once core has it. */
@@ -49,5 +50,6 @@ export function streamHandlers(core: StreamCore, options: { afterMessage?: (even
       if (meta.position) writeStreamPosition(core.stores.db, meta.position);
     },
     approvalOutcome: (event: ApprovalOutcomeEvent): Promise<void> => core.onApprovalOutcome(event),
+    gap: async (): Promise<void> => core.onStreamGap(),
   };
 }

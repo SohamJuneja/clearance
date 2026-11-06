@@ -12,7 +12,11 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export interface NumberSources {
-  authority: { clearance: { prevented: number; total: number }; audit: { passed: number; total: number } };
+  authority: {
+    clearance: { prevented: number; total: number };
+    audit: { passed: number; total: number };
+    second_review: { passed: number; total: number };
+  };
   autonomy: {
     synthetic: boolean;
     human_decisions_per_100: { before: number; after: number };
@@ -45,6 +49,9 @@ export function valuesFrom(sources: NumberSources): Record<string, string> {
   if (authority.audit.passed !== authority.audit.total) {
     throw new Error(`audit: ${authority.audit.passed} of ${authority.audit.total} pass, and the drafts say all are fixed`);
   }
+  if (authority.second_review.passed !== authority.second_review.total) {
+    throw new Error(`second review: ${authority.second_review.passed} of ${authority.second_review.total} pass, and the drafts say all are fixed`);
+  }
   if (!autonomy.synthetic) throw new Error("the autonomy week isn't labelled synthetic, and the drafts call it that");
   const original = autonomy.original_rule;
   const demotedAt = original.second_week.demoted_at_action;
@@ -53,6 +60,7 @@ export function valuesFrom(sources: NumberSources): Record<string, string> {
   return {
     E1: `${authority.clearance.prevented} of ${authority.clearance.total}`,
     AUDIT_BREAKS: String(authority.audit.total),
+    SECOND_REVIEW_BREAKS: String(authority.second_review.total),
     E6_BEFORE: String(autonomy.human_decisions_per_100.before),
     E6_AFTER: String(autonomy.human_decisions_per_100.after),
     E6_ORIGINAL: String(original.human_decisions_per_100.after),

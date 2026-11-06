@@ -65,10 +65,24 @@ function eventOf(payload: unknown): CodexEvent {
     : "PreToolUse";
 }
 
-/** Switch's own room tools never go through Clearance, so an outage cannot silence the agent. */
-function isSwitchTool(payload: unknown): boolean {
+/**
+ * What an agent talks in a room with. These alone skip Clearance, so an outage can't silence it. The list is by name: a
+ * Switch tool not on it, like `update_agent_detail`, goes to core like any other call, and is refused if core is away.
+ * The same list is in the OpenCode plugin and in Claude's hook matcher, and configs.test.ts holds the three together.
+ */
+export const SWITCH_CHAT_TOOLS: readonly string[] = [
+  "connect_to_room",
+  "list_rooms",
+  "read_context",
+  "list_participants",
+  "post_message",
+  "send_targeted_message",
+];
+
+function isSwitchChatTool(payload: unknown): boolean {
   const tool = asObject(payload)?.tool_name;
-  return typeof tool === "string" && tool.startsWith("mcp__switch__");
+  if (typeof tool !== "string" || !tool.startsWith("mcp__switch__")) return false;
+  return SWITCH_CHAT_TOOLS.includes(tool.slice("mcp__switch__".length));
 }
 
 function codexDeny(event: CodexEvent, reason: string): HookResult {
@@ -170,7 +184,7 @@ export async function runHook(
   if (!isVendor(vendorArg)) return USAGE;
   const payload = parseOrUndefined(stdin);
   if (!asObject(payload)) return deny(vendorArg, payload, UNREADABLE);
-  if (vendorArg === "codex" && isSwitchTool(payload)) return NO_OPINION;
+  if (vendorArg === "codex" && isSwitchChatTool(payload)) return NO_OPINION;
   const token = tokenFromFile(cwd) || env.CLEARANCE_HOOK_TOKEN;
   if (!token) return deny(vendorArg, payload, NO_TOKEN);
 

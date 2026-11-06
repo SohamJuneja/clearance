@@ -8,8 +8,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PEOPLE, personaTokens } from "./demo/greet.ts";
 import { findStrayRooms } from "./demo/stray-rooms.ts";
-import { agentIdOf, type ManagedAgent, type Machine, ownerGateway, providerReady, providersNotReady, ROOT } from "./gateway-owner.ts";
-import { MACHINES, OWNERS, planAgents } from "./setup-agents.ts";
+import { agentIdOf, defaultWorkspacesDir, type ManagedAgent, type Machine, ownerGateway, providerReady, providersNotReady, ROOT } from "./gateway-owner.ts";
+import { MACHINES, OWNERS, planAgents, staleHookFiles } from "./setup-agents.ts";
 import { roomsOf, roomsOfAgents } from "./setup-world.ts";
 
 const MATTERMOST = process.env.MATTERMOST_URL ?? "http://127.0.0.1:8065";
@@ -80,7 +80,10 @@ async function agents(): Promise<void> {
     const agent = (await gateway.must<ManagedAgent[]>("GET", "/management/agents")).find((a) => a.name === plan.name);
     const machine = (await machinesOf(plan.owner)).find((m) => m.name === plan.machine);
     if (agent && machine && agent.controller_id === machine.id) {
-      ok(`${plan.name} is on ${plan.machine}`);
+      const folder = join(machine.status?.machine?.workspaces_dir ?? defaultWorkspacesDir(), plan.name);
+      const stale = plan === BASELINE ? [] : staleHookFiles(join(ROOT, "acme-mini-app"), folder);
+      if (stale.length > 0) no(`${plan.name} runs on older hook files than the template: ${stale.join(", ")}`);
+      else ok(`${plan.name} is on ${plan.machine}`);
     } else if (machine && !providerReady(machine, plan.provider)) {
       // Not a gap in the setup: it can't exist until someone gives this machine a login.
       ok(`${plan.name} is waiting for a ${plan.provider} login on ${plan.machine}, and one rerun creates it`);

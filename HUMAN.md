@@ -37,6 +37,12 @@ Everything else is being done without you. Tick a box when done (or just tell me
 
 - [ ] **Listen to the video once, 3 minutes.** `docs/media/raw/clearance-demo.mp4`. I can read every frame but I can't hear anything, so the offline voice is unchecked by anyone. Tell me if a word is mispronounced, or if it sounds too robotic to use. The agents' words are real, so tell me about anything that reads wrong too, and I'll fix it or say why not.
 
+- [ ] **Clear our leftover test folders from `/tmp` (1 minute, please do this before anything else).** Our tests left over 13,000 folders there, about 6 GB in RAM-backed storage, which is why the machine ran out of memory at 14:31. The leak is fixed, but my permission check refused the cleanup because `/tmp` is shared. This only removes folders named `clearance-*` that you own and that are over 5 minutes old:
+  ```bash
+  find /tmp -maxdepth 1 -type d -name 'clearance-*' -user "$USER" -mmin +5 -prune -exec rm -rf {} +
+  df -h /tmp
+  ```
+
 - [ ] **1. Free RAM: close what you don't need.** The machine has 14 GB, about 12 GB in use and 11 GB already in swap, which is the OOM risk we've hit before. Switch, Mattermost and four agents need 4 to 6 GB free.
   - Close Chrome (or most tabs), Discord and Claude desktop if you don't need them while recording, E2 or the study runs. VS Code alone is holding about 5 GB, and the machine ran out of memory once already, at 14:31 on Friday, so close spare windows.
   - Optional: your other project containers and Redis use memory too. I won't touch them, because they aren't mine. If you're fine with it:
@@ -75,7 +81,7 @@ Everything else is being done without you. Tick a box when done (or just tell me
   ```
   ANTHROPIC_API_KEY=      # Claude agents in E2. Without it the agents use your Claude login.
   OPENAI_API_KEY=         # Codex agent, and OpenCode's provider if you have no other key
-  OPENCODE_PROVIDER_KEY=  # Optional. Blank means the free hosted opencode/big-pickle model, which already passes S5. Only synthetic data goes to it. Fill this in if you'd rather not use a free hosted model.
+  OPENCODE_PROVIDER_KEY=  # Leave blank for now. It isn't wired up yet, and I'm fixing that. OpenCode's free model has hit its usage limit, so I'm also making it fall back to another free model.
   ```
   Why: it replaces your login for agents, and E2's Claude runs wait for it. `.env` is gitignored and I never print it. Deadline: today, so E2 can finish before G4.
 
@@ -115,7 +121,7 @@ Everything else is being done without you. Tick a box when done (or just tell me
 ## LATER (I'll mark these NOW when their time comes)
 
 - [ ] **Make the repos public** (needs your OK; I run the command after you tick). Must happen before submission.
-- [ ] **Track 03, your call (15 minutes first).** #803 is crowded (3 PRs following the maintainer's direction). My recommendation is **#833 Canva**: one open PR, with no video. It needs you to make a Canva developer app that accepts a loopback redirect; nobody has reported that working, so it's a real gate. If it fails and you have no Factory login for #783, I'd drop Track 03 rather than file a weak PR. Steps, comment text and design are in `docs/track03.md`, and nothing is posted. You'd also sign the CLA. A maintainer ruled on Oct 29 that everyone is assigned, PRs are reviewed after the window, and one PR is selected per issue, which also answers your Discord question 2. Tell me "go" or "drop".
+- [ ] **Track 03, your call (15 minutes decides it).** I've built the Canva connector locally for #833, in `/home/prashant/projects/switch-track03`, with nothing pushed or posted. It hinges on one thing: an open PR reports Canva's MCP server answering `500` to developer apps, which would make the required video impossible. To find out, make a Canva developer app and run the probe, `spikes/track03/canva-gate.mjs`; `docs/track03.md` has the exact steps. If it fails, drop Track 03, which costs you only those 15 minutes. If it works, the rest takes about 1.5 to 2 hours, and the demo stack has to be stopped for the hand QA, so tell me first. Do this only after E2 and the study are out of the way. Deadline: PR open by Sat 23:59 IST.
 - [ ] **Voice-over (optional, 15 minutes).** Your voice is better than the offline one if you have time: drop files at `scripts/video/voice/<scene>.wav` and they win over it. The script is in `scripts/video/scenes.yaml`, one `voiceover` per scene.
 - [ ] **Optional, stronger anti-evasion:** needs sudo for `/etc/claude-code/managed-settings.json`, which agents can't edit. Not tested yet. I'd only use it if you want it for the demo host.
 - [ ] **Skip: the `!list-documents` crash** is already reported, with PR #1286 open upstream. Nothing to do.

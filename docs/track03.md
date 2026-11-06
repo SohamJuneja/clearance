@@ -2,6 +2,22 @@
 
 Rechecked with read-only `gh` on 2026-11-06, against `sandbox-quantum/switch` `main` at `13f6a2c8`. Nothing has been posted, and nothing has been pushed. **Recheck the counts before posting: they move daily.**
 
+## Who has it
+
+**Soham has taken Track 03**, under his own name, as of Nov 7. Where this doc says "Owner" below, read Soham: the Canva app, the probe, the hand QA, the video, the comment, the fork, the PR and the CLA are all his.
+
+The code is `spikes/track03/canva-connection.patch`, the same one commit as the local branch described below, made against upstream `13f6a2c8`. In a fork of `sandbox-quantum/switch`:
+
+```bash
+git checkout -b canva-connection 13f6a2c8
+git am /path/to/clearance/spikes/track03/canva-connection.patch
+git commit --amend --reset-author --no-edit
+```
+
+Then rebase on upstream `main`. It's his to read and own before posting anything: the entry still holds `TO MEASURE` markers that only a real Canva app can fill in.
+
+A short comment on #833 saying he wants it is fine now, since petr-sandbox assigns everyone who expresses interest. The report further down waits until the probe says go, because it can only say what the probe measured.
+
 ## Where this stands
 
 **Still #833, the Canva connector, but it now hangs on one test that takes about 15 minutes.** The code is ready locally. The owner's decision is whether Canva's MCP server answers a developer app at all.

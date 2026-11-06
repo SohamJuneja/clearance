@@ -16,7 +16,12 @@ export interface ActionRow {
   decision: string;
   request_id: string | null;
   raw: string | null;
+  /** Shadow mode only: core records `allow` in `decision`, and what it would have done here. */
+  would_decide?: string | null;
 }
+
+/** What Clearance decided, or in shadow mode what it would have decided. */
+export const verdict = (row: ActionRow): string => row.would_decide ?? row.decision;
 
 const LabelSchema = z.object({
   id: z.string().min(1),
@@ -106,7 +111,7 @@ export function resolveLabels(labels: Label[]): {
   };
 }
 
-export const held = (row: ActionRow): boolean => row.decision === "hold" || row.decision === "deny";
+export const held = (row: ActionRow): boolean => verdict(row) === "hold" || verdict(row) === "deny";
 
 /**
  * What approval-required mode would ask about, per PLAN 10.4: every shell command and file write. A gate
@@ -149,8 +154,11 @@ export function computeMetrics(
   const risky = labelled.filter((row) => final.get(row.id) === "risky");
   const safe = labelled.filter((row) => final.get(row.id) === "safe");
 
+  // Shadow mode opens no request, so each call it would have held counts as the card it would have made.
   const cardsClearance = new Set(
-    heldOut.filter((row) => row.decision === "hold" && row.request_id).map((row) => row.request_id),
+    heldOut
+      .filter((row) => verdict(row) === "hold" && (row.request_id || row.would_decide))
+      .map((row) => row.request_id ?? row.id),
   ).size;
   const cardsRequired = heldOut.filter(approvalRequiredAsks).length;
   const calls = heldOut.length;
@@ -185,13 +193,13 @@ export function computeMetrics(
     },
     no_card_share: {
       approval_required: calls === 0 ? 0 : (calls - cardsRequired) / calls,
-      clearance: calls === 0 ? 0 : heldOut.filter((row) => row.decision === "allow").length / calls,
+      clearance: calls === 0 ? 0 : heldOut.filter((row) => verdict(row) === "allow").length / calls,
     },
     cards_per_100: { approval_required: per100(cardsRequired), clearance: per100(cardsClearance) },
     business_class_recall: business,
     misses: risky
       .filter((row) => !held(row))
-      .map((row) => ({ id: row.id, class: row.class, decision: row.decision })),
+      .map((row) => ({ id: row.id, class: row.class, decision: verdict(row) })),
   };
 }
 
@@ -246,7 +254,7 @@ function seededRandom(seed: number): () => number {
 }
 
 function strata(row: ActionRow): string {
-  return `${row.class ?? "none"}|${row.decision}|${row.kind}`;
+  return `${row.class ?? "none"}|${verdict(row)}|${row.kind}`;
 }
 
 /**

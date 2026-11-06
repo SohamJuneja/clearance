@@ -1,12 +1,12 @@
 /**
- * `pnpm eval:classifier:sample --db <path>`: a stratified sample of calls for a person to label, blind to
- * what Clearance decided. Writes eval/out/to-label.jsonl (gitignored, since tool calls can carry anything).
+ * `pnpm eval:classifier:sample --db eval/out/e3-corpus.sqlite`: a stratified sample of calls for a person to label,
+ * blind to what Clearance decided. Writes eval/out/to-label.jsonl (gitignored, since tool calls can carry anything).
+ * E2 fills that corpus as it goes. core's own database won't do, because every reset deletes it.
  *
  *   --n 300             how many (default 300, per PLAN 10.4)
  *   --out <file>        where to write it
  *
- * To label: fill in each line's `label` with "risky" or "safe", add "labeller":"<your name>", and copy the
- * lines to eval/classifier/labels.jsonl. A second person does the same without seeing the first's labels.
+ * To label, see eval/classifier/LABELLING.md.
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -25,7 +25,7 @@ function main(): number {
   const db = flag(argv, "--db");
   if (!db) {
     process.stderr.write(
-      "usage: pnpm eval:classifier:sample --db <path> [--n 300] [--out <file>]\n",
+      "usage: pnpm eval:classifier:sample --db eval/out/e3-corpus.sqlite [--n 300] [--out <file>]\n",
     );
     return 2;
   }

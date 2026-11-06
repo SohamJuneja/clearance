@@ -44,6 +44,7 @@
     "eval:vendors": "tsx eval/cross-vendor/run.ts",
     "eval:classifier": "tsx eval/classifier/run.ts",
     "eval:classifier:sample": "tsx eval/classifier/sample.ts",
+    "eval:classifier:label": "tsx eval/classifier/label.ts",
     "eval:latency": "tsx eval/latency-soak/latency.ts",
     "eval:soak": "tsx eval/latency-soak/soak.ts",
     "eval:study": "tsx eval/study/run.ts",

@@ -8,32 +8,25 @@ Everything else is being done without you. Tick a box when done (or just tell me
 
 - [ ] **0a. Get on the team page.** Sign in on wemakedevs.org and have Soham add you to the team, star `sandbox-quantum/switch` through the event link, and join the WeMakeDevs Discord. Why: only listed members count, and this is on his plan as B-0. I can't check it from here. Deadline: now.
 
-- [ ] **0b. Agree one codebase with Soham, on a 10-minute call.** Message is in the chat. Don't run anything on his repo until he says yes. Then:
+- [ ] **0b. Push to Soham's repo, one command.** He said yes and gave you write access. The merge is done locally: his 5 commits are kept, the secret scan is clean, and it's a normal push. My permission check refused `git push`, so you run it:
   ```bash
-  cd /home/prashant/projects/Clearance
-  git remote add origin git@github.com:SohamJuneja/clearance.git
-  git fetch origin master
-  git tag soham-python-first-cut origin/master
-  git merge -s ours --allow-unrelated-histories origin/master -m "chore: build on the full implementation, keeping Soham's first commits in history"
-  gitleaks detect --source . --redact --no-banner
-  git push origin main:master
-  git push origin soham-python-first-cut
+  cd /home/prashant/projects/Clearance && git push -u origin main:master && git push origin soham-python-first-cut
   ```
-  Never add `--force`. If the push is rejected, he pushed something new, so tell me. Dry-run on a copy: files match ours, both histories are kept, secret scan clean.
+  Never add `--force`. If it's rejected, he pushed something new, so tell me. His repo is public, so this publishes everything at once: the plan, the pitch, the competition scan, the drafts, this file, and your Gmail address in the commit details. If you'd rather not, have him run this first and flip it back before submitting: `gh repo edit SohamJuneja/clearance --visibility private --accept-visibility-change-consequences`. To let me push from now on, allow `Bash(git push:*)` in `/permissions`. Otherwise I'll ask you. After it lands, send Soham the message from the chat.
 
-- [ ] **Study recruitment: send this morning** to classmates, community groups and Discord servers. Target 20 sign-ups to land 12 to 16 people. Why: the human study is one of the things only we have, and I can't recruit people. Copy this:
-  > Hi! We're building Clearance for the Flip the Switch hackathon: it decides who should approve what an AI agent wants to do. We need 15 minutes of your time on Fri Nov 6 (21:00-23:30 IST) or Sat Nov 7 (09:30-12:30 IST). You'll approve or deny 24 short requests in a chat window in your browser. No install, no personal data, no real money. Reply to this message and I'll send you your link. Thank you!
+- [ ] **Soham: clear the GitHub billing lock.** His last CI runs, on Nov 5, never started: "The job was not started because your account is locked due to a billing issue." Only he can see or fix that, under Settings, Billing and plans. It may be cleared by now, and the first run after the push will show it. Why: the submit pack needs CI green, and the README's badge points at his repo. Deadline: before Sat 19:00.
 
-  Consent is inside the link, so there's no form to set up. Tell me how many people replied. Each person gets their own, and participants must be 18 or older.
+- [ ] **Study: Soham recruits, your laptop hosts.** Friday's slot has passed, so it's Sat 09:00-13:00 only. Target 20 sign-ups to land 12 to 16 people. Participants must be 18 or older. Consent is inside the link, so there's no form to set up. Why: the human study is one of the things only we have, and I can't recruit people. His recruitment text:
+  > Hi! We're building Clearance for the Flip the Switch hackathon: it decides who should approve what an AI agent wants to do. We need 15 minutes of your time on Sat Nov 7, any time from 09:00 to 13:00 IST. You'll approve or deny 24 short requests in a chat window in your browser. No install, no personal data, no real money. Reply to this message and I'll send you your link. Thank you!
 
-- [ ] **Open the study to people, and look at it on your phone first (5 minutes).** My permission check refused the public tunnel, so this one is yours. It only exposes the Lab, and each link is signed. For your own look, use rehearsal mode so nothing counts:
+- [ ] **Open the study by Sat 08:45, and look at it on your phone first (5 minutes).** My permission check refused the public tunnel, so this one is yours. It only exposes the Lab, and each link is signed. For your own look, use rehearsal mode so nothing counts:
   ```bash
   cd /home/prashant/projects/Clearance
   STUDY_DRY_RUN=1 STUDY_RESULTS_DIR=/tmp/lab-rehearsal pnpm study:start      # terminal 1, leave it running
   cloudflared tunnel --no-autoupdate --url http://127.0.0.1:7950             # terminal 2, prints an https://...trycloudflare.com address
   pnpm study:links https://THAT-ADDRESS 20                                   # terminal 3, prints the links and sends nothing
   ```
-  Open any link on your phone and go at least as far as a practice card. A whole run now passes at phone size in Chromium and in WebKit, which is close to Safari but isn't iOS. Only a real phone can show these, so look for them: does the keyboard cover Send on a typed card, does autocorrect leave a value like `kfin` alone, does the back button come back to the right card, and is a quick deliberate tap ever ignored? There's a 600 ms guard after each card appears, because a double tap was scoring a card nobody had read. For the real sessions, stop terminal 1 and run plain `pnpm study:start`, then send one link per person from what `study:links` printed. Keep both terminals open during sessions (Fri 21:00-23:30, Sat 09:30-12:30). If the tunnel restarts, its address changes, so rerun `study:links` with the new one.
+  Open any link on your phone and go at least as far as a practice card. A whole run now passes at phone size in Chromium and in WebKit, which is close to Safari but isn't iOS. Only a real phone can show these, so look for them: does the keyboard cover Send on a typed card, does autocorrect leave a value like `kfin` alone, does the back button come back to the right card, and is a quick deliberate tap ever ignored? There's a 600 ms guard after each card appears, because a double tap was scoring a card nobody had read. For the real sessions, stop terminal 1, run plain `pnpm study:start`, and send Soham the links from `study:links`, one per person. Keep both terminals open until 13:00. If the tunnel restarts, its address changes, so rerun `study:links` with the new one and send those instead.
 
 - [ ] **Listen to the video once, 3 minutes.** `docs/media/raw/clearance-demo.mp4`, the 2:44 cut I sent you. I can read every frame but I can't hear anything, so the offline voice is unchecked by anyone. Tell me if a word is mispronounced, or if it sounds too robotic to use. The agents' words are real, so tell me about anything that reads wrong too, and I'll fix it or say why not.
 
@@ -95,7 +88,7 @@ Everything else is being done without you. Tick a box when done (or just tell me
   pnpm eval:vendors --probe --vendor opencode          # about 4 short runs. Read what it prints, and tell me if anything looks off
   CLEARANCE_EVAL_E2_GO=1 pnpm eval:vendors --go --vendor opencode --usd-per-run 0
   ```
-  That's 80 runs on OpenCode's free model, up to about 3 hours, and it holds the stack the whole time, so keep the terminal open. The free model can run out partway: those runs are counted as errors, not as prevented, so a low count of real runs is what to tell me about. It also behaves inconsistently, declining by itself in some runs, so the results name the model. After your Anthropic key is in, run Claude's part the same way:
+  That's 80 runs on OpenCode's free model, up to about 3 hours, and it holds the stack the whole time, so keep the terminal open. It now also keeps every run's calls in `eval/out/e3-corpus.sqlite` for E3, and its last line says how many, so tell me if that says WARNING. The free model can run out partway: those runs are counted as errors, not as prevented, so a low count of real runs is what to tell me about. It also behaves inconsistently, declining by itself in some runs, so the results name the model. After your Anthropic key is in, run Claude's part the same way:
   ```bash
   CLEARANCE_EVAL_E2_GO=1 pnpm eval:vendors --go --vendor claude --claude-model haiku --usd-per-run 0.05
   ```
@@ -104,13 +97,6 @@ Everything else is being done without you. Tick a box when done (or just tell me
 - [ ] **6. Confirm the spend cap.** The default is **₹3,000 (about $35) total for eval runs**, tracked in `eval/costs.json`. I stop E2 and ask before passing it. Set a hard limit on each key in the provider dashboards too, if they offer one. Reply only if you want a different cap.
 
 - [ ] **7. Keep Wispr Flow on** and dictate your messages to me from now on (Code with Wispr track). Take the Insights screenshot on Saturday at 19:00.
-
-- [ ] **8. If you and Soham haven't settled on his repo by tonight, create yours** (1 minute). Use 0b if he agrees, and this if not, because CI can't run until something is pushed. My permission check refused `gh repo create` and `git push`, so you run it:
-  ```bash
-  cd /home/prashant/projects/Clearance && gh repo create clearance --private --source . --remote origin --push
-  ```
-  For later pushes, either let me do them by allowing `Bash(git push:*)` in your Claude Code permissions (`/permissions`), or run `git push` yourself whenever I ask. I run `gitleaks detect` first either way.
-  Why: G1 needs the repo pushed, and that deadline has passed. Commits stay local until then, so nothing is lost, but a CI failure stays hidden.
 
 - [ ] **9. Optional: post these in the WeMakeDevs Discord** and paste the answers into `DECISIONS.md` or send them to me. Ready to copy:
   > Hi! A few quick questions about Flip the Switch:
@@ -124,8 +110,9 @@ Everything else is being done without you. Tick a box when done (or just tell me
 
 ## LATER (I'll mark these NOW when their time comes)
 
-- [ ] **Make the repos public** (needs your OK; I run the command after you tick). Must happen before submission.
-- [ ] **Track 03, your call (15 minutes decides it).** I've built the Canva connector locally for #833, in `/home/prashant/projects/switch-track03`, with nothing pushed or posted. It hinges on one thing: an open PR reports Canva's MCP server answering `500` to developer apps, which would make the required video impossible. To find out, make a Canva developer app and run the probe, `spikes/track03/canva-gate.mjs`; `docs/track03.md` has the exact steps. If it fails, drop Track 03, which costs you only those 15 minutes. If it works, the rest takes about 1.5 to 2 hours, and the demo stack has to be stopped for the hand QA, so tell me first. Do this only after E2 and the study are out of the way. Deadline: PR open by Sat 23:59 IST.
+- [ ] **The repo must be public when you submit.** Soham's already is. Only if he flips it private for now does this need doing again, and only he can do it, as admin.
+- [ ] **E3 labels, you and Soham, separately.** Once E2 has finished I'll make the 300-call sample and send it to you for both of you. The guide is `eval/classifier/LABELLING.md`, and it's one key per call: `pnpm eval:classifier:label --name prashant --file <the file>`. Do it by hand, with no AI help and no peeking at each other's answers. It's roughly 30 to 50 minutes each, by my guess. Deadline: Sat 13:00.
+- [ ] **Track 03 is with Soham now.** Nothing for you to do unless he hands it back. `docs/track03.md` has the code, the 15-minute Canva probe that decides go or drop, and the steps. Deadline: PR open by Sat 23:59 IST.
 - [ ] **Voice-over (optional, 15 minutes).** Your voice is better than the offline one if you have time: drop files at `scripts/video/voice/<scene>.wav` and they win over it. The script is in `scripts/video/scenes.yaml`, one `voiceover` per scene.
 - [ ] **Optional, stronger anti-evasion:** needs sudo for `/etc/claude-code/managed-settings.json`, which agents can't edit. Not tested yet. I'd only use it if you want it for the demo host.
 - [ ] **Skip: the `!list-documents` crash** is already reported, with PR #1286 open upstream. Nothing to do.

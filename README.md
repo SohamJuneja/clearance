@@ -2,7 +2,7 @@
 
 The approval layer for teams of people and AI agents, built on [Switch](https://github.com/sandbox-quantum/switch).
 
-[![CI](https://github.com/Prashant-thakur77/clearance/actions/workflows/ci.yml/badge.svg)](https://github.com/Prashant-thakur77/clearance/actions/workflows/ci.yml) [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE) ![Built Nov 4 to 7, 2026](https://img.shields.io/badge/built-Nov%204%20to%207%202026-555)
+[![CI](https://github.com/SohamJuneja/clearance/actions/workflows/ci.yml/badge.svg)](https://github.com/SohamJuneja/clearance/actions/workflows/ci.yml) [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE) ![Built Nov 4 to 7, 2026](https://img.shields.io/badge/built-Nov%204%20to%207%202026-555)
 
 Team CoffeeAndWispr's entry to the Flip the Switch hackathon, Track 01: Best Business Workflow.
 
@@ -60,7 +60,7 @@ An independent review of this code found five real breaks that the 25-case suite
 ## Judge quickstart
 
 ```bash
-git clone https://github.com/Prashant-thakur77/clearance && cd clearance
+git clone https://github.com/SohamJuneja/clearance && cd clearance
 cp .env.example .env            # add one Anthropic key, or be signed in to Claude on this host; others are optional
 just demo                       # Switch standalone, Mattermost, Acme, Clearance, seeded
 ```

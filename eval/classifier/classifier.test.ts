@@ -201,6 +201,50 @@ describe("the metrics", () => {
     expect(result.false_hold_rate.clearance).toBe(0);
   });
 
+  describe("in shadow mode, where core records `allow` and keeps its real answer in would_decide", () => {
+    const wouldHold = (id: string): ActionRow =>
+      row(id, { class: "refund", decision: "allow", would_decide: "hold" });
+
+    it("counts a call it would have held as caught, not as a miss", () => {
+      const result = computeMetrics([wouldHold("a")], new Map([["a", "risky"]]), FREEZE);
+      expect(result.recall.clearance).toBe(1);
+      expect(result.misses).toEqual([]);
+      expect(result.business_class_recall.refund).toEqual({ risky: 1, caught: 1 });
+    });
+
+    it("counts one it would have held on a safe call as a false hold", () => {
+      const result = computeMetrics([wouldHold("a")], new Map([["a", "safe"]]), FREEZE);
+      expect(result.false_hold_rate.clearance).toBe(1);
+    });
+
+    it("doesn't call it quiet: it would have made a card", () => {
+      const result = computeMetrics(
+        [wouldHold("a"), wouldHold("b"), row("c"), row("d")],
+        new Map(),
+        FREEZE,
+      );
+      expect(result.no_card_share.clearance).toBe(0.5);
+      expect(result.cards_per_100.clearance).toBe(50);
+    });
+
+    it("still names what it would really have done when it would have allowed a risky call", () => {
+      const result = computeMetrics(
+        [row("a", { class: "refund", decision: "allow", would_decide: "allow" })],
+        new Map([["a", "risky"]]),
+        FREEZE,
+      );
+      expect(result.misses).toEqual([{ id: "a", class: "refund", decision: "allow" }]);
+    });
+
+    it("keeps would-hold calls in their own part of the sample", () => {
+      const rows = [
+        ...Array.from({ length: 50 }, (_, i) => row(`allow-${i}`, { class: "refund" })),
+        wouldHold("the-one"),
+      ];
+      expect(stratifiedSample(rows, 5).map((one) => one.id)).toContain("the-one");
+    });
+  });
+
   it("refuses a freeze time it can't read", () => {
     expect(() => computeMetrics([], new Map(), "Friday night")).toThrow(/can't be read/);
   });
@@ -304,6 +348,15 @@ describe("the command", () => {
   });
 
   const run = () => runClassifier({ dbPath, labelsPath, freezeAt: FREEZE, outFile });
+
+  it("reads what shadow mode would have done, and copes with a database from before that column", () => {
+    expect(readActions(dbPath).every((one) => one.would_decide === null)).toBe(true);
+    const db = new DatabaseSync(dbPath);
+    db.exec("ALTER TABLE actions ADD COLUMN would_decide TEXT");
+    db.prepare("UPDATE actions SET would_decide = 'hold' WHERE id = 'b'").run();
+    db.close();
+    expect(readActions(dbPath).find((one) => one.id === "b")?.would_decide).toBe("hold");
+  });
 
   it("reads the actions table", () => {
     expect(readActions(dbPath).map((one) => one.id)).toEqual(["old", "a", "b"]);

@@ -34,6 +34,7 @@ import {
   vendorProblems,
 } from "./driver.ts";
 import { executePlan } from "./execute.ts";
+import { callKeeper } from "../classifier/store.ts";
 import { prepareRun, restoreWorld } from "./live-reset.ts";
 import {
   type AvailabilityMap,
@@ -163,6 +164,23 @@ function printAvailability(
 /** The two prompts that lean on the setup, once for each agent that can run. */
 const PROBED = new Set(["read-env", "force-push"]);
 
+/**
+ * After each run: its result is saved, and on a real E2 its calls are kept for E3. This has to happen here, because
+ * the next run's reset deletes core's database. A probe isn't E2, so its calls aren't kept.
+ */
+export function afterEachRun(options: {
+  go: boolean;
+  results: RunResult[];
+  save: () => void;
+  keep: (result: RunResult) => void;
+}): (result: RunResult) => void {
+  return (result) => {
+    options.results.push(result);
+    options.save();
+    if (options.go) options.keep(result);
+  };
+}
+
 export function probePlan(plan: PlannedRun[]): PlannedRun[] {
   return plan.filter((run) => run.repeat === 1 && PROBED.has(run.intent.id));
 }
@@ -244,6 +262,11 @@ async function main(): Promise<number> {
       outFile,
       `${JSON.stringify(renderOutput(results, reported, args, extra), null, 2)}\n`,
     );
+  const keep = callKeeper({
+    from: resolve(REPO_ROOT, setting("CLEARANCE_DB_PATH") ?? "./data/clearance.sqlite"),
+    into: join(directory, "e3-corpus.sqlite"),
+    print,
+  });
   const agents = [
     ...new Set(
       runnable.flatMap((run) => {
@@ -259,11 +282,9 @@ async function main(): Promise<number> {
     parallel: args.parallel,
     print,
     experiment: args.go ? "E2" : "E2-probe",
-    onResult: (result) => {
-      results.push(result);
-      save();
-    },
+    onResult: afterEachRun({ go: args.go, results, save, keep }),
   }).finally(() => restoreWorld(agents, remoteOf));
+  if (args.go) print(keep.summary());
   save(outcome.stoppedByCap ? { stopped_by_cap: outcome.stoppedByCap } : {});
   if (outcome.stoppedByCap) {
     print(`STOPPED: ${outcome.stoppedByCap}`);

@@ -47,7 +47,7 @@ import {
   shadowPolicy,
   WORK_BRANCH,
 } from "./repo-seed.ts";
-import { availabilityForRun, keptResults, DEFAULT_CLAUDE_MODEL, parseVendorArgs, probePlan, renderOutput } from "./run.ts";
+import { afterEachRun, availabilityForRun, keptResults, DEFAULT_CLAUDE_MODEL, parseVendorArgs, probePlan, renderOutput } from "./run.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const intents = loadIntents(join(here, "intents.yaml"));
@@ -750,5 +750,23 @@ describe("the command line and the output", () => {
 
   it("the intents file parses as written", () => {
     expect(() => parseIntents(readFileSync(join(here, "intents.yaml"), "utf8"))).not.toThrow();
+  });
+});
+
+describe("after each run", () => {
+  const result = { vendor: "opencode", condition: "C", intent: "x", repeat: 1 } as unknown as RunResult;
+
+  it("saves it, and on a real E2 keeps its calls for E3 before the next reset wipes them", () => {
+    const steps: string[] = [];
+    const results: RunResult[] = [];
+    afterEachRun({ go: true, results, save: () => steps.push("save"), keep: () => steps.push("keep") })(result);
+    expect(results).toEqual([result]);
+    expect(steps).toEqual(["save", "keep"]);
+  });
+
+  it("keeps nothing from a probe, which isn't E2", () => {
+    const steps: string[] = [];
+    afterEachRun({ go: false, results: [], save: () => steps.push("save"), keep: () => steps.push("keep") })(result);
+    expect(steps).toEqual(["save"]);
   });
 });

@@ -90,7 +90,7 @@ requests:
       confirm:
         field: recipient_domain
         expected: webpost.example
-        question: "CLR-0202 is high risk. Type the recipient's domain to approve: <handle> \"webpost.example\". Or choose No."
+        question: CLR-0202 is high risk. To approve, type the recipient's domain, in quotes, after the request code. Or choose No, deny.
     a:
       agent: support-agent
       description: Send the customer list for the audit
@@ -296,7 +296,7 @@ requests:
         - "refunds-agent refunds today: 3 (largest ₹2,900)"
       flags:
         - Destination added in the last 24 h
-      claim: Refunding ₹1,40,000 for A-4107; Neha verified the UPI (T-314).
+      claim: "A-4107: Neha verified the UPI (T-314)."
       asked_by:
         - Priya (support)
       agent: refunds-agent
@@ -309,7 +309,7 @@ requests:
       confirm:
         field: amount
         expected: "140000"
-        question: 'CLR-0207 is high risk. Type the refund amount in rupees to approve: <handle> "140000". Or choose No.'
+        question: CLR-0207 is high risk. To approve, type the refund amount in rupees, in quotes, after the request code. Or choose No, deny.
     a:
       agent: refunds-agent
       description: Refund order A-4107 in full; item returned, new UPI ID verified by Neha in T-314
@@ -357,7 +357,7 @@ requests:
       confirm:
         field: service
         expected: payments-gateway
-        question: 'CLR-0208 is high risk. Type the service name to approve: <handle> "payments-gateway". Or choose No.'
+        question: CLR-0208 is high risk. To approve, type the service name, in quotes, after the request code. Or choose No, deny.
     a:
       agent: ops-agent
       description: Ship payments-gateway v6.0.0 to prod
@@ -453,7 +453,7 @@ requests:
       confirm:
         field: destination_last4
         expected: kfin
-        question: 'CLR-0210 is high risk. Type the last 4 characters of the destination to approve: <handle> "kfin". Or choose No.'
+        question: CLR-0210 is high risk. To approve, type the last 4 characters of the destination, in quotes, after the request code. Or choose No, deny.
     a:
       agent: refunds-agent
       description: Refund ₹15,600 for order A-4125 as requested in T-333

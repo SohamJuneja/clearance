@@ -21,6 +21,10 @@ export type SubCommand = {
   reads: string[];
   /** Words whose value only the shell knows: `$BRANCH`, `$(...)`. */
   dynamic: string[];
+  /** `effective` as words, so an argument with a space in it stays one argument. */
+  words: string[];
+  /** What came before the command: wrappers and assignments. An environment can change where a command goes. */
+  wrappers: string[];
 };
 
 export type ParsedShell = { ok: boolean; reason?: string; commands: SubCommand[] };
@@ -65,7 +69,12 @@ const WRAPPERS: Record<string, { flagsWithValue: Set<string>; positionals?: numb
   ionice: { flagsWithValue: new Set(["-c", "-n", "-p"]) },
   timeout: { flagsWithValue: new Set(["-k", "-s", "--kill-after", "--signal"]), positionals: 1 },
   stdbuf: { flagsWithValue: new Set(["-i", "-o", "-e"]) },
-  xargs: { flagsWithValue: new Set(["-I", "-n", "-P", "-L", "-d", "-E", "-s", "-a", "-J", "-R", "-S"]) },
+  xargs: {
+    flagsWithValue: new Set([
+      "-I", "-n", "-P", "-L", "-d", "-E", "-s", "-a", "-J", "-R", "-S",
+      "--max-args", "--max-procs", "--max-lines", "--max-chars", "--delimiter", "--arg-file", "--eof", "--replace",
+    ]),
+  },
   exec: { flagsWithValue: new Set(["-a"]) },
   nohup: { flagsWithValue: new Set() },
   time: { flagsWithValue: new Set() },
@@ -75,6 +84,22 @@ const WRAPPERS: Record<string, { flagsWithValue: Set<string>; positionals?: numb
 };
 
 const GIT_GLOBALS_WITH_VALUE = new Set(["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--super-prefix", "--config-env"]);
+
+/**
+ * Git settings that can't run anything. Many others can: `alias.x=!cmd`, `core.sshCommand`, `core.fsmonitor`, `core.pager`,
+ * `diff.external`, `credential.helper`. So a setting on the command line has to be one of these, or the line isn't
+ * what it looks like, and the only thing to do with that is hold it.
+ */
+const GIT_HARMLESS_SETTINGS = /^(color\.[\w.-]+|advice\.[\w.-]+|user\.(name|email)|core\.(quotepath|abbrev)|init\.defaultbranch|safe\.directory)$/i;
+const GIT_RISKY_ENVIRONMENT = /^GIT_(CONFIG_(COUNT|PARAMETERS|GLOBAL|SYSTEM|KEY_\d+|VALUE_\d+)|SSH|SSH_COMMAND|PAGER|EDITOR|SEQUENCE_EDITOR|EXTERNAL_DIFF|ASKPASS|EXEC_PATH|PROXY_COMMAND)\+?=/;
+
+/** What `find` runs for each thing it finds. Each one is a command of its own, up to its `;` or `+`. */
+const FIND_RUNS = new Set(["-exec", "-execdir", "-ok", "-okdir"]);
+/** Given a target only known at run time, these are a delete or an overwrite of who knows what. */
+const DESTROYS_ITS_TARGET = new Set(["rm", "rmdir", "unlink", "shred", "truncate", "mv", "dd"]);
+
+/** A command run by `find` or `xargs`: its arguments come from what those read, and so might the command itself. */
+type Carried = { by: "find" | "xargs"; placeholder: string; prefix: string[] };
 
 class ShellParser {
   pos = 0;
@@ -365,7 +390,7 @@ class ShellParser {
     if (writes === null || reads === null) return;
     if (builder.words.length === 0) {
       if (writes.length > 0 || reads.length > 0) {
-        this.commands.push({ raw, effective: "", canonical: "", writes, reads, dynamic: [] });
+        this.commands.push({ raw, effective: "", canonical: "", writes, reads, dynamic: [], words: [], wrappers: [] });
       }
       return;
     }
@@ -375,7 +400,7 @@ class ShellParser {
     while (words[0] && LEADING_KEYWORDS.has(words[0].text)) words = words.slice(1);
     if (words.length === 0 || (words.length === 1 && CLOSING_KEYWORDS.has((words[0] as Word).text))) {
       if (writes.length > 0 || reads.length > 0) {
-        this.commands.push({ raw, effective: "", canonical: "", writes, reads, dynamic: [] });
+        this.commands.push({ raw, effective: "", canonical: "", writes, reads, dynamic: [], words: [], wrappers: [] });
       }
       return;
     }
@@ -398,15 +423,16 @@ class ShellParser {
     return paths;
   }
 
-  private finishCommand(all: Word[], builder: Builder, raw: string, writes: string[], reads: string[]): void {
-    const kept: string[] = []; // Wrappers and assignments: they change what runs, so a grant binds to them.
+  private finishCommand(all: Word[], builder: Builder, raw: string, writes: string[], reads: string[], carriedBy?: Carried): void {
+    const kept: string[] = [...(carriedBy?.prefix ?? [])]; // Wrappers and assignments: they change what runs, so a grant binds to them.
+    let carried = carriedBy;
     let rest = all;
     for (;;) {
       const word = rest[0];
       if (!word) {
         // Assignments and wrappers with nothing to run. A redirect on one still writes.
         if (writes.length > 0 || reads.length > 0) {
-          this.commands.push({ raw, effective: "", canonical: "", writes, reads, dynamic: [] });
+          this.commands.push({ raw, effective: "", canonical: "", writes, reads, dynamic: [], words: [], wrappers: kept });
         }
         return;
       }
@@ -419,6 +445,7 @@ class ShellParser {
       if (!wrapper) break;
       kept.push(word.text);
       rest = rest.slice(1);
+      if (baseName(word.text) === "xargs") carried = { by: "xargs", placeholder: xargsPlaceholder(rest), prefix: [] };
       let positionals = wrapper.positionals ?? 0;
       while (rest[0]) {
         const next = rest[0];
@@ -458,6 +485,14 @@ class ShellParser {
     const name = baseName(command.text);
     if (name === "eval") return this.fail("eval");
     if (name === "source" || name === ".") return this.fail(`${name}: the script's commands are not on this line`);
+    if (carried) {
+      const problem = carriedProblem(rest, carried);
+      if (problem) return this.fail(problem);
+    }
+    if (name === "git") {
+      const problem = gitProblem(rest, kept);
+      if (problem) return this.fail(problem);
+    }
     if (SHELLS.has(name)) {
       const inner = this.readShellInvocation(rest);
       if (inner === "absorbed") return;
@@ -466,18 +501,47 @@ class ShellParser {
       return this.fail(`${name} reads its program from input`);
     }
 
+    if (name === "find" && !this.readFindChildren(rest, kept, builder)) return;
+
     const writtenBy = writesOf(rest);
     if (writtenBy === null) return this.fail("a path only known at run time");
-    const effective = (name === "git" ? stripGitGlobals(rest) : rest).map((word) => word.text).join(" ");
+    const effectiveWords = (name === "git" ? stripGitGlobals(rest) : rest).map((word) => word.text);
     const canonical = [...kept, ...rest.map((word) => word.text)].join(" ");
     this.commands.push({
       raw,
-      effective,
+      effective: effectiveWords.join(" "),
       canonical,
       writes: [...writes, ...writtenBy],
       reads,
       dynamic: all.filter((word) => word.dynamic).map((word) => word.text),
+      words: effectiveWords,
+      wrappers: kept,
     });
+  }
+
+  /** `find -exec cmd ... ;` runs cmd: each one is read as a command in its own right. False when one can't be. */
+  private readFindChildren(words: Word[], kept: string[], builder: Builder): boolean {
+    for (let index = 1; index < words.length; index += 1) {
+      const flag = (words[index] as Word).text;
+      if (!FIND_RUNS.has(flag)) continue;
+      let end = index + 1;
+      while (end < words.length && ![";", "+"].includes((words[end] as Word).text)) end += 1;
+      if (end >= words.length) {
+        this.fail(`find ${flag} with no end`);
+        return false;
+      }
+      const child = words.slice(index + 1, end);
+      if (child.length === 0) {
+        this.fail(`find ${flag} with nothing to run`);
+        return false;
+      }
+      const prefix = [...kept, ...words.slice(0, index + 1).map((word) => word.text)];
+      const fresh = { ...builder, pipedIn: false, fed: false, words: child, writes: [], reads: [] };
+      this.finishCommand(child, fresh, child.map((word) => word.text).join(" "), [], [], { by: "find", placeholder: "{}", prefix });
+      if (this.failure) return false;
+      index = end;
+    }
+    return true;
   }
 
   /** `bash -c "..."` is the commands in the string. A shell with no script on this line reads them from elsewhere. */
@@ -529,6 +593,76 @@ function hasScript(words: Word[]): boolean {
   return false;
 }
 
+/** The word `xargs` replaces with what it reads. It only has one with -I, -i or --replace; otherwise it appends. */
+function xargsPlaceholder(args: Word[]): string {
+  for (let index = 0; index < args.length; index += 1) {
+    const text = (args[index] as Word).text;
+    if (!text.startsWith("-")) break;
+    if (text === "-I" || text === "--replace") return args[index + 1]?.text ?? "{}";
+    if (text.startsWith("-I")) return text.slice(2);
+    if (text.startsWith("--replace=")) return text.slice("--replace=".length);
+    if (text === "-i") return "{}";
+    if (text.startsWith("-i")) return text.slice(2);
+  }
+  return "{}";
+}
+
+/**
+ * Why a command run by `find` or `xargs` can't be read. Its target comes from what they read, so `xargs rm -rf` could be
+ * `rm -rf /`. For `xargs` that's always so. For `find` only when the placeholder is there: `find -exec rm -rf / ;` says
+ * exactly what it does, and the policy can read that like any other `rm`.
+ */
+function carriedProblem(words: Word[], carried: Carried): string | null {
+  const name = baseName((words[0] as Word).text);
+  const has = (word: Word) => word.text.includes(carried.placeholder);
+  if (has(words[0] as Word)) return `${carried.by} runs a command only known at run time`;
+  if (SHELLS.has(name) && words.slice(1).some(has)) return `${carried.by} gives ${name} a script only known at run time`;
+  if (DESTROYS_ITS_TARGET.has(name) && (carried.by === "xargs" || words.slice(1).some(has))) {
+    return `${carried.by} ${name}: what it acts on is only known at run time`;
+  }
+  return null;
+}
+
+/** Why this git line isn't what it looks like: something on it can run a command of its own. Null when it's fine. */
+function gitProblem(words: Word[], kept: string[]): string | null {
+  const risky = kept.find((word) => GIT_RISKY_ENVIRONMENT.test(word));
+  if (risky) return `git with ${risky.slice(0, risky.indexOf("="))} set, which can run anything`;
+  let index = 1;
+  while (words[index]) {
+    const word = words[index] as Word;
+    const text = word.text;
+    if (!text.startsWith("-")) break;
+    if (text === "--config-env" || text.startsWith("--config-env=")) return "git --config-env, whose setting comes from the environment and can run anything";
+    if (text.startsWith("--exec-path=")) return "git --exec-path, which chooses what git runs";
+    if (text === "-c") {
+      const setting = words[index + 1];
+      if (!setting || setting.dynamic) return "git -c with a setting only known at run time";
+      const key = setting.text.split("=", 1)[0] as string;
+      if (!GIT_HARMLESS_SETTINGS.test(key)) return `git -c ${key}, which can change what git runs`;
+    }
+    index += GIT_GLOBALS_WITH_VALUE.has(text) ? 2 : 1;
+  }
+  return (words[index] as Word | undefined)?.text === "config" ? gitConfigProblem(words.slice(index + 1)) : null;
+}
+
+/** `git config alias.boom '!rm -rf /'` then `git boom` is the same trick in two steps. Reading a setting is fine. */
+function gitConfigProblem(args: Word[]): string | null {
+  const FLAGS_WITH_VALUE = new Set(["-f", "--file", "--blob", "--type", "--default"]);
+  const positional: Word[] = [];
+  for (let index = 0; index < args.length; index += 1) {
+    const text = (args[index] as Word).text;
+    if (/^(-l|--list|--get.*|-e|--edit)$/.test(text)) return text === "-e" || text === "--edit" ? "git config --edit" : null;
+    if (FLAGS_WITH_VALUE.has(text)) index += 1;
+    else if (!text.startsWith("-")) positional.push(args[index] as Word);
+  }
+  const subcommand = positional[0]?.text;
+  if (subcommand === "get" || subcommand === "list") return null;
+  const setting = subcommand === "set" ? positional[1] : positional.length >= 2 ? positional[0] : null;
+  if (!setting) return null;
+  if (setting.dynamic || !GIT_HARMLESS_SETTINGS.test(setting.text)) return `git config ${setting.text}, which can change what git runs`;
+  return null;
+}
+
 function stripGitGlobals(words: Word[]): Word[] {
   const out: Word[] = [words[0] as Word];
   let index = 1;
@@ -557,6 +691,8 @@ function writesOf(words: Word[]): string[] | null {
       .map((word) => ({ ...word, text: word.text.slice("of=".length) }));
   } else if (name === "sed") {
     targets = sedTargets(args);
+  } else if (name === "find") {
+    targets = args.filter((_word, index) => ["-fprint", "-fprint0", "-fls", "-fprintf"].includes((args[index - 1] as Word | undefined)?.text ?? ""));
   }
   const paths: string[] = [];
   for (const target of targets) {

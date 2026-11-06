@@ -1,6 +1,6 @@
 /** F6 type-to-confirm: a critical card, or the next high card after a rubber-stamp flag, asks for a typed value. */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { confirmFieldsFor, askText, typedMatches, typedValue, readQuestionAnswer, type ConfirmField } from "../src/confirm/typed.js";
+import { confirmFieldsFor, askText, typedMatches, readQuestionAnswer, type ConfirmField } from "../src/confirm/typed.js";
 import { PROMPT_BUDGET, renderedCost } from "../src/cards/render.js";
 import type { OpenedCard } from "./fakes.js";
 import {
@@ -83,7 +83,7 @@ describe("the card", () => {
   it("carries the evidence in the prompt, opening with the Appendix D ask, inside the budget", async () => {
     const id = await heldCritical();
     const prompt = h.chat.cardIn("dm-sam").questions[0]?.prompt as string;
-    expect(prompt.startsWith(`${id} is high risk. Type the refund amount in rupees to approve: <handle> "150000". Or choose No.`)).toBe(true);
+    expect(prompt.startsWith(`${id} is high risk. To approve, type the refund amount in rupees, in quotes, after the request code. Or choose No, deny.`)).toBe(true);
     expect(prompt).toContain("Refund ₹1,50,000 to customer Rohan S. (cus_2044)");
     expect(prompt).toContain("Why you: finance approver on duty.");
     expect(prompt).toContain("expires 14:25 IST");
@@ -103,6 +103,45 @@ describe("the card", () => {
   });
 });
 
+describe("what the card gives away", () => {
+  const options = (card: OpenedCard) => (card.questions[0]?.options ?? []).map((option) => option.label);
+  const question = (card: OpenedCard) => (card.questions[0]?.prompt ?? "").split("\n\n")[0] as string;
+
+  it("on a refund amount: nothing in the question or the options, nor the raw number anywhere", async () => {
+    await heldCritical();
+    const card = h.chat.cardIn("dm-sam");
+    expect(card.questions[0]?.id).toBe("amount");
+    for (const text of [question(card), card.questions[0]?.title ?? "", ...options(card)]) expect(text).not.toContain("150000");
+    expect(card.questions[0]?.prompt).not.toContain("150000");
+    expect(card.questions[0]?.prompt).toContain("Refund ₹1,50,000");
+    expect(card.questions[0]?.prompt).not.toContain("<handle>");
+  });
+
+  it("on the destination: not in the question or the options, and on the evidence, where the person has to look", async () => {
+    await heldCritical();
+    await heldCritical({ ...REFUND_CRITICAL, amount: 150001 });
+    const card = h.chat.cards.filter((candidate) => candidate.roomId === "dm-sam")[1] as OpenedCard;
+    const lastFour = String(REFUND_CRITICAL.destination).slice(-4);
+    expect(card.questions[0]?.id).toBe("destination_last4");
+    for (const text of [question(card), card.questions[0]?.title ?? "", ...options(card)]) expect(text).not.toContain(lastFour);
+    expect(card.questions[0]?.prompt.split("\n\n").slice(1).join("\n")).toContain(String(REFUND_CRITICAL.destination));
+  });
+
+  it("on a service: not in the question or the options, and on the evidence", async () => {
+    await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@ops-agent ship it", { roomId: "#eng", threadId: null }));
+    await h.core.check({
+      ...gateRefund(),
+      agent: { name: "ops-agent" },
+      session: { switchRoomId: "#eng" },
+      business: { endpoint: "POST /acme/deploys", args: { service: "checkout", env: "prod", version: "v2.14.0" } },
+    });
+    const card = h.chat.cardIn("dm-alex");
+    expect(card.questions[0]?.id).toBe("service");
+    for (const text of [question(card), card.questions[0]?.title ?? "", ...options(card)]) expect(text).not.toContain("checkout");
+    expect(card.questions[0]?.prompt.split("\n\n").slice(1).join("\n")).toContain("checkout");
+  });
+});
+
 describe("which field it asks for", () => {
   it("offers amount and destination for a refund, and rotates between them per person", async () => {
     await heldCritical();
@@ -110,8 +149,7 @@ describe("which field it asks for", () => {
     await heldCritical({ ...REFUND_CRITICAL, amount: 150001 });
     const second = h.chat.cards.filter((card) => card.roomId === "dm-sam")[1] as OpenedCard;
     expect(second.questions[0]?.id).toBe("destination_last4");
-    const lastFour = String(REFUND_CRITICAL.destination).slice(-4);
-    expect(second.questions[0]?.prompt).toContain(`Type the last 4 characters of the destination to approve: <handle> "${lastFour}". Or choose No.`);
+    expect(second.questions[0]?.prompt).toContain("To approve, type the last 4 characters of the destination, in quotes, after the request code. Or choose No, deny.");
     await heldCritical({ ...REFUND_CRITICAL, amount: 150002 });
     const third = h.chat.cards.filter((card) => card.roomId === "dm-sam")[2] as OpenedCard;
     expect(third.questions[0]?.id).toBe("amount");
@@ -127,7 +165,7 @@ describe("which field it asks for", () => {
     });
     const card = h.chat.cardIn("dm-alex");
     expect(card.questions[0]?.id).toBe("service");
-    expect(card.questions[0]?.prompt).toContain('Type the service name to approve: <handle> "checkout". Or choose No.');
+    expect(card.questions[0]?.prompt).toContain("To approve, type the service name, in quotes, after the request code. Or choose No, deny.");
   });
 
   it("falls back to something every card has", async () => {
@@ -153,24 +191,48 @@ describe("which field it asks for", () => {
     expect(confirmFieldsFor(extracted)).toEqual(fields);
   });
 
-  it("words each ask with the exact reply: a bare number is ignored by Switch, and a word is refused", () => {
-    const ask = (field: ConfirmField, cls: string, extracted: Record<string, unknown>) => askText(field, "CLR-1", cls, "INR", extracted);
-    expect(ask("amount", "refund", { amount: 38000 })).toBe('CLR-1 is high risk. Type the refund amount in rupees to approve: <handle> "38000". Or choose No.');
-    expect(ask("amount", "payout_change", { amount: 38000 })).toBe('CLR-1 is high risk. Type the amount in rupees to approve: <handle> "38000". Or choose No.');
-    expect(ask("pr", "merge", { pr: 412 })).toBe('CLR-1 is high risk. Type the pull request number to approve: <handle> "412". Or choose No.');
-    expect(ask("request_id", "x", {})).toBe('CLR-1 is high risk. Type this request\'s id to approve: <handle> "CLR-1". Or choose No.');
+  it("words each ask, saying how to reply and never what to type", () => {
+    const ask = (field: ConfirmField, cls: string) => askText(field, "CLR-1", cls, "INR");
+    expect(ask("amount", "refund")).toBe("CLR-1 is high risk. To approve, type the refund amount in rupees, in quotes, after the request code. Or choose No, deny.");
+    expect(ask("amount", "payout_change")).toBe("CLR-1 is high risk. To approve, type the amount in rupees, in quotes, after the request code. Or choose No, deny.");
+    expect(ask("destination_last4", "refund")).toBe("CLR-1 is high risk. To approve, type the last 4 characters of the destination, in quotes, after the request code. Or choose No, deny.");
+    expect(ask("service", "deploy")).toBe("CLR-1 is high risk. To approve, type the service name, in quotes, after the request code. Or choose No, deny.");
+    expect(ask("domain", "customer_email")).toBe("CLR-1 is high risk. To approve, type the recipient's domain, in quotes, after the request code. Or choose No, deny.");
+    expect(ask("pr", "merge")).toBe("CLR-1 is high risk. To approve, type the pull request number, in quotes, after the request code. Or choose No, deny.");
+    expect(ask("request_id", "x")).toBe("This is high risk. To approve, type the CLR number from the title, in quotes, after the request code. Or choose No, deny.");
   });
 
-  it.each<[ConfirmField, Record<string, unknown>]>([
-    ["amount", { amount: "38000" }],
-    ["amount", { amount: 1500.5 }],
-    ["destination_last4", { destination: "rohan.s@okhdfc" }],
-    ["service", { service: "checkout" }],
-    ["domain", { domain: "acme.example" }],
-    ["pr", { pr: 412 }],
-    ["request_id", {}],
-  ])("the value the how-to shows for %s is one that is accepted", (field, extracted) => {
-    expect(typedMatches(field, typedValue(field, extracted, "CLR-1"), extracted, "CLR-1")).toBe(true);
+  /** What each field wants, as a person reads it off the card's evidence. */
+  const VALUES: [ConfirmField, Record<string, unknown>, string][] = [
+    ["amount", { amount: "38000" }, "38000"],
+    ["amount", { amount: 1500.5 }, "1500.5"],
+    ["destination_last4", { destination: "rohan.s@okhdfc" }, "hdfc"],
+    ["service", { service: "checkout" }, "checkout"],
+    ["domain", { domain: "acme.example" }, "acme.example"],
+    ["pr", { pr: 412 }, "412"],
+    ["request_id", {}, "CLR-0042"],
+  ];
+
+  it.each(VALUES)("%s: the question never prints its own answer", (field, _extracted, expected) => {
+    const ask = askText(field, "CLR-0042", "refund", "INR");
+    expect(ask).not.toContain(expected);
+    expect(ask).not.toContain("<handle>");
+  });
+
+  it.each(VALUES)("%s: the value off the card is accepted, in quotes or not, as Switch or the Lab delivers it", (field, extracted, expected) => {
+    for (const typed of [expected, `"${expected}"`, `'${expected}'`, `\u201c${expected}\u201d`, `  ${expected} `]) {
+      expect(typedMatches(field, typed, extracted, "CLR-0042"), typed).toBe(true);
+    }
+  });
+
+  it("isn't fooled by quotes around the wrong value, or half a pair", () => {
+    expect(typedMatches("amount", '"38001"', { amount: 38000 }, "CLR-1")).toBe(false);
+    expect(typedMatches("service", '"checkout', { service: "checkout" }, "CLR-1")).toBe(false);
+  });
+
+  it("reads a quoted no as a no", () => {
+    expect(readQuestionAnswer([{ question_id: "amount", selected_option_ids: [], custom_text: '"no"' }], "amount")).toEqual({ kind: "deny" });
+    expect(readQuestionAnswer([{ question_id: "amount", selected_option_ids: [], custom_text: '"38000"' }], "amount")).toEqual({ kind: "typed", text: "38000" });
   });
 
   it("never asks for a value that can't be typed in quotes or would swamp the card, because an agent chose it", () => {
@@ -413,7 +475,7 @@ describe("after a rubber-stamp flag", () => {
     await h.core.check(gateRefund(REFUND_SC4));
     const first = h.chat.cardIn("dm-sam");
     expect(first.kind).toBe("questions");
-    expect(first.questions[0]?.prompt).toContain("Type the refund amount");
+    expect(first.questions[0]?.prompt).toContain("type the refund amount");
     expect(h.core.people.store.friction("sam")).toBeNull();
     h.clock.advance(MINUTE);
     await typed(first, PARTICIPANTS.sam, "40000");
@@ -479,6 +541,7 @@ describe("L1, the fast lane", () => {
   it("needs one approver and no typing", async () => {
     h.core.stores.autonomy.setLevel("refunds-agent", "refund", "small", "L1", h.clock.nowMs());
     const small = { order_id: "A-1931", customer_id: "cus_8812", amount: 2000, destination: "fresh@oksbi" };
+    await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@refunds-agent refund it"));
     const held = await h.core.check(gateRefund(small));
     const id = held.request_id as string;
     expect(h.core.stores.requests.require(id).quorumRequired).toBe(1);
@@ -523,11 +586,12 @@ describe("no session on the action", () => {
   it("with nothing known, skips the copy and tells #approvals", async () => {
     const held = await h.core.check(gateRefund(REFUND_SC4, { session: undefined }));
     const id = held.request_id as string;
-    expect(h.chat.cards.map((card) => card.roomId)).toEqual(["dm-sam"]);
+    // Nothing known means nobody known to have asked, too, so two people have a card. Still no copy in any room.
+    expect(h.chat.cards.map((card) => card.roomId)).toEqual(["dm-sam", "dm-neha"]);
     await press(h.chat.cardIn("dm-sam"), PARTICIPANTS.priya);
     expect(h.chat.messages.at(-1)).toEqual({
       roomId: "#approvals",
-      body: `Priya can't approve ${id} (agent owner). Sent to Sam (finance, on duty).`,
+      body: `Priya can't approve ${id} (agent owner). Sent to Neha (finance, backup) and Sam (finance, on duty).`,
     });
     await press(lastOpen("dm-sam"), PARTICIPANTS.sam, "deny");
     expect(h.chat.targeted.at(-1)).toMatchObject({ roomId: "#approvals", targets: ["refunds-agent"] });

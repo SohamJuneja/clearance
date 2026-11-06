@@ -18,6 +18,11 @@
  *   covers every entry on its request, not only `drill_*`.
  * - The team gets totals only, in groups, so that no total is one person's result.
  *
+ * How fast someone answers, and what that set off, is theirs and the team admin's to see (F10). So what's copied says
+ * who decided what, and leaves out timing and rubber-stamp signals, and times are to the minute so the gap between
+ * two entries can't say it either. Entries keep their real hashes, which show the order. They can't be re-verified
+ * from this copy, and don't have to be: SQLite keeps everything, and `GET /v1/ledger/verify` checks the whole chain.
+ *
  * A person sees it as the notice in the room and on the room's page in the Gateway. `!list-documents`
  * crashes at Switch's pin (DECISIONS 03:20).
  */
@@ -73,15 +78,52 @@ function headerFor(name: string, firstSeq: number, lastSeq: number): string {
     "",
     `Ledger entries ${firstSeq} to ${lastSeq}, one JSON object per line, in order. Each holds the hash of the entry before it.`,
     "Drills are left out, so the numbers can skip. `clearance-state` has their totals.",
-    "This is a copy and can lag behind. The truth is Clearance's SQLite ledger: check it with `pnpm ledger:verify` or `GET /v1/ledger/verify`.",
+    "Per-person timing is omitted: how long someone took and what that set off, with times to the minute. Each hash is the entry's real one, so the order can be seen.",
+    "This is a copy and can lag behind. The truth is Clearance's SQLite ledger, which keeps everything: the full chain is verified by `GET /v1/ledger/verify` or `pnpm ledger:verify`.",
     "",
     FENCE,
     "",
   ].join("\n");
 }
 
+/** How someone's answer went, which is for them and the team admin (F10). Who decided what stays. */
+const PER_PERSON_FIELDS = ["latency_ms", "fast_approval", "signals", "t_min_ms", "flags_ignored", "typed_field"];
+/** Saying someone was asked to type, or typed it wrong, says they'd been rubber-stamping. */
+const PER_PERSON_REASONS = new Set(["needs_typed_confirmation", "wrong_confirmation", "failed_confirm"]);
+/** The router's view of each person: how loaded, when last seen, how much of a class falls to them. */
+const PER_PERSON_ROUTING = ["openCards", "concentrated", "activeAgoMs", "activeRoom"];
+
+const list = (value: unknown): Record<string, unknown>[] => (Array.isArray(value) ? (value as Record<string, unknown>[]) : []);
+
+function withoutFields(row: Record<string, unknown>, fields: string[]): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(row).filter(([key]) => !fields.includes(key)));
+}
+
+const withoutReasons = (reasons: unknown): unknown =>
+  Array.isArray(reasons) ? (reasons as string[]).filter((reason) => !PER_PERSON_REASONS.has(reason)) : reasons;
+
+/** To the minute: seconds between a card opening and an answer are as good as the latency itself. */
+function toTheMinute(at: string): string {
+  const ms = Date.parse(at);
+  return Number.isNaN(ms) ? at : new Date(ms - (ms % 60_000)).toISOString();
+}
+
+/** What the room may read of an entry. The hashes are the entry's real ones. SQLite is left as it is. */
+export function redactedEntry(entry: LedgerEntry): LedgerEntry {
+  const payload = withoutFields(entry.payload, PER_PERSON_FIELDS);
+  if ("reasons" in payload) payload.reasons = withoutReasons(payload.reasons);
+  if (Array.isArray(payload.ranked)) payload.ranked = list(payload.ranked).map((person) => withoutFields(person, PER_PERSON_ROUTING));
+  if (Array.isArray(payload.excluded)) {
+    payload.excluded = list(payload.excluded)
+      .map((person) => ({ ...person, reasons: withoutReasons(person.reasons) }))
+      .filter((person) => (person.reasons as string[]).length > 0);
+  }
+  return { ...entry, at: toTheMinute(entry.at), payload };
+}
+
 /** An entry too big for any document keeps its place in the chain, and says where the rest is. */
-function lineFor(entry: LedgerEntry, maxBytes: number): string {
+function lineFor(original: LedgerEntry, maxBytes: number): string {
+  const entry = redactedEntry(original);
   const whole = JSON.stringify(entry);
   if (Buffer.byteLength(whole) <= maxBytes) return whole;
   const { payload, ...rest } = entry;

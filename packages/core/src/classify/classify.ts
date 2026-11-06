@@ -5,6 +5,7 @@
 import { posix } from "node:path";
 import type { Action } from "@clearance/contracts";
 import type { CompiledClass, CompiledMatch, CompiledPolicy, MatchKind } from "../policy/load.js";
+import { fetchStaysOnGate } from "./fetch.js";
 import type { SubCommand } from "./shell.js";
 
 export type NormalCall = {
@@ -18,6 +19,9 @@ export type NormalCall = {
   args: Record<string, unknown>;
   /** True when `args` are the call's own structured arguments (gate, MCP), not just the command text. */
   structured: boolean;
+  /** A sub-command's words and what came before them, so a helper can read arguments instead of a line of text. */
+  words?: string[];
+  wrappers?: string[];
 };
 
 function objectArgs(value: unknown): Record<string, unknown> {
@@ -143,6 +147,8 @@ export function subCommandCall(command: SubCommand): NormalCall {
     target: "shell",
     args: { command: command.canonical },
     structured: false,
+    words: command.words,
+    wrappers: command.wrappers,
   };
 }
 
@@ -201,5 +207,8 @@ function reachesGate(call: NormalCall, policy: CompiledPolicy): boolean {
 /** PLAN 7.3 step 6. Every gate write is protected by construction; the rest comes from the policy. */
 export function isProtected(call: NormalCall, policy: CompiledPolicy): boolean {
   if (call.kind === "gate") return true;
+  // A fetch that only goes to the gate is fine, because the gate holds what it needs to. Regexes can't tell the
+  // request's host from text that mentions it, so this one question is answered by reading the arguments.
+  if (call.kind === "shell" && fetchStaysOnGate(call.words ?? [], call.wrappers ?? [], policy.defaults.gate_hosts ?? [])) return false;
   return policy.protected.some((entry) => matches(entry, call));
 }

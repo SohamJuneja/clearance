@@ -64,10 +64,14 @@ export function missingDataFlag(fields: string[]): Flag {
 
 export const NO_RULE_FLAG: Flag = { code: "no_rule", text: "No policy rule covers this protected resource" };
 export const MALFORMED_FLAG: Flag = { code: "malformed", text: "The call could not be read" };
-export const REQUESTER_UNKNOWN_FLAG: Flag = {
-  code: "requester_unknown",
-  text: "Requester unknown: nobody addressed this agent in the last 10 minutes",
-};
+const COUNT_WORDS = ["zero", "one", "two", "three", "four", "five"];
+
+export function requesterUnknownFlag(quorum: number): Flag {
+  return {
+    code: "requester_unknown",
+    text: `Requester unknown: nobody can tell who asked, so this needs ${COUNT_WORDS[quorum] ?? quorum} approvals from different people.`,
+  };
+}
 
 export function unparsedFlag(reason: string): Flag {
   return { code: "unparsed", text: `Could not read this shell line with confidence: ${reason}` };

@@ -1604,7 +1604,7 @@ Policy: refunds over ₹10,000 need 1 finance approver · expires 15:42 IST
 @clearance why CLR-0042
 ```
 
-**Type-to-confirm question:** `CLR-0051 is high risk. Type the refund amount in rupees to approve: <handle> "38000". Or choose No.` (Switch refuses a word on a questions card and ignores a bare number, so the reply has to be exact. Rotate the asked field: amount, last 4 characters of the destination, service name.)
+**Type-to-confirm question:** "CLR-0051 is high risk. To approve, type the refund amount in rupees, in quotes, after the request code. Or choose No, deny." (Never the value: it is on the card's evidence, and looking there is the point. Switch refuses a word on a questions card and ignores a bare number, so the reply needs its quotes. Rotate the asked field: amount, last 4 characters of the destination, service name.)
 
 **Refusal in the origin room:** "Priya can't approve CLR-0042 (requester, agent owner). Sent to Sam (finance, on duty)."
 

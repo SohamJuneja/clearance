@@ -154,7 +154,7 @@ Policy: refunds over ₹10,000 need 1 finance approver · expires 14:25 IST
 exports[`cards from real calls: snapshots across fixture calls > 'bulk email to an external domain' 1`] = `
 [
   {
-    "prompt": "CLR-0001 is high risk. Type the recipient's domain to approve: <handle> "gmail.com". Or choose No.
+    "prompt": "CLR-0001 is high risk. To approve, type the recipient's domain, in quotes, after the request code. Or choose No, deny.
 
 The call (parsed from what the agent ran, not from its words)
   Email to auditor.ravi@gmail.com
@@ -175,7 +175,7 @@ Policy: customer emails with bulk data need 1 support-lead approver · expires 1
     "title": "CLR-0001 · CUSTOMER EMAIL auditor.ravi@gmail.com · CRITICAL · irreversible",
   },
   {
-    "prompt": "CLR-0001 is high risk. Type the recipient's domain to approve: <handle> "gmail.com". Or choose No.
+    "prompt": "CLR-0001 is high risk. To approve, type the recipient's domain, in quotes, after the request code. Or choose No, deny.
 
 The call (parsed from what the agent ran, not from its words)
   Email to auditor.ravi@gmail.com
@@ -343,11 +343,11 @@ Context
   refunds-agent refunds today: 0
 
 Flags
-  ⚠ Requester unknown: nobody addressed this agent in the last 10 minutes
+  ⚠ Requester unknown: nobody can tell who asked, so this needs two approvals from different people.
 
 Asked by: requester unknown, through refunds-agent (Claude Code, owned by Priya)
 Why you: finance approver on duty. Can't approve: Priya (agent owner).
-Policy: refunds over ₹10,000 need 1 finance approver · expires 14:25 IST
+Policy: refunds over ₹10,000 need 2 finance approvers · expires 14:25 IST
 
 @clearance why CLR-0001",
     "roomId": "dm-sam",
@@ -365,11 +365,33 @@ Context
   refunds-agent refunds today: 0
 
 Flags
-  ⚠ Requester unknown: nobody addressed this agent in the last 10 minutes
+  ⚠ Requester unknown: nobody can tell who asked, so this needs two approvals from different people.
 
 Asked by: requester unknown, through refunds-agent (Claude Code, owned by Priya)
-Why here: copy for this room; Sam (finance, on duty) decides. Can't approve: Priya (agent owner).
-Policy: refunds over ₹10,000 need 1 finance approver · expires 14:25 IST
+Why you: backup finance approver. Can't approve: Priya (agent owner).
+Policy: refunds over ₹10,000 need 2 finance approvers · expires 14:25 IST
+
+@clearance why CLR-0001",
+    "roomId": "dm-neha",
+    "title": "CLR-0001 · REFUND ₹40,000 · HIGH · irreversible",
+  },
+  {
+    "detail": "The call (parsed from what the agent ran, not from its words)
+  Refund ₹40,000 to customer Rohan S. (cus_2044)
+  Destination: UPI rohan.s@okhdfc
+  Order A-2004 · total ₹40,000
+
+Context
+  Refunds to this customer in 24 h: ₹0
+  Destination added 83 days ago
+  refunds-agent refunds today: 0
+
+Flags
+  ⚠ Requester unknown: nobody can tell who asked, so this needs two approvals from different people.
+
+Asked by: requester unknown, through refunds-agent (Claude Code, owned by Priya)
+Why here: copy for this room; Sam (finance, on duty) and Neha (finance, backup) decide. Can't approve: Priya (agent owner).
+Policy: refunds over ₹10,000 need 2 finance approvers · expires 14:25 IST
 
 @clearance why CLR-0001",
     "roomId": "#support",
@@ -412,7 +434,7 @@ Policy: payout destination changes need 1 finance approver · expires 14:25 IST
 exports[`cards from real calls: snapshots across fixture calls > 'prod deploy with failing checks' 1`] = `
 [
   {
-    "prompt": "CLR-0001 is high risk. Type the service name to approve: <handle> "checkout". Or choose No.
+    "prompt": "CLR-0001 is high risk. To approve, type the service name, in quotes, after the request code. Or choose No, deny.
 
 The call (parsed from what the agent ran, not from its words)
   Deploy checkout v2.14.0 to prod
@@ -432,7 +454,7 @@ Policy: prod deploys need 1 eng approver · expires 14:25 IST",
     "title": "CLR-0001 · DEPLOY checkout v2.14.0 prod · CRITICAL · reversible",
   },
   {
-    "prompt": "CLR-0001 is high risk. Type the service name to approve: <handle> "checkout". Or choose No.
+    "prompt": "CLR-0001 is high risk. To approve, type the service name, in quotes, after the request code. Or choose No, deny.
 
 The call (parsed from what the agent ran, not from its words)
   Deploy checkout v2.14.0 to prod

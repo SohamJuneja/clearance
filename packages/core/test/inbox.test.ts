@@ -77,6 +77,7 @@ describe("answering from the inbox", () => {
     start();
     h.chat.giveHandles = true;
     const keeper = keeperOf(h);
+    await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@refunds-agent refund it"));
     const first = await h.core.check(gateRefund(REFUND_SC3, support));
     const second = await h.core.check(gateRefund(REFUND_SC4, finance));
     await keeper.sync();
@@ -140,6 +141,7 @@ describe("what a person sees: the card and the list are not duplicates", () => {
   it("still explains itself when someone is brought in as a backup", async () => {
     start();
     const keeper = keeperOf(h);
+    await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@refunds-agent refund it"));
     await h.core.check(gateRefund(REFUND_SC4, support));
     h.clock.advance(3 * MINUTE + 1000);
     await h.core.tick();
@@ -386,6 +388,7 @@ describe("when Switch or Mattermost is failing", () => {
     h.chat.sendTargeted = async () => {
       throw new Error("switch unreachable");
     };
+    await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@refunds-agent refund it"));
     const held = await h.core.check(gateRefund(REFUND_SC4, support));
     expect(held.decision).toBe("hold");
     await keeper.sync();

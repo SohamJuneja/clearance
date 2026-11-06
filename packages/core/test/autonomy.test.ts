@@ -433,8 +433,10 @@ describe("in core", () => {
       const world = h.lookup.world as Record<string, Record<string, Record<string, unknown>>>;
       const run = async (index: number) => {
         const customer = `cus_real_${index}`;
+        const destination = `upi${index}@okaxis`;
         (world.customers as Record<string, Record<string, unknown>>)[customer] = { id: customer, name: "Someone" };
-        const response = await smallRefund({ ...SMALL, customer_id: customer });
+        (world.destinations as Record<string, Record<string, unknown>>)[destination] = { id: destination, age_hours: 720 };
+        const response = await smallRefund({ ...SMALL, customer_id: customer, destination });
         h.clock.advance(MINUTE);
         return response.request_id as string;
       };
@@ -585,12 +587,13 @@ describe("in core", () => {
   describe("L3: silent up to a daily cap", () => {
     beforeEach(() => setLevel("L3"));
 
-    const another = (index: number, amount = 4000) => ({ ...SMALL, amount, customer_id: `cus_l3_${index}` });
+    const another = (index: number, amount = 4000) => ({ ...SMALL, amount, customer_id: `cus_l3_${index}`, destination: `upi${index}@okaxis` });
 
     function knownCustomers(count: number): void {
       const world = h.lookup.world as Record<string, Record<string, Record<string, unknown>>>;
       for (let index = 0; index < count; index += 1) {
         (world.customers as Record<string, Record<string, unknown>>)[`cus_l3_${index}`] = { id: `cus_l3_${index}`, name: "Someone" };
+        (world.destinations as Record<string, Record<string, unknown>>)[`upi${index}@okaxis`] = { id: `upi${index}@okaxis`, age_hours: 720 };
       }
     }
 

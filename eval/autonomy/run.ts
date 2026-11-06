@@ -152,7 +152,8 @@ async function promote(core: Clearance, chat: Chat, clock: Clock) {
 }
 
 function refundAction(draw: Draw, index: number, clock: Clock): Action {
-  const args = { order_id: `A-${5000 + index}`, customer_id: `cus_wk2_${index}`, amount: draw.amount, destination: "synthetic@okhdfc" };
+  // Each its own destination, as in the seeded week: one shared one would be the fan-out the policy holds.
+  const args = { order_id: `A-${5000 + index}`, customer_id: `cus_wk2_${index}`, amount: draw.amount, destination: `synthetic-wk2-${index}@okhdfc` };
   return {
     id: `e6-${index}-${draw.atMs}`,
     at: new Date(clock.nowMs()).toISOString(),

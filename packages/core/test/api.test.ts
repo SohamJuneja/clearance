@@ -116,6 +116,7 @@ describe("POST /v1/check", () => {
 
 describe("GET /v1/requests/:id", () => {
   it("returns state and evidence at the top level, as the gate reads it", async () => {
+    await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@refunds-agent refund it"));
     await check(gateRefund(REFUND_SC3));
     const response = await get("/v1/requests/CLR-0001");
     expect(response.statusCode).toBe(200);
@@ -206,6 +207,7 @@ describe("GET /v1/inbox", () => {
   });
 
   it("shows nothing for someone with no open cards", async () => {
+    await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@refunds-agent refund it"));
     await check(gateRefund(REFUND_SC4));
     const body = (await get("/v1/inbox?user=neha")).json();
     expect(body).toMatchObject({ count: 0, items: [], text: "Needs your response (0)" });

@@ -117,6 +117,7 @@ describe("in core", () => {
     });
 
     it("never spends a grant", async () => {
+      await h.core.onMessage(chatMessage(PARTICIPANTS.alex, "@coder force push it"));
       const held = await h.core.check(hookShell("git push --force origin main"));
       const card = h.chat.cards.find((candidate) => candidate.roomId === "dm-dev");
       await h.core.onApprovalOutcome({

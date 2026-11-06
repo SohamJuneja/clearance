@@ -8,7 +8,7 @@ import { loadFlaws } from "../src/drills/library.js";
 import { isInboxMessage } from "../src/inbox/inbox.js";
 import { createInboxKeeper } from "../src/inbox/keeper.js";
 import type { LedgerEntry } from "../src/ledger/ledger.js";
-import { createLedgerMirror, MIRROR_EVERY_MS, STATE_DOCUMENT, type LedgerMirror } from "../src/ledger/mirror.js";
+import { createLedgerMirror, MIRROR_EVERY_MS, STATE_DOCUMENT, type LedgerMirror, redactedEntry } from "../src/ledger/mirror.js";
 import type { OpenedCard } from "./fakes.js";
 import { DRILLS_PATH, gateRefund, makeHarness, MINUTE, PARTICIPANTS, REFUND_SC3, REFUND_SC4, type Harness } from "./harness.js";
 
@@ -85,7 +85,7 @@ describe("the mirror, once a real drill has closed", () => {
     const report = await mirror.flush();
     expect(report.ok).toBe(true);
     expect(report.mirrored_seq).toBe(report.head_seq);
-    expect(entries()).toEqual(withheldFrom(h.core.stores.ledger.list(), id));
+    expect(entries()).toEqual(withheldFrom(h.core.stores.ledger.list(), id).map(redactedEntry));
     expect(entries().some((entry) => entry.request_id === real.request_id)).toBe(true);
     expect(h.chat.documents.map((document) => document.content).join()).not.toContain(id);
   });

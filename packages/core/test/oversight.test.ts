@@ -673,7 +673,9 @@ describe("F22 audit export and digest", () => {
       const id = await approved();
       h.core.stores.autonomy.setLevel("refunds-agent", "refund", "small", "L3", h.clock.nowMs());
       h.clock.advance(MINUTE);
-      await h.core.check(gateRefund(SMALL));
+      // A destination of its own: the 24 h rule on one destination would hold this after the ₹40,000 above.
+      (h.lookup.world.destinations as Record<string, Record<string, unknown>>)["other@okaxis"] = { id: "other@okaxis", age_hours: 720 };
+      await h.core.check(gateRefund({ ...SMALL, destination: "other@okaxis" }));
       await h.core.sendDrill("neha");
       const body = (await get("/v1/digest")).json();
       expect(body).toMatchObject({

@@ -231,7 +231,7 @@ Policy: refunds over ₹10,000 need 1 finance approver · expires 15:42 IST
   });
 
   describe("a question card's prompt", () => {
-    const ask = 'CLR-0042 is high risk. Type the refund amount in rupees to approve: <handle> "40000". Or choose No.';
+    const ask = "CLR-0042 is high risk. To approve, type the refund amount in rupees, in quotes, after the request code. Or choose No, deny.";
     const base = { ...APPENDIX_VIEW, claim: undefined };
     const costWithClaim = (length: number) =>
       renderedCost(renderPrompt({ ...base, context: [], claim: "x".repeat(length) }, ask));

@@ -3,8 +3,8 @@ import type { FastifyInstance } from "fastify";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildServer } from "../src/api/server.js";
 import type { LedgerEntry } from "../src/ledger/ledger.js";
-import { createLedgerMirror, dayOf, drillTotals, ledgerDocuments, MAX_DOCUMENT_BYTES, MIRROR_EVERY_MS, renderClearanceState, STATE_DOCUMENT, type LedgerMirror } from "../src/ledger/mirror.js";
-import { gateRefund, makeHarness, MINUTE, NOW, PARTICIPANTS, REFUND_SC3, REFUND_SC4, type Harness } from "./harness.js";
+import { createLedgerMirror, dayOf, drillTotals, ledgerDocuments, redactedEntry, MAX_DOCUMENT_BYTES, MIRROR_EVERY_MS, renderClearanceState, STATE_DOCUMENT, type LedgerMirror } from "../src/ledger/mirror.js";
+import { chatMessage, gateRefund, makeHarness, MINUTE, NOW, PARTICIPANTS, REFUND_SC3, REFUND_SC4, type Harness } from "./harness.js";
 
 const TZ = "Asia/Kolkata";
 const DAY = "2026-11-04";
@@ -41,7 +41,7 @@ function latestByName(): Map<string, string> {
 const afterTick = () => new Promise((done) => setImmediate(done));
 
 describe("what goes in the room", () => {
-  it("names one document per day and puts every entry in it, exactly as the ledger has it", async () => {
+  it("names one document per day and puts every entry in it, exactly as the room may read it", async () => {
     await h.core.check(gateRefund(REFUND_SC4));
     const report = await mirror.flush();
     expect(report.ok).toBe(true);
@@ -49,7 +49,7 @@ describe("what goes in the room", () => {
 
     const [document] = documentsNamed(`clearance-ledger-${DAY}`);
     expect(document?.roomId).toBe("#approvals");
-    expect(entriesIn(document!.content)).toEqual(h.core.stores.ledger.list());
+    expect(entriesIn(document!.content)).toEqual(h.core.stores.ledger.list().map(redactedEntry));
   });
 
   it("says it is a copy and how to check the truth", async () => {
@@ -61,6 +61,7 @@ describe("what goes in the room", () => {
   });
 
   it("writes clearance-state with open requests and autonomy levels", async () => {
+    await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@refunds-agent refund it"));
     await h.core.check(gateRefund(REFUND_SC4));
     await mirror.flush();
     const [state] = documentsNamed(STATE_DOCUMENT);
@@ -129,9 +130,9 @@ describe("days and rollover", () => {
     const once = ledgerDocuments(entries, { tz: TZ, maxBytes: 2_000 });
     const again = ledgerDocuments(entries, { tz: TZ, maxBytes: 2_000 });
     expect(again).toEqual(once);
-    // Appending more leaves every full document as it was.
+    // Appending more leaves every full document as it was. It may fill the last one, or start another.
     const later = ledgerDocuments([...entries, entry(31, "2026-11-04T10:00:00.000Z", { pad: "y" })], { tz: TZ, maxBytes: 2_000 });
-    expect(later.slice(0, -1)).toEqual(once.slice(0, -1));
+    expect(later.slice(0, once.length - 1)).toEqual(once.slice(0, -1));
   });
 
   it("keeps an entry too big for any document in its place, and says where the rest is", () => {
@@ -265,6 +266,7 @@ describe("failure", () => {
   it("never blocks a decision", async () => {
     breakDocuments(h);
     await expect(mirror.flush()).resolves.toMatchObject({ ok: false, error: "switch unreachable" });
+    await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@refunds-agent refund it"));
     const held = await h.core.check(gateRefund(REFUND_SC4));
     expect(held.decision).toBe("hold");
     await h.core.onApprovalOutcome({
@@ -305,7 +307,7 @@ describe("failure", () => {
     const report = await mirror.flush();
     expect(report.ok).toBe(true);
     expect(report.mirrored_seq).toBe(report.head_seq);
-    expect(entriesIn(latestByName().get(`clearance-ledger-${DAY}`)!)).toEqual(h.core.stores.ledger.list());
+    expect(entriesIn(latestByName().get(`clearance-ledger-${DAY}`)!)).toEqual(h.core.stores.ledger.list().map(redactedEntry));
   });
 
   it("keeps its place when it fails partway, on the document that failed", async () => {
@@ -456,7 +458,7 @@ describe("drills", () => {
       expect(published().some((entry) => entry.request_id === real.request_id)).toBe(true);
       expect(published().some((entry) => entry.request_id === id)).toBe(false);
 
-      const expected = h.core.stores.ledger.list().filter((entry) => !entry.type.startsWith("drill_") && entry.request_id !== id);
+      const expected = h.core.stores.ledger.list().filter((entry) => !entry.type.startsWith("drill_") && entry.request_id !== id).map(redactedEntry);
       expect(published()).toEqual(expected);
     });
 
@@ -503,7 +505,7 @@ describe("drills", () => {
       expect(mirror.status().mirrored_seq).toBe(0);
       h.chat.upsertDocument = working;
       expect((await mirror.flush()).ok).toBe(true);
-      expect(published()).toEqual(h.core.stores.ledger.list().filter((entry) => !entry.type.startsWith("drill_") && entry.request_id !== id));
+      expect(published()).toEqual(h.core.stores.ledger.list().filter((entry) => !entry.type.startsWith("drill_") && entry.request_id !== id).map(redactedEntry));
     });
 
     it("withholds a drill entry that names no request", async () => {
@@ -590,5 +592,95 @@ describe("the API", () => {
     expect((await bare.inject({ method: "POST", url: "/v1/ledger/mirror", headers: auth })).statusCode).toBe(404);
     expect((await bare.inject({ method: "GET", url: "/v1/ledger", headers: auth })).statusCode).toBe(200);
     await bare.close();
+  });
+});
+
+describe("what a person's record looks like from the room (F10)", () => {
+  /** Sam approves in under a second: a fast approval, with friction to follow. */
+  async function fastApproval(): Promise<string> {
+    await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@refunds-agent refund it"));
+    const held = await h.core.check(gateRefund(REFUND_SC4));
+    h.clock.advance(800);
+    const card = h.chat.cardIn("dm-sam");
+    await h.core.onApprovalOutcome({
+      sessionId: card.sessionId,
+      switchRequestId: card.switchRequestId,
+      kind: "approval",
+      state: "answered",
+      answer: "allow",
+      answeredBy: PARTICIPANTS.sam,
+      answeredAtMs: h.clock.nowMs(),
+    });
+    return held.request_id as string;
+  }
+
+  const lines = () =>
+    (h.chat.documents.findLast((document) => document.name.startsWith("clearance-ledger-"))?.content ?? "")
+      .split("\n")
+      .filter((line) => line.startsWith("{"))
+      .map((line) => JSON.parse(line) as { type: string; at: string; seq: number; entry_hash: string; prev_hash: string; request_id: string | null; payload: Record<string, unknown> });
+
+  it("publishes who answered, and nothing about how fast or what it set off", async () => {
+    const id = await fastApproval();
+    await mirror.flush();
+    const answered = lines().find((line) => line.type === "answered");
+    expect(answered?.payload).toMatchObject({ user_id: "sam", decision: "approve" });
+    for (const field of ["latency_ms", "fast_approval", "signals", "t_min_ms", "flags_ignored", "typed_field"]) {
+      expect(answered?.payload, field).not.toHaveProperty(field);
+    }
+    const whole = h.chat.documents.map((document) => document.content).join("\n");
+    for (const word of ["latency_ms", "fast_approval", "t_min_ms", '"signals"']) expect(whole, word).not.toContain(word);
+    expect(lines().find((line) => line.type === "approved")?.payload).toMatchObject({ approved_by: ["sam"] });
+    expect(id).toMatch(/^CLR-/);
+  });
+
+  it("can't be worked out from the times either: they're to the minute", async () => {
+    await fastApproval();
+    await mirror.flush();
+    for (const line of lines()) expect(line.at, line.type).toMatch(/:00\.000Z$/);
+  });
+
+  it("leaves out the routing's picture of each person: load, last seen, and being over-relied on", async () => {
+    await fastApproval();
+    await mirror.flush();
+    const routed = lines().find((line) => line.type === "routed");
+    const ranked = routed?.payload.ranked as Record<string, unknown>[];
+    expect(ranked.map((person) => person.id)).toContain("sam");
+    for (const person of ranked) {
+      for (const field of ["openCards", "concentrated", "activeAgoMs", "activeRoom"]) expect(person, field).not.toHaveProperty(field);
+    }
+  });
+
+  it("leaves out that someone was asked to type, or typed it wrong", async () => {
+    h.core.stores.ledger.append("ineligible_answer", "CLR-0099", { user_id: "sam", reasons: ["wrong_confirmation", "requester"] });
+    h.core.stores.ledger.append("ineligible_answer", "CLR-0098", { user_id: "sam", reasons: ["needs_typed_confirmation"] });
+    await mirror.flush();
+    const refused = lines().filter((line) => line.type === "ineligible_answer");
+    expect(refused.map((line) => line.payload.reasons)).toEqual([["requester"], []]);
+    const whole = h.chat.documents.map((document) => document.content).join("\n");
+    expect(whole).not.toContain("wrong_confirmation");
+    expect(whole).not.toContain("needs_typed_confirmation");
+  });
+
+  it("keeps each entry's hash, so the order can be seen, and says where the full chain is checked", async () => {
+    await fastApproval();
+    await mirror.flush();
+    const all = h.core.stores.ledger.list();
+    for (const line of lines()) {
+      const real = all.find((entry) => entry.seq === line.seq);
+      expect(line.entry_hash).toBe(real?.entry_hash);
+      expect(line.prev_hash).toBe(real?.prev_hash);
+    }
+    const document = h.chat.documents.findLast((candidate) => candidate.name.startsWith("clearance-ledger-"));
+    expect(document?.content).toContain("Per-person timing is omitted");
+    expect(document?.content).toContain("GET /v1/ledger/verify");
+  });
+
+  it("changes nothing in SQLite: the ledger keeps it all and still verifies", async () => {
+    const id = await fastApproval();
+    await mirror.flush();
+    const answered = h.core.stores.ledger.list({ requestId: id }).find((entry) => entry.type === "answered");
+    expect(answered?.payload).toMatchObject({ latency_ms: 800, fast_approval: true, signals: ["fast"] });
+    expect(h.core.verifyLedger().ok).toBe(true);
   });
 });

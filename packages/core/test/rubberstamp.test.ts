@@ -179,7 +179,7 @@ describe("what core does", () => {
       await heldRefund(40001);
       const next = lastCard("dm-sam");
       expect(next.kind).toBe("questions");
-      expect(next.questions[0]?.prompt).toContain("Type the refund amount");
+      expect(next.questions[0]?.prompt).toContain("type the refund amount");
     });
 
     it("leaves other people's cards alone", async () => {

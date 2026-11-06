@@ -181,7 +181,7 @@ describe("SC5 and SC6: cross-vendor routing", () => {
     const id = held.request_id as string;
     const card = h.chat.cardIn("dm-alex");
     const prompt = card.questions[0]?.prompt;
-    expect(prompt).toContain('Type the service name to approve: <handle> "checkout". Or choose No.');
+    expect(prompt).toContain("To approve, type the service name, in quotes, after the request code. Or choose No, deny.");
     expect(prompt).toContain("Deploy checkout v2.14.0 to prod");
     expect(prompt).toContain("Checks: failing (2 failing: checkout-e2e, payment-contract)");
     await press(card, PARTICIPANTS.alex, "deny");

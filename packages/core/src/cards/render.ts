@@ -168,7 +168,7 @@ export function renderReviewCard(view: CardView, level: string, note: string): {
 
 /**
  * A questions card has no detail slot, so the question's prompt carries the evidence, with a smaller budget.
- * `ask` is the question itself ("Type the refund amount in rupees to approve: ...") and always stays.
+ * `ask` is the question itself ("To approve, type the refund amount in rupees, ...") and always stays.
  */
 export function renderPrompt(view: CardView, ask: string): string {
   return fit(view, PROMPT_BUDGET, (shrink) => {

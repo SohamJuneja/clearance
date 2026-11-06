@@ -356,8 +356,18 @@ describe("condition B is the Appendix D card", () => {
   it("uses the product's wording for the type-to-confirm question, with the exact reply Switch accepts", () => {
     const amount = [...X, ...Y].find((r) => r.b.confirm?.field === "amount")!;
     expect(amount.b.confirm!.question).toBe(
-      `${amount.b.clr} is high risk. Type the refund amount in rupees to approve: <handle> "${amount.b.confirm!.expected}". Or choose No.`,
+      `${amount.b.clr} is high risk. To approve, type the refund amount in rupees, in quotes, after the request code. Or choose No, deny.`,
     );
+  });
+
+  it("never prints the answer in the question: the person has to look at the evidence", () => {
+    const confirms = ALL.filter((request) => request.b.confirm);
+    expect(confirms.length).toBeGreaterThan(0);
+    for (const request of confirms) {
+      const { question, expected } = request.b.confirm!;
+      expect(question, request.id).not.toContain(expected);
+      expect(question, request.id).not.toContain("<handle>");
+    }
   });
 
   it("type-to-confirm expected values are on the card, so the task is reading, not recall", () => {

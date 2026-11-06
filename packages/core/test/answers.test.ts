@@ -95,9 +95,9 @@ describe("on hold", () => {
     expect(h.chat.cards.map((card) => card.roomId)).toEqual(["dm-sam", "dm-neha", "#support"]);
   });
 
-  it("opens only the approver's card when no origin room is known", async () => {
+  it("opens only the approvers' cards when no origin room is known, and nobody known to have asked means two", async () => {
     await h.core.check(gateRefund(REFUND_SC4, { session: undefined }));
-    expect(h.chat.cards.map((card) => card.roomId)).toEqual(["dm-sam"]);
+    expect(h.chat.cards.map((card) => card.roomId)).toEqual(["dm-sam", "dm-neha"]);
   });
 
   it("tells the approver by name after opening each card, since a card mentions nobody", async () => {

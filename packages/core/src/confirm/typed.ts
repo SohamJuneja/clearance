@@ -10,8 +10,8 @@ export type ConfirmField = "amount" | "destination_last4" | "service" | "domain"
 const present = (value: unknown): boolean => value !== undefined && value !== null && String(value).trim() !== "";
 
 /**
- * The value goes in quotes in the card's how-to, and in the approver's reply. An agent can choose these values, so
- * one that would break the quotes or swamp the card is not something to ask for.
+ * The approver types the value in quotes, and an agent can choose these values. One that would break the quotes, or
+ * that nobody could be expected to type, is not something to ask for.
  */
 const TYPEABLE_MAX = 60;
 const typeable = (value: unknown): boolean => {
@@ -37,46 +37,43 @@ function moneyWords(currency: string): string {
   return currency === "INR" ? "in rupees" : `in ${currency}`;
 }
 
-/** The value as the how-to shows it, and as `typedMatches` accepts it. */
-export function typedValue(field: ConfirmField, extracted: Record<string, unknown>, requestId: string): string {
-  switch (field) {
-    case "amount":
-      return String(toNumber(extracted.amount));
-    case "destination_last4":
-      return String(extracted.destination).trim().slice(-4);
-    case "service":
-      return String(extracted.service).trim();
-    case "domain":
-      return String(extracted.domain).trim();
-    case "pr":
-      return String(extracted.pr).trim();
-    case "request_id":
-      return requestId;
-  }
-}
-
 /**
- * Switch's real rules, all measured: a word like `A19 no` is refused on a questions card, a bare `A19 38000` is
- * silently ignored, `A19 "38000"` works, and `A19 1` picks option 1, which is the No. The handle is only ever written
- * into the post by Switch, after we've opened the card, so the how-to names it with a placeholder and Switch's own
- * request line shows the real one.
+ * The question says how to reply and never what to type: the value is on the card's evidence, and looking there is the
+ * point. Switch's rules, all measured: a bare `A19 38000` is silently ignored and `A19 "38000"` works, hence "in quotes";
+ * a word like `A19 no` is refused on a questions card; `A19 1` picks option 1, which is the No. "The request code" is
+ * the handle, which only Switch knows, and it writes it on the card's own request line.
  */
-export const HANDLE_PLACEHOLDER = "<handle>";
-
-export function askText(field: ConfirmField, requestId: string, cls: string, currency: string, extracted: Record<string, unknown>): string {
+export function askText(field: ConfirmField, requestId: string, cls: string, currency: string): string {
   const what: Record<ConfirmField, string> = {
     amount: `the ${cls === "refund" ? "refund " : ""}amount ${moneyWords(currency)}`,
     destination_last4: "the last 4 characters of the destination",
     service: "the service name",
     domain: "the recipient's domain",
     pr: "the pull request number",
-    request_id: "this request's id",
+    request_id: "the CLR number from the title",
   };
-  const reply = `${HANDLE_PLACEHOLDER} "${typedValue(field, extracted, requestId)}"`;
-  return `${requestId} is high risk. Type ${what[field]} to approve: ${reply}. Or choose No.`;
+  // Asked for the id itself, the question can't open with it. It's in the card's title, which is enough to look at.
+  const opener = field === "request_id" ? "This" : requestId;
+  return `${opener} is high risk. To approve, type ${what[field]}, in quotes, after the request code. Or choose No, deny.`;
 }
 
 export const DENY_OPTION_ID = "deny";
+
+const QUOTE_PAIRS: [string, string][] = [
+  ['"', '"'],
+  ["'", "'"],
+  ["\u201c", "\u201d"],
+  ["\u2018", "\u2019"],
+];
+
+/** Switch hands over what was inside the quotes, and the Lab's box whatever was typed. Either way it's the same value. */
+function unquoted(text: string): string {
+  const trimmed = text.trim();
+  for (const [open, close] of QUOTE_PAIRS) {
+    if (trimmed.length >= 2 && trimmed.startsWith(open) && trimmed.endsWith(close)) return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+}
 
 const SCALE: Record<string, number> = { k: 1e3, lakh: 1e5, lac: 1e5, crore: 1e7, cr: 1e7 };
 const TYPED_AMOUNT = /^(?:₹|rs\.?|inr)?\s*(\d+(?:,\d+)*(?:\.\d+)?)\s*(k|lakh|lac|crore|cr)?\s*(?:rupees|rs\.?|inr)?$/i;
@@ -94,7 +91,7 @@ export function typedMatches(
   extracted: Record<string, unknown>,
   requestId: string,
 ): boolean {
-  const typed = text.trim();
+  const typed = unquoted(text);
   switch (field) {
     case "amount": {
       const expected = toNumber(extracted.amount);
@@ -125,7 +122,7 @@ export function readQuestionAnswer(answers: Record<string, unknown>[] | null | u
   const selected = Array.isArray(entry.selected_option_ids) ? entry.selected_option_ids : [];
   if (selected.includes(DENY_OPTION_ID)) return { kind: "deny" };
   if (typeof entry.custom_text !== "string") return { kind: "none" };
-  const text = entry.custom_text.trim();
+  const text = unquoted(entry.custom_text);
   if (!text) return { kind: "none" };
   return SAYS_NO.has(text.toLowerCase().replace(/[.!]+$/, "")) ? { kind: "deny" } : { kind: "typed", text };
 }

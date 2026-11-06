@@ -360,15 +360,13 @@ export class IsolatedWorld {
 
   /**
    * Someone answers a card: the event the Switch agent delivers to core's onApprovalOutcome. On a type-to-confirm
-   * card, "allow" types the value the card's how-to shows and "deny" chooses its No, as a person reading it would.
+   * card, "allow" types the value it asks for, read off the request's evidence as a person has to, and "deny" chooses
+   * its No.
    */
   async answer(card: ChatRecord, who: ParticipantName, answer: "allow" | "deny"): Promise<void> {
     this.answeredCards.add(card.switchRequestId ?? "");
     const question = card.questions?.[0];
-    const typed = question ? /<handle> "([^"]*)"/.exec(question.prompt)?.[1] : undefined;
-    if (question && answer === "allow" && typed === undefined) {
-      throw new Error(`no value to type in this card's how-to: ${question.prompt.slice(0, 120)}`);
-    }
+    const typed = question && answer === "allow" ? await this.valueToType(card, question.id) : undefined;
     const reply = question
       ? {
           kind: "questions",
@@ -388,6 +386,18 @@ export class IsolatedWorld {
       answeredAtMs: Date.now(),
     });
     if (res.status !== 200) throw new Error(`core refused an answer: ${res.status}`);
+  }
+
+  private async valueToType(card: ChatRecord, field: string): Promise<string> {
+    const id = /CLR-\d+/.exec(card.title ?? "")?.[0];
+    if (!id) throw new Error(`a type-to-confirm card with no request id: ${card.title ?? ""}`);
+    const { evidence } = (await this.request(id)) as { evidence?: { extracted?: Record<string, unknown> } };
+    const fields = evidence?.extracted ?? {};
+    if (field === "request_id") return id;
+    if (field === "destination_last4") return String(fields.destination).trim().slice(-4);
+    const value = fields[field];
+    if (value === undefined) throw new Error(`${id}'s evidence has no ${field} to type`);
+    return String(value);
   }
 
   /** Everything core has said or opened so far, oldest first. Survives a core restart. */

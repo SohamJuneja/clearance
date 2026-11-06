@@ -130,7 +130,7 @@ describe("stripping wrappers", () => {
 
   it("strips git's global options so `push` is where a pattern expects it", () => {
     expect(effective("git -C /x push --force origin main")).toEqual(["git push --force origin main"]);
-    expect(effective("git -c core.sshCommand=evil push origin main")).toEqual(["git push origin main"]);
+    expect(effective("git -c color.ui=never push origin main")).toEqual(["git push origin main"]);
     expect(effective("git --git-dir=/x/.git --work-tree /x push")).toEqual(["git push"]);
     expect(effective("git --no-pager log")).toEqual(["git log"]);
     expect(effective("/usr/bin/git -C /x status")).toEqual(["/usr/bin/git status"]);
@@ -153,7 +153,7 @@ describe("the canonical form, which grants bind to", () => {
 
   it("keeps what changes what runs: git's directory, the environment and sudo", () => {
     expect(canonical("git -C /x push origin main")).toEqual(["git -C /x push origin main"]);
-    expect(canonical("GIT_SSH_COMMAND=evil git push")).toEqual(["GIT_SSH_COMMAND=evil git push"]);
+    expect(canonical("GIT_AUTHOR_NAME=x git push")).toEqual(["GIT_AUTHOR_NAME=x git push"]);
     expect(canonical("sudo git push")).toEqual(["sudo git push"]);
   });
 

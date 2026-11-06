@@ -3,8 +3,13 @@
  * the last 10 minutes is a requester and is excluded from approving. An agent mentioning another agent
  * passes its requesters along, so a chain through agents cannot launder who asked (authority case 12).
  *
- * Nothing on the stream says who a message addressed, so addressing comes from `@name` in the text. Identity
- * comes only from the event's sender and on_behalf_of. Whether a sender is an agent is looked up in identities
+ * Nothing on the stream says who a message addressed for an agent other than Clearance, and Switch also addresses an
+ * agent through a direct room, a room alias or a role mention, none of which has `@name` in the text. So there are two
+ * ways to count as having asked: naming the agent, or saying anything in a room the agent is known to be in, in the
+ * window, unless the message names some other agent. That over-excludes bystanders, and that is the safe direction.
+ * When even this finds nobody, core asks for two people instead: see `unknown_requester_quorum`.
+ *
+ * Identity comes only from the event's sender and on_behalf_of. Whether a sender is an agent is looked up in identities
  * and the team file, never read from sender_kind, which Switch leaves null for people and agents alike.
  */
 import type { ChatMessageEvent, Clock } from "@clearance/contracts";
@@ -20,6 +25,9 @@ export function mentionedNames(body: string): string[] {
   return [...new Set([...body.matchAll(MENTION)].map((match) => match[1] as string))];
 }
 
+/** Answering a card in the room: `A12 yes`, `A12 1`, `A12 "40000"`, `A12 q1="40000"`. That is a decision, not a request. */
+const CARD_ANSWER = /^\s*A\d+(\s+(yes|no|\d+|"[^"]*"|\w+="[^"]*"))?\s*$/i;
+
 export class RequesterTracker {
   constructor(
     private readonly db: Db,
@@ -31,9 +39,16 @@ export class RequesterTracker {
     const senderAgent = this.directory.agentForSender(evt.sender, evt.senderName);
     if (senderAgent) this.recordAgentMessage(senderAgent, evt);
     const mentioned = mentionedNames(evt.body).filter((name) => this.directory.isAgent(name));
-    if (mentioned.length === 0) return;
     const senderPerson = this.directory.personByParticipant(evt.sender);
     const onBehalfOf = this.identifyDisplayName(evt.onBehalfOf);
+    if (mentioned.length === 0) {
+      if (!senderAgent && !this.namesClearance(evt.body) && !CARD_ANSWER.test(evt.body)) {
+        for (const userId of new Set([senderPerson?.id ?? (onBehalfOf ? null : evt.sender), onBehalfOf])) {
+          if (userId) this.recordVoice(evt.roomId, userId);
+        }
+      }
+      return;
+    }
     for (const agent of mentioned) {
       if (agent === senderAgent) continue;
       if (senderAgent) {
@@ -50,6 +65,17 @@ export class RequesterTracker {
         this.record(agent, evt, evt.sender, null);
       }
     }
+  }
+
+  private namesClearance(body: string): boolean {
+    return mentionedNames(body).some((name) => name.toLowerCase() === "clearance");
+  }
+
+  /** Who spoke where, for the window and no longer. Only that: what they said isn't kept. */
+  private recordVoice(room: string, userId: string): void {
+    const now = this.clock.nowMs();
+    this.db.prepare(`DELETE FROM room_voices WHERE at <= ?`).run(now - REQUESTER_WINDOW_MS);
+    this.db.prepare(`INSERT INTO room_voices (room, user_id, at) VALUES (?, ?, ?)`).run(room, userId, now);
   }
 
   /** The person's id, or the name as given when it maps to nobody: that keeps them a requester and widens nothing. */
@@ -71,9 +97,21 @@ export class RequesterTracker {
   }
 
   requestersOf(agent: string): string[] {
+    const since = this.clock.nowMs() - REQUESTER_WINDOW_MS;
+    // The rooms this agent is known to be in: it has spoken there, or someone has addressed it there.
     const rows = this.db
-      .prepare(`SELECT user_id, MIN(at) AS first FROM requesters WHERE agent = ? AND at > ? GROUP BY user_id ORDER BY first`)
-      .all(agent, this.clock.nowMs() - REQUESTER_WINDOW_MS) as { user_id: string }[];
+      .prepare(
+        `SELECT user_id, MIN(at) AS first FROM (
+           SELECT user_id, at FROM requesters WHERE agent = @agent AND at > @since
+           UNION ALL
+           SELECT user_id, at FROM room_voices WHERE at > @since AND room IN (
+             SELECT room FROM agent_messages WHERE agent = @agent
+             UNION
+             SELECT room FROM requesters WHERE agent = @agent
+           )
+         ) GROUP BY user_id ORDER BY first`,
+      )
+      .all({ agent, since }) as { user_id: string }[];
     return rows.map((row) => row.user_id);
   }
 

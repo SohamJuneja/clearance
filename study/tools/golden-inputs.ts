@@ -71,7 +71,7 @@ const boundary: GoldenCase[] = [
   approval("options that overflow the post", "t", "acme x", Array.from({ length: 12 }, (_, i) => ({ label: `${i} ${"w".repeat(600)}`, decision: "accept" as const }))),
   approval("title over its budget", "t".repeat(1400), "acme x"),
   // Questions: the prompt budget is 800, and the form has no detail.
-  questions("questions short", 'CLR-0051 is high risk. Type the refund amount in rupees to approve: <handle> "38000". Or choose No.'),
+  questions("questions short", "CLR-0051 is high risk. To approve, type the refund amount in rupees, in quotes, after the request code. Or choose No, deny."),
   questions("prompt 800", "p".repeat(800)),
   questions("prompt 801", "p".repeat(801)),
   questions("prompt pushed over budget by @", `${"@".repeat(400)}${"p".repeat(1)}`),

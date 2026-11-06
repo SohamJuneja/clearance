@@ -170,6 +170,10 @@ export const PolicyFileSchema = z
         max_open_cards_per_person: z.number().int().min(1),
         exclude_requester: z.boolean(),
         exclude_agent_owner_from: TierNameSchema,
+        /** Who asked can't be told: at least this many different people decide. Of two, at most one can be the one who asked. */
+        unknown_requester_quorum: z.number().int().min(2).optional(),
+        /** host:port of clearance-gate. A curl or wget whose every URL is one of these isn't protected. */
+        gate_hosts: z.array(z.string()).optional(),
         unknown_protected_action: z.enum(["hold", "deny"]),
         business_hours: z.object({ days: z.string(), hours: z.string(), tz: z.string() }).strict(),
         fallback: FallbackSchema,

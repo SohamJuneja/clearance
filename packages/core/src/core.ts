@@ -61,7 +61,7 @@ import { loadPolicy, loadTeam, parseDuration, parsePolicy, PolicyLoadError, type
 import type { TeamFile } from "./policy/schema.js";
 import { OPEN_STATES, RequestStore, type NewRequest, type RequestRecord } from "./requests/store.js";
 import { AggregateStore } from "./risk/aggregates.js";
-import { authorUnknownFlag, denialReason, REQUESTER_UNKNOWN_FLAG } from "./risk/flags.js";
+import { authorUnknownFlag, denialReason, requesterUnknownFlag } from "./risk/flags.js";
 import {
   evidenceLines,
   ignoredFlags,
@@ -192,6 +192,8 @@ const POLICY_FILE_SEEN = "policy_file_seen";
 /** How long two people have to sign something. */
 const PROPOSAL_TTL_MS = 3 * DAY_MS;
 const POLICY_QUORUM_DEFAULT = 2;
+/** When a policy doesn't say. Below two, the person who asked could be the only one who decides. */
+const UNKNOWN_REQUESTER_QUORUM = 2;
 
 /** Replay reads stored fields only: a rule that needs a lookup is unknown, and unknown is in no bucket. */
 const NO_HELPERS = Object.fromEntries(HELPERS.map((name) => [name, () => UNKNOWN])) as EvalScope["helpers"] & Record<HelperName, () => unknown>;
@@ -1113,7 +1115,11 @@ export class Clearance implements ClearanceCore {
     });
 
     const flags: Flag[] = [...evaluation.flags, ...mismatches, ...(drill?.extra_flags ?? [])];
-    if (requesterIds.length === 0) flags.push(REQUESTER_UNKNOWN_FLAG);
+    // L1 is the fast lane: one eligible approver, whatever the tier would otherwise ask for.
+    const asked = evaluation.level === "L1" ? 1 : (cls?.approvers?.quorum[tier] ?? cls?.approvers?.quorum.default ?? 1);
+    // Nobody can tell who asked, so whoever it was could be the one approving. Of two different people, only one can be.
+    const unknownQuorum = Math.max(asked, policy.defaults.unknown_requester_quorum ?? UNKNOWN_REQUESTER_QUORUM);
+    if (requesterIds.length === 0) flags.push(requesterUnknownFlag(unknownQuorum));
 
     // A name the policy excludes (a merge's author, say) that we cannot pin to a person: flag it, keep the hold.
     const authorIds: string[] = [];
@@ -1172,8 +1178,7 @@ export class Clearance implements ClearanceCore {
       originThread: origin?.thread ?? null,
       evidence: evidence as unknown as Record<string, unknown>,
       flags,
-      // L1 is the fast lane: one eligible approver, whatever the tier would otherwise ask for.
-      quorumRequired: evaluation.level === "L1" ? 1 : (cls?.approvers?.quorum[tier] ?? cls?.approvers?.quorum.default ?? 1),
+      quorumRequired: requesterIds.length === 0 ? unknownQuorum : asked,
       expiresAtMs: now + this.deps.clock.scaledMs(policy.requestTtlMs),
       ...(drill ? { isDrill: true } : {}),
     };
@@ -1942,7 +1947,8 @@ export class Clearance implements ClearanceCore {
       }
     }
     const hasCopy = routes.forRequest(request.id).some((row) => row.step === "origin_copy");
-    if (opened > 0 && request.originRoom && !hasCopy && request.originRoom !== fallbackRoom) {
+    // A drill is private to the person it was sent to: a copy would show a room a request that vanishes.
+    if (opened > 0 && !request.isDrill && request.originRoom && !hasCopy && request.originRoom !== fallbackRoom) {
       const originRoom = request.originRoom;
       const threadId = request.originThread ?? undefined;
       const place = await this.tryOpen(request, trace, { kind: "room" }, async () => ({ roomId: originRoom, threadId }), "origin_copy", null);
@@ -1987,7 +1993,7 @@ export class Clearance implements ClearanceCore {
     });
     const { title, detail } = renderCard(view);
     const typedField = this.typedFieldFor(request, audience);
-    const ask = typedField ? askText(typedField, request.id, request.cls, this.currentPolicy.currency, evidence.extracted) : null;
+    const ask = typedField ? askText(typedField, request.id, request.cls, this.currentPolicy.currency) : null;
     const form =
       typedField && ask
         ? {

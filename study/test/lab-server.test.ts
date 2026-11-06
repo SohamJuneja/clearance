@@ -283,14 +283,16 @@ describe("type-to-confirm over HTTP", () => {
     expect((await state("p03")).step.attempts).toBe(1);
   });
 
-  it("shows the card's own code in the how-to, never a literal placeholder", async () => {
+  it("says how to answer without printing the answer, and never a literal placeholder", async () => {
     const card = await toTypedCard();
     const request = loadSet("X").requests.find((r) => r.id === card.step.request_id)!;
     expect(card.step.card.text).not.toContain("<handle>");
-    expect(card.step.card.text).toContain(`${request.b.handle} "${request.b.confirm!.expected}"`);
+    expect(card.step.card.text).not.toContain(`"${request.b.confirm!.expected}"`);
+    expect(card.step.card.text).toContain("in quotes, after the request code");
+    expect(card.step.card.text).toContain(request.b.handle);
   });
 
-  it("counts typing exactly what the card shows as the right answer, not as a wrong one", async () => {
+  it("counts typing the code and the value in quotes as the right answer, not as a wrong one", async () => {
     const card = await toTypedCard();
     const request = loadSet("X").requests.find((r) => r.id === card.step.request_id)!;
     // This is what a careful person does, and it must not cost an attempt.

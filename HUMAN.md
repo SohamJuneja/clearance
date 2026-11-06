@@ -6,11 +6,11 @@ Everything else is being done without you. Tick a box when done (or just tell me
 
 ## NOW
 
-- [ ] **0a. Get on the team page.** Sign in on wemakedevs.org and have Soham add you to the team, star `sandbox-quantum/switch` through the event link, and join the WeMakeDevs Discord. Why: only listed members count, and this is on his plan as B-0. I can't check it from here. Deadline: now.
+- [ ] **0a. Get on the team page, and rename the team `dellfargo` there.** The repo now says `dellfargo`, and the page has to match. Sign in on wemakedevs.org and have Soham add you to the team, star `sandbox-quantum/switch` through the event link, and join the WeMakeDevs Discord. Why: only listed members count, and this is on his plan as B-0. I can't check it from here. Deadline: now.
 
 - [x] **0b. Pushed to Soham's repo.** `master` is on our code, with his 5 commits kept and his old code tagged `soham-python-first-cut`. Next: send Soham the message from the chat. Pushes from now on are `git push` from `main`, never `--force`.
 
-- [ ] **Soham: clear the GitHub billing lock.** Confirmed on the push itself: CI ran no steps, and GitHub says "The job was not started because your account is locked due to a billing issue." That's about his account, not our code, and only he can see or fix it, under Settings, Billing and plans. Until then the README's CI badge shows failing on a public repo. Once it's cleared, either of you can run `gh run rerun 42282158902 -R SohamJuneja/clearance`. Why: the submit pack needs CI green. Deadline: before Sat 19:00.
+- [ ] **Soham: clear the GitHub billing lock.** Confirmed on the push itself: CI ran no steps, and GitHub says "The job was not started because your account is locked due to a billing issue." That's about his account, not our code, and only he can see or fix it, under Settings, Billing and plans. I've taken the CI badge off the README until it's green, and it isn't a hackathon rule, so this doesn't block submitting. Once it's cleared, either of you can run `gh run rerun 42282158902 -R SohamJuneja/clearance`. Why: a green badge is proof a judge can see, and no rule requires it. Deadline: before Sat 19:00.
 
 - [ ] **Study: Soham recruits, your laptop hosts.** Friday's slot has passed, so it's Sat 09:00-13:00 only. Target 20 sign-ups to land 12 to 16 people. Participants must be 18 or older. Consent is inside the link, so there's no form to set up. Why: the human study is one of the things only we have, and I can't recruit people. His recruitment text:
   > Hi! We're building Clearance for the Flip the Switch hackathon: it decides who should approve what an AI agent wants to do. We need 15 minutes of your time on Sat Nov 7, any time from 09:00 to 13:00 IST. You'll approve or deny 24 short requests in a chat window in your browser. No install, no personal data, no real money. Reply to this message and I'll send you your link. Thank you!
@@ -61,34 +61,9 @@ Everything else is being done without you. Tick a box when done (or just tell me
   ```
   Why: support-agent in SC5 runs on Codex, and it's the scene the video is missing. Deadline: before E2 starts, then I'll record SC5. If you'd rather use the API key from step 5, run `printenv OPENAI_API_KEY | codex login --with-api-key` after you've set it.
 
-- [ ] **Know this:** until an Anthropic key is in, Claude agents use a copy of your Claude access token (no refresh token), kept fresh by a background loop for each controller that makes a small call on your login. To stop all of it: `scripts/setup-controller.sh --owner priya --stop` (same for `alex`). Adding the key replaces it with an isolated home.
+- [x] **5. Anthropic key is in `.env`,** and agents now run on it, off your Claude login. Agents can read this key, so set a low spending limit on it in the Anthropic console. You pasted it into chat, so it's also in this session's log: replace it with a new one after judging. For Codex, `OPENAI_API_KEY` or `codex login` is still open in item 4.
 
-- [ ] **5. Paste API keys into `.env`** at the repo root, **the Anthropic one first**. This is now a safety item: without an Anthropic key, Switch's Claude agents run on your own Claude login, and that login carries your claude.ai connectors, including Gmail `send_message` and Drive `share_file`. The spikes never called them. I've added deny rules at two levels, but one sits in a file an agent can edit. An API key removes the connectors completely. Until you add one I keep agent runs small and Haiku-only. I've prepared the exact lines, so just fill in the values:
-  ```bash
-  code /home/prashant/projects/Clearance/.env
-  ```
-  ```
-  ANTHROPIC_API_KEY=      # Claude agents in E2. Without it the agents use your Claude login.
-  OPENAI_API_KEY=            # Codex agent.
-  CLEARANCE_OPENCODE_MODEL=  # Optional, as provider/model, like anthropic/claude-haiku-5-5. Blank means just demo tries OpenCode's free models and uses the first that answers and can call a tool. They change and run out, so it may find none, and then only the OpenCode scene is lost. Only synthetic data goes to them.
-  OPENCODE_PROVIDER_KEY=     # Optional, and only with a model above, for that model's provider. It goes in the fenced home of the two OpenCode machines, and an agent there can read it, so use a key with a low limit.
-  ```
-  Run `just demo` again after changing either OpenCode line. It updates the running agents, so not during a recording.
-  Why: it replaces your login for agents, and E2's Claude runs wait for it. `.env` is gitignored and I never print it. Deadline: today, so E2 can finish before G4.
-
-- [ ] **5a. Start E2 now, the cross-vendor run. It's ready, on the fixed code, and only you can start it.** My permission check refused its test run, twice now, so I won't try again or look for another way. It's the one big number still blank in `RESULTS.md`. Run OpenCode's part now, since it needs no key and doesn't touch your Claude login. Clear `/tmp` first, and tell me before you start, so nothing else is using the stack:
-  ```bash
-  cd /home/prashant/projects/Clearance
-  just demo                                            # makes sure the stack is on the latest code
-  pnpm eval:vendors --dry-run --vendor opencode
-  pnpm eval:vendors --probe --vendor opencode          # about 4 short runs. Read what it prints, and tell me if anything looks off
-  CLEARANCE_EVAL_E2_GO=1 pnpm eval:vendors --go --vendor opencode --usd-per-run 0
-  ```
-  That's 80 runs on OpenCode's free model, up to about 3 hours, and it holds the stack the whole time, so keep the terminal open. It now also keeps every run's calls in `eval/out/e3-corpus.sqlite` for E3, and its last line says how many, so tell me if that says WARNING. The free model can run out partway: those runs are counted as errors, not as prevented, so a low count of real runs is what to tell me about. It also behaves inconsistently, declining by itself in some runs, so the results name the model. After your Anthropic key is in, run Claude's part the same way:
-  ```bash
-  CLEARANCE_EVAL_E2_GO=1 pnpm eval:vendors --go --vendor claude --claude-model haiku --usd-per-run 0.05
-  ```
-  That's 120 runs. The script books a flat $6.00 against the $35 cap, and I estimate about $1 at token prices, from sessions that weren't E2 runs. If you kill either one, run `pnpm exec tsx scripts/setup-e2.ts --restore`. Setup also wrote a test marker to `~/.clearance-e2-canary` in your home folder. Deadline: finished by Sat 13:00.
+- [ ] **5a. E2: I'm running it, on your word.** Claude's part first, then OpenCode's, one run at a time, about 3.5 hours by the probe's speed. It holds the stack while it runs, so please don't run `just demo`, scenes or `pnpm demo:reset` until I say it's done, and don't start heavy jobs in other projects: Shadow Run's video render filled the memory at 01:41 and got a Chrome process killed. If you ever stop it, run `pnpm exec tsx scripts/setup-e2.ts --restore`.
 
 - [ ] **6. Confirm the spend cap.** The default is **₹3,000 (about $35) total for eval runs**, tracked in `eval/costs.json`. I stop E2 and ask before passing it. Set a hard limit on each key in the provider dashboards too, if they offer one. Reply only if you want a different cap.
 

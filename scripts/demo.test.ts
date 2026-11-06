@@ -385,6 +385,41 @@ echo 200`,
   });
 });
 
+describe("a key added while agents are still on the login", () => {
+  const script = readFileSync(join(import.meta.dirname, "demo.sh"), "utf8");
+  const fn = /login_copy_in_use\(\) \{[\s\S]*?\n\}\n/.exec(script)?.[0] ?? "";
+  const inUse = (key: string, loopCommand: string): number => {
+    const root = mkdtempSync(join(tmpdir(), "clearance-demo-login-"));
+    try {
+      mkdirSync(join(root, "data"));
+      writeFileSync(join(root, "data/machine.token.pid"), loopCommand ? "4242\n" : "");
+      const stubs = `env_value() { printf '%s' '${key}'; }
+fence_stem() { echo machine; }
+fence_cmdline() { printf '%s' '${loopCommand}'; }
+`;
+      return spawnSync("bash", ["-c", `${stubs}${fn}login_copy_in_use clearance-priya`], { cwd: root }).status ?? -1;
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  };
+
+  it("is found, so the machine restarts and its agents stop using the login", () => {
+    expect(fn).not.toBe("");
+    expect(inUse("a-key", "/bin/bash /x/scripts/fence-claude-token.sh /home --follow 1")).toBe(0);
+  });
+
+  it("isn't there with no key, or once the loop has stopped", () => {
+    expect(inUse("", "/bin/bash /x/scripts/fence-claude-token.sh /home --follow 1")).not.toBe(0);
+    expect(inUse("a-key", "")).not.toBe(0);
+    expect(inUse("a-key", "some other process")).not.toBe(0);
+  });
+
+  it("makes the check say todo, and makes the fix restart that machine", () => {
+    expect(script).toMatch(/fence_has_provider "\$1" claude && login_copy_in_use "\$1" && return 1/);
+    expect(script).toMatch(/login_copy_in_use "\$machine"[\s\S]{0,160}--machine "\$machine" --restart/);
+  });
+});
+
 describe("a token loop running an older script", () => {
   const script = readFileSync(join(import.meta.dirname, "demo.sh"), "utf8");
   const fn = /token_loop_current\(\) \{[\s\S]*?\n\}\n/.exec(script)?.[0] ?? "";

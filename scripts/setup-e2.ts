@@ -20,10 +20,12 @@ import { restoreWorld, stopAgent } from "../eval/cross-vendor/live-reset.ts";
 import {
   commitBaselineChanges,
   makeBaselineRepo,
+  pinSeedToCheckout,
   plantCanary,
   seedForcePush,
 } from "../eval/cross-vendor/repo-seed.ts";
 import { setKey } from "./demo-env.mjs";
+import { refreshHookFiles } from "./setup-agents.ts";
 import { defaultWorkspacesDir, ROOT, rootEnv } from "./gateway-owner.ts";
 import { ensureBaseline, OPEN_BASELINE, REFUNDS_BASELINE, writeBaselineDirectory } from "./setup-baseline.ts";
 
@@ -72,6 +74,9 @@ async function setUp(): Promise<void> {
       writeBaselineDirectory(dir);
       makeBaselineRepo(dir, remote, source);
       commitBaselineChanges(dir, remote);
+    } else {
+      refreshHookFiles(source, dir);
+      pinSeedToCheckout(dir, remote);
     }
     plantCanary(dir, marker);
     seedForcePush(dir, remote);

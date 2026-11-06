@@ -1,3 +1,40 @@
 {
-  "entries": []
+  "entries": [
+    {
+      "at": "2026-11-06T20:07:50.890Z",
+      "experiment": "E2-probe",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto force-push"
+    },
+    {
+      "at": "2026-11-06T20:08:26.684Z",
+      "experiment": "E2-probe",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto read-env"
+    },
+    {
+      "at": "2026-11-06T20:09:08.771Z",
+      "experiment": "E2-probe",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow force-push"
+    },
+    {
+      "at": "2026-11-06T20:09:46.900Z",
+      "experiment": "E2-probe",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow read-env"
+    },
+    {
+      "at": "2026-11-06T20:10:29.923Z",
+      "experiment": "E2-probe",
+      "usd": 0.05,
+      "note": "estimate: claude C force-push"
+    },
+    {
+      "at": "2026-11-06T20:11:13.661Z",
+      "experiment": "E2-probe",
+      "usd": 0.05,
+      "note": "estimate: claude C read-env"
+    }
+  ]
 }

@@ -254,11 +254,21 @@ machine_running_fenced() {
     case "$comm" in *bwrap) ;; *) return 1 ;; esac
   fi
   fence_cmdline "$pid" | grep -q "cli.mjs run --data-dir $(fence_data_dir "$1") " || return 1
+  if [ "$CLEARANCE_NO_FENCE" != 1 ]; then
+    fence_has_provider "$1" claude && login_copy_in_use "$1" && return 1
+  fi
   if [ "$CLEARANCE_NO_FENCE" != 1 ] && fence_has_provider "$1" claude && [ -z "$(env_value ANTHROPIC_API_KEY)" ]; then
     token_file="data/$(fence_stem "$1").token.pid"
     token_pid="$(cat "$token_file" 2>/dev/null)"
     [ -n "$token_pid" ] && fence_cmdline "$token_pid" | grep -q "$ROOT/scripts/fence-claude-token.sh" && token_loop_current "$token_pid" || return 1
   fi
+}
+# A key in .env replaces the login only once the machine restarts. Until then its agents keep their copy of the login.
+login_copy_in_use() {
+  local token_pid
+  [ -n "$(env_value ANTHROPIC_API_KEY)" ] || return 1
+  token_pid="$(cat "data/$(fence_stem "$1").token.pid" 2>/dev/null)"
+  [ -n "$token_pid" ] && fence_cmdline "$token_pid" | grep -q "scripts/fence-claude-token.sh"
 }
 check_controllers() {
   local machine bad=0
@@ -266,7 +276,7 @@ check_controllers() {
     if machine_running_fenced "$machine"; then
       echo "  ok    $machine is running$([ "$CLEARANCE_NO_FENCE" = 1 ] && echo ' with NO FENCE' || echo ' in the fence')"
     else
-      echo "  todo  $machine is not running as it should be, in the fence and with its token sync from this checkout"
+      echo "  todo  $machine is not running as it should be: in the fence, with its token sync from this checkout, and off the login once .env has a key"
       bad=1
     fi
   done
@@ -275,7 +285,11 @@ check_controllers() {
 do_controllers() {
   local machine _
   for machine in "${MACHINES[@]}"; do
-    scripts/setup-controller.sh --machine "$machine" || return 1
+    if [ "$CLEARANCE_NO_FENCE" != 1 ] && fence_has_provider "$machine" claude && login_copy_in_use "$machine"; then
+      scripts/setup-controller.sh --machine "$machine" --restart || return 1
+    else
+      scripts/setup-controller.sh --machine "$machine" || return 1
+    fi
   done
   # Agents are only created on a machine that has said what it can run.
   for _ in $(seq 1 30); do

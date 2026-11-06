@@ -9,7 +9,7 @@ Clearance
 
 ## Team
 
-CoffeeAndWispr. Members: TEAM_MEMBERS, as they appear on the team page.
+dellfargo. Members: TEAM_MEMBERS, as they appear on the team page.
 
 ## Tracks
 

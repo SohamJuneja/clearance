@@ -1,6 +1,6 @@
 # DECISIONS
 
-Append-only. Format: `time IST | decision | why`.
+Format: `time IST | decision | why`.
 
 ## Fri Nov 6
 
@@ -238,3 +238,9 @@ Append-only. Format: `time IST | decision | why`.
 - 01:00 | Track 03 passes to Soham, with the code as `spikes/track03/canva-connection.patch` and the same go-or-drop probe. The study runs Sat 09:00-13:00 only, recruited by him and hosted on the owner's laptop | He offered both. Friday's slot passed with nobody recruited. Hosting stays on one machine, so every result lands in one place
 - 01:10 | CI on the main repo depends on Soham clearing a billing lock, so that's his item in `HUMAN.md`. If it can't be cleared by the submit pack, the fallback is to run CI on a fork under the owner's account and say so, not to claim CI on his repo | GitHub's annotation on his Nov 5 runs says the account is locked over billing, so those jobs never started. My clean-clone rehearsal passing isn't the same as GitHub's CI passing
 - 01:15 | Pushed to `SohamJuneja/clearance` `master` on the owner's word, as a normal fast-forward, with the tag `soham-python-first-cut`. GitHub's copy matches local at `0996d9b`. CI failed with no steps run, on the billing lock, so this says nothing yet about our code | The repo is public, so publishing happened with the owner told what it includes. The billing fix is Soham's. The fork fallback waits to see if he can clear it
+- 01:49 | Anthropic key in `.env`, and the Claude machines restarted onto it, so agents are off the owner's login and no copy of it is left in a fence. `just demo` said agents "will use" a new key but left running machines on the login; it now restarts them | The login carries connectors, so that message was the worst place to be wrong. The owner pasted the key in chat, so `HUMAN.md` says to replace it after judging
+- 01:49 | E2 runs from here, on the owner's word, Claude's part then OpenCode's. Its reset rolled every agent back to a seed from Friday morning, older than the second review's hook fixes, so results would have described old hooks. The seed now follows the agent's current hooks, and a run on stale ones stops as an error instead | Found from `just demo --check` after the probe, before any real run
+- 01:49 | A probe writes `E2-probe`, and the report leaves it out. It wrote `E2`, so 2 runs reached the README as the result | Seen in the regenerated table
+- 01:49 | The results table says how each number was measured: E1, the soak and latency ran on a fake chat port, and "no such control" counts as not prevented (B-auto 24, B-ask 11). An E2 that hasn't run says so. The README leaves out rows with no number and names them, and RESULTS.md keeps the full template. The CI badge is off until CI has run. Two narration lines changed: the agent asked which payment ID was right and scripted Priya chose the new one, and 93% is about people's own prompts | A blind judge flagged these and I confirmed each against the files and a frame. They overstated what was measured
+- 01:49 | The team is named dellfargo in the repo, on the owner's word. The team page has to match, and only a team member can change that | The repo and the page are read together
+

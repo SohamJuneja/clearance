@@ -9,6 +9,7 @@ import {
   loadInputs,
   negativeResults,
   renderResults,
+  withoutBlankRows,
   renderTable,
   writeReport,
 } from "./report.ts";
@@ -609,6 +610,104 @@ describe("eval:report", () => {
       expect(row.data).toBe("1,000 calls each; Codex hook 100 runs, each a new process");
     });
 
+    describe("says how each number was measured", () => {
+      const FAKE = "Synthetic driver on isolated processes with a fake ChatPort. No agent is involved.";
+      const data = (select: string) =>
+        selectRow(parseResults(readFileSync(resultsPath, "utf8")), select).data;
+
+      it("says E1 ran on a fake chat port, and how much of the baselines' misses is no such control", () => {
+        const outcome = (value: string) => ({ outcome: value });
+        const shared = (id: number) => ({
+          id,
+          title: `case ${id}`,
+          clearance: { outcome: "prevented", why: "ok" },
+        });
+        write({
+          "e1.json": {
+            experiment: "E1",
+            clearance: { prevented: 25, total: 25 },
+            b_auto: { prevented: 0, total: 25 },
+            b_ask: { prevented: 9, total: 25 },
+            cases: 25,
+            baseline_basis: "read from Switch's code",
+            mode: "isolated processes, fake ChatPort",
+            per_case: [
+              { ...shared(1), b_auto: outcome("no such control"), b_ask: outcome("no such control") },
+              { ...shared(2), b_auto: outcome("no such control"), b_ask: outcome("prevented") },
+              { ...shared(3), b_auto: outcome("not prevented"), b_ask: outcome("not prevented") },
+            ],
+          },
+        });
+        report();
+        expect(data("E1")).toContain("25 scripted cases on a fake chat port;");
+        expect(data("E1")).toContain(
+          "a baseline with no such control counts as not prevented: B-auto 2, B-ask 1",
+        );
+      });
+
+      it("says the soak has a synthetic driver and no agents", () => {
+        write({
+          "e4-soak.json": {
+            experiment: "E4-soak",
+            violations: 0,
+            calls: 7200,
+            hours: 2,
+            restarts: 3,
+            note: FAKE,
+          },
+        });
+        report();
+        expect(data("E4/soak")).toBe(
+          "2 h, 7,200 calls, 3 restarts; synthetic driver on a fake chat port, no agents",
+        );
+      });
+
+      it("says latency was measured on a fake chat port", () => {
+        write({
+          "e4-latency.json": {
+            experiment: "E4-latency",
+            hook: { p50: 1, p95: 2, p99: 3 },
+            gate: { p50: 1, p95: 2, p99: 3 },
+            calls_each: 1000,
+            note: FAKE,
+          },
+        });
+        report();
+        expect(data("E4/latency")).toContain("on a fake chat port");
+      });
+
+      it("never prints a run count for an E2 that hasn't run", () => {
+        report();
+        expect(data("E2/risky")).toBe("not run yet");
+      });
+
+      it("says the agents in the behaviour row were told not to go around a hold", () => {
+        write({
+          "behaviour.json": {
+            experiment: "E2-behaviour",
+            holds: 14,
+            tried_another_route: 0,
+            by_vendor: {
+              claude: { holds: 9, tried_another_route: 0 },
+              opencode: { holds: 5, tried_another_route: 0 },
+            },
+          },
+        });
+        report();
+        expect(data("E2/route")).toContain("which tells them not to");
+      });
+    });
+
+    it("never takes E2's probe for E2", () => {
+      write({ "vendors-probe.json": { experiment: "E2-probe", runs: 6, per_run: [] } });
+      const lines: string[] = [];
+      writeReport({ outDir, resultsPath, readmePath, print: (line) => lines.push(line) });
+      expect(selectRow(parseResults(readFileSync(resultsPath, "utf8")), "E2/risky").data).toBe(
+        "not run yet",
+      );
+      expect(lines.join("\n")).toContain("left out vendors-probe.json");
+    });
+
     it("never takes a smoke test for the soak's result", () => {
       write({
         "e4-soak-smoke.json": {
@@ -729,6 +828,36 @@ describe("eval:report", () => {
       const once = readFileSync(readmePath, "utf8");
       report();
       expect(readFileSync(readmePath, "utf8")).toBe(once);
+    });
+
+    it("leaves out what has no number yet and says which, while RESULTS.md keeps the blanks", () => {
+      writeFileSync(readmePath, "<!-- results:start -->\n<!-- results:end -->\n");
+      write({
+        "e4-soak.json": { experiment: "E4-soak", violations: 0, calls: 7200, hours: 2, restarts: 3 },
+      });
+      report();
+      const readme = readFileSync(readmePath, "utf8");
+      expect(readme).toContain("| E4 | Soak invariant violations |");
+      expect(readme).not.toMatch(/(^|[\s|])_([\s,|]|$)/m);
+      expect(readme).toContain("Not measured yet, so not shown:");
+      for (const id of ["E2", "E3", "E5"]) expect(readme).toMatch(new RegExp(`shown:.*${id}`));
+      expect(readFileSync(resultsPath, "utf8")).toContain("Claude _, Codex _, OpenCode _, Cursor _");
+    });
+
+    it("keeps a partly filled row, and says which part hasn't run", () => {
+      const table = withoutBlankRows(
+        [
+          "| ID | Metric | Baseline | Clearance | Data | Script |",
+          "|---|---|---|---|---|---|",
+          "| E2 | Risky | Claude 0, Codex _ | Claude 0, Codex _ | 40 runs | `x` |",
+          "| E5 | Catch | Switch card: _ | Clearance card: _ | n = _ | `y` |",
+          "| BL | Real runs | auto mode: _ | n/a | none | `z` |",
+        ].join("\n"),
+      );
+      expect(table).toContain("| E2 | Risky | Claude 0, Codex not run | Claude 0, Codex not run | 40 runs |");
+      expect(table).not.toContain("| E5 |");
+      expect(table).not.toContain("| BL |");
+      expect(table).toContain("Not measured yet, so not shown: E5, BL.");
     });
 
     it("leaves a README with no markers alone", () => {

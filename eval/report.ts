@@ -43,6 +43,8 @@ const E1 = z.object({
   cases: z.number().int().positive().optional(),
   /** How the baselines were obtained. Set when they were read from code rather than run. */
   baseline_basis: z.string().optional(),
+  /** What it ran on. The numbers say so when that isn't the real Switch. */
+  mode: z.string().optional(),
   /** The audit regression group. Its own line, never part of the numbers above. */
   audit: z
     .object({ passed: z.number().int().nonnegative(), total: z.number().int().positive() })
@@ -62,6 +64,8 @@ const E1 = z.object({
         id: z.number().int(),
         title: z.string(),
         clearance: z.object({ outcome: z.string(), why: z.string() }),
+        b_auto: z.object({ outcome: z.string() }).optional(),
+        b_ask: z.object({ outcome: z.string() }).optional(),
       }),
     )
     .optional(),
@@ -120,6 +124,7 @@ const Percentiles = z.object({ p50: z.number(), p95: z.number(), p99: z.number()
 const E4Latency = z.object({
   ...Flags,
   experiment: z.literal("E4-latency"),
+  note: z.string().optional(),
   hook: Percentiles.optional(),
   gate: Percentiles.optional(),
   calls_each: z.number().int().positive().optional(),
@@ -136,6 +141,7 @@ const E4Latency = z.object({
 const E4Soak = z.object({
   ...Flags,
   experiment: z.literal("E4-soak"),
+  note: z.string().optional(),
   violations: z.number().int().nonnegative().optional(),
   hours: z.number().positive().optional(),
   calls: z.number().int().positive().optional(),
@@ -248,6 +254,7 @@ function studyToE5(study: z.infer<typeof Study>): z.infer<typeof E5> {
 /** Real output that isn't a result for this table, and why, so it can't look like it was lost. */
 const NOT_FOR_THIS_TABLE: Record<string, string> = {
   "E4-soak-smoke": "it's a smoke test of the soak, not the 2 hour result",
+  "E2-probe": "it's a short check that E2 can run, not its result",
   "E1-mutations": "it's evidence that E1's cases test what they say, not a result of its own",
 };
 
@@ -334,6 +341,17 @@ function privateChatResult(inputs: Inputs): z.infer<typeof E1Live>["results"][nu
 }
 
 /** So nobody reads the count as closed: this says so until a live run shows otherwise. */
+const onFakeChat = (text: string | undefined): boolean =>
+  text !== undefined && /fake ChatPort/i.test(text);
+
+/** A case a baseline simply has no control for reads as "not prevented", and the gap should say how much of it that is. */
+function noSuchControl(e1: Inputs["E1"]): string {
+  if (!e1?.per_case) return "";
+  const count = (side: "b_auto" | "b_ask"): number =>
+    (e1.per_case ?? []).filter((one) => one[side]?.outcome === "no such control").length;
+  return `; a baseline with no such control counts as not prevented: B-auto ${count("b_auto")}, B-ask ${count("b_ask")}`;
+}
+
 function e1Coverage(inputs: Inputs): string {
   if (privateChatResult(inputs)?.outcome === "prevented") {
     return "private-chat path checked live, with room-limited addressing on";
@@ -353,7 +371,7 @@ function behaviourData(behaviour: Inputs["E2-behaviour"]): string {
   return synthetic(
     behaviour,
     vendors
-      ? `real sessions: Claude ${num(vendors.claude.holds)}, OpenCode ${num(vendors.opencode.holds)}, under one prompt`
+      ? `real sessions: Claude ${num(vendors.claude.holds)}, OpenCode ${num(vendors.opencode.holds)}, under one prompt, which tells them not to`
       : "real sessions",
   );
 }
@@ -518,16 +536,16 @@ export function renderTable(inputs: Inputs): string {
   const rows = [
     HEADER,
     "|---|---|---|---|---|---|",
-    `| E1 | Bad outcomes prevented (of ${e1?.clearance?.total ?? e1?.b_auto?.total ?? 25}) | B-auto: ${prevented(e1?.b_auto)} / B-ask: ${prevented(e1?.b_ask)} | ${prevented(e1?.clearance)} | ${synthetic(e1, `${e1?.cases ?? 25} scripted cases${e1?.baseline_basis ? "; baselines read from code, not run" : ""}; ${e1Coverage(inputs)}`)} | \`pnpm eval:authority\` |`,
+    `| E1 | Bad outcomes prevented (of ${e1?.clearance?.total ?? e1?.b_auto?.total ?? 25}) | B-auto: ${prevented(e1?.b_auto)} / B-ask: ${prevented(e1?.b_ask)} | ${prevented(e1?.clearance)} | ${synthetic(e1, `${e1?.cases ?? 25} scripted cases${onFakeChat(e1?.mode) ? " on a fake chat port" : ""}${e1?.baseline_basis ? "; baselines read from code, not run" : ""}${noSuchControl(e1)}; ${e1Coverage(inputs)}`)} | \`pnpm eval:authority\` |`,
     `| AUDIT | Breaks independent reviews found, re-checked apart from the 25 | n/a | ${auditCell(e1)} | Each break fixed after its review | \`pnpm eval:authority\` |`,
-    `| E2 | Risky actions executed without an eligible human (of 20 per vendor) | ${vendors(e2?.risky_unapproved?.baseline)} | ${vendors(e2?.risky_unapproved?.clearance)} | ${synthetic(e2, `${num(e2?.runs ?? 360)} agent runs${e2?.claude_model ? `, Claude on ${e2.claude_model}` : ""}`)} | \`pnpm eval:vendors\` |`,
+    `| E2 | Risky actions executed without an eligible human (of 20 per vendor) | ${vendors(e2?.risky_unapproved?.baseline)} | ${vendors(e2?.risky_unapproved?.clearance)} | ${synthetic(e2, e2 ? `${num(e2.runs ?? 360)} agent runs${e2.claude_model ? `, Claude on ${e2.claude_model}` : ""}` : "not run yet")} | \`pnpm eval:vendors\` |`,
     `| E2 | Safe actions interrupted (of 20 per vendor) | ${vendorsOrBlank(e2?.safe_interrupted?.baseline)} | ${vendorsOrBlank(e2?.safe_interrupted?.clearance)} | same | same |`,
     `| E2 | Tried another route after a hold | n/a | ${num(behaviour?.tried_another_route)} of ${num(behaviour?.holds)} holds | ${behaviourData(behaviour)} | \`pnpm eval:behaviour\` |`,
     `| E3 | Recall on risky calls, held-out | approval-required: ${pct(e3?.recall?.approval_required)} | ${pct(e3?.recall?.clearance)} | ${synthetic(e3, `${num(e3?.labelled_calls)} labelled calls after Fri 20:00`)} | \`pnpm eval:classifier\` |`,
     `| E3 | Cards per 100 tool calls | approval-required: ${num(e3?.cards_per_100?.approval_required)} | ${num(e3?.cards_per_100?.clearance)} | same | same |`,
     `| E3 | Quiet share: tool calls with no card | approval-required: ${pct(e3?.no_card_share?.approval_required)} | ${pct(e3?.no_card_share?.clearance)} | same | same |`,
-    `| E4 | Added latency p50 / p95 / p99 (ms) | n/a | ${latencyCell} | ${synthetic(latency, `${num(latency?.calls_each ?? 1000)} calls each${latency?.codex_cli?.calls ? `; Codex hook ${num(latency.codex_cli.calls)} runs, each a new process` : ""}`)} | \`pnpm eval:latency\` |`,
-    `| E4 | Soak invariant violations | n/a | ${num(soak?.violations)} | ${synthetic(soak, `${soak?.hours ?? 2} h, ${num(soak?.calls)} calls, ${soak?.restarts ?? 3} restarts`)} | \`pnpm eval:soak\` |`,
+    `| E4 | Added latency p50 / p95 / p99 (ms) | n/a | ${latencyCell} | ${synthetic(latency, `${num(latency?.calls_each ?? 1000)} calls each${latency?.codex_cli?.calls ? `; Codex hook ${num(latency.codex_cli.calls)} runs, each a new process` : ""}${onFakeChat(latency?.note) ? "; on a fake chat port" : ""}`)} | \`pnpm eval:latency\` |`,
+    `| E4 | Soak invariant violations | n/a | ${num(soak?.violations)} | ${synthetic(soak, `${soak?.hours ?? 2} h, ${num(soak?.calls)} calls, ${soak?.restarts ?? 3} restarts${onFakeChat(soak?.note) ? "; synthetic driver on a fake chat port, no agents" : ""}`)} | \`pnpm eval:soak\` |`,
     `| E5 | Catch rate on flawed requests | Switch card: ${pct(e5?.catch_rate?.switch_card)} | Clearance card: ${pct(e5?.catch_rate?.clearance_card)} | ${synthetic(e5, `n = ${num(e5?.people)} people, ${e5?.flawed_each ?? 4} flawed each`)} | \`pnpm eval:study\` |`,
     `| E5 | Median seconds per decision (legit / flawed) | ${num(e5?.median_seconds?.switch_card?.legit)} / ${num(e5?.median_seconds?.switch_card?.flawed)} | ${num(e5?.median_seconds?.clearance_card?.legit)} / ${num(e5?.median_seconds?.clearance_card?.flawed)} | same | same |`,
     `| E6 | Human decisions per 100 agent actions | ${num(e6?.human_decisions_per_100?.before)} | ${num(e6?.human_decisions_per_100?.after)} (after promotion) | ${e6Data(e6)} | \`pnpm eval:autonomy\` |`,
@@ -648,6 +666,32 @@ export function loadInputs(outDir: string): LoadedInputs {
 const START = "<!-- results:start -->";
 const END = "<!-- results:end -->";
 
+const README_BLANK = /(?<![\w])_(?![\w])/g;
+
+/**
+ * The README's table: a row with no number yet is left out and named underneath, and a partly filled row says which
+ * part hasn't run. RESULTS.md keeps the blanks, as the full template.
+ */
+export function withoutBlankRows(table: string): string {
+  const hidden: string[] = [];
+  const rows = table.split("\n").flatMap((line) => {
+    if (!line.startsWith("|") || line.startsWith("| ID ") || line.startsWith("|---")) return [line];
+    const cells = line.split("|");
+    const [id, baseline, clearance] = [cells[1]?.trim() ?? "", cells[3] ?? "", cells[4] ?? ""];
+    const blank = (cell: string): boolean => cell.search(README_BLANK) >= 0;
+    const hasNumber = /\d/.test(`${baseline}${clearance}`);
+    if ((blank(clearance) && !/\d/.test(clearance)) || (blank(baseline) && !hasNumber)) {
+      if (!hidden.includes(id)) hidden.push(id);
+      return [];
+    }
+    cells[3] = baseline.replace(README_BLANK, "not run");
+    cells[4] = clearance.replace(README_BLANK, "not run");
+    return [cells.join("|")];
+  });
+  const note = hidden.length > 0 ? `\n\nNot measured yet, so not shown: ${hidden.join(", ")}.` : "";
+  return `${rows.join("\n")}${note}`;
+}
+
 /** Puts the table between the markers. Returns undefined when there are no markers to fill. */
 export function injectIntoReadme(readme: string, table: string): string | undefined {
   const start = readme.indexOf(START);
@@ -695,7 +739,10 @@ export function writeReport(options: ReportOptions): ReportOutcome {
 
   let readmeUpdated = false;
   if (existsSync(options.readmePath)) {
-    const updated = injectIntoReadme(readFileSync(options.readmePath, "utf8"), renderTable(inputs));
+    const updated = injectIntoReadme(
+      readFileSync(options.readmePath, "utf8"),
+      withoutBlankRows(renderTable(inputs)),
+    );
     if (updated === undefined) {
       print(`${basename(options.readmePath)} has no results markers, so it was left alone`);
     } else {

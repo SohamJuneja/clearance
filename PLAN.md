@@ -1,7 +1,7 @@
 # CLEARANCE: Build Plan
 
 **The approval layer for teams of people and AI agents, built on Switch. Approvals that still mean something.**
-Flip the Switch Hackathon (WeMakeDevs x DevTools Academy, powered by Switch from SandboxAQ) · Nov 4 to Nov 7, 2026 · Team CoffeeAndWispr
+Flip the Switch Hackathon (WeMakeDevs x DevTools Academy, powered by Switch from SandboxAQ) · Nov 4 to Nov 7, 2026 · Team dellfargo
 Main track: Track 01 Best Business Workflow. Side tracks: Code with Wispr, Best Blog, #HowISwitch, and Track 03 / Track 04 if they apply.
 
 > This file is the single source of truth for the build. Put it at the repo root as `PLAN.md`. Every decision, cut or change goes into `DECISIONS.md` with a timestamp, never into chat only.
@@ -161,7 +161,7 @@ Do this block first (target: Thu Nov 5, 16:00 to 19:00 IST). Tick items off in t
 
 ### 4.1 Team, rules and comms (15 minutes, the lead does this)
 
-- [ ] Confirm every teammate is on the WeMakeDevs team page for **CoffeeAndWispr** (invite by email from the event page). Only listed members count.
+- [ ] Confirm every teammate is on the WeMakeDevs team page for **dellfargo** (invite by email from the event page). Only listed members count.
 - [ ] Assign the four roles in section 9.2 (A Gatekeeper, B Switchboard, C Brain, D Proof & Story). With two people: A+B and C+D. Solo: follow the solo order in 9.4.
 - [ ] Create `DECISIONS.md` (append-only, `HH:MM IST, who, decision, why`) and `STATUS.md` (each person's current task, updated at every gate).
 - [ ] One team channel for chatter (WhatsApp/Discord). All product demos happen in the Switch Mattermost, not in the team chat.
@@ -1184,7 +1184,7 @@ See section 11. Headline metrics: catch rate on flawed requests, false-deny rate
 |---|---|---|---|---|---|
 | E1 | Bad outcomes prevented (of 25) | B-auto: _ / B-ask: _ | _ | 25 scripted cases; a managed agent in a private chat isn't covered by these 25 | `pnpm eval:authority` |
 | AUDIT | Breaks independent reviews found, re-checked apart from the 25 | n/a | Audit: _ of 5 | Each break fixed after its review | `pnpm eval:authority` |
-| E2 | Risky actions executed without an eligible human (of 20 per vendor) | Claude _, Codex _, OpenCode _, Cursor _ | Claude _, Codex _, OpenCode _, Cursor _ | 360 agent runs | `pnpm eval:vendors` |
+| E2 | Risky actions executed without an eligible human (of 20 per vendor) | Claude _, Codex _, OpenCode _, Cursor _ | Claude _, Codex _, OpenCode _, Cursor _ | not run yet | `pnpm eval:vendors` |
 | E2 | Safe actions interrupted (of 20 per vendor) | _ | _ | same | same |
 | E2 | Tried another route after a hold | n/a | _ of _ holds | real sessions | `pnpm eval:behaviour` |
 | E3 | Recall on risky calls, held-out | approval-required: _ | _ | _ labelled calls after Fri 20:00 | `pnpm eval:classifier` |
@@ -1269,11 +1269,11 @@ Target **2:43** (keep under 3:00 unless the organisers confirm a different limit
 | Time | Scene | On screen | Voice-over (read as written) |
 |---|---|---|---|
 | 0:00–0:08 | SC2 | Priya asks `#support-vanilla` to refund a genuine ₹40,000 order; every Switch card mentions Priya; she presses Allow; the agent reports "Refunded" in the room, with the refund's id, and that stays up for at least 2.5 s. To fit, the agent's start-up is cut and the rest runs at 6x, labelled | "This is Switch today. Priya asks an agent for a ₹40,000 refund, and Priya approves every card." |
-| 0:08–0:20 | SC3, refused | Caption "Clearance: the approval layer, built on Switch" and "The agent caught the wrong amount in this ticket". Priya hands over ticket T-77 in `#support`; the agent spots the wrong amount and offers ₹4,000 to the new payment ID; she accepts; agent replies "waiting for approval"; Priya types `A1 yes`; the scene ends on Clearance's "Priya can't approve CLR-0001 (requester). Sent to Sam (finance, on duty)." Sped up, and labelled so | "The agent caught the wrong amount in this ticket, but offered to pay a brand-new payment ID. Clearance holds it, and refuses Priya's own approval." |
+| 0:08–0:20 | SC3, refused | Caption "Clearance: the approval layer, built on Switch" and "The agent caught the wrong amount in this ticket". Priya hands over ticket T-77 in `#support`; the agent spots the wrong amount and asks which payment ID is right, and scripted Priya picks the new one; she accepts; agent replies "waiting for approval"; Priya types `A1 yes`; the scene ends on Clearance's "Priya can't approve CLR-0001 (requester). Sent to Sam (finance, on duty)." Sped up, and labelled so | "The agent caught the wrong amount in this ticket and asked which payment ID was right. Priya, scripted, picks the new one. Clearance holds it, and refuses Priya's own approval." |
 | 0:20–0:34 | SC3, Sam | Sam's DM card: parsed amount, destination added minutes ago, agent's claim labelled; Sam denies; ledger line appears | "It goes to Sam in finance. Sam sees the real call, not the agent's story: a payment ID added minutes ago. Sam denies it." |
 | 0:34–0:54 | SC6 alone, until SC5 exists | Full width: OpenCode ops-agent's prod deploy held in `#eng` and routed to Alex with "2 failing checks". Caption "An OpenCode agent, under the same policy file". Codex isn't named, because Codex hasn't been run | "Clearance isn't tied to one agent vendor, and Switch doesn't change. Under the same policy file, an OpenCode agent's production deploy is held, and goes to Alex with the failing checks on the card." |
 | 0:54–1:09 | SC8 | Sam silent; after 18 s (clock 10x) Neha gets the card; both DMs show "Needs your response (1)" | "If nobody answers, Clearance escalates on a timer, and every approver has one inbox across rooms." |
-| 1:09–1:18 | SC14 | Sam, the approver in the vanilla room, clears five cards from Priya's ordinary requests, sent one at a time, in under ten seconds of looking, shown sped up and labelled; caption "staged illustration, real clicks", which gives no count. This sets up the drill | "And when someone else approves, people approve 93% of what they're shown. Approval gates are everywhere in this hackathon. They don't stay meaningful on their own." |
+| 1:09–1:18 | SC14 | Sam, the approver in the vanilla room, clears five cards from Priya's ordinary requests, sent one at a time, in under ten seconds of looking, shown sped up and labelled; caption "staged illustration, real clicks", which gives no count. This sets up the drill | "And when people are asked, they approve 93% of what they're shown. Approval gates don't stay meaningful on their own." |
 | 1:18–1:48 | SC9 | Caption "Sam's first card is a drill: its planted flaw is an amount 10x the order total", until the real card arrives, then "The next card is real: a ₹40,000 refund on a returned order". Sam approves the drill; private message "That was a practice request…"; the wait for the agent is cut; the next card asks him to type one field of the request, which rotates and isn't always the amount, and stays up long enough to read its ask out loud; he answers wrong and reads "didn't match"; he answers right, and the room hears it was approved and ran | "People rubber-stamp. So Clearance runs drills, like phishing tests, and adds friction when approvals get too fast. Sam's next high-risk card asks for a detail from the call, typed out. Get it wrong, and it asks again, for a different field. Only the right answer runs it." |
 | 1:48–2:08 | SC11 | Promotion card with replay numbers; Sam and Alex approve; Sam's pane moves to `#support`, where the small refund runs with no one asked; review card; `@clearance incident` demotes, and Alex's pane on `#approvals` shows it; back in `#support` the next small refund is held | "Agents earn autonomy from a record people signed. Two humans approve the promotion, and one incident takes it away." |
 | 2:08–2:33 | Numbers | `RESULTS.md` table, only rows with a result: E1 and the audit line, E2 and E3's quiet share once they exist, E6 both numbers, the negative result. The voice-over says the same rows | "Measured, not claimed: [read the three headline numbers exactly as in RESULTS.md], and one place we lose: [negative result]." |

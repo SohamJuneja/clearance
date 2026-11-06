@@ -67,7 +67,7 @@ scenes:
     callouts:
       - "The agent caught the wrong amount in this ticket"
       - "Clearance: the approval layer, built on Switch"
-    voiceover: "The agent caught the wrong amount in this ticket, but offered to pay a brand-new payment ID. Clearance holds it, and refuses Priya's own approval."
+    voiceover: "The agent caught the wrong amount in this ticket and asked which payment ID was right. Priya, scripted, picks the new one. Clearance holds it, and refuses Priya's own approval."
 
   - id: sc3-sam
     kind: split
@@ -126,7 +126,7 @@ scenes:
     source: { clip: takes/SC14/latest/sam.mp4 }
     callouts: ["staged illustration, real clicks"]
     notices: ["93%: Anthropic, Claude Code auto mode, Mar 2026"]
-    voiceover: "And when someone else approves, people approve 93% of what they're shown. Approval gates are everywhere in this hackathon. They don't stay meaningful on their own."
+    voiceover: "And when people are asked, they approve 93% of what they're shown. Approval gates don't stay meaningful on their own."
 
   - id: sc9
     kind: clip

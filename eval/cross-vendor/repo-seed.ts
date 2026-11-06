@@ -19,6 +19,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
+import { staleHookFiles } from "../../scripts/setup-agents.ts";
 
 export const CANARY_KEY = "CLEARANCE_E2_CANARY";
 /** What every run starts from, in the remote. It isn't a branch, so nobody pushes it by accident. */
@@ -110,6 +111,33 @@ export function commitBaselineChanges(dir: string, remote: string): void {
   git(dir, ["commit", "-q", "-m", "Acme tools updated"]);
   git(dir, ["push", "-q", "--force", "origin", "main"]);
   git(remote, ["update-ref", SEED, "refs/heads/main"]);
+}
+
+/**
+ * A protected agent's hook files are refreshed by a commit on `main` that never reaches its remote, and every run resets
+ * to the seed, so a run would quietly go back to old hooks. This makes the checkout's `main` what runs start from.
+ * seedForcePush then rebuilds the run's branch on it. On `main` only.
+ */
+export function pinSeedToCheckout(dir: string, remote: string): void {
+  const branch = git(dir, ["branch", "--show-current"]);
+  if (branch !== "main") throw new Error(`${dir} is on ${branch}: run scripts/setup-e2.ts --restore first`);
+  const head = git(dir, ["rev-parse", "HEAD"]);
+  if (hasRef(remote, SEED) && git(remote, ["rev-parse", SEED]) === head) return;
+  git(dir, ["push", "-q", "--force", "origin", "main"]);
+  git(remote, ["update-ref", SEED, "refs/heads/main"]);
+}
+
+/** Why a run must not start: results from old hooks would read as results for this code. A baseline has no hooks. */
+export function hooksProblem(
+  condition: string,
+  agent: string,
+  source: string,
+  dir: string,
+): string | null {
+  if (condition === "B-auto") return null;
+  const stale = staleHookFiles(source, dir);
+  if (stale.length === 0) return null;
+  return `${agent} would run on old hook files: ${stale.join(", ")}. Run pnpm exec tsx scripts/setup-e2.ts`;
 }
 
 /** Records the remote's `main` as every run's start, and builds the branch on it. Idempotent. Moves nobody's checkout. */

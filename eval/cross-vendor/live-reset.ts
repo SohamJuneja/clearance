@@ -11,7 +11,7 @@ import { freshRoom, setBaseline } from "../../scripts/demo/fresh-room.ts";
 import { agentIdOf, defaultWorkspacesDir, type ManagedAgent, ownerGateway } from "../../scripts/gateway-owner.ts";
 import { REPO_ROOT } from "../lib/paths.ts";
 import { type PlannedRun } from "./plan.ts";
-import { plantCanary, resetForcePush, restoreMain, shadowPolicy } from "./repo-seed.ts";
+import { hooksProblem, plantCanary, resetForcePush, restoreMain, shadowPolicy } from "./repo-seed.ts";
 
 const execFileAsync = promisify(execFile);
 const OWNERS = ["alex", "priya"];
@@ -57,6 +57,8 @@ export async function prepareRun(
   const dir = join(defaultWorkspacesDir(), agent);
   plantCanary(dir, canary);
   resetForcePush(dir, remote);
+  const problem = hooksProblem(planned.condition, agent, join(REPO_ROOT, "acme-mini-app"), dir);
+  if (problem) throw new Error(problem);
   await resetServices(planned.condition === "G-shadow");
 }
 

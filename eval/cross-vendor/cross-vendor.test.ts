@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -36,6 +36,8 @@ import {
   vendorCell,
 } from "./plan.ts";
 import {
+  hooksProblem,
+  pinSeedToCheckout,
   canaryPlanted,
   commitBaselineChanges,
   forcePushSeeded,
@@ -497,6 +499,65 @@ describe("the setup a run leans on", () => {
     expect(git(dir, "rev-parse", "HEAD")).toBe(start);
   });
 
+  describe("hook files, which a run must never roll back", () => {
+    const FILE = ".claude/settings.json";
+    const refresh = (words: string): void => {
+      mkdirSync(join(dir, ".claude"), { recursive: true });
+      writeFileSync(join(dir, FILE), words);
+      git(dir, "add", "-f", "--", FILE);
+      git(dir, "commit", "-q", "-m", "Clearance hook files, from the template");
+    };
+
+    it("starts every run from a refresh committed on main, and stays on it afterwards", () => {
+      seedForcePush(dir, remote);
+      refresh("new hooks\n");
+      pinSeedToCheckout(dir, remote);
+      seedForcePush(dir, remote);
+      for (let run = 0; run < 2; run++) {
+        resetForcePush(dir, remote);
+        expect(readFileSync(join(dir, FILE), "utf8")).toBe("new hooks\n");
+      }
+      restoreMain(dir, remote);
+      expect(readFileSync(join(dir, FILE), "utf8")).toBe("new hooks\n");
+    });
+
+    it("rolls a refresh back without it, which is the failure this guards against", () => {
+      seedForcePush(dir, remote);
+      refresh("new hooks\n");
+      resetForcePush(dir, remote);
+      expect(existsSync(join(dir, FILE))).toBe(false);
+    });
+
+    it("doesn't move the seed when nothing changed", () => {
+      seedForcePush(dir, remote);
+      const seed = git(remote, "rev-parse", "refs/e2/seed");
+      pinSeedToCheckout(dir, remote);
+      expect(git(remote, "rev-parse", "refs/e2/seed")).toBe(seed);
+    });
+
+    it("refuses from any branch but main, since that would make a run's leftovers the seed", () => {
+      seedForcePush(dir, remote);
+      resetForcePush(dir, remote);
+      expect(() => pinSeedToCheckout(dir, remote)).toThrow(/--restore/);
+    });
+
+    it("stops a protected agent's run on old hook files, and says which", () => {
+      const source = mkdtempSync(join(tmpdir(), "e2-hooks-"));
+      try {
+        mkdirSync(join(source, ".claude"), { recursive: true });
+        writeFileSync(join(source, FILE), "new hooks\n");
+        refresh("old hooks\n");
+        expect(hooksProblem("C", "refunds-agent", source, dir)).toContain(FILE);
+        expect(hooksProblem("G-shadow", "refunds-agent", source, dir)).toContain(FILE);
+        expect(hooksProblem("B-auto", "refunds-agent-vanilla", source, dir)).toBeNull();
+        refresh("new hooks\n");
+        expect(hooksProblem("C", "refunds-agent", source, dir)).toBeNull();
+      } finally {
+        rmSync(source, { recursive: true, force: true });
+      }
+    });
+  });
+
   it("starts runs from a tool file changed since the repo was made, or a run would put the old words back", () => {
     seedForcePush(dir, remote);
     const before = main();
@@ -698,6 +759,13 @@ describe("the command line and the output", () => {
     const output = renderOutput([], everywhere({ status: "ready" }), args);
     expect(output.claude_model).toBe("sonnet");
     expect(output.experiment).toBe("E2");
+  });
+
+  it("labels a probe as a probe, so its few runs can never be read as E2", () => {
+    const probe = renderOutput([], everywhere({ status: "ready" }), parseVendorArgs(["--probe"]));
+    expect(probe.experiment).toBe("E2-probe");
+    const real = renderOutput([], everywhere({ status: "ready" }), parseVendorArgs(["--go"]));
+    expect(real.experiment).toBe("E2");
   });
 
   it("does nothing real unless asked", () => {

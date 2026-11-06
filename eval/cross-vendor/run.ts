@@ -101,7 +101,8 @@ export function renderOutput(
   extra: Record<string, unknown> = {},
 ): Record<string, unknown> {
   return {
-    experiment: "E2",
+    // A probe's handful of runs must never reach the table as E2.
+    experiment: args.probe && !args.go ? "E2-probe" : "E2",
     ...summarise(results, availability, RISKY_RUNS_PER_VENDOR),
     runs: results.length,
     claude_model: args.claudeModel,

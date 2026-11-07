@@ -64,7 +64,8 @@ const One: React.FC<{ o: Overlay }> = ({ o }) => {
     return (
       <div style={{ ...pos, width: size, height: size, borderRadius: "50%", overflow: "hidden", border: `5px solid ${T.ink}`,
         boxShadow: `9px 9px 0 ${T.canary}`, opacity: e, scale: `${0.85 + 0.15 * p}`, background: T.ink }}>
-        <Video src={staticFile(o.src)} muted style={{ width: vw, height: size, marginLeft: -(vw - size) / 2, objectFit: "cover", display: "block" }} />
+        <Video src={staticFile(o.src)} muted trimBefore={Math.round((o.trimBefore ?? 0) * fps)}
+          style={{ width: vw, height: size, marginLeft: -(vw - size) / 2, objectFit: "cover", display: "block" }} />
       </div>
     );
   }

@@ -13,7 +13,7 @@ export type Overlay =
   | { kind: "image"; src: string; at: number; dur: number; x?: number; y?: number; w?: number }
   | { kind: "label"; text: string; at: number; dur: number; x: number; y: number; tone?: "accent" | "good" | "bad" | "plain" }
   | { kind: "arrow"; at: number; dur: number; from: [number, number]; to: [number, number] }
-  | { kind: "face"; src: string; at: number; dur: number; x?: number; y?: number; w?: number }
+  | { kind: "face"; src: string; at: number; dur: number; x?: number; y?: number; w?: number; trimBefore?: number }
   | { kind: "stamp"; text: string; sub?: string; at: number; dur: number; x: number; y: number; w?: number; rot?: number;
       color?: "red" | "violet" | "green"; shape?: "rect" | "oval" };
 

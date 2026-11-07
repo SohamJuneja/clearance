@@ -36,6 +36,9 @@ video/audio/cache/
 video/film/public/captures/*.mp4
 video/film/public/audio/
 video/narration/*.wav
+# the owner's own face and voice takes: cut from his recording by owner_takes.py, kept out of the public repo
+video/narration/owner/
+video/film/public/face/
 video/master.wav
 video/*.mp4
 video/premaster.wav

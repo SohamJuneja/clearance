@@ -50,7 +50,7 @@ The deadline is Sat Nov 7, 23:59 IST. NOW is in the order I'd do it.
 ## LATER (only if you want them, or after the deadline)
 
 - [ ] **The repo must be public when you submit.** Soham's already is. Only he can change it, as admin.
-- [ ] **Blog:** draft at `docs/build/blog-draft.md`, written as you, in first person. Please read it, since it speaks for you, and change anything that isn't how you'd say it. `pnpm numbers:fill` fills the numbers. Post on dev.to or Hashnode when you're happy with it.
+- [x] **Blog:** posted on dev.to.  draft at `docs/build/blog-draft.md`, written as you, in first person. Please read it, since it speaks for you, and change anything that isn't how you'd say it. `pnpm numbers:fill` fills the numbers. Post on dev.to or Hashnode when you're happy with it.
 - [ ] **Three #HowISwitch posts.** Text is in `docs/build/social-draft.md`, written as you. The clips are `docs/media/social/post-1.mp4` and `post-2.mp4`. Nothing gets posted until you do it or tick this.
 - [ ] **Soham: clear the GitHub billing lock.** CI runs no steps: "The job was not started because your account is locked due to a billing issue." Only he can fix it, under Settings, Billing and plans. Not a hackathon rule. Once cleared: `gh run rerun 42282158902 -R SohamJuneja/clearance`.
 - [ ] **Ask Soham to try to break the fixes again.** His review found real breaks, all now fixed and re-checked in `pnpm eval:authority --group sixth-review`. `scripts/check-fence.sh --live` shows what's locked from inside, and the limits we kept are in `docs/threat-model.md`.

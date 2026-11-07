@@ -9,7 +9,7 @@ Team dellfargo's entry to the Flip the Switch hackathon: Track 01, Best Business
 <!-- video:start -->
 [![Watch the 3:57 demo film on YouTube](site/dist/media/poster.webp)](https://youtu.be/wTnfxIONb2Y)
 
-**[Watch the demo film on YouTube (3:57)](https://youtu.be/wTnfxIONb2Y)**
+**[Watch the demo film on YouTube (3:57)](https://youtu.be/wTnfxIONb2Y)** · [Live site](https://clearance-site-brown.vercel.app) · [The build story, on dev.to](https://dev.to/prashant_thakur_d5db1fc78/in-switch-the-person-who-asks-for-a-refund-can-approve-it-heres-how-we-fixed-that-3bl5)
 <!-- video:end -->
 
 ![Priya asked for the refund and answers her own card. Clearance refuses her in the room, and the card goes to Sam in finance, with the new payment ID flagged.](docs/media/refusal.png)

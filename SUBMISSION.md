@@ -58,7 +58,7 @@ Video: https://youtu.be/wTnfxIONb2Y
 
 Site: https://clearance-site-brown.vercel.app
 
-Blog: BLOG_URL
+Blog: https://dev.to/prashant_thakur_d5db1fc78/in-switch-the-person-who-asks-for-a-refund-can-approve-it-heres-how-we-fixed-that-3bl5
 
 Wispr Insights: Soham's screenshots, attached, and in the film (`docs/media/wispr-highlights.jpg`).
 

@@ -4,7 +4,7 @@ A refund-approval workflow for teams of people and AI agents, built on [Switch](
 
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE) ![Built Nov 6 to 7, 2026](https://img.shields.io/badge/built-Nov%206%20to%207%202026-555)
 
-Team dellfargo's entry to the Flip the Switch hackathon, Track 01: Best Business Workflow.
+Team dellfargo's entry to the Flip the Switch hackathon: Track 01, Best Business Workflow, and Track 02, Best Personal or Creative Workflow.
 
 <!-- video:start -->
 <!-- video:end -->
@@ -53,6 +53,16 @@ flowchart LR
 ```
 
 The same policy file covers merges, deploys, deletes, customer emails and payout changes. Decisions are deterministic code over that file, with no LLM in the decision path. [docs/why.md](docs/why.md) has the problem and its sources, and [docs/architecture.md](docs/architecture.md) has the flow step by step.
+
+## For two people, too
+
+Clearance's rules don't depend on the size of the team. The person who asked can't approve, so two people are enough: you, and one person you trust.
+
+- **Your own agents, your own money.** A freelancer's or a small founder's coding agent can merge, deploy and pay invoices. With Clearance, a force push, a production deploy or a payment to a new account waits for your partner or co-founder, with the call, not the agent's summary, on the card.
+- **Earn trust step by step.** Once two people sign off on its record, an agent can handle small, routine payments alone, and one incident takes that away.
+- **Ask before you run.** The project site's "Try it" box runs Clearance's own policy engine in your browser: paste a command and see whether it would be held and who could approve it. The MCP connector answers the same from Claude Code.
+
+We demo it with a synthetic five-person company. A two-person setup is the same policy file with two people in `policy/team.yaml`; we haven't recorded one.
 
 ## See it
 

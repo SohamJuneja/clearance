@@ -13,7 +13,7 @@ dellfargo: Prashant (Prashant-thakur77) and Soham (SohamJuneja).
 
 ## Tracks
 
-Track 01: Best Business Workflow. Code with Wispr. Best Blog. We didn't enter Track 03: the Canva connection for Switch we wrote for it stays in the repo, in `spikes/track03/`, because it was never tested against a real Canva app.
+Track 01: Best Business Workflow. Track 02: Best Personal or Creative Workflow: the same rules work for two people, a builder and someone they trust, over their own agents and money, and the site's "Try it" box checks a command in the browser. Code with Wispr. Best Blog. We didn't enter Track 03: the Canva connection for Switch we wrote for it stays in the repo, in `spikes/track03/`, because it was never tested against a real Canva app.
 
 ## One line
 

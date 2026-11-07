@@ -1,6 +1,6 @@
 # Clearance
 
-A refund-approval workflow for teams of people and AI agents, built on [Switch](https://github.com/sandbox-quantum/switch). The person who asks an agent to move money can't also be the one who approves it.
+A refund-approval workflow for teams of people and AI agents, built on [Switch](https://github.com/sandbox-quantum/switch). The person who asks an agent to move money can't also be the one who approves it. Switch's rooms, its record of who said what, its native approval cards and its room roles do the load-bearing work.
 
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE) ![Built Nov 6 to 7, 2026](https://img.shields.io/badge/built-Nov%206%20to%207%202026-555)
 
@@ -27,6 +27,31 @@ We gave real agents in real Switch rooms risky requests against a synthetic comp
 6. Everything goes on a tamper-evident ledger. Practice requests with a planted flaw check that approvers still read, and agents can earn the right to handle small refunds alone, with two people signing and one incident taking it away.
 
 The same policy file covers merges, deploys, deletes, customer emails and payout changes. Decisions are deterministic code over that file, with no LLM in the decision path. [docs/why.md](docs/why.md) has the problem and its sources, and [docs/architecture.md](docs/architecture.md) has the flow step by step.
+
+## How Clearance uses Switch
+
+| Switch capability | How Clearance uses it | Code |
+|---|---|---|
+| Agent protocol: register, SSE stream, heartbeat, operations | Clearance is a Switch agent | `packages/switch-agent` |
+| Approval cards and `approval_outcome` | Every card is a native Switch card with buttons | `packages/core/src/cards` |
+| Answer grammar (`A12 yes`) | The same grammar, plus type-to-confirm cards | `packages/core/src/confirm` |
+| Identity claims, `answered_by`, `sender` | Who asked and who approved, never from an agent's text | `packages/core/src/router/requesters.ts` |
+| Rooms, direct rooms, groups | `#approvals` and one direct room per approver | `templates/` |
+| Targeted messages | Escalations and agent notifications | `packages/core/src/escalation` |
+| Room roles, `assume_role`, `@role` | A refused agent writes `@merges`, and whoever holds that role picks the work up. Roles only say where work goes: any member can take one, so authority stays in `policy/` and the gate's grants | `packages/contracts/src/job-roles.ts` |
+| Room documents | The ledger, mirrored per day | `packages/core/src/ledger/mirror.ts` |
+| Templates v2 and `run_template` | `@clearance install` and the demo world | `templates/` |
+| Managed agents across vendors | One policy over all of them | `acme-mini-app/`, `scripts/setup-agents.ts` |
+| Addressing policy | Only linked people can answer Clearance's cards | `scripts/setup-identities.ts` |
+| Switch Trust (optional, off by default) | Flags agent messages that pressure approvers. It's advice, and never changes a decision | `packages/core/src/trust` |
+
+Take Switch away and there's no room where people and agents meet, no identity to tell requester from approver, no card and no way to install. Clearance has no chat surface and no agents of its own.
+
+### MCP connector
+
+Approvers and operators can also ask Clearance questions from Claude Code, Claude Desktop or Cursor. `packages/mcp-connector` is a small MCP server with six read-only tools: what's pending and who can decide it, what's waiting on you, why a request was held (the same answer as `@clearance why`), the recent ledger, whether its hash chain verifies, and a dry run that says whether a call would be held and who could approve it, without recording anything.
+
+It can't approve, deny or cancel. An approval counts only when an eligible person answers the card in Switch, because Switch's `approval_outcome` event is what says who they are. It uses core's internal token, which agents never hold, so an agent can't use it to list requests or probe the policy. [docs/mcp-connector.md](docs/mcp-connector.md) has the setup for each client.
 
 ## Agents and channels
 
@@ -61,31 +86,6 @@ pnpm demo:run SC3        # the refund above, with real agents
 ```
 
 Then open http://localhost:8065 and log in as `priya` or `sam`, with `PERSONA_PASSWORD` from `.env`. It needs Linux (WSL2 counts), Docker, Node 22, pnpm, `just` and a few GB of free memory, and `just demo --check` says what's missing. Windows itself isn't supported, for the tests either: they use POSIX paths, file modes and shell commands. `just demo --no-agents` runs it with no key and no LLM, on scripted calls. [docs/running-it.md](docs/running-it.md) has the rest, including every scene.
-
-## How Clearance uses Switch
-
-| Switch capability | How Clearance uses it | Code |
-|---|---|---|
-| Agent protocol: register, SSE stream, heartbeat, operations | Clearance is a Switch agent | `packages/switch-agent` |
-| Approval cards and `approval_outcome` | Every card is a native Switch card with buttons | `packages/core/src/cards` |
-| Answer grammar (`A12 yes`) | The same grammar, plus type-to-confirm cards | `packages/core/src/confirm` |
-| Identity claims, `answered_by`, `sender` | Who asked and who approved, never from an agent's text | `packages/core/src/router/requesters.ts` |
-| Rooms, direct rooms, groups | `#approvals` and one direct room per approver | `templates/` |
-| Targeted messages | Escalations and agent notifications | `packages/core/src/escalation` |
-| Room roles, `assume_role`, `@role` | A refused agent writes `@merges`, and whoever holds that role picks the work up. Roles only say where work goes: any member can take one, so authority stays in `policy/` and the gate's grants | `packages/contracts/src/job-roles.ts` |
-| Room documents | The ledger, mirrored per day | `packages/core/src/ledger/mirror.ts` |
-| Templates v2 and `run_template` | `@clearance install` and the demo world | `templates/` |
-| Managed agents across vendors | One policy over all of them | `acme-mini-app/`, `scripts/setup-agents.ts` |
-| Addressing policy | Only linked people can answer Clearance's cards | `scripts/setup-identities.ts` |
-| Switch Trust (optional, off by default) | Flags agent messages that pressure approvers. It's advice, and never changes a decision | `packages/core/src/trust` |
-
-Take Switch away and there's no room where people and agents meet, no identity to tell requester from approver, no card and no way to install. Clearance has no chat surface and no agents of its own.
-
-### MCP connector
-
-Approvers and operators can also ask Clearance questions from Claude Code, Claude Desktop or Cursor. `packages/mcp-connector` is a small MCP server with six read-only tools: what's pending and who can decide it, what's waiting on you, why a request was held (the same answer as `@clearance why`), the recent ledger, whether its hash chain verifies, and a dry run that says whether a call would be held and who could approve it, without recording anything.
-
-It can't approve, deny or cancel. An approval counts only when an eligible person answers the card in Switch, because Switch's `approval_outcome` event is what says who they are. It uses core's internal token, which agents never hold, so an agent can't use it to list requests or probe the policy. [docs/mcp-connector.md](docs/mcp-connector.md) has the setup for each client.
 
 ## Results
 

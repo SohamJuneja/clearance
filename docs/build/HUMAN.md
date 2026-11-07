@@ -6,6 +6,14 @@ Everything else is being done without you. Tick a box when done (or just tell me
 
 ## NOW
 
+- [ ] **Record your voice and face (about 10 minutes).** The script is `~/Downloads/clearance-voiceover-script.md`: 26 lines, each read twice with 2 seconds of silence, looking at the lens, in one video saved as `~/Downloads/clearance-vo.mp4`. Then tell me, and one rebuild swaps the narrator for you: `python video/owner_takes.py ~/Downloads/clearance-vo.mp4`, then `VOICE=owner TAG=final bash video/rebuild.sh`. If there's no time, the narrator cut is complete as it is.
+
+- [ ] **Upload the film to YouTube (unlisted or public), then send me the link.** The file is `~/Videos/clearance/clearance-<latest>.mp4` (1080p, -14 LUFS). Title, description, chapters and sources are in `video/YOUTUBE.md`; the thumbnail is `~/Videos/clearance/thumbnail.png`. Captions are burned in, so don't upload the .srt. With the link I add it to the README, the site and the submission text.
+
+- [ ] **Soham: deploy the site from the repo.** Vercel, Add New Project, import `SohamJuneja/clearance`, framework Other, no build command, output directory `site/dist`. Every push to `master` then updates it. Your own Vercel copy (clearance-site-brown.vercel.app) is the older page and doesn't update by itself.
+
+- [ ] **Decide on a licence notice for the site's playground.** `site/dist/playground.js` bundles zod, yaml and jsep (MIT and ISC licences), whose packages ship no licence text. MIT asks that its notice travel with copies. Your call whether to add a notices file; I haven't added one, as credits and notices are yours to write.
+
 - [ ] **0a. Get on the team page, and rename the team `dellfargo` there.** The repo now says `dellfargo`, and the page has to match. Sign in on wemakedevs.org and have Soham add you to the team, star `sandbox-quantum/switch` through the event link, and join the WeMakeDevs Discord. Why: only listed members count, and this is on his plan as B-0. I can't check it from here. Deadline: now.
 
 - [x] **0b. Pushed to Soham's repo.** `master` is on our code, with his 5 commits kept and his old code tagged `soham-python-first-cut`. Next: send Soham the message from the chat. Pushes from now on are `git push` from `main`, never `--force`.

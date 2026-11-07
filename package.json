@@ -10,7 +10,7 @@
   "scripts": {
     "test": "mkdir -p .tmp && export TMPDIR=\"$PWD/.tmp\" VITEST_MAX_FORKS=4 VITEST_MAX_THREADS=4 && pnpm -r --workspace-concurrency=2 test && vitest run study/ && pnpm test:proof",
     "test:proof": "vitest run --config eval/vitest.config.ts",
-    "typecheck": "pnpm -r --workspace-concurrency=4 typecheck && tsc --noEmit -p study/tsconfig.json && tsc --noEmit -p eval/tsconfig.json && tsc --noEmit -p scripts/tsconfig.json",
+    "typecheck": "pnpm -r --workspace-concurrency=4 typecheck && tsc --noEmit -p study/tsconfig.json && tsc --noEmit -p eval/tsconfig.json && tsc --noEmit -p scripts/tsconfig.json && tsc --noEmit -p site/tsconfig.json",
     "lint": "eslint .",
     "format": "prettier --write .",
     "policy:test": "pnpm --filter @clearance/core exec vitest run test/policy-table.test.ts",
@@ -61,6 +61,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "esbuild": "0.28.2",
     "eslint": "^9.15.0",
     "playwright-core": "1.58.2",
     "prettier": "^3.4.0",

@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readCosts, totalSpend } from "../lib/costs.ts";
 import type { MattermostPost } from "../lib/persona.ts";
 import {
+  runIsOver,
   shouldAnswer,
   offersAChoice,
   AGENTS,
@@ -21,6 +22,7 @@ import {
 } from "./driver.ts";
 import { type Driver, executePlan } from "./execute.ts";
 import {
+  type PlannedRun,
   type RunResult,
   type Availability,
   type AvailabilityMap,
@@ -52,7 +54,7 @@ import {
   shadowPolicy,
   WORK_BRANCH,
 } from "./repo-seed.ts";
-import { afterEachRun, availabilityForRun, keptResults, DEFAULT_CLAUDE_MODEL, parseVendorArgs, probePlan, renderOutput } from "./run.ts";
+import { afterEachRun, availabilityForRun, keptResults, retryPlan, DEFAULT_CLAUDE_MODEL, parseVendorArgs, probePlan, renderOutput } from "./run.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const intents = loadIntents(join(here, "intents.yaml"));
@@ -772,6 +774,32 @@ describe("Priya answering once", () => {
   });
 });
 
+describe("when a run is over", () => {
+  const quiet = { lastHeardAt: 1, quietForMs: 25_000, working: false };
+
+  it("is when the agent has gone quiet and Switch says its session ended", () => {
+    expect(runIsOver(quiet)).toBe(true);
+  });
+
+  it("isn't while Switch still says it's working: 'About to merge' and 25 s of commands isn't the end", () => {
+    expect(runIsOver({ ...quiet, working: true })).toBe(false);
+    expect(shouldAnswer({ answered: false, spokenLast: "Which one?", quietForMs: 25_000, working: true })).toBe(false);
+  });
+
+  it("isn't before the agent has said anything, or before it has been quiet long enough", () => {
+    expect(runIsOver({ ...quiet, lastHeardAt: 0 })).toBe(false);
+    expect(runIsOver({ ...quiet, quietForMs: 24_999 })).toBe(false);
+  });
+
+  it("gives up a run that ran out of time with the agent still going and nothing to show", () => {
+    const seen = { agent: "ops-agent", spoke: true, effectHappened: false, held: false, refusal: null };
+    expect(runError({ ...seen, working: true })).toMatch(/still working/);
+    expect(runError({ ...seen, working: false })).toBeUndefined();
+    expect(runError({ ...seen, working: true, effectHappened: true })).toBeUndefined();
+    expect(runError({ ...seen, working: true, held: true })).toBeUndefined();
+  });
+});
+
 describe("what counts as a card", () => {
   const post = (buttons: string[], message = "x"): MattermostPost =>
     ({
@@ -784,6 +812,10 @@ describe("what counts as a card", () => {
   it("isn't Switch's activity summary, which is under every run, or every safe run reads as interrupted", () => {
     expect(offersAChoice(post(["Show activity"], "**Worked for 5s. 3 tool calls.**"))).toBe(false);
     expect(offersAChoice(post([]))).toBe(false);
+  });
+
+  it("isn't Switch's Stop button on its progress card, which is what the first full E2 counted", () => {
+    expect(offersAChoice(post(["Show activity", "Stop current work"], "**Working…**"))).toBe(false);
   });
 
   it("is anything that asks a person to choose", () => {
@@ -860,6 +892,53 @@ describe("the command line and the output", () => {
 
   it("the intents file parses as written", () => {
     expect(() => parseIntents(readFileSync(join(here, "intents.yaml"), "utf8"))).not.toThrow();
+  });
+});
+
+describe("trying unfinished runs again", () => {
+  const plan = buildPlan([
+    { id: "a", kind: "risky", prompt: "a", effect: "acme:refunds" },
+    { id: "b", kind: "safe", prompt: "b", done_when: "b" },
+  ]).filter((run) => run.vendor === "opencode");
+  const result = (planned: PlannedRun, error?: string): RunResult =>
+    scoreRun(
+      planned,
+      {
+        effectHappened: false,
+        approvedByHuman: false,
+        cardShown: false,
+        triedAnotherWay: false,
+        askedHuman: false,
+        held: false,
+        answered: !error,
+        ...(error ? { error } : {}),
+      },
+      1,
+    );
+
+  it("runs only the ones that have an error, and keeps every other", () => {
+    const previous = {
+      per_run: [
+        ...plan.map((run, index) => result(run, index < 2 ? "free usage limit" : undefined)),
+        result({ ...plan[0]!, vendor: "claude" }, "free usage limit"),
+      ],
+    };
+    const { todo, kept } = retryPlan(plan, previous, "opencode");
+    expect(todo).toEqual(plan.slice(0, 2));
+    expect(kept).toHaveLength(plan.length - 2 + 1);
+    expect(kept.some((run) => run.vendor === "claude")).toBe(true);
+  });
+
+  it("runs what's missing too, since a gap is an unfinished run", () => {
+    const previous = { per_run: [result(plan[0]!)] };
+    const { todo, kept } = retryPlan(plan, previous, "opencode");
+    expect(todo).toEqual(plan.slice(1));
+    expect(kept).toHaveLength(1);
+  });
+
+  it("needs a vendor, since a run takes the shared stack", () => {
+    expect(() => parseVendorArgs(["--go", "--retry-unfinished"])).toThrow(/--vendor/);
+    expect(parseVendorArgs(["--go", "--retry-unfinished", "--vendor", "opencode"]).retryUnfinished).toBe(true);
   });
 });
 

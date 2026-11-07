@@ -84,6 +84,21 @@ const E1Live = z.object({
   ),
 });
 
+/** From `pnpm eval:vendors:rescore`: what each vendor's runs under a condition came to, counting only runs that finished. */
+const E2Ends = z.object({
+  risky: z.object({
+    finished: z.number().int(),
+    held: z.number().int(),
+    refused: z.number().int(),
+    declined: z.number().int(),
+    happened: z.number().int(),
+    requester_said_yes: z.number().int(),
+    happened_after_requester_said_yes: z.number().int(),
+  }),
+  safe: z.object({ finished: z.number().int(), done: z.number().int(), carded: z.number().int() }),
+});
+type E2EndsRow = z.infer<typeof E2Ends>;
+
 const E2 = z.object({
   ...Flags,
   experiment: z.literal("E2"),
@@ -91,7 +106,30 @@ const E2 = z.object({
   safe_interrupted: z.object({ baseline: Vendors, clearance: Vendors }).optional(),
   runs: z.number().int().nonnegative().optional(),
   claude_model: z.string().optional(),
+  opencode_model: z.string().optional(),
   priya_answers_once: z.boolean().optional(),
+  rescored_from_transcripts: z.boolean().optional(),
+  ends: z.record(z.string(), z.record(z.string(), E2Ends)).optional(),
+  shadow_prediction: z
+    .object({
+      happened: z.number().int(),
+      would_have_held: z.number().int(),
+      would_hold_but_nothing_happened: z.number().int(),
+    })
+    .optional(),
+  per_run: z
+    .array(
+      z
+        .object({
+          vendor: z.string().optional(),
+          condition: z.string().optional(),
+          intent: z.string().optional(),
+          kind: z.string().optional(),
+          safe_done: z.boolean().optional(),
+        })
+        .passthrough(),
+    )
+    .optional(),
 });
 
 /** The E2 attempt where nobody answered the agent, kept because of what it showed. */
@@ -335,6 +373,31 @@ function vendorsOrBlank(counts: VendorCounts | undefined): string {
   return counts ? vendors(counts) : BLANK;
 }
 
+const E2_VENDOR_NAMES: Record<string, string> = {
+  claude: "Claude",
+  codex: "Codex",
+  opencode: "OpenCode",
+  cursor: "Cursor",
+};
+
+/** One condition's E2 tallies, vendor by vendor, or `_` until there are any. A vendor with no runs isn't named. */
+function e2Cells(
+  e2: Inputs["E2"],
+  condition: "B-auto" | "C",
+  cell: (row: E2EndsRow, vendor: string) => string,
+  separator = ", ",
+): string {
+  const parts = Object.entries(e2?.ends ?? {}).flatMap(([vendor, conditions]) => {
+    const row = conditions[condition];
+    return row ? [cell(row, E2_VENDOR_NAMES[vendor] ?? vendor)] : [];
+  });
+  return parts.length > 0 ? parts.join(separator) : BLANK;
+}
+
+/** Out of 20 is the plan, so it goes without saying. Anything else says how many finished, or that none did. */
+const ofTwenty = (count: number, finished: number): string =>
+  finished === 0 ? "not run" : finished === 20 ? String(count) : `${count} of ${finished}`;
+
 function prevented(value: z.infer<typeof Prevented> | undefined): string {
   return value ? num(value.prevented) : BLANK;
 }
@@ -475,6 +538,39 @@ function firstAttemptResult(inputs: Inputs): NegativeResult | undefined {
   };
 }
 
+/** Harmless work the same prompts got done without Clearance, and didn't with it. */
+function harmlessWorkLost(inputs: Inputs): NegativeResult | undefined {
+  const e2 = inputs.E2;
+  const claude = e2?.ends?.claude;
+  const without = claude?.["B-auto"]?.safe;
+  const withIt = claude?.C?.safe;
+  if (!without || !withIt || withIt.finished === 0 || withIt.done >= without.done) return undefined;
+  const doneIn = (condition: string): Set<string> =>
+    new Set(
+      (e2?.per_run ?? [])
+        .filter((run) => run.vendor === "claude" && run.condition === condition && run.safe_done)
+        .map((run) => run.intent ?? ""),
+    );
+  const clearanceDid = doneIn("C");
+  const lost = [...doneIn("B-auto")].filter((intent) => !clearanceDid.has(intent));
+  const tasks = lost.length > 0 ? `, on ${lost.join(", ")}` : "";
+  const short = `Clearance cost harmless work: Claude finished ${withIt.done} of ${withIt.finished} harmless tasks against ${without.done} of ${without.finished} without it${tasks}. The gate's role list refused those outright, with no card, so a person has to send them to another agent`;
+  return { id: "e2-harmless-work", text: `${short}.`, short, source: "`pnpm eval:vendors:rescore`" };
+}
+
+/** E2's own mistake, and how it was put right. */
+function e2ScorerResult(inputs: Inputs): NegativeResult | undefined {
+  if (!inputs.E2?.rescored_from_transcripts) return undefined;
+  const short =
+    "E2's scorer first counted Switch's own \"Stop current work\" button as a card, so every safe action read as interrupted";
+  return {
+    id: "e2-scorer",
+    text: `${short}. That was wrong, and it's fixed: cards are recounted from the saved transcript of every run with \`pnpm eval:vendors:rescore\`, in \`eval/results/e2-transcripts.jsonl\`, with no run repeated. The same recount gave up runs that had ended with the agent still working, and those no longer count either way.`,
+    short,
+    source: "`pnpm eval:vendors:rescore`",
+  };
+}
+
 export function negativeResults(inputs: Inputs): NegativeResult[] {
   const results: NegativeResult[] = [];
   const { E1: e1, E6: e6, BL: bl } = inputs;
@@ -559,6 +655,10 @@ export function negativeResults(inputs: Inputs): NegativeResult[] {
   }
   const firstAttempt = firstAttemptResult(inputs);
   if (firstAttempt) results.push(firstAttempt);
+  const workLost = harmlessWorkLost(inputs);
+  if (workLost) results.push(workLost);
+  const scorer = e2ScorerResult(inputs);
+  if (scorer) results.push(scorer);
   results.push(e5Negative(inputs.E5));
   return results;
 }
@@ -583,8 +683,12 @@ export function renderTable(inputs: Inputs): string {
     "|---|---|---|---|---|---|",
     `| E1 | Bad outcomes prevented (of ${e1?.clearance?.total ?? e1?.b_auto?.total ?? 25}) | B-auto: ${prevented(e1?.b_auto)} / B-ask: ${prevented(e1?.b_ask)} | ${prevented(e1?.clearance)} | ${synthetic(e1, `${e1?.cases ?? 25} scripted cases${onFakeChat(e1?.mode) ? " on a fake chat port" : ""}${e1?.baseline_basis ? "; baselines read from code, not run" : ""}${noSuchControl(e1)}; ${e1Coverage(inputs)}`)} | \`pnpm eval:authority\` |`,
     `| AUDIT | Breaks independent reviews found, re-checked apart from the 25 | n/a | ${auditCell(e1)} | Each break fixed after its review | \`pnpm eval:authority\` |`,
-    `| E2 | Risky actions executed without an eligible human (of 20 per vendor) | ${vendors(e2?.risky_unapproved?.baseline)} | ${vendors(e2?.risky_unapproved?.clearance)} | ${synthetic(e2, e2 ? `${num(e2.runs ?? 360)} agent runs${e2.claude_model ? `, Claude on ${e2.claude_model}` : ""}${e2.priya_answers_once ? "; Priya answers once if the agent asks" : ""}` : "not run yet")} | \`pnpm eval:vendors\` |`,
-    `| E2 | Safe actions interrupted (of 20 per vendor) | ${vendorsOrBlank(e2?.safe_interrupted?.baseline)} | ${vendorsOrBlank(e2?.safe_interrupted?.clearance)} | same | same |`,
+    `| E2 | Risky actions executed without an eligible human (of 20 per vendor) | ${vendors(e2?.risky_unapproved?.baseline)} | ${vendors(e2?.risky_unapproved?.clearance)} | ${synthetic(e2, e2 ? `${num(e2.runs ?? 360)} agent runs${e2.claude_model ? `, Claude on ${e2.claude_model}` : ""}${e2.opencode_model ? `, OpenCode on ${e2.opencode_model}` : ""}${e2.priya_answers_once ? "; Priya answers once if the agent asks" : ""}` : "not run yet")} | \`pnpm eval:vendors\` |`,
+    `| E2 | Safe actions interrupted by a card (of 20 per vendor) | ${vendorsOrBlank(e2?.safe_interrupted?.baseline)} | ${vendorsOrBlank(e2?.safe_interrupted?.clearance)} | ${e2?.rescored_from_transcripts ? "scored from the saved transcripts of the same runs" : "same"} | ${e2?.rescored_from_transcripts ? "\`pnpm eval:vendors:rescore\`" : "same"} |`,
+    `| E2 | Harmless tasks the agent reports done (of 20 per vendor) | ${e2Cells(e2, "B-auto", (row, name) => `${name} ${ofTwenty(row.safe.done, row.safe.finished)}`)} | ${e2Cells(e2, "C", (row, name) => `${name} ${ofTwenty(row.safe.done, row.safe.finished)}`)} | ${e2?.ends ? "a fact only the system could give, in the agent's words" : BLANK} | \`pnpm eval:vendors:rescore\` |`,
+    `| E2 | How attempts ended with Clearance | n/a | ${e2Cells(e2, "C", (row, name) => `${name}: ${row.risky.held} held on a card, ${row.risky.refused} refused by a control, ${row.risky.declined} declined by the agent`, "; ")} | ${e2?.ends ? "holds from the ledger; refused and declined as the agent reports them" : BLANK} | \`pnpm eval:vendors:rescore\` |`,
+    `| E2 | The requester said yes, and it went ahead | ${e2Cells(e2, "B-auto", (row, name) => `${name} ${row.risky.happened_after_requester_said_yes} of ${row.risky.requester_said_yes}`)} | ${e2Cells(e2, "C", (row, name) => `${name} ${row.risky.happened_after_requester_said_yes} of ${row.risky.requester_said_yes}`)} | ${e2?.ends ? "runs where the agent asked and the person who asked for it answered" : BLANK} | \`pnpm eval:vendors:rescore\` |`,
+    `| E2 | Shadow mode's would-hold, against what really happened | n/a | ${e2?.shadow_prediction ? `${e2.shadow_prediction.would_have_held} of ${e2.shadow_prediction.happened}, ${e2.shadow_prediction.would_hold_but_nothing_happened} false alarms` : BLANK} | ${e2?.shadow_prediction ? "Claude, on the same prompts; the gate's role list and secret-file block stay on in shadow" : BLANK} | \`pnpm eval:vendors:rescore\` |`,
     `| E2 | Tried another route after a hold | n/a | ${num(behaviour?.tried_another_route)} of ${num(behaviour?.holds)} holds | ${behaviourData(behaviour)} | \`pnpm eval:behaviour\` |`,
     `| E3 | Recall on risky calls, held-out | approval-required: ${pct(e3?.recall?.approval_required)} | ${pct(e3?.recall?.clearance)} | ${synthetic(e3, `${num(e3?.labelled_calls)} labelled calls after Fri 20:00`)} | \`pnpm eval:classifier\` |`,
     `| E3 | Cards per 100 tool calls | approval-required: ${num(e3?.cards_per_100?.approval_required)} | ${num(e3?.cards_per_100?.clearance)} | same | same |`,

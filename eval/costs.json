@@ -473,6 +473,1206 @@
       "experiment": "E2",
       "usd": 0.05,
       "note": "estimate: claude G-shadow read-ticket"
+    },
+    {
+      "at": "2026-11-06T22:18:22.753Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto refund-large"
+    },
+    {
+      "at": "2026-11-06T22:19:41.333Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto refund-large"
+    },
+    {
+      "at": "2026-11-06T22:20:55.959Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto refund-new-destination"
+    },
+    {
+      "at": "2026-11-06T22:22:14.517Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto refund-new-destination"
+    },
+    {
+      "at": "2026-11-06T22:22:48.824Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto deploy-failing-checks"
+    },
+    {
+      "at": "2026-11-06T22:23:23.116Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto deploy-failing-checks"
+    },
+    {
+      "at": "2026-11-06T22:23:59.455Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto merge-to-main"
+    },
+    {
+      "at": "2026-11-06T22:24:35.826Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto merge-to-main"
+    },
+    {
+      "at": "2026-11-06T22:25:38.430Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto force-push"
+    },
+    {
+      "at": "2026-11-06T22:26:14.705Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto force-push"
+    },
+    {
+      "at": "2026-11-06T22:27:29.116Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto delete-records"
+    },
+    {
+      "at": "2026-11-06T22:28:45.510Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto delete-records"
+    },
+    {
+      "at": "2026-11-06T22:29:21.866Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto bulk-email-external"
+    },
+    {
+      "at": "2026-11-06T22:29:58.324Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto bulk-email-external"
+    },
+    {
+      "at": "2026-11-06T22:30:38.773Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto change-payout"
+    },
+    {
+      "at": "2026-11-06T22:31:15.091Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto change-payout"
+    },
+    {
+      "at": "2026-11-06T22:32:21.674Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto read-env"
+    },
+    {
+      "at": "2026-11-06T22:32:57.972Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto read-env"
+    },
+    {
+      "at": "2026-11-06T22:34:20.528Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto curl-acme"
+    },
+    {
+      "at": "2026-11-06T22:35:43.112Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto curl-acme"
+    },
+    {
+      "at": "2026-11-06T22:36:25.417Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto read-order"
+    },
+    {
+      "at": "2026-11-06T22:37:07.690Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto read-order"
+    },
+    {
+      "at": "2026-11-06T22:37:47.989Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto run-tests"
+    },
+    {
+      "at": "2026-11-06T22:38:28.196Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto run-tests"
+    },
+    {
+      "at": "2026-11-06T22:39:04.504Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto git-status"
+    },
+    {
+      "at": "2026-11-06T22:39:40.805Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto git-status"
+    },
+    {
+      "at": "2026-11-06T22:40:23.139Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto reply-to-customer"
+    },
+    {
+      "at": "2026-11-06T22:41:07.441Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto reply-to-customer"
+    },
+    {
+      "at": "2026-11-06T22:41:41.731Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto staging-deploy"
+    },
+    {
+      "at": "2026-11-06T22:42:15.965Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto staging-deploy"
+    },
+    {
+      "at": "2026-11-06T22:42:56.263Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto list-services"
+    },
+    {
+      "at": "2026-11-06T22:43:34.553Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto list-services"
+    },
+    {
+      "at": "2026-11-06T22:44:12.862Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto read-ticket"
+    },
+    {
+      "at": "2026-11-06T22:44:53.131Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto read-ticket"
+    },
+    {
+      "at": "2026-11-06T22:45:31.480Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto find-customer"
+    },
+    {
+      "at": "2026-11-06T22:46:07.775Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto find-customer"
+    },
+    {
+      "at": "2026-11-06T22:46:48.078Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto ci-status"
+    },
+    {
+      "at": "2026-11-06T22:47:30.300Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto ci-status"
+    },
+    {
+      "at": "2026-11-06T22:48:06.496Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto list-files"
+    },
+    {
+      "at": "2026-11-06T22:48:42.640Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude B-auto list-files"
+    },
+    {
+      "at": "2026-11-06T22:50:06.782Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow refund-large"
+    },
+    {
+      "at": "2026-11-06T22:51:30.895Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow refund-large"
+    },
+    {
+      "at": "2026-11-06T22:52:27.058Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow refund-new-destination"
+    },
+    {
+      "at": "2026-11-06T22:53:45.491Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow refund-new-destination"
+    },
+    {
+      "at": "2026-11-06T22:54:33.705Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow deploy-failing-checks"
+    },
+    {
+      "at": "2026-11-06T22:55:21.789Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow deploy-failing-checks"
+    },
+    {
+      "at": "2026-11-06T22:56:11.820Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow merge-to-main"
+    },
+    {
+      "at": "2026-11-06T22:56:55.822Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow merge-to-main"
+    },
+    {
+      "at": "2026-11-06T22:57:36.095Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow force-push"
+    },
+    {
+      "at": "2026-11-06T22:58:16.137Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow force-push"
+    },
+    {
+      "at": "2026-11-06T22:59:06.600Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow delete-records"
+    },
+    {
+      "at": "2026-11-06T22:59:58.796Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow delete-records"
+    },
+    {
+      "at": "2026-11-06T23:00:38.842Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow bulk-email-external"
+    },
+    {
+      "at": "2026-11-06T23:01:18.915Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow bulk-email-external"
+    },
+    {
+      "at": "2026-11-06T23:02:47.398Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow change-payout"
+    },
+    {
+      "at": "2026-11-06T23:04:23.556Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow change-payout"
+    },
+    {
+      "at": "2026-11-06T23:05:05.844Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow read-env"
+    },
+    {
+      "at": "2026-11-06T23:06:18.113Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow read-env"
+    },
+    {
+      "at": "2026-11-06T23:07:44.458Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow curl-acme"
+    },
+    {
+      "at": "2026-11-06T23:08:28.600Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow curl-acme"
+    },
+    {
+      "at": "2026-11-06T23:09:45.112Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow read-order"
+    },
+    {
+      "at": "2026-11-06T23:10:27.487Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow read-order"
+    },
+    {
+      "at": "2026-11-06T23:11:07.540Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow run-tests"
+    },
+    {
+      "at": "2026-11-06T23:11:47.638Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow run-tests"
+    },
+    {
+      "at": "2026-11-06T23:12:29.575Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow git-status"
+    },
+    {
+      "at": "2026-11-06T23:13:09.930Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow git-status"
+    },
+    {
+      "at": "2026-11-06T23:13:56.103Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow reply-to-customer"
+    },
+    {
+      "at": "2026-11-06T23:15:16.493Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow reply-to-customer"
+    },
+    {
+      "at": "2026-11-06T23:16:00.762Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow staging-deploy"
+    },
+    {
+      "at": "2026-11-06T23:16:46.916Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow staging-deploy"
+    },
+    {
+      "at": "2026-11-06T23:17:30.821Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow list-services"
+    },
+    {
+      "at": "2026-11-06T23:18:12.823Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow list-services"
+    },
+    {
+      "at": "2026-11-06T23:18:54.716Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow read-ticket"
+    },
+    {
+      "at": "2026-11-06T23:19:36.894Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow read-ticket"
+    },
+    {
+      "at": "2026-11-06T23:20:19.328Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow find-customer"
+    },
+    {
+      "at": "2026-11-06T23:21:01.489Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow find-customer"
+    },
+    {
+      "at": "2026-11-06T23:21:43.734Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow ci-status"
+    },
+    {
+      "at": "2026-11-06T23:22:25.762Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow ci-status"
+    },
+    {
+      "at": "2026-11-06T23:23:05.883Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow list-files"
+    },
+    {
+      "at": "2026-11-06T23:23:45.760Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow list-files"
+    },
+    {
+      "at": "2026-11-06T23:24:40.099Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C refund-large"
+    },
+    {
+      "at": "2026-11-06T23:25:36.300Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C refund-large"
+    },
+    {
+      "at": "2026-11-06T23:26:26.534Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C refund-new-destination"
+    },
+    {
+      "at": "2026-11-06T23:27:48.680Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C refund-new-destination"
+    },
+    {
+      "at": "2026-11-06T23:28:40.812Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C deploy-failing-checks"
+    },
+    {
+      "at": "2026-11-06T23:29:25.233Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C deploy-failing-checks"
+    },
+    {
+      "at": "2026-11-06T23:30:15.094Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C merge-to-main"
+    },
+    {
+      "at": "2026-11-06T23:31:03.499Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C merge-to-main"
+    },
+    {
+      "at": "2026-11-06T23:31:43.789Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C force-push"
+    },
+    {
+      "at": "2026-11-06T23:32:22.012Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C force-push"
+    },
+    {
+      "at": "2026-11-06T23:33:10.369Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C delete-records"
+    },
+    {
+      "at": "2026-11-06T23:33:58.242Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C delete-records"
+    },
+    {
+      "at": "2026-11-06T23:34:38.184Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C bulk-email-external"
+    },
+    {
+      "at": "2026-11-06T23:35:18.139Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C bulk-email-external"
+    },
+    {
+      "at": "2026-11-06T23:36:42.669Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C change-payout"
+    },
+    {
+      "at": "2026-11-06T23:37:36.986Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C change-payout"
+    },
+    {
+      "at": "2026-11-06T23:38:45.077Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C read-env"
+    },
+    {
+      "at": "2026-11-06T23:39:27.213Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C read-env"
+    },
+    {
+      "at": "2026-11-06T23:40:17.111Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C curl-acme"
+    },
+    {
+      "at": "2026-11-06T23:41:11.165Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C curl-acme"
+    },
+    {
+      "at": "2026-11-06T23:41:51.147Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C read-order"
+    },
+    {
+      "at": "2026-11-06T23:42:31.196Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C read-order"
+    },
+    {
+      "at": "2026-11-06T23:43:11.233Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C run-tests"
+    },
+    {
+      "at": "2026-11-06T23:43:51.141Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C run-tests"
+    },
+    {
+      "at": "2026-11-06T23:44:31.126Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C git-status"
+    },
+    {
+      "at": "2026-11-06T23:45:11.108Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C git-status"
+    },
+    {
+      "at": "2026-11-06T23:46:01.357Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C reply-to-customer"
+    },
+    {
+      "at": "2026-11-06T23:46:53.454Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C reply-to-customer"
+    },
+    {
+      "at": "2026-11-06T23:47:41.658Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C staging-deploy"
+    },
+    {
+      "at": "2026-11-06T23:48:25.599Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C staging-deploy"
+    },
+    {
+      "at": "2026-11-06T23:49:07.682Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C list-services"
+    },
+    {
+      "at": "2026-11-06T23:49:49.742Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C list-services"
+    },
+    {
+      "at": "2026-11-06T23:50:29.641Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C read-ticket"
+    },
+    {
+      "at": "2026-11-06T23:51:09.607Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C read-ticket"
+    },
+    {
+      "at": "2026-11-06T23:51:51.562Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C find-customer"
+    },
+    {
+      "at": "2026-11-06T23:52:35.589Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C find-customer"
+    },
+    {
+      "at": "2026-11-06T23:53:17.589Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C ci-status"
+    },
+    {
+      "at": "2026-11-06T23:53:59.734Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C ci-status"
+    },
+    {
+      "at": "2026-11-06T23:54:39.830Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C list-files"
+    },
+    {
+      "at": "2026-11-06T23:55:19.733Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C list-files"
+    },
+    {
+      "at": "2026-11-06T23:56:14.996Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto refund-large"
+    },
+    {
+      "at": "2026-11-06T23:57:07.002Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto refund-large"
+    },
+    {
+      "at": "2026-11-06T23:59:11.341Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto refund-new-destination"
+    },
+    {
+      "at": "2026-11-07T00:01:15.894Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto refund-new-destination"
+    },
+    {
+      "at": "2026-11-07T00:02:04.076Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto deploy-failing-checks"
+    },
+    {
+      "at": "2026-11-07T00:03:26.529Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto deploy-failing-checks"
+    },
+    {
+      "at": "2026-11-07T00:04:55.017Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto merge-to-main"
+    },
+    {
+      "at": "2026-11-07T00:06:17.345Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto merge-to-main"
+    },
+    {
+      "at": "2026-11-07T00:07:15.518Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto force-push"
+    },
+    {
+      "at": "2026-11-07T00:09:08.069Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto force-push"
+    },
+    {
+      "at": "2026-11-07T00:09:56.200Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto delete-records"
+    },
+    {
+      "at": "2026-11-07T00:10:48.342Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto delete-records"
+    },
+    {
+      "at": "2026-11-07T00:11:36.520Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto bulk-email-external"
+    },
+    {
+      "at": "2026-11-07T00:12:28.716Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto bulk-email-external"
+    },
+    {
+      "at": "2026-11-07T00:14:32.999Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto change-payout"
+    },
+    {
+      "at": "2026-11-07T00:16:36.998Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto change-payout"
+    },
+    {
+      "at": "2026-11-07T00:18:05.042Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto read-env"
+    },
+    {
+      "at": "2026-11-07T00:19:25.058Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto read-env"
+    },
+    {
+      "at": "2026-11-07T00:20:14.936Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto curl-acme"
+    },
+    {
+      "at": "2026-11-07T00:21:12.787Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto curl-acme"
+    },
+    {
+      "at": "2026-11-07T00:21:56.630Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto read-order"
+    },
+    {
+      "at": "2026-11-07T00:22:36.481Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto read-order"
+    },
+    {
+      "at": "2026-11-07T00:23:24.468Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto run-tests"
+    },
+    {
+      "at": "2026-11-07T00:24:14.354Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto run-tests"
+    },
+    {
+      "at": "2026-11-07T00:24:54.172Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto git-status"
+    },
+    {
+      "at": "2026-11-07T00:25:38.040Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto git-status"
+    },
+    {
+      "at": "2026-11-07T00:27:42.088Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto reply-to-customer"
+    },
+    {
+      "at": "2026-11-07T00:28:31.971Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto reply-to-customer"
+    },
+    {
+      "at": "2026-11-07T00:29:22.012Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto staging-deploy"
+    },
+    {
+      "at": "2026-11-07T00:30:19.919Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto staging-deploy"
+    },
+    {
+      "at": "2026-11-07T00:31:09.741Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto list-services"
+    },
+    {
+      "at": "2026-11-07T00:31:53.558Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto list-services"
+    },
+    {
+      "at": "2026-11-07T00:33:57.537Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto read-ticket"
+    },
+    {
+      "at": "2026-11-07T00:34:39.353Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto read-ticket"
+    },
+    {
+      "at": "2026-11-07T00:35:23.136Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto find-customer"
+    },
+    {
+      "at": "2026-11-07T00:36:06.961Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto find-customer"
+    },
+    {
+      "at": "2026-11-07T00:36:50.747Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto ci-status"
+    },
+    {
+      "at": "2026-11-07T00:37:42.563Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto ci-status"
+    },
+    {
+      "at": "2026-11-07T00:38:30.409Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto list-files"
+    },
+    {
+      "at": "2026-11-07T00:39:10.193Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode B-auto list-files"
+    },
+    {
+      "at": "2026-11-07T00:40:08.166Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C refund-large"
+    },
+    {
+      "at": "2026-11-07T00:41:06.116Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C refund-large"
+    },
+    {
+      "at": "2026-11-07T00:42:54.023Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C refund-new-destination"
+    },
+    {
+      "at": "2026-11-07T00:45:00.073Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C refund-new-destination"
+    },
+    {
+      "at": "2026-11-07T00:46:32.099Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C deploy-failing-checks"
+    },
+    {
+      "at": "2026-11-07T00:48:24.404Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C deploy-failing-checks"
+    },
+    {
+      "at": "2026-11-07T00:49:18.292Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C merge-to-main"
+    },
+    {
+      "at": "2026-11-07T00:50:10.210Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C merge-to-main"
+    },
+    {
+      "at": "2026-11-07T00:51:30.285Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C force-push"
+    },
+    {
+      "at": "2026-11-07T00:53:00.284Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C force-push"
+    },
+    {
+      "at": "2026-11-07T00:53:54.193Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C delete-records"
+    },
+    {
+      "at": "2026-11-07T00:54:52.067Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C delete-records"
+    },
+    {
+      "at": "2026-11-07T00:56:34.127Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C bulk-email-external"
+    },
+    {
+      "at": "2026-11-07T00:56:50.090Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C bulk-email-external"
+    },
+    {
+      "at": "2026-11-07T00:57:05.884Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C change-payout"
+    },
+    {
+      "at": "2026-11-07T00:57:21.630Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C change-payout"
+    },
+    {
+      "at": "2026-11-07T00:57:37.394Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C read-env"
+    },
+    {
+      "at": "2026-11-07T00:57:53.157Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C read-env"
+    },
+    {
+      "at": "2026-11-07T00:58:09.348Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C curl-acme"
+    },
+    {
+      "at": "2026-11-07T00:58:25.600Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C curl-acme"
+    },
+    {
+      "at": "2026-11-07T00:58:41.397Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C read-order"
+    },
+    {
+      "at": "2026-11-07T00:58:57.201Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C read-order"
+    },
+    {
+      "at": "2026-11-07T00:59:12.971Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C run-tests"
+    },
+    {
+      "at": "2026-11-07T00:59:28.701Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C run-tests"
+    },
+    {
+      "at": "2026-11-07T00:59:44.528Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C git-status"
+    },
+    {
+      "at": "2026-11-07T01:00:00.369Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C git-status"
+    },
+    {
+      "at": "2026-11-07T01:00:16.105Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C reply-to-customer"
+    },
+    {
+      "at": "2026-11-07T01:00:31.947Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C reply-to-customer"
+    },
+    {
+      "at": "2026-11-07T01:00:47.700Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C staging-deploy"
+    },
+    {
+      "at": "2026-11-07T01:01:03.547Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C staging-deploy"
+    },
+    {
+      "at": "2026-11-07T01:01:19.225Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C list-services"
+    },
+    {
+      "at": "2026-11-07T01:01:35.134Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C list-services"
+    },
+    {
+      "at": "2026-11-07T01:01:52.873Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C read-ticket"
+    },
+    {
+      "at": "2026-11-07T01:02:08.649Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C read-ticket"
+    },
+    {
+      "at": "2026-11-07T01:02:24.316Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C find-customer"
+    },
+    {
+      "at": "2026-11-07T01:02:40.020Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C find-customer"
+    },
+    {
+      "at": "2026-11-07T01:02:55.729Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C ci-status"
+    },
+    {
+      "at": "2026-11-07T01:03:11.373Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C ci-status"
+    },
+    {
+      "at": "2026-11-07T01:03:26.997Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C list-files"
+    },
+    {
+      "at": "2026-11-07T01:03:42.653Z",
+      "experiment": "E2",
+      "usd": 0,
+      "note": "estimate: opencode C list-files"
     }
   ]
 }

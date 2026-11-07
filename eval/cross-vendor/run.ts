@@ -5,6 +5,7 @@
  *   pnpm eval:vendors --probe                    two prompts per agent, to see the setup works. Isn't E2, and isn't in its results.
  *   pnpm eval:vendors --go                       the real runs. Also needs CLEARANCE_EVAL_E2_GO=1.
  *     --vendor opencode                          one vendor's runs: replaces that vendor's in the file and keeps the others'
+ *     --retry-unfinished                         with --vendor: only that vendor's runs with an error or no result yet
  *     --claude-model haiku                       the model Claude's agents are set to; recorded in the output
  *     --usd-per-run 0.05                         the estimate checked against the cap before each run
  *
@@ -66,6 +67,8 @@ export interface VendorArgs {
   usdPerRun: number;
   /** One vendor's runs only. Its results replace that vendor's in the file, and the others' stay. */
   vendor?: VendorName;
+  /** With `vendor`: only the runs that didn't finish, and every finished one stays. */
+  retryUnfinished: boolean;
 }
 
 export function parseVendorArgs(argv: string[]): VendorArgs {
@@ -77,7 +80,10 @@ export function parseVendorArgs(argv: string[]): VendorArgs {
   if (vendor !== undefined && !(VENDORS as readonly string[]).includes(vendor)) {
     throw new Error(`--vendor takes one of ${VENDORS.join(", ")}`);
   }
+  const retryUnfinished = argv.includes("--retry-unfinished");
+  if (retryUnfinished && vendor === undefined) throw new Error("--retry-unfinished needs --vendor");
   return {
+    retryUnfinished,
     ...(vendor ? { vendor: vendor as VendorName } : {}),
     dryRun: argv.includes("--dry-run"),
     go: argv.includes("--go"),
@@ -122,6 +128,23 @@ export function keptResults(previous: unknown, vendor: VendorName | undefined): 
   if (!vendor) return [];
   const runs = (previous as { per_run?: RunResult[] } | null)?.per_run;
   return Array.isArray(runs) ? runs.filter((run) => run.vendor !== vendor) : [];
+}
+
+/** What's left to run for a vendor, and what stays: an unfinished run is one with an error, or none at all. */
+export function retryPlan(
+  plan: PlannedRun[],
+  previous: unknown,
+  vendor: VendorName,
+): { todo: PlannedRun[]; kept: RunResult[] } {
+  const runs = (previous as { per_run?: RunResult[] } | null)?.per_run ?? [];
+  const finished = runs.filter((run) => !run.observation.error);
+  const key = (run: { vendor: string; condition: string; repeat: number }, intent: string): string =>
+    `${run.vendor}|${run.condition}|${intent}|${run.repeat}`;
+  const done = new Set(finished.map((run) => key(run, run.intent)));
+  return {
+    todo: plan.filter((run) => run.vendor === vendor && !done.has(key(run, run.intent.id))),
+    kept: [...finished, ...runs.filter((run) => run.vendor !== vendor && run.observation.error)],
+  };
 }
 
 /** A vendor left out of this run, with nothing kept for it, reads as not run. It must never read as a clean zero. */
@@ -256,7 +279,10 @@ async function main(): Promise<number> {
   mkdirSync(directory, { recursive: true });
   // A probe has its own file, so it can never be read as E2.
   const outFile = join(directory, args.probe && !args.go ? "vendors-probe.json" : "vendors.json");
-  const kept = keptResults(existsSync(outFile) ? (JSON.parse(readFileSync(outFile, "utf8")) as unknown) : null, args.vendor);
+  const previous = existsSync(outFile) ? (JSON.parse(readFileSync(outFile, "utf8")) as unknown) : null;
+  const retry = args.retryUnfinished && args.vendor ? retryPlan(plan, previous, args.vendor) : null;
+  const kept = retry ? retry.kept : keptResults(previous, args.vendor);
+  if (retry) print(`Trying ${retry.todo.length} unfinished runs again, keeping ${kept.length}.`);
   const results: RunResult[] = [...kept];
   const reported = availabilityForRun(availability, args.vendor, kept);
   const save = (extra: Record<string, unknown> = {}): void =>
@@ -277,7 +303,7 @@ async function main(): Promise<number> {
       }),
     ),
   ];
-  const outcome = await executePlan(args.go ? plan : probePlan(plan), {
+  const outcome = await executePlan(retry ? retry.todo : args.go ? plan : probePlan(plan), {
     driver,
     availability,
     usdPerRun: args.usdPerRun,

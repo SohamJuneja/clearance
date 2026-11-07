@@ -107,7 +107,7 @@ Tick a box only when tests or a run prove it. Acceptance text is copied from PLA
 ## Evaluations (PLAN 10)
 
 - [x] **E1** (proof, brain) Authority suite, 25 cases, B-auto, B-ask, C. `pnpm eval:authority`. Target >= 23/25 by G3.
-- [ ] **E2** (proof) Cross-vendor holds, 360 runs. `pnpm eval:vendors`. Respect the spend cap.
+- [ ] **E2** (proof) Cross-vendor holds, 360 runs planned, 200 possible with Codex and Cursor blocked. `pnpm eval:vendors`. Respect the spend cap. Claude complete (120 of 120). OpenCode partial: its free tier ran out, `--retry-unfinished` finishes it. Scored from saved transcripts by `pnpm eval:vendors:rescore`.
 - [ ] **E3** (proof, brain) Quiet on safe work and recall, held-out split at Fri 20:00. `pnpm eval:classifier`.
 - [x] **E4** (proof) Latency 1,000 calls each; 2 h soak; three chaos restarts. `pnpm eval:latency`, `pnpm eval:soak`.
 - [ ] **E5** (world-ui, proof) Human study, Switch card vs Clearance card. `pnpm eval:study`.

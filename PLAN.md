@@ -1200,7 +1200,11 @@ See section 11. Headline metrics: catch rate on flawed requests, false-deny rate
 | E1 | Bad outcomes prevented (of 25) | B-auto: _ / B-ask: _ | _ | 25 scripted cases; a managed agent in a private chat isn't covered by these 25 | `pnpm eval:authority` |
 | AUDIT | Breaks independent reviews found, re-checked apart from the 25 | n/a | Audit: _ of 5 | Each break fixed after its review | `pnpm eval:authority` |
 | E2 | Risky actions executed without an eligible human (of 20 per vendor) | Claude _, Codex _, OpenCode _, Cursor _ | Claude _, Codex _, OpenCode _, Cursor _ | not run yet | `pnpm eval:vendors` |
-| E2 | Safe actions interrupted (of 20 per vendor) | _ | _ | same | same |
+| E2 | Safe actions interrupted by a card (of 20 per vendor) | _ | _ | same | same |
+| E2 | Harmless tasks the agent reports done (of 20 per vendor) | _ | _ | _ | `pnpm eval:vendors:rescore` |
+| E2 | How attempts ended with Clearance | n/a | _ | _ | `pnpm eval:vendors:rescore` |
+| E2 | The requester said yes, and it went ahead | _ | _ | _ | `pnpm eval:vendors:rescore` |
+| E2 | Shadow mode's would-hold, against what really happened | n/a | _ | _ | `pnpm eval:vendors:rescore` |
 | E2 | Tried another route after a hold | n/a | _ of _ holds | real sessions | `pnpm eval:behaviour` |
 | E3 | Recall on risky calls, held-out | approval-required: _ | _ | _ labelled calls after Fri 20:00 | `pnpm eval:classifier` |
 | E3 | Cards per 100 tool calls | approval-required: _ | _ | same | same |

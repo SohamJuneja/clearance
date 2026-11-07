@@ -65,9 +65,9 @@ scenes:
             }
     # No recorded run attempted the amount the ticket asks for (`pnpm eval:baseline`), and the take's own step says whether this one did.
     callouts:
-      - "The agent caught the wrong amount in this ticket"
+      - "The agent caught the wrong amount on this harder ticket"
       - "Clearance: the approval layer, built on Switch"
-    voiceover: "The agent caught the wrong amount in this ticket and asked which payment ID was right. Priya, scripted, picks the new one. Clearance holds it, and refuses Priya's own approval."
+    voiceover: "The agent caught the wrong amount on this harder ticket and asked which payment ID was right. Priya, scripted, picks the new one. Clearance holds it, and refuses Priya's own approval."
 
   - id: sc3-sam
     kind: split
@@ -167,18 +167,17 @@ scenes:
     planned_s: 25
     headline: "Measured, not claimed"
     # A row with no result isn't shown, and the voice-over says the same rows.
-    rows: [E1, AUDIT, E2/risky, E2/yes, E3/quiet, E6, NEG]
-    voiceover: "Measured, not claimed. [[if E1.clearance]]Bad outcomes prevented, of 25: {{E1.clearance}}. The same cases also ran on real Switch. [[/if]][[if AUDIT.clearance]]Independent reviews found more, and each break is now fixed and checked apart. [[/if]][[if E2/risky.clearance]]Risky actions without an eligible human: {{E2/risky.clearance}}. [[/if]][[if E2/yes.baseline]]When the agent asked and the requester said yes, it went ahead without Clearance: {{E2/yes.baseline}}. With it: {{E2/yes.clearance}}. [[/if]][[if E3/quiet.clearance]]Tool calls with no card: {{E3/quiet.clearance}}. [[/if]][[if E6.clearance]]Human decisions per hundred agent actions: {{E6.clearance}}. [[/if]][[if NEG.text]]And one place we lose: {{NEG.text}}.[[/if]]"
+    rows: [E2/yes, E2/risky, E1, AUDIT, E3/quiet, NEG]
+    voiceover: "Measured, not claimed. [[if E2/yes.baseline]]Without Clearance, when the agent asked and the requester said yes, it went ahead: {{E2/yes.baseline}}. With it: {{E2/yes.clearance}}. [[/if]][[if E2/risky.clearance]]Risky actions with no eligible approver: {{E2/risky.clearance}}. [[/if]][[if E1.clearance]]Bad outcomes prevented, of 25: {{E1.clearance}}. The same cases also ran on real Switch. [[/if]][[if AUDIT.clearance]]Independent AI reviews found more, and each break is fixed and checked apart. [[/if]][[if E3/quiet.clearance]]Tool calls with no card: {{E3/quiet.clearance}}. [[/if]][[if NEG.text]]And one place we lose: {{NEG.text}}.[[/if]]"
 
   - id: close
     kind: card
     planned_s: 10
-    headline: "One template and a few config files."
+    headline: "The person who asks can't be the one who approves."
     lines:
-      - "`templates/clearance.template.yaml`"
-      - "`.claude/settings.json`  `.codex/hooks.json`  `.opencode/plugins/clearance.ts`  `.cursor/hooks.json`"
-      - "Built on Switch's rooms, identities, approval cards and documents."
+      - "`just demo` brings it up"
+      - "Built on Switch's rooms, identities, approval cards and roles."
       - "{{repo_url}}"
     image: desk/live-ledger.png
     # The link's line and these two words wait for CLEARANCE_REPO_URL, together.
-    voiceover: "One template and a few config files. Clearance is built on Switch's rooms, identities, approval cards and documents. [[if repo_url]]Link below.[[/if]]"
+    voiceover: "The person who asks can't be the one who approves. One command brings it up, on Switch's own rooms, identities, approval cards and roles. [[if repo_url]]Link below.[[/if]]"

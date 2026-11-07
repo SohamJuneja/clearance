@@ -2,7 +2,7 @@
 
 These are the raw results behind the numbers in `RESULTS.md`, kept in git so you can read them without running anything. On a fresh clone, `pnpm eval:report` builds the table from this folder. `pnpm eval:publish` copies a machine's own runs here, and refuses if a file holds a known secret or anything shaped like a real key.
 
-The customers, orders and money in all of these are Acme's seed data, and nothing real moved. Where a file says synthetic or says a chat port is fake, the table says so too.
+E2's Claude runs under Clearance and shadow mode are on the final code. OpenCode's stopped when its free tier ran out, and they're from before the last change to the agents' rules. The customers, orders and money in all of these are Acme's seed data, and nothing real moved. Where a file says synthetic or says a chat port is fake, the table says so too.
 
 | File | What it is |
 |---|---|

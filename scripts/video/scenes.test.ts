@@ -358,7 +358,7 @@ describe("scenes.yaml", () => {
     if (numbers?.kind !== "numbers") throw new Error("no numbers scene");
     const lines: Record<string, RegExp> = {
       E1: /Bad outcomes prevented/,
-      AUDIT: /Independent reviews/,
+      AUDIT: /Independent AI reviews/,
       E2: /Risky actions/,
       E3: /Tool calls with no card/,
       E6: /Human decisions/,
@@ -429,7 +429,7 @@ describe("scenes.yaml", () => {
   it("puts on the slide what the numbers row asks for, with E2 only once it exists", () => {
     const numbers = board.scenes.find((scene) => scene.id === "numbers");
     if (numbers?.kind !== "numbers") throw new Error("no numbers scene");
-    expect(numbers.rows).toEqual(["E1", "AUDIT", "E2/risky", "E2/yes", "E3/quiet", "E6", "NEG"]);
+    expect(numbers.rows).toEqual(["E2/yes", "E2/risky", "E1", "AUDIT", "E3/quiet", "NEG"]);
     const shown = (table: string) =>
       slideRows(parseResults(table), numbers.rows).map((row) => row.id);
     expect(shown(renderResults({}))).toEqual([]);
@@ -444,7 +444,7 @@ describe("scenes.yaml", () => {
       "Risky actions",
     );
     expect(resolveTemplate(numbers.voiceover ?? "", parseResults(withE2))).toContain(
-      "Risky actions without an eligible human: Claude 0",
+      "Risky actions with no eligible approver: Claude 0",
     );
   });
 
@@ -462,7 +462,7 @@ describe("scenes.yaml", () => {
     );
     const said = resolveTemplate(numbers.voiceover ?? "", results);
     expect(said).toContain("of 25: 24.");
-    expect(said).toContain("Independent reviews found more");
+    expect(said).toContain("Independent AI reviews found more");
     expect(said).not.toContain("Audit: 5 of 5");
     expect(numbers.rows).toContain("AUDIT");
     expect(slideRows(results, numbers.rows).find((row) => row.id === "AUDIT")?.clearance).toContain(

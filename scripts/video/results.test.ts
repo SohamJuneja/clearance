@@ -93,6 +93,12 @@ describe("selectRow", () => {
 });
 
 describe("measuredParts", () => {
+  it("doesn't read out a vendor that never ran, which sounds like a result and isn't one", () => {
+    expect(measuredParts("Claude 0, Codex blocked, OpenCode 0 of 11, Cursor blocked")).toBe("Claude 0, OpenCode 0 of 11");
+    expect(measuredParts("Claude 0, OpenCode not run")).toBe("Claude 0");
+    expect(measuredParts("Codex blocked, Cursor blocked")).toBe("");
+  });
+
   it("leaves out what has no number, and keeps the rest of the cell", () => {
     expect(measuredParts("B-auto: 3 / B-ask: _")).toBe("B-auto: 3");
     expect(measuredParts("Claude _, Codex 0, OpenCode _, Cursor _")).toBe("Codex 0");

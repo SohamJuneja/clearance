@@ -472,7 +472,7 @@ describe("eval:report", () => {
       report();
       const text = readFileSync(resultsPath, "utf8");
       expect(selectRow(parseResults(text), "AUDIT").clearance).toBe("Audit: 5 of 5; second review: 28 of 28; third review: 19 of 19; fourth review: 23 of 23");
-      expect(text).toContain("A fourth independent review reproduced 23 more");
+      expect(text).toContain("A fourth independent AI review reproduced 23 more");
     });
 
     it("adds a fifth review the same way", () => {
@@ -488,8 +488,8 @@ describe("eval:report", () => {
       });
       report();
       const text = readFileSync(resultsPath, "utf8");
-      expect(selectRow(parseResults(text), "AUDIT").clearance).toBe("Audit: 5 of 5; second review: 28 of 28; third review: 19 of 19; fourth review: 25 of 25; fifth review: 24 of 25");
-      expect(text, "a check that guards a fix isn't a break anyone found").toContain("A fifth independent review reproduced 21 more");
+      expect(selectRow(parseResults(text), "AUDIT").clearance).toBe("Audit: 5 of 5; second review: 28 of 28; third review: 19 of 19; fourth review: 25 of 25; fifth review: 24 of 25 (21 breaks, 4 guards on the fixes)");
+      expect(text, "a check that guards a fix isn't a break anyone found").toContain("A fifth independent AI review reproduced 21 more");
     });
 
     it("adds a third review the same way", () => {
@@ -514,7 +514,7 @@ describe("eval:report", () => {
       expect(selectRow(rows, "E1").clearance).toBe("3");
       expect(selectRow(rows, "E1").metric).toContain("of 25");
       expect(selectRow(rows, "AUDIT").clearance).toBe("Audit: 4 of 5");
-      expect(selectRow(rows, "AUDIT").metric).toContain("independent review");
+      expect(selectRow(rows, "AUDIT").metric).toContain("independent AI review");
     });
 
     it("shows the quiet share as a percentage for both sides", () => {
@@ -633,7 +633,7 @@ describe("eval:report", () => {
         expect(text("autonomy-rule")).toContain("gave 70 human decisions");
         expect(text("autonomy-rule")).toContain("against 90");
         expect(text("autonomy-rule")).toContain("gives 20");
-        expect(text("audit")).toContain("independent review found 5 real breaks");
+        expect(text("audit")).toContain("independent AI review found 5 real breaks");
         expect(text("audit")).toContain("not that the list is complete");
       });
 
@@ -974,6 +974,41 @@ describe("eval:report", () => {
         expect(selectRow(rows(), "E2/interrupted").data).toContain("saved transcripts");
       });
 
+      it("says how many runs finished, not only how many started", () => {
+        const per_run = [
+          { vendor: "claude", condition: "C", kind: "risky", observation: { effectHappened: false } },
+          { vendor: "opencode", condition: "C", kind: "risky", observation: { effectHappened: false, error: "free usage limit" } },
+        ];
+        write({ "vendors.json": { ...e2, runs: 2, per_run } });
+        expect(selectRow(rows(), "E2/risky").data).toContain("2 agent runs, 1 finished");
+      });
+
+      it("reconciles what E2 saw after a hold with the row about other routes", () => {
+        const per_run = [
+          { behaviour: "stopped" },
+          { behaviour: "stopped" },
+          { behaviour: "retried another way" },
+          { behaviour: "not held" },
+        ].map((run) => ({ vendor: "opencode", condition: "C", kind: "risky", observation: { effectHappened: false }, ...run }));
+        write({
+          "vendors.json": { ...e2, per_run },
+          "behaviour.json": {
+            experiment: "E2-behaviour",
+            holds: 104,
+            tried_another_route: 0,
+            by_vendor: { claude: { holds: 84 }, opencode: { holds: 20 } },
+          },
+        });
+        expect(selectRow(rows(), "E2/route").data).toContain("in E2, 1 of 3 held runs went on to a different call, held or refused too");
+      });
+
+      it("leads the negative results with where Clearance loses", () => {
+        write({ "vendors.json": e2 });
+        report();
+        const results = readFileSync(resultsPath, "utf8");
+        expect(selectRow(parseResults(results), "NEG").clearance).toContain("16 of 20 harmless tasks");
+      });
+
       it("names OpenCode's model, since what it'll do by itself depends on it", () => {
         write({ "vendors.json": { ...e2, claude_model: "haiku" } });
         expect(selectRow(rows(), "E2/risky").data).toContain("OpenCode on opencode/beam-free");
@@ -1052,6 +1087,58 @@ describe("eval:report", () => {
         const text = renderMeasured({ E2: e2() })!;
         expect(text).toContain("synthetic company");
         expect(text).toContain("scripted");
+      });
+
+      it("says what happened with nobody answering, since the yes is what makes this finding", () => {
+        const first = {
+          experiment: "E2-first-attempt" as const,
+          per_run: Array.from({ length: 20 }, () => ({ condition: "B-auto", kind: "risky", observation: { effectHappened: false } })),
+        };
+        const text = renderMeasured({ E2: e2(), "E2-first-attempt": first } as never)!;
+        expect(text).toContain("With nobody answering, the agent moved nothing in 20 risky runs");
+        expect(text.indexOf("nobody answering")).toBeLessThan(text.indexOf("stopped to ask"));
+      });
+
+      it("doesn't say that if it isn't true, or when there's no such attempt", () => {
+        const moved = {
+          experiment: "E2-first-attempt" as const,
+          per_run: [{ condition: "B-auto", kind: "risky", observation: { effectHappened: true } }],
+        };
+        expect(renderMeasured({ E2: e2(), "E2-first-attempt": moved } as never)).not.toContain("nobody answering");
+        expect(renderMeasured({ E2: e2() })).not.toContain("nobody answering");
+      });
+
+      it("compares a vendor on what finished both ways, when the two sides didn't finish the same prompts", () => {
+        const risky = (condition: string, intent: string, happened: boolean, error?: string) => ({
+          vendor: "opencode",
+          condition,
+          intent,
+          repeat: 1,
+          kind: "risky",
+          observation: { effectHappened: happened, ...(error ? { error } : {}) },
+        });
+        const per_run = [
+          moved("refund-large"),
+          risky("B-auto", "refund-large", true),
+          risky("B-auto", "merge-to-main", true),
+          risky("B-auto", "curl-acme", true),
+          risky("C", "refund-large", false),
+          risky("C", "merge-to-main", false),
+          risky("C", "curl-acme", false, "free usage limit"),
+        ];
+        expect(renderMeasured({ E2: e2({ per_run }) })).toContain("On the prompts it finished both ways, that's 2 of 2 against 0 of 2");
+      });
+
+      it("doesn't add that when both sides finished the same prompts", () => {
+        const both = (condition: string, happened: boolean) => ({
+          vendor: "opencode",
+          condition,
+          intent: "refund-large",
+          repeat: 1,
+          kind: "risky",
+          observation: { effectHappened: happened },
+        });
+        expect(renderMeasured({ E2: e2({ per_run: [both("B-auto", true), both("C", false)] }) })).not.toContain("finished both ways");
       });
 
       it("won't say nothing moved when something did", () => {
@@ -1233,6 +1320,39 @@ describe("eval:report", () => {
       const once = readFileSync(readmePath, "utf8");
       report();
       expect(readFileSync(readmePath, "utf8")).toBe(once);
+    });
+
+    it("doesn't list a vendor that never ran as if it were a result, and says why underneath", () => {
+      const table = withoutBlankRows(
+        [
+          "| ID | Metric | Baseline | Clearance | Data | Script |",
+          "|---|---|---|---|---|---|",
+          "| E2 | Risky | Claude 5, Codex blocked, OpenCode 13 of 18, Cursor blocked | Claude 0, Codex blocked, OpenCode 0 of 11, Cursor blocked | runs | `x` |",
+        ].join("\n"),
+      );
+      expect(table).toContain("| Claude 5, OpenCode 13 of 18 | Claude 0, OpenCode 0 of 11 |");
+      expect(table).not.toContain("blocked |");
+      expect(table).toContain("Codex and Cursor didn't run");
+    });
+
+    it("cuts a long data cell and points at RESULTS.md, where the whole of it stays", () => {
+      const long = `first part of it; second part of it that goes on for quite a while longer than this; third part; fourth part`;
+      const table = withoutBlankRows(
+        [
+          "| ID | Metric | Baseline | Clearance | Data | Script |",
+          "|---|---|---|---|---|---|",
+          `| E1 | Bad | 1 | 2 | ${long} | \`x\` |`,
+        ].join("\n"),
+      );
+      expect(table).toContain("first part of it; second part of it that goes on for quite a while longer than this; more in RESULTS.md |");
+      expect(table).not.toContain("fourth part");
+    });
+
+    it("leaves a short data cell alone", () => {
+      const table = withoutBlankRows(
+        ["| ID | Metric | Baseline | Clearance | Data | Script |", "|---|---|---|---|---|---|", "| E1 | Bad | 1 | 2 | a short one; and more | `x` |"].join("\n"),
+      );
+      expect(table).toContain("| a short one; and more |");
     });
 
     it("leaves out what has no number yet and says which, while RESULTS.md keeps the blanks", () => {

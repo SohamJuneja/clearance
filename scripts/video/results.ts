@@ -54,6 +54,9 @@ export function showCell(cell: string): string {
   return plain.replace(/(^|[\s(:,/])_(?=$|[\s),/])/g, `$1${PENDING}`);
 }
 
+/** A vendor that never ran isn't a result. Read aloud, "Codex blocked" sounds like Clearance stopped something. */
+const DID_NOT_RUN = /\b(?:blocked|not run)\s*$/;
+
 const BLANK_PART = /(^|[\s(:,/])_(?=$|[\s),/])/;
 
 /**
@@ -65,7 +68,7 @@ export function measuredParts(cell: string): string {
   const separator = plain.includes(" / ") ? " / " : ", ";
   return plain
     .split(separator)
-    .filter((part) => part.trim() !== "" && !BLANK_PART.test(part.trim()))
+    .filter((part) => part.trim() !== "" && !BLANK_PART.test(part.trim()) && !DID_NOT_RUN.test(part))
     .join(separator);
 }
 

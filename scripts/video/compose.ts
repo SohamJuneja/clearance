@@ -82,6 +82,8 @@ export interface FootageInput {
   segments: { fromS: number; toS: number }[];
   fit: ClipFit;
   box: { width: number; height: number };
+  /** The part of the frame to keep, in the clip's own pixels. Cutting the sidebar is what makes a card readable. */
+  crop?: { x: number; y: number; width: number; height: number };
 }
 
 /** Filters that take input `index` to a labelled stream of exactly `durationS`, fitted inside its box. */
@@ -112,6 +114,7 @@ export function footageFilter(
     `tpad=stop_mode=clone:stop_duration=${input.fit.holdS.toFixed(3)}`,
     `trim=duration=${durationS.toFixed(3)}`,
     "setpts=PTS-STARTPTS",
+    ...(input.crop ? [`crop=${input.crop.width}:${input.crop.height}:${input.crop.x}:${input.crop.y}`] : []),
     `scale=${width}:${height}:force_original_aspect_ratio=decrease:flags=lanczos`,
     `pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:color=${FRAME.background}`,
     "setsar=1",

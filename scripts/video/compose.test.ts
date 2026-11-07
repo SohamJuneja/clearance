@@ -78,6 +78,15 @@ describe("footageFilter", () => {
     box: { width: 1600, height: 900 },
   };
 
+  it("crops before it scales, so a card's text comes out larger rather than the frame just smaller", () => {
+    const filter = footageFilter(0, { ...input, crop: { x: 220, y: 40, width: 740, height: 1000 } }, 5, "f0");
+    expect(filter).toContain("crop=740:1000:220:40,scale=1600:900");
+  });
+
+  it("doesn't crop unless a scene asks", () => {
+    expect(footageFilter(0, input, 5, "f0")).not.toContain("crop=");
+  });
+
   it("trims, holds, cuts to length and fits the box", () => {
     const filter = footageFilter(0, input, 5, "f0");
     expect(filter).toContain("trim=start=1.000:end=4.000");

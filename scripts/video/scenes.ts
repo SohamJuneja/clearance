@@ -19,6 +19,11 @@ const SourceSchema = z
     segments: z.array(SegmentSchema).optional(),
     /** Play at this speed and hold the last frame for the rest. Default: whatever speed fills the scene. */
     speed: z.number().positive().optional(),
+    /** The part of the frame to keep, in the clip's own pixels. */
+    crop: z
+      .object({ x: z.number().int().nonnegative(), y: z.number().int().nonnegative(), width: z.number().int().positive(), height: z.number().int().positive() })
+      .strict()
+      .optional(),
   })
   .strict();
 export type SourceSpec = z.infer<typeof SourceSchema>;

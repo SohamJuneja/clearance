@@ -170,7 +170,7 @@ async function footageFor(
         : fixedSpeed(clipS, durationS, source.speed, maxSpeed, what);
     const label = playbackLabel(fit.speed);
     if (label && !labels.includes(label)) labels.push(label);
-    inputs.push({ path, segments, fit, box });
+    inputs.push({ path, segments, fit, box, ...(source.crop ? { crop: source.crop } : {}) });
   }
   return { inputs, labels };
 }

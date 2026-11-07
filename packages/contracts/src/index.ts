@@ -250,6 +250,11 @@ export type OpenCardResult = {
 /** Everything core needs from Switch. Implemented by packages/switch-agent, faked in tests. */
 /** A room's aliases, lower-cased alias to the agent's real name: `@alias` addresses that agent there, as its name does. */
 export type RoomAliases = Record<string, string>;
+/**
+ * A room's roles, lower-cased name to the agents holding it now, empty if nobody does. F24: says where work goes and who may
+ * have been asked. Never who may do or approve anything, so nothing on the decision path reads it.
+ */
+export type RoomRoles = Record<string, string[]>;
 
 export interface ChatPort {
   openCard(input: OpenCardInput): Promise<OpenCardResult>;
@@ -269,6 +274,8 @@ export interface ChatPort {
   unseenRoomCount?(agentName: string): Promise<number>;
   /** The aliases in a room. Throws if Switch can't say. Optional: a port with no way to ask has nothing to report. */
   roomAliases?(roomId: string): Promise<RoomAliases>;
+  /** The roles in a room and who holds them. Throws if Switch can't say. Optional: a port with no way to ask has nothing to report. */
+  roomRoles?(roomId: string): Promise<RoomRoles>;
 }
 
 /** Execute-on-approval and custody live in the gate. Core asks; the gate does exactly the stored call. */
@@ -367,3 +374,5 @@ function sortKeys(value: unknown): unknown {
 // ── Ports (TCP) ──────────────────────────────────────────────────────────────
 
 export const DEFAULT_PORTS = { core: 7700, gate: 7710, acme: 7800, desk: 7900 } as const;
+
+export * from "./job-roles.js";

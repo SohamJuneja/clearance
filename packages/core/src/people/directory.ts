@@ -152,6 +152,11 @@ export class Directory {
     return this.agentNames.has(name);
   }
 
+  /** Every agent anyone has told us about. For when a role could be held by any of them. */
+  allAgents(): string[] {
+    return [...this.agentNames];
+  }
+
   /** The agent a mention means. Switch matches mentions without regard to case, so this has to. */
   agentNamed(mention: string): string | null {
     if (this.agentNames.has(mention)) return mention;

@@ -94,6 +94,8 @@ export interface ScenarioDefinition<S> {
   prompt?: Prompt;
   /** The room whose agent the take starts fresh. Defaults to the prompt's. */
   room?: string;
+  /** Agents the room lists only as visitors that this take needs running. See VISITORS in fresh-room.ts. */
+  visitors?: string[];
   needs: ServiceName[];
   cast: PersonName[];
   /** Things the runner can't arrange itself and a person must know about. Printed before the steps. */
@@ -116,6 +118,7 @@ export interface Scenario {
   inVideo: boolean;
   prompt?: Prompt;
   room?: string;
+  visitors: string[];
   needs: ServiceName[];
   cast: PersonName[];
   preconditions: string[];
@@ -143,6 +146,7 @@ export function defineScenario<S>(definition: ScenarioDefinition<S>): Scenario {
     inVideo: definition.inVideo,
     prompt: definition.prompt,
     room: definition.room ?? definition.prompt?.room,
+    visitors: definition.visitors ?? [],
     needs: definition.needs,
     cast: definition.cast,
     preconditions: definition.preconditions ?? [],

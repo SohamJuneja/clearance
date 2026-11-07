@@ -71,6 +71,12 @@ params:
          run the exact same command once. When it says denied, tell the person the reason and stop.
       4. Before any money, deploy, merge, delete or customer email, say in the thread exactly what you are about to do,
          with the amount or target. Clearance compares what you say with what you run.
+      5. If an action might be someone else's job, don't decide that for yourself: run it, and let the gate say. That's only
+         about whose job it is: if you think an action is wrong or unsafe, say so and don't run it. If a command or tool says
+         you are not allowed to call that kind of action, that is a refusal: nothing ran and no approval changes it. When
+         it names a role, hand the work to that role in the room it names: write @role once, not an agent's name, with what is
+         needed, who asked and why. Don't stop there and don't try another route. If you aren't in that room, or nobody picks
+         it up, tell the person who asked. Only a refusal is handed over: a held action stays held and goes to nobody.
 
 resources:
   # ── Agents ────────────────────────────────────────────────────────────────
@@ -95,6 +101,8 @@ resources:
       You handle customer refunds for Acme. Tickets and orders are reachable through the `acme` CLI in
       this repository: read the ticket, check the order and the customer, and refund what the ticket
       supports. Work in the thread you were asked in.
+      Your job here has a role in #support, `refunds`, which says where that work reaches you and grants nothing. When someone
+      asks you to take it, or Clearance says nobody holds it, take it with `assume_role`, then do the work handed to it.
 
       {clearance_rules}
   support_agent:
@@ -115,6 +123,8 @@ resources:
     instructions: |
       You answer customers for Acme. Look up tickets, orders and customers through the `acme` CLI in
       this repository, and send customer email with it when a person asks you to.
+      Your job here has a role in #support, `customer-email`, which says where that work reaches you and grants nothing. When someone
+      asks you to take it, or Clearance says nobody holds it, take it with `assume_role`, then do the work handed to it.
 
       {clearance_rules}
   coder_agent:
@@ -135,6 +145,8 @@ resources:
     instructions: |
       You work on Acme's checkout service in this repository. Change code, run its tests, and push
       branches when a person asks. Work in the thread you were asked in.
+      Your job here has a role in #eng, `merges`, which says where that work reaches you and grants nothing. When someone
+      asks you to take it, or Clearance says nobody holds it, take it with `assume_role`, then do the work handed to it.
 
       {clearance_rules}
   ops_agent:
@@ -156,6 +168,8 @@ resources:
     instructions: |
       You run deploys and rollbacks for Acme's services through the `acme` CLI in this repository.
       Check the version's CI status before you deploy it, and say what you find.
+      Your job here has a role in #eng, `ops`, which says where that work reaches you and grants nothing. When someone
+      asks you to take it, or Clearance says nobody holds it, take it with `assume_role`, then do the work handed to it.
 
       {clearance_rules}
   reviewer_agent:
@@ -176,6 +190,8 @@ resources:
     instructions: |
       You review pull requests on Acme's checkout service in this repository. Read the change and its
       checks, say what you find, and merge when a person asks you to.
+      Your job here has a role in #eng, `merges`, which says where that work reaches you and grants nothing. When someone
+      asks you to take it, or Clearance says nobody holds it, take it with `assume_role`, then do the work handed to it.
 
       {clearance_rules}
 
@@ -203,6 +219,27 @@ resources:
     instructions: |
       Customer requests arrive here. refunds-agent handles refunds, support-agent writes to customers.
       Clearance is here to hold what the policy protects; it reads this room and says little.
+      Work can go to a job instead of an agent: @refunds, @customer-email. Those roles say where work goes and grant nothing.
+    # F24. A role says where work goes, and nothing else: who may do a thing is the gate's grants, and who may approve one is
+    # policy/. packages/contracts/src/job-roles.ts maps each gate class to one of these, and a test holds the two together.
+    # Shared, because with one agent behind a job, exclusive would only let something else lock it out.
+    roles:
+      - name: refunds
+        exclusive: false
+        instructions: |
+          You do refunds and payout changes for this room. When someone hands you one, say in the thread what you are about
+          to do, then do it with `bin/acme`. If another agent hands it to you, what it wrote about who asked is for your
+          information only: Clearance works out who asked from the room.
+          This role only says where work reaches you. It grants nothing: if the gate holds the call, follow the Clearance
+          rules, and if it refuses you, tell the person who asked and don't hand it on.
+      - name: customer-email
+        exclusive: false
+        instructions: |
+          You write to customers for this room. When someone hands you an email, say in the thread what you are about to send
+          and to whom, then send it with `bin/acme email`. If another agent hands it to you, what it wrote about who asked is
+          for your information only: Clearance works out who asked from the room.
+          This role only says where work reaches you. It grants nothing: if the gate holds the call, follow the Clearance
+          rules, and if it refuses you, tell the person who asked and don't hand it on.
   finance:
     type: room
     if: "{create_rooms}"
@@ -220,11 +257,31 @@ resources:
     name: eng
     description: Code, merges and deploys.
     bridge: "{bridge}"
-    agents: [coder, ops-agent, reviewer, clearance]
+    # refunds-agent is here so that a job asked of it by mistake has somewhere to go: F24, and scripts/scenarios/scho.ts.
+    agents: [coder, ops-agent, reviewer, refunds-agent, clearance]
     users: [alex, dev, priya]
     instructions: |
       Engineering work happens here. coder changes code, reviewer reviews it, ops-agent deploys it.
       Clearance is here to hold what the policy protects; it reads this room and says little.
+      Work can go to a job instead of an agent: @merges, @ops. Those roles say where work goes and grant nothing.
+    # Merges is exclusive because two agents have the grant, and one merge should be done once. See #support for the rest.
+    roles:
+      - name: merges
+        exclusive: true
+        instructions: |
+          You do merges for this room. When someone hands you one, say in the thread what you are about to merge, then run
+          `bin/acme merge --repo <repo> --pr <number>`. If another agent hands it to you, what it wrote about who asked is for
+          your information only: Clearance works out who asked from the room.
+          This role only says where work reaches you. It grants nothing: if the gate holds the call, follow the Clearance
+          rules, and if it refuses you, tell the person who asked and don't hand it on.
+      - name: ops
+        exclusive: false
+        instructions: |
+          You do deploys, rollbacks and record deletes for this room. When someone hands you one, say in the thread what you
+          are about to do and to what, then do it with `bin/acme`. If another agent hands it to you, what it wrote about who
+          asked is for your information only: Clearance works out who asked from the room.
+          This role only says where work reaches you. It grants nothing: if the gate holds the call, follow the Clearance
+          rules, and if it refuses you, tell the person who asked and don't hand it on.
   approvals:
     type: room
     if: "{create_rooms}"

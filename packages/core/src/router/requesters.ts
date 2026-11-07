@@ -4,19 +4,20 @@
  * passes its requesters along, so a chain through agents cannot launder who asked (authority case 12).
  *
  * Nothing on the stream says who a message addressed for an agent other than Clearance, and Switch also addresses an
- * agent through a direct room, a room alias or a role mention, none of which has `@name` in the text. So there are two
- * ways to count as having asked: naming the agent, or saying anything in a room the agent is known to be in, in the
- * window, unless the message names some other agent. That over-excludes bystanders, and that is the safe direction.
- * When even this finds nobody, core asks for two people instead: see `unknown_requester_quorum`.
+ * agent through a direct room, a room alias or a role mention, none of which has `@name` in the text. So there are three
+ * ways to count as having asked: naming the agent, naming a role it holds or is meant to hold (F24), or saying anything in
+ * a room the agent is known to be in, in the window, unless the message names some other agent. That over-excludes
+ * bystanders, and that is the safe direction. When even this finds nobody, core asks for two people instead: see
+ * `unknown_requester_quorum`.
  *
  * Identity comes only from the event's sender and on_behalf_of. Whether a sender is an agent is looked up in identities
  * and the team file, never read from sender_kind, which Switch leaves null for people and agents alike.
  */
-import type { ChatMessageEvent, Clock, RoomAliases } from "@clearance/contracts";
+import { jobRoleNamed, type ChatMessageEvent, type Clock, type RoomAliases, type RoomRoles } from "@clearance/contracts";
 import type { Db } from "../db/index.js";
 import { isCommandToClearance } from "../commands/parse.js";
 import type { Directory } from "../people/directory.js";
-import { isSwitchNotice } from "./switch-notices.js";
+import { isSwitchNotice, isUnheldRoleWarning } from "./switch-notices.js";
 
 const NAMES_A_REQUEST = /\bCLR-\d+\b/;
 
@@ -86,17 +87,24 @@ export class RequesterTracker {
 
   /**
    * `aliases` are this room's, when Switch can say: then an alias is the agent, exactly as its name is. Null when it can't,
-   * and a name we can't place is noted for what it might be. It counts whatever else the message names.
+   * and a name we can't place is noted for what it might be. It counts whatever else the message names. `roles` are the
+   * room's and who holds them, and only widen who counts as asked. Null means Switch couldn't say.
    */
-  observe(evt: ChatMessageEvent, aliases: RoomAliases | null = null): void {
+  observe(evt: ChatMessageEvent, aliases: RoomAliases | null = null, roles: RoomRoles | null = {}): void {
+    if (isUnheldRoleWarning(evt.sender, evt.body)) return;
     const senderAgent = this.directory.agentForSender(evt.sender, evt.senderName);
     // Before this message counts as its answer: an agent passing a request on hasn't answered the person who gave it.
     const stillWaiting = senderAgent ? this.stillWaitingOn(senderAgent) : [];
     if (senderAgent) this.recordAgentMessage(senderAgent, evt);
     const named = mentionedNames(evt.body);
-    const mentioned = [
-      ...new Set(named.flatMap((name) => this.directory.agentNamed(name) ?? aliases?.[name.toLowerCase()] ?? [])),
-    ];
+    // Each agent the message reaches, and whether that's only a guess.
+    const mentioned = new Map<string, boolean>();
+    for (const name of named) {
+      const direct = this.directory.agentNamed(name) ?? aliases?.[name.toLowerCase()];
+      const { sure, guessed } = direct ? { sure: [direct], guessed: [] } : this.behindRole(name, evt, roles, senderAgent);
+      for (const agent of guessed) if (!mentioned.has(agent)) mentioned.set(agent, true);
+      for (const agent of sure) mentioned.set(agent, false);
+    }
     const senderPerson = this.directory.personByParticipant(evt.sender);
     const onBehalfOf = this.identifyDisplayName(evt.onBehalfOf);
     const speaking = !senderAgent && !CARD_ANSWER.test(evt.body);
@@ -106,30 +114,45 @@ export class RequesterTracker {
         for (const userId of voices) this.recordPossibleAsk(evt, userId, name);
       }
     }
-    if (mentioned.length === 0) {
+    if (mentioned.size === 0) {
       if (speaking && !this.onlySpeaksToClearance(evt, named)) {
         for (const userId of voices) this.recordVoice(evt, userId);
       }
       return;
     }
-    for (const agent of mentioned) {
+    for (const [agent, guess] of mentioned) {
       if (agent === senderAgent) continue;
       if (senderAgent) {
         // Those it only guesses at stay guesses, whichever agent they've reached, or chat could move a decision through a chain.
         const guesses = new Set([...this.voicesOf(senderAgent), ...stillWaiting]);
-        for (const userId of new Set([...this.requestersOf(senderAgent), ...stillWaiting])) this.record(agent, evt, userId, senderAgent, guesses.has(userId));
-        if (onBehalfOf) this.record(agent, evt, onBehalfOf, senderAgent);
+        for (const userId of new Set([...this.requestersOf(senderAgent), ...stillWaiting])) this.record(agent, evt, userId, senderAgent, guess || guesses.has(userId));
+        if (onBehalfOf) this.record(agent, evt, onBehalfOf, senderAgent, guess);
       } else if (senderPerson) {
-        this.record(agent, evt, senderPerson.id, onBehalfOf);
-        if (onBehalfOf) this.record(agent, evt, onBehalfOf, null);
+        this.record(agent, evt, senderPerson.id, onBehalfOf, guess);
+        if (onBehalfOf) this.record(agent, evt, onBehalfOf, null, guess);
       } else if (onBehalfOf) {
         // Only platform messages carry on_behalf_of. The platform is a messenger; the person is the one asking.
-        this.record(agent, evt, onBehalfOf, null);
+        this.record(agent, evt, onBehalfOf, null, guess);
       } else {
         // An unlinked human still asked. They can never approve, so this only ever narrows who can.
-        this.record(agent, evt, evt.sender, null);
+        this.record(agent, evt, evt.sender, null, guess);
       }
     }
+  }
+
+  /**
+   * Who a role's name reaches: whoever holds it now, and who has the grant for that job, since they pick it up next. This
+   * can only add people who can't approve, which is why a role can be believed here and nowhere else. When Switch can't say,
+   * anyone could be holding it, so every other agent counts too, for a job role here and for any name an agent used that we
+   * can't place. That part is a guess, and a guess can't move a decision. A person's own unplaced name is already a voice in
+   * the room, and goes that way.
+   */
+  private behindRole(name: string, evt: ChatMessageEvent, roles: RoomRoles | null, senderAgent: string | null): { sure: string[]; guessed: string[] } {
+    const job = jobRoleNamed(name);
+    const expected = job !== null && this.directory.roomName(evt.roomId) === `#${job.room}` ? job.grantHolders : [];
+    if (roles !== null) return { sure: [...(roles[name.toLowerCase()] ?? []), ...expected], guessed: [] };
+    const couldBeAnyone = expected.length > 0 || (senderAgent !== null && !this.directory.knowsMention(name));
+    return { sure: [...expected], guessed: couldBeAnyone ? this.directory.allAgents() : [] };
   }
 
   /**

@@ -94,7 +94,28 @@ describe("the scenarios", () => {
       "SCCC",
       "SCRI",
       "SCRO",
+      "SCHO",
+      "SCHW",
     ]);
+  });
+
+  it("SCHO goes through the role: Priya asks the wrong agent, in the room the role lives in, and never speaks to the holder", () => {
+    const scho = findScenario("SCHO");
+    expect(scho?.prompt).toMatchObject({ by: "priya", room: "eng", text: "@refunds-agent please merge PR 412 in acme/acme-mini-app" });
+    const steps = scho?.stepNames.join("\n") ?? "";
+    for (const expected of [/roster/, /gate refuses/, /hands the work to @merges/, /is held/, /reaches Dev/, /refuses Priya, as the requester/, /merged nothing/]) {
+      expect(steps).toMatch(expected);
+    }
+    // Only two agents that can run for this: support-agent has no login, and ops-agent's free model is rate limited.
+    expect(scho?.cast).not.toContain("sam");
+  });
+
+  it("SCHW is SCHO with nobody holding the role, so nobody asks coder to take it but Clearance", () => {
+    const steps = findScenario("SCHW")?.stepNames.join("\n") ?? "";
+    expect(steps).toMatch(/Nobody holds the merges role yet/);
+    expect(steps).toMatch(/Clearance tells coder/);
+    expect(steps).not.toMatch(/Alex has coder/);
+    expect(steps).toMatch(/refuses Priya, as the requester/);
   });
 
   it("SC3 follows the real route: no mismatch, no 10x, and the amount it can't promise isn't required", () => {

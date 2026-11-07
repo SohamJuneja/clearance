@@ -99,6 +99,7 @@ Each step is also one command, `pnpm demo:run SC3` and so on, which drives the p
 | Identity claims, `answered_by`, `sender` | Who asked and who approved, never taken from an agent's text | `packages/core/src/router/requesters.ts`, `packages/core/src/people` |
 | Rooms, direct rooms, groups | `#approvals` and one direct room per approver | `templates/` |
 | Targeted messages | Escalations and agent notifications | `packages/core/src/escalation` |
+| Room roles, `assume_role`, `@role` | Refused work goes to the job: an agent told it can't merge writes `@merges`, and whoever holds that role picks it up, with who asked kept on record. Roles only say where work goes. Who may do a thing stays in the gate's grants and who may approve stays in `policy/`, since any room member can take a role | `packages/contracts/src/job-roles.ts`, `templates/acme-mini.template.yaml` |
 | Room documents | The ledger, mirrored per day, plus current state | `packages/core/src/ledger/mirror.ts` |
 | Templates v2 and `run_template` | `@clearance install` and the demo world | `templates/`, `packages/core/src/install` |
 | Managed agents across vendors | One policy over all of them | `acme-mini-app/`, `scripts/setup-agents.ts` |

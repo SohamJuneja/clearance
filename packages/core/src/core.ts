@@ -12,6 +12,7 @@ import {
   ApprovalOutcomeEventSchema,
   ChatMessageEventSchema,
   GATE_WORDS,
+  jobRoleNamed,
   readExecuteResult,
   RequestStateSchema,
   type Action,
@@ -29,6 +30,7 @@ import {
   type OpenCardResult,
   type RequestState,
   type RoomAliases,
+  type RoomRoles,
 } from "@clearance/contracts";
 import { ulid } from "ulid";
 import { AnswerStore, normaliseAnswer, type AnswerDecision } from "./answers/store.js";
@@ -259,6 +261,10 @@ const LOOK_AGAIN_FOR_MS = DAY_MS;
 /** A room's aliases rarely change, and asking holds up the stream. */
 const ALIAS_CACHE_MS = 60_000;
 const ALIAS_TIMEOUT_MS = 1_000;
+/** A burst of messages asks once. A role changes hands, so this is much shorter than the aliases'. */
+const ROLE_CACHE_MS = 3_000;
+/** Long enough for a session to start and take the role, so a second mention doesn't start a second one. */
+const ROLE_WAKE_MS = 2 * 60_000;
 
 /** How long two people have to sign something. */
 const PROPOSAL_TTL_MS = 3 * DAY_MS;
@@ -346,6 +352,8 @@ export class Clearance implements ClearanceCore {
   private readonly toldCannotComplete = new Set<string>();
   private readonly executing = new Set<string>();
   private readonly aliasCache = new Map<string, { aliases: RoomAliases; atMs: number }>();
+  private readonly roleCache = new Map<string, { roles: RoomRoles; atMs: number }>();
+  private readonly lastRoleWake = new Map<string, number>();
   private readonly reach: AgentReachCheck;
   private turns: Promise<unknown> = Promise.resolve();
 
@@ -1061,7 +1069,9 @@ export class Clearance implements ClearanceCore {
     if (directory.isSelf(evt.sender, evt.senderName)) return;
     const person = directory.personByParticipant(evt.sender);
     if (person) store.noteActive(person.id, evt.roomId, evt.messageId);
-    requesters.observe(evt, await this.aliasesIn(evt));
+    const roles = await this.rolesIn(evt);
+    requesters.observe(evt, await this.aliasesIn(evt), roles);
+    await this.wakeForRole(evt, roles);
     await this.handleCommand(evt, person?.id ?? null);
   }
 
@@ -1142,6 +1152,65 @@ export class Clearance implements ClearanceCore {
       return null;
     } finally {
       clearTimeout(timer);
+    }
+  }
+
+  /** The room's roles and who holds them, read as its aliases are but kept only briefly, since a role changes hands. Null means Switch can't say. */
+  private async rolesIn(evt: ChatMessageEvent): Promise<RoomRoles | null> {
+    const { chat } = this.deps;
+    const { directory } = this.people;
+    if (!chat.roomRoles || !mentionedNames(evt.body).some((name) => !directory.knowsMention(name))) return {};
+    const now = this.deps.clock.nowMs();
+    const cached = this.roleCache.get(evt.roomId);
+    if (cached && now - cached.atMs < ROLE_CACHE_MS) return cached.roles;
+    let timer: NodeJS.Timeout | undefined;
+    const late = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error("no answer in time")), ALIAS_TIMEOUT_MS);
+    });
+    try {
+      const roles = await Promise.race([chat.roomRoles(evt.roomId), late]);
+      this.roleCache.set(evt.roomId, { roles, atMs: now });
+      return roles;
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /**
+   * F24. A role with no live holder reaches nobody, and Switch only warns the sender, so work handed to one would sit there.
+   * A role is held only while a session runs and sessions end, so this is what makes a job's address dependable: whoever has
+   * the grant is asked to take the role and read the room. It quotes nothing, or an agent's words would go out as Clearance's.
+   * It decides nothing, and failing leaves Switch's warning. Who asked is on record by now, whatever happens here.
+   */
+  private async wakeForRole(evt: ChatMessageEvent, roles: RoomRoles | null): Promise<void> {
+    if (roles === null) return;
+    const now = this.deps.clock.nowMs();
+    for (const name of mentionedNames(evt.body)) {
+      const job = jobRoleNamed(name);
+      const holders = roles[name.toLowerCase()];
+      // Not declared in this room, or someone holds it and Switch has delivered it.
+      if (!job || holders === undefined || holders.length > 0) continue;
+      const key = `${evt.roomId}\u0000${job.role}`;
+      if (now - (this.lastRoleWake.get(key) ?? Number.NEGATIVE_INFINITY) < ROLE_WAKE_MS) continue;
+      this.lastRoleWake.set(key, now);
+      // Whoever addressed the role isn't the one to wake for it.
+      const sender = this.people.directory.agentForSender(evt.sender, evt.senderName);
+      for (const holder of job.grantHolders.filter((one) => one !== sender)) {
+        const told = await this.deps.chat
+          .sendTargeted({
+            roomId: evt.roomId,
+            ...(evt.threadId ? { threadId: evt.threadId } : {}),
+            targets: [holder],
+            body: `Work was just handed to the ${job.role} role in this room, and nobody holds it. You have the grant for that job: take the role with assume_role, read this room, and pick the work up.`,
+          })
+          .then(
+            () => true,
+            () => false,
+          );
+        if (told) break;
+      }
     }
   }
 

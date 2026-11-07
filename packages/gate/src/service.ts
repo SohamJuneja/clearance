@@ -2,7 +2,7 @@
  * What the gate does, independent of transport. HTTP routes and MCP tools both call `perform`, so
  * there is one path through core's `check` and one place that holds or executes a call.
  */
-import { GATE_WORDS, type Action, type ExecuteResult } from "@clearance/contracts";
+import { GATE_WORDS, jobRoleFor, type Action, type ExecuteResult, type JobRole } from "@clearance/contracts";
 import { ulid } from "ulid";
 import type { GateConfig } from "./config.js";
 import { AMOUNT_EDITABLE, LOOKUP_PATHS, OPERATIONS, type Operation } from "./operations.js";
@@ -53,6 +53,28 @@ const STATE_TO_STATUS: Record<string, string> = {
   CANCELLED: "cancelled",
 };
 
+const plainRefusal = (agent: string, cls: string): string => `${agent} is not allowed to call ${cls} actions.`;
+
+/**
+ * F24: what a call outside an agent's job is told. It's a refusal whatever follows, and the words after the first sentence
+ * only say where the work goes next. No role is read to reach this point and none can change it: this runs once the grant
+ * has already said no. A class with no role, or a role the refused agent is itself meant to hold, leaves just the refusal.
+ */
+export function refusalFor(
+  agent: string,
+  cls: string,
+  roleOf: (cls: string) => JobRole | null = jobRoleFor,
+): { message: string; handoff?: { role: string; room: string; address: string } } {
+  const plain = plainRefusal(agent, cls);
+  const job = roleOf(cls);
+  if (!job || job.grantHolders.includes(agent)) return { message: plain };
+  const address = `@${job.role}`;
+  return {
+    message: `${plain} Nothing ran, and no approval changes this. That job belongs to the ${job.role} role: in #${job.room}, write ${address} with what is needed, who asked and why. Don't try it another way.`,
+    handoff: { role: job.role, room: job.room, address },
+  };
+}
+
 export class GateService {
   private readonly store: GateStore;
   private readonly acme: AcmeClient;
@@ -86,9 +108,9 @@ export class GateService {
     hints: Hints = {},
   ): Promise<GateReply> {
     if (!principal.classes.includes(op.cls)) {
-      const message = `${principal.agent} is not allowed to call ${op.cls} actions.`;
-      await this.core.reportRefused(this.refusedAction(principal, op, input, hints), op.cls, message);
-      return { status: 403, body: { status: "denied", message } };
+      // The record says what the agent tried. Where the work may go next isn't part of that.
+      await this.core.reportRefused(this.refusedAction(principal, op, input, hints), op.cls, plainRefusal(principal.agent, op.cls));
+      return { status: 403, body: { status: "denied", ...refusalFor(principal.agent, op.cls) } };
     }
     const parsed = op.schema.safeParse(input);
     if (!parsed.success) {

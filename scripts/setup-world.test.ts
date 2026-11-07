@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
-import { agentIdByName, groupOf, policyRoomMap, roomLimitedPolicy, roomsOf, roomsOfAgents, withRoomMap, worldDocument } from "./setup-world.ts";
+import { agentIdByName, groupOf, policyRoomMap, roleChanges, roomLimitedPolicy, roomsOf, roomsOfAgents, withRoomMap, worldDocument } from "./setup-world.ts";
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), "..");
 const template = readFileSync(join(REPO, "templates/acme-mini.template.yaml"), "utf8");
@@ -37,6 +37,28 @@ describe("roomsOf", () => {
   });
 });
 
+describe("roleChanges", () => {
+  const role = (name: string, instructions = "brief", exclusive = false) => ({ name, instructions, exclusive });
+
+  it("creates what's missing and leaves what's right alone", () => {
+    expect(roleChanges([role("merges"), role("ops")], [role("merges")])).toEqual({ create: [role("ops")], update: [] });
+  });
+
+  it("updates a brief or an exclusivity that changed", () => {
+    const changed = roleChanges([role("merges", "new"), role("ops", "brief", true)], [role("merges", "old"), role("ops")]);
+    expect(changed.update.map((one) => one.name)).toEqual(["merges", "ops"]);
+    expect(changed.create).toEqual([]);
+  });
+
+  it("reads a brief's trailing newline as the same brief, so a rerun changes nothing", () => {
+    expect(roleChanges([role("merges", "brief\n")], [role("merges", "brief")])).toEqual({ create: [], update: [] });
+  });
+
+  it("leaves a role someone added by hand", () => {
+    expect(roleChanges([role("merges")], [role("merges"), role("theirs")])).toEqual({ create: [], update: [] });
+  });
+});
+
 describe("worldDocument", () => {
   const everyone = ["refunds-agent", "support-agent", "coder", "ops-agent", "reviewer", "clearance"];
 
@@ -44,7 +66,7 @@ describe("worldDocument", () => {
     const text = worldDocument(template, { agents: ["refunds-agent", "ops-agent", "clearance"], rooms: [] });
     const out = resources(text);
     expect(out.support?.agents).toEqual(["refunds-agent", "clearance"]);
-    expect(out.eng?.agents).toEqual(["ops-agent", "clearance"]);
+    expect(out.eng?.agents).toEqual(["ops-agent", "refunds-agent", "clearance"]);
     expect(out.approvals?.agents).toEqual(["clearance"]);
   });
 
@@ -64,6 +86,12 @@ describe("worldDocument", () => {
   it("creates no agents, since setup-agents does that with their own owners", () => {
     const out = resources(worldDocument(template, { agents: everyone, rooms: [] }));
     expect(Object.values(out).filter((r) => r.type === "agent")).toEqual([]);
+  });
+
+  it("keeps a room's roles, so a room made again comes back with them", () => {
+    const out = resources(worldDocument(template, { agents: everyone, rooms: [] })) as Record<string, { roles?: { name: string }[] }>;
+    expect(out.eng?.roles?.map((role) => role.name)).toEqual(["merges", "ops"]);
+    expect(out.support?.roles?.map((role) => role.name)).toEqual(["refunds", "customer-email"]);
   });
 
   it("returns nothing to run when every room exists", () => {
@@ -104,6 +132,6 @@ describe("room-limited addressing", () => {
       { id: "room-eng", name: "eng" },
     ];
     const rooms = roomsOfAgents(wanted, present, ["refunds-agent", "coder", "ops-agent"]);
-    expect(rooms).toEqual({ "refunds-agent": ["room-support"], coder: ["room-eng"], "ops-agent": ["room-eng"] });
+    expect(rooms).toEqual({ "refunds-agent": ["room-support", "room-eng"], coder: ["room-eng"], "ops-agent": ["room-eng"] });
   });
 });

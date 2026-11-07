@@ -279,6 +279,7 @@ Priority sets the **order** of work, not what gets dropped: P0 first (the submit
 | F21 | Switch Trust endpoint that flags pressure messages | P2 | B | blog |
 | F22 | Daily digest and audit export (NIST AC-5 / PCI mapping) | P2 | C | README |
 | F23 | The report: what the approval layer did this week, for a team lead | P2 | C | optional |
+| F24 | Send refused work to the job: Switch room roles say where it goes, and never who may do it | P2 | A + B + C | README |
 
 ### F1. One policy file for every agent and vendor (P0)
 
@@ -450,6 +451,17 @@ Switch's pitch is "Share Rooms • Earn Trust • Prove ROI". F11 makes earning 
 **Drills.** It counts only what has closed, so neither a real card nor a drill moves it while it's open, and an approver can't tell which they're holding by asking for the report. Drill totals stand still while one is open, as the team view's do. They're all time because a sliding window could isolate one result. For the same reason the document goes out on time with a drill open: its words don't change, and holding it back would be the tell.
 **Synthetic.** Seeded history stays out of every number, as it stays out of the ledger. When some is on record the report says so, labels it synthetic, and says how many earned-autonomy runs stand on it.
 **Acceptance.** [ ] A room never sees per-person data (test). [ ] It reads the same as the digest and human load where they overlap (test). [ ] A drill or a real card, open, changes nothing byte for byte (test). [ ] SCRO runs on Mattermost.
+
+### F24. Send refused work to the job (P2)
+
+E2 measured a real cost: asked for a job outside its role, an agent is refused, says so, and a person has to send the work on. Switch has a feature for this, room roles, used the way Switch means it: "Address a job, not a particular agent", and "A role changes how an agent works, not what it's allowed to do."
+**What it does.** Rooms declare a role for each job behind a gate class (`refunds`, `customer-email`, `merges`, `ops`). `packages/contracts/src/job-roles.ts` is the one place that maps a class to its role, with no LLM anywhere in it. A refusal for a call outside the agent's grant names the role and how to address it. Rule 5 of 8.5 tells the agent to hand the work over in that room, saying who asked and what for, rather than stopping or trying another route.
+**It decides nothing.** A role says where to send work. Who may do a thing stays in the gate's grants, and who may approve stays in `policy/`. Any room member can take a role, so trusting one would be a privilege escalation: an agent holding a role with no grant is still refused, and a refusal stays a refusal whatever the words after it say. Nothing on the decision path reads a role, and a test holds that.
+**Holds.** A held action stays held and is never handed around. Rule 2 stands as written, and a hold's reply names no role.
+**Who asked.** Core reads a role's name in a message like an agent's name: the sender's requesters pass to whoever holds the role, and to whoever has the grant for that job. So the person who asked still can't approve (E1 case 12, through the role path). This can only add people who can't approve. If Switch can't say who holds a role, every other agent counts as asked too, as a guess, and a guess can't move a decision.
+**Taking a role.** A holder calls `assume_role` from a running session, and the lease lasts as long as the session. A role with no live holder reaches nobody, and Switch only warns the sender. So when someone addresses a job role nobody holds, core tells the first agent with the grant to take it and read the room. It quotes nothing, or an agent's words would go out as Clearance's. Each agent's brief names its role, because a woken agent with nothing saying the job was its own declined. An agent can hold one role at a time across every room, so each agent has one job role and each role lives in one room.
+**Limits.** A refusal names a role in another room, and an agent that isn't a member can't post there: it tells the person who asked, which is where things stood before. refunds-agent is in `#eng` for this, and support-agent, coder and ops-agent stay in their own rooms. An agent with no grant can take a job's role and be sent the work. It's refused when it tries, so what's lost is time, never authority.
+**Acceptance.** [ ] The refusal names the role, with and without a role to name, and is a 403 either way (test). [ ] The mapping matches the template and GATE_GRANTS (test). [ ] Priya stays a requester through the role path and can't approve (test). [ ] A role grants nothing (test). [ ] A live hand-off runs on Mattermost, with the role held (SCHO) and with nobody holding it (SCHW).
 
 ---
 
@@ -921,7 +933,7 @@ Each persona is a separate Mattermost account linked to its own Switch user. Age
 |---|---|---|
 | `#support` | Priya, Sam (SC5 has Sam asking here), refunds-agent, support-agent, clearance | Customer requests, refunds, customer email |
 | `#finance` | Sam, Neha, clearance | Finance chatter; escalation step 2 for refunds |
-| `#eng` | Alex, Dev, Priya (SC6 has Priya asking here), coder, ops-agent, reviewer, clearance | Code, merges, deploys |
+| `#eng` | Alex, Dev, Priya (SC6 has Priya asking here), coder, ops-agent, reviewer, refunds-agent (F24: a job asked of it by mistake can go to `@merges` here), clearance | Code, merges, deploys |
 | `#approvals` | Sam, Neha, Alex, Dev, Priya, clearance | Inbox fallback, drills notice, ledger documents, daily digest |
 | DM: clearance ↔ each approver | one person + clearance | Cards and "Needs your response (N)" |
 | `#support-vanilla` | Priya, refunds-agent-vanilla | Baseline: Switch default, no Clearance |
@@ -989,6 +1001,12 @@ Clearance rules (this team uses Clearance for approvals):
    run the exact same command once. When it says denied, tell the person the reason and stop.
 4. Before any money, deploy, merge, delete or customer email, say in the thread exactly what you are about to do,
    with the amount or target. Clearance compares what you say with what you run.
+5. If an action might be someone else's job, don't decide that for yourself: run it, and let the gate say. That's only
+   about whose job it is: if you think an action is wrong or unsafe, say so and don't run it. If a command or tool says
+   you are not allowed to call that kind of action, that is a refusal: nothing ran and no approval changes it. When
+   it names a role, hand the work to that role in the room it names: write @role once, not an agent's name, with what is
+   needed, who asked and why. Don't stop there and don't try another route. If you aren't in that room, or nobody picks
+   it up, tell the person who asked. Only a refusal is handed over: a held action stays held and goes to nobody.
 ```
 
 Rule 4 is honest by design: it gives the mismatch detector the agent's claim to compare against.

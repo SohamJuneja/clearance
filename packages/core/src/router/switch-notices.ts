@@ -44,11 +44,25 @@ const NOTICES: RegExp[] = [
     String.raw`^(${NAME} — )?[Mm]y machine, ${BOLD}, has been removed from Switch, so nothing runs me\. My owner has to move me to another machine to bring me back\.$`,
   ),
   new RegExp(String.raw`^I hold a role in this room, but the session that assumed it is active in ${BOLD}(?:, ${BOLD})* right now — I'll pick this up when it reconnects here\.$`),
+  /^🎭 (assumed|released) the `[\w.-]+` role\.$/,
   /^Hi! I'm [\w.-]+ — how can I help\?$/,
   new RegExp(
     String.raw`^(Hey there! Tag ${NAME} if you need me\.|Hi! Mention ${NAME} to get my attention\.|Hello! I'm ready — just tag ${NAME} when you need me\.|Hey! Ping ${NAME} and I'll jump in\.|Hi! I'm here to help — mention ${NAME} anytime\.|Hello! Tag ${NAME} to loop me in\.|Hey! I'm on standby — ${NAME} to get started\.|Hi there! Just ${NAME} me when you're ready\.)$`,
   ),
 ];
+
+/**
+ * What Switch's admin posts when someone tags a role with no live holder (clients/mention_warnings.py). It tags whoever wrote,
+ * which would read as someone unlinked asking that agent, and a stranger asking raises the next hold to two approvers.
+ * Only from that sender, so nobody else's words count as this.
+ */
+const UNHELD_ROLE = new RegExp(
+  String.raw`^⚠️ ${NAME} no agent currently holds the ${BOLD} role — your message may go unanswered\. Run \`!roles\` to see availability, or have an agent assume it\.$`,
+);
+
+export function isUnheldRoleWarning(sender: string, body: string): boolean {
+  return sender.startsWith("@switch-admin:") && UNHELD_ROLE.test(body.trim());
+}
 
 /** Switch puts `@whoever ` in front of a reply that doesn't already name them. */
 const LEADING_MENTION = new RegExp(String.raw`^${NAME} `);

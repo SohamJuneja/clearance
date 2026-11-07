@@ -258,6 +258,11 @@ export function createChatPort(agent: SwitchAgent, options: ChatPortOptions = {}
       return Object.fromEntries(participants.flatMap((row) => (row.alias ? [[row.alias.toLowerCase(), row.name]] : [])));
     },
 
+    async roomRoles(roomId) {
+      const roles = await agent.op<{ name: string; held_by?: { name: string }[] | null }[]>("list_roles", {}, { roomId });
+      return Object.fromEntries(roles.map((role) => [role.name.toLowerCase(), (role.held_by ?? []).map((holder) => holder.name)]));
+    },
+
     async upsertDocument({ roomId, name, content }) {
       const key = `${roomId}\u0000${name}`;
       let id = documents.get(key) ?? (await findDocument(roomId, name));

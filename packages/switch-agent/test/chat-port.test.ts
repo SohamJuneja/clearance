@@ -112,6 +112,29 @@ describe("roomAliases", () => {
   });
 });
 
+describe("roomRoles", () => {
+  it("asks Switch for the room's roles, and gives back each one, lower-cased, with who holds it now", async () => {
+    const calls: unknown[][] = [];
+    const agent = {
+      op: async (...args: unknown[]) => {
+        calls.push(args);
+        return [
+          { name: "Merges", exclusive: true, assumable_by_me: false, held_by: [{ name: "coder", present_here: true, session_room: null }] },
+          { name: "ops", exclusive: false, assumable_by_me: true, held_by: [] },
+        ];
+      },
+    };
+    const chat = createChatPort(agent as never);
+    expect(await chat.roomRoles?.("room-1")).toEqual({ merges: ["coder"], ops: [] });
+    expect(calls).toEqual([["list_roles", {}, { roomId: "room-1" }]]);
+  });
+
+  it("lets a Switch that can't answer throw, so core knows it can't say rather than hearing nobody holds it", async () => {
+    const chat = createChatPort({ op: () => Promise.reject(new Error("down")) } as never);
+    await expect(chat.roomRoles?.("room-1")).rejects.toThrow("down");
+  });
+});
+
 describe("the handle resolver", () => {
   it("gives up on a stalled Mattermost within its own limit, however long the server would have waited", async () => {
     const agent = { op: async () => ({ external_channel_id: "ch-1" }) };

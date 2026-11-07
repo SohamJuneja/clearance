@@ -60,6 +60,7 @@ Lead wires all of this together in `packages/core/src/main.ts` at integration.
 - Optional headers `X-Clearance-Room` and `X-Clearance-Thread` fill `session`. They are hints for where to post, not identity.
 - Core unreachable or non-200: the gate returns 503 for anything that is not a plain read. Fail closed.
 - `decision: allow` executes now and returns the result. `decision: hold` stores the call and returns `202 {status:"pending", request_id, poll_after_s:15, message}`, where `message` is core's `reason` verbatim. `decision: deny` returns `403 {status:"denied", message}`.
+- A call outside the agent's grant never reaches core's `check`: the gate returns `403 {status:"denied", message, handoff?}`. `handoff` is `{role, room, address}` when `packages/contracts/src/job-roles.ts` has a role for that class and the agent isn't meant to hold it, and `message` then says who to hand it to. It's still a refusal, and nothing ran. Core is told on `POST /v1/refused`, with the bare refusal as the reason.
 
 ## Gate to core, when an autonomous run fails
 

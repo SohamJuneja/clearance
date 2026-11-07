@@ -238,6 +238,17 @@ export class CoreClient {
     return parsed.data;
   }
 
+  /** One request, as core holds it. */
+  async request(id: string): Promise<{ agent?: string; class?: string; state?: string; requester_ids?: string[]; created_at?: string }> {
+    return (await this.get(`/v1/requests/${encodeURIComponent(id)}`)) as {
+      agent?: string;
+      class?: string;
+      state?: string;
+      requester_ids?: string[];
+      created_at?: string;
+    };
+  }
+
   /** Waits for a ledger entry about this request, of this type. */
   async waitForLedger(
     predicate: (entry: LedgerEntry) => boolean,

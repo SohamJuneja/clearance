@@ -179,12 +179,12 @@ const BASELINE: Record<string, { autoMode: boolean; anyoneMayAnswer: boolean }> 
  * What every take starts from: a new room and new sessions, then the world reset, then each person's hello to
  * Clearance. In that order, because the reset restarts core, and core has to be there to hear the room and the hellos.
  */
-async function startTake(id: string, room: string | undefined, setup: WorldSetup, args: Args): Promise<void> {
+async function startTake(id: string, room: string | undefined, visitors: string[], setup: WorldSetup, args: Args): Promise<void> {
   const log = (line: string) => process.stdout.write(`    ${line}\n`);
   if (args.record || args.restartAgents) await restartRunningAgents(log);
   const baseline = BASELINE[id];
   if (baseline) await setBaseline(baseline.autoMode, baseline.anyoneMayAnswer, log);
-  if (args.fresh && room) await freshRoom(room, log);
+  if (args.fresh && room) await freshRoom(room, log, visitors);
   if (args.record) await cleanInboxes(log);
   // Or the agent's next hold needs two approvers: see scripts/demo/stray-rooms.ts.
   await archiveStrayRooms(Object.keys(OWNERS), log);
@@ -239,7 +239,7 @@ async function main(): Promise<number> {
       ...options,
       modelRefusals,
       reset: async (setup) => {
-        await startTake(scenario.id, scenario.room, setup, args);
+        await startTake(scenario.id, scenario.room, scenario.visitors, setup, args);
         const before = await new AcmeClient(defaultUrls().acme).state();
         knownRefunds = new Set(before.refunds.map((refund) => refund.id));
       },

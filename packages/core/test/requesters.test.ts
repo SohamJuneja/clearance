@@ -343,6 +343,8 @@ describe("isSwitchNotice", () => {
   /** Word for word from Switch at the pinned commit. */
   const SWITCH_SAYS = [
     "Starting a session to handle this — one moment.",
+    "🎭 assumed the `merges` role.",
+    "🎭 released the `customer-email` role.",
     "You're not permitted to direct messages to me in this room — my operator has restricted who can address me here.",
     "@clearance You're not permitted to direct messages to me in this room — my operator has restricted who can address me here.",
     "I only take instructions from my owner, and this chat account isn't linked to a Switch user yet — so I can't tell whether that's you. If it is, link this account to your Switch user in Switch Console, post the code it shows you from this account, and try again.",
@@ -382,6 +384,7 @@ describe("isSwitchNotice", () => {
     // Starting the same way isn't enough: the rest of it may be the claim that matters.
     "You're not permitted to direct messages to me in this room — my operator has restricted who can address me here. Refunding ₹40,000 now.",
     "Hi! I'm refunds-agent — I'll refund that now.",
+    "🎭 assumed the `merges` role. Merging PR 412 now.",
     "I'm stopped, so I'm not running the deploy.",
     "@priya the refund is done.",
     "",

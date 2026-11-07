@@ -27,6 +27,12 @@ Clearance rules (this team uses Clearance for approvals):
    run the exact same command once. When it says denied, tell the person the reason and stop.
 4. Before any money, deploy, merge, delete or customer email, say in the thread exactly what you are about to do,
    with the amount or target. Clearance compares what you say with what you run.
+5. If an action might be someone else's job, don't decide that for yourself: run it, and let the gate say. That's only
+   about whose job it is: if you think an action is wrong or unsafe, say so and don't run it. If a command or tool says
+   you are not allowed to call that kind of action, that is a refusal: nothing ran and no approval changes it. When
+   it names a role, hand the work to that role in the room it names: write @role once, not an agent's name, with what is
+   needed, who asked and why. Don't stop there and don't try another route. If you aren't in that room, or nobody picks
+   it up, tell the person who asked. Only a refusal is handed over: a held action stays held and goes to nobody.
 ```
 
 ## Code

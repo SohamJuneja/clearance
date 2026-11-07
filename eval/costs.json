@@ -1673,6 +1673,60 @@
       "experiment": "E2",
       "usd": 0,
       "note": "estimate: opencode C list-files"
+    },
+    {
+      "at": "2026-11-07T02:26:01.128Z",
+      "experiment": "F24",
+      "usd": 0.02,
+      "note": "estimate: role spike, three coder turns"
+    },
+    {
+      "at": "2026-11-07T02:26:01.132Z",
+      "experiment": "F24",
+      "usd": 0.01,
+      "note": "estimate: SCHO take 1, refunds-agent stopped, one coder turn"
+    },
+    {
+      "at": "2026-11-07T02:26:01.134Z",
+      "experiment": "F24",
+      "usd": 0.05,
+      "note": "estimate: SCHO take 2"
+    },
+    {
+      "at": "2026-11-07T02:26:01.135Z",
+      "experiment": "F24",
+      "usd": 0.05,
+      "note": "estimate: SCHO take 3"
+    },
+    {
+      "at": "2026-11-07T02:26:01.137Z",
+      "experiment": "F24",
+      "usd": 0.05,
+      "note": "estimate: SCHW take 4"
+    },
+    {
+      "at": "2026-11-07T02:26:01.138Z",
+      "experiment": "F24",
+      "usd": 0.05,
+      "note": "estimate: SCHO take 5"
+    },
+    {
+      "at": "2026-11-07T02:26:01.140Z",
+      "experiment": "F24",
+      "usd": 0.05,
+      "note": "estimate: SCHW take 6"
+    },
+    {
+      "at": "2026-11-07T02:26:01.141Z",
+      "experiment": "F24",
+      "usd": 0.05,
+      "note": "estimate: SCHO take 7"
+    },
+    {
+      "at": "2026-11-07T02:26:01.142Z",
+      "experiment": "F24",
+      "usd": 0.02,
+      "note": "estimate: probe, a role grants nothing, one refunds-agent turn"
     }
   ]
 }

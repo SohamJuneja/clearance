@@ -8,9 +8,11 @@
  *   pnpm exec tsx scripts/demo/fresh-room.ts support
  */
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { agentIdOf, type ManagedAgent, mattermostContainer, ownerGateway, type OwnerGateway, ROOT } from "../gateway-owner.ts";
+import { roomsOf } from "../setup-world.ts";
 import { personaTokens } from "./greet.ts";
 
 /** Whoever can see the world's rooms and own its agents. PLAN 8.4. */
@@ -90,15 +92,54 @@ async function findRooms(room: string): Promise<{ gateway: OwnerGateway; owner: 
   return all;
 }
 
+/** Who the template puts in a room, or a room made again would start without an agent the old one didn't have yet. */
+function templateAgents(room: string): string[] {
+  const template = readFileSync(join(ROOT, "templates/acme-mini.template.yaml"), "utf8");
+  return roomsOf(template).find((one) => one.name === room)?.agents ?? [];
+}
+
+/**
+ * Agents a room lists only so work asked of them by mistake has somewhere to go. A take of that room leaves them stopped
+ * unless it asks for them. Measured in F24's takes: restarted, one picked up an old message from its own room, and its
+ * card landed in this one, which on camera would be a stray refund in a scene about a merge.
+ */
+export const VISITORS: Readonly<Record<string, readonly string[]>> = { eng: ["refunds-agent"] };
+
+/** What a fresh take does with one agent. A visitor nobody asked for is stopped, and everyone else in the room starts fresh. */
+export function sessionAction(
+  room: string,
+  agent: { name: string; inRoom: boolean; running: boolean },
+  templateAgents: readonly string[],
+  visitorsWanted: readonly string[],
+): "restart" | "start" | "stop" | "leave" {
+  const isVisitor = (VISITORS[room] ?? []).includes(agent.name);
+  if (isVisitor && !visitorsWanted.includes(agent.name)) return agent.running ? "stop" : "leave";
+  if (!agent.inRoom && !templateAgents.includes(agent.name)) return "leave";
+  return agent.running ? "restart" : "start";
+}
+
 /** Restarts each agent, or starts it if it is stopped. Goes by the owner, so a room already gone costs nothing. */
-async function freshSessions(agentIds: Set<string>, log: Log): Promise<void> {
+async function freshSessions(
+  room: string,
+  agentIds: Set<string>,
+  log: Log,
+  templateNames: readonly string[],
+  visitorsWanted: readonly string[],
+): Promise<void> {
   for (const owner of OWNERS) {
     const gateway = await ownerGateway(owner);
     const agents = await gateway.must<ManagedAgent[]>("GET", "/management/agents");
     for (const agent of agents) {
       const id = agentIdOf(agent);
-      if (!agentIds.has(id)) continue;
-      if (agent.desired_state === "running") {
+      const running = agent.desired_state === "running";
+      const action = sessionAction(room, { name: agent.name, inRoom: agentIds.has(id), running }, templateNames, visitorsWanted);
+      if (action === "leave") continue;
+      if (action === "stop") {
+        await gateway.must("PATCH", `/management/agents/${id}`, { desired_state: "stopped" });
+        log(`stopped ${agent.name}: this take doesn't need it`);
+        continue;
+      }
+      if (action === "restart") {
         await gateway.must("POST", "/management/operations", { controller_id: agent.controller_id, agent_id: id, kind: "agent.restart" });
         log(`restarted ${agent.name}`);
       } else {
@@ -122,7 +163,7 @@ export async function restartRunningAgents(log: Log = () => undefined): Promise<
       if (agent.desired_state === "running") running.add(agentIdOf(agent));
     }
   }
-  await freshSessions(running, log);
+  await freshSessions("", running, log, [], []);
 }
 
 function runScript(args: string[], log: Log): void {
@@ -149,7 +190,7 @@ export async function setBaseline(autoMode: boolean, anyoneMayAnswer: boolean, l
   log(`baseline agent: auto mode ${autoMode ? "on" : "off"}`);
 }
 
-export async function freshRoom(room: string, log: Log = () => undefined): Promise<void> {
+export async function freshRoom(room: string, log: Log = () => undefined, visitors: readonly string[] = []): Promise<void> {
   const members = new Set<string>();
   let take = 0;
   const gateways = await Promise.all(OWNERS.map((owner) => ownerGateway(owner)));
@@ -160,7 +201,7 @@ export async function freshRoom(room: string, log: Log = () => undefined): Promi
     await deleteRoom(found.id, gateways);
     log(`deleted room ${room}`);
   }
-  await freshSessions(members, log);
+  await freshSessions(room, members, log, templateAgents(room), visitors);
 
   const baseline = BASELINE_ROOMS[room];
   if (baseline) {
@@ -183,8 +224,8 @@ export async function freshRoom(room: string, log: Log = () => undefined): Promi
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  const [room] = process.argv.slice(2);
-  if (!room) throw new Error("usage: fresh-room.ts <room>");
-  await freshRoom(room, console.log);
+  const [room, ...visitors] = process.argv.slice(2);
+  if (!room) throw new Error("usage: fresh-room.ts <room> [visitor agents]");
+  await freshRoom(room, console.log, visitors);
   console.log(`#${room} is fresh. New channel in ${join(ROOT, "data/identities.json")}`);
 }

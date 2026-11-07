@@ -31,13 +31,41 @@ const ROOM_OWNER = "alex";
 type Resource = { type?: string; name?: string; group?: string; agents?: string[]; [key: string]: unknown };
 type TemplateDoc = { resources?: Record<string, Resource>; [key: string]: unknown };
 
-export type WorldRoom = { name: string; agents: string[] };
+export type WorldRole = { name: string; instructions: string; exclusive: boolean };
+export type WorldRoom = { name: string; agents: string[]; roles: WorldRole[] };
 
 export function roomsOf(templateText: string): WorldRoom[] {
   const doc = parse(templateText) as TemplateDoc;
   return Object.values(doc.resources ?? {})
     .filter((r) => r.type === "room")
-    .map((r) => ({ name: String(r.name), agents: r.agents ?? [] }));
+    .map((r) => ({ name: String(r.name), agents: r.agents ?? [], roles: (r.roles as WorldRole[] | undefined) ?? [] }));
+}
+
+/**
+ * What a room already there needs for its roles to match the template, since a template run only makes rooms that don't
+ * exist. A role someone added by hand stays, and so does whoever holds a role: changing its brief reaches them next time.
+ */
+export function roleChanges(wanted: WorldRole[], present: WorldRole[]): { create: WorldRole[]; update: WorldRole[] } {
+  const same = (a: WorldRole, b: WorldRole) => a.instructions.trim() === b.instructions.trim() && a.exclusive === b.exclusive;
+  const create = wanted.filter((role) => !present.some((one) => one.name === role.name));
+  const update = wanted.filter((role) => present.some((one) => one.name === role.name && !same(one, role)));
+  return { create, update };
+}
+
+async function keepRoles(gateway: OwnerGateway, room: RoomRow, wanted: WorldRole[]): Promise<void> {
+  if (wanted.length === 0) return;
+  const present = await gateway.must<WorldRole[]>("GET", `/rooms/${room.id}/roles`);
+  const { create, update } = roleChanges(wanted, present);
+  for (const role of create) await gateway.must("POST", `/rooms/${room.id}/roles`, role);
+  for (const role of update) {
+    await gateway.must("PATCH", `/rooms/${room.id}/roles/${encodeURIComponent(role.name)}`, {
+      instructions: role.instructions,
+      exclusive: role.exclusive,
+    });
+  }
+  if (create.length + update.length > 0) {
+    console.log(`#${room.name}: roles ${[...create, ...update].map((role) => role.name).join(", ")} match the template`);
+  }
 }
 
 /**
@@ -202,6 +230,7 @@ async function main(): Promise<void> {
       await gateway.must("POST", `/rooms/${room.id}/agents`, { agent_ids: missing.map((a) => a.id ?? a.agent_id) });
       console.log(`#${want.name}: added ${missing.map((a) => a.name).join(", ")}`);
     }
+    await keepRoles(gateway, room, want.roles);
     const blocked = want.agents.filter((name) => !agentNames.includes(name));
     console.log(`#${want.name}: ${room.id}${blocked.length ? ` (not yet created: ${blocked.join(", ")})` : ""}`);
   }

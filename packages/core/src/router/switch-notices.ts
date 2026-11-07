@@ -8,7 +8,12 @@
  * sentences match, with only names in the places Switch puts names, so an agent can't hide what it says in the shape of one.
  */
 const NAME = String.raw`@[\w.-]+`;
-const BOLD = String.raw`\*\*[\w .-]+\*\*`;
+/**
+ * A room, an agent or a machine, as Switch writes one in bold. At most three words, and none of them a bare number, because
+ * this is the one place a sentence could hide: "**Refunding 4000 to Rohan**" would read as Switch's words, and go uncompared.
+ */
+const BOLD_WORD = String.raw`(?!\d[\d,.]*(?:[ *]))[\w.-]+`;
+const BOLD = String.raw`\*\*${BOLD_WORD}(?: ${BOLD_WORD}){0,2}\*\*`;
 const SOMEONE = String.raw`(?:[Yy]ou|[Mm]y owner|${NAME})`;
 const SIGN_IN = String.raw`If Switch Console says I'm signed out, sign me in first with \`[\w .-]+\` on the machine I run on\.`;
 const OWNER = String.raw`(?:[Mm]y owner(?: \(${NAME}\))?)`;
@@ -60,8 +65,16 @@ const UNHELD_ROLE = new RegExp(
   String.raw`^⚠️ ${NAME} no agent currently holds the ${BOLD} role — your message may go unanswered\. Run \`!roles\` to see availability, or have an agent assume it\.$`,
 );
 
-export function isUnheldRoleWarning(sender: string, body: string): boolean {
-  return sender.startsWith("@switch-admin:") && UNHELD_ROLE.test(body.trim());
+/** Its other warning, for tagging an agent that isn't in the room. A label there is a display name, with the name itself in backticks. */
+const ABSENT_LABEL = String.raw`\*\*[\w .-]+(?: \(\`[\w.-]+\`\))?\*\*`;
+const ABSENT_AGENT = new RegExp(
+  String.raw`^⚠️ ${NAME} ${ABSENT_LABEL}(?:, ${ABSENT_LABEL})* (?:isn't|aren't) in this room, so your message won't reach (?:it|them)\. Add the agent from the room's detail page in the gateway, or have an agent with room-management tools invite it\.$`,
+);
+
+/** Either warning: the admin talking about a message, and nobody asking anyone for anything. */
+export function isMentionWarning(sender: string, body: string): boolean {
+  const text = body.trim();
+  return sender.startsWith("@switch-admin:") && (UNHELD_ROLE.test(text) || ABSENT_AGENT.test(text));
 }
 
 /** Switch puts `@whoever ` in front of a reply that doesn't already name them. */

@@ -11,6 +11,8 @@ Where things stand:
 
 After the freeze: latency and the 2-hour soak on frozen code, then rebuild the video with the corrected narration and these numbers.
 
+Fifth independent review, of room roles and the record of refusals: fixed on its worktree branch and re-checked in E1 as its own group (`pnpm eval:authority --group fifth-review`). With the fixes reverted, 21 of its 25 checks fail, each on its bad outcome. The other 4 guard the fixes themselves, and each was shown to fail by taking its control out. Four limits it leaves are in `docs/threat-model.md`, each with an `it.fails` test. After merging, on the real stack: `pnpm demo:run SCHO` and `SCHW`, whose cards now carry a line saying an agent handed the work over, and a bolded mention and an absent-agent warning through real Mattermost. E2's tables need `pnpm eval:report` again once its results are in.
+
 ## Gates
 
 | Gate | Time (IST) | Must be true | State |

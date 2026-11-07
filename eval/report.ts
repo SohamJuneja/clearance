@@ -61,6 +61,10 @@ const E1 = z.object({
   fourth_review: z
     .object({ passed: z.number().int().nonnegative(), total: z.number().int().positive() })
     .optional(),
+  /** The fifth's. `breaks` leaves out the checks that guard its fixes, which aren't breaks anyone found. */
+  fifth_review: z
+    .object({ passed: z.number().int().nonnegative(), total: z.number().int().positive(), breaks: z.number().int().nonnegative().optional() })
+    .optional(),
   /** So a case that isn't prevented can be named in the negative results. */
   per_case: z
     .array(
@@ -481,7 +485,8 @@ function auditCell(e1: Inputs["E1"]): string {
   const second = e1?.second_review ? `; second review: ${num(e1.second_review.passed)} of ${e1.second_review.total}` : "";
   const third = e1?.third_review ? `; third review: ${num(e1.third_review.passed)} of ${e1.third_review.total}` : "";
   const fourth = e1?.fourth_review ? `; fourth review: ${num(e1.fourth_review.passed)} of ${e1.fourth_review.total}` : "";
-  return `${first}${second}${third}${fourth}`;
+  const fifth = e1?.fifth_review ? `; fifth review: ${num(e1.fifth_review.passed)} of ${e1.fifth_review.total}` : "";
+  return `${first}${second}${third}${fourth}${fifth}`;
 }
 
 function behaviourData(behaviour: Inputs["E2-behaviour"]): string {
@@ -684,6 +689,14 @@ export function negativeResults(inputs: Inputs): NegativeResult[] {
       id: "fourth-review",
       text: `A fourth independent review reproduced ${num(e1.fourth_review.total)} more, and the worst was the simplest: send the same refund twice at once and both ran alone, because every limit was checked before the record it reads was written. They're fixed and re-checked on their own line. Each review so far has found more, so a fifth probably would too.`,
       short: `a fourth independent review reproduced ${num(e1.fourth_review.total)} more, the worst being one refund sent twice at once running twice`,
+      source: "`pnpm eval:authority`",
+    });
+  }
+  if (e1?.fifth_review) {
+    results.push({
+      id: "fifth-review",
+      text: `A fifth independent review reproduced ${num(e1.fifth_review.breaks ?? e1.fifth_review.total)} more, in the room roles and the record of refusals added after the fourth, and the worst took one word: \`@constructor\` anywhere in a message made core throw, so Switch delivered the ask and it was never counted, and the person who asked could approve their own refund. They're fixed and re-checked on their own line.`,
+      short: `a fifth independent review reproduced ${num(e1.fifth_review.breaks ?? e1.fifth_review.total)} more, the worst being one word that took a whole message off the record`,
       source: "`pnpm eval:authority`",
     });
   }

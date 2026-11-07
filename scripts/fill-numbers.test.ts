@@ -95,6 +95,19 @@ describe("valuesFrom", () => {
     expect(() => valuesFrom(changed)).toThrow(/fourth review/);
   });
 
+  it("takes the fifth review's number from the result file, and a draft naming it won't fill without one", () => {
+    const changed = sources();
+    expect(() => fill("{{FIFTH_REVIEW_BREAKS}}", valuesFrom(changed))).toThrow(/FIFTH_REVIEW_BREAKS/);
+    changed.authority.fifth_review = { passed: 25, total: 25, breaks: 21 };
+    expect(fill("{{FIFTH_REVIEW_BREAKS}}", valuesFrom(changed)), "a check that guards a fix isn't a break anyone found").toBe("21");
+  });
+
+  it("refuses to say the fifth review's breaks are fixed while one is open", () => {
+    const changed = sources();
+    changed.authority.fifth_review = { passed: 24, total: 25 };
+    expect(() => valuesFrom(changed)).toThrow(/fifth review/);
+  });
+
   it("refuses a week that isn't labelled synthetic", () => {
     const changed = sources();
     changed.autonomy.synthetic = false;

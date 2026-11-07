@@ -6,7 +6,7 @@
  * (see `createMattermostHandleResolver`). `handle` is therefore optional and best effort. A handle means
  * nothing outside its channel: `A3` in a direct room and `A3` in #approvals are different cards.
  */
-import type { CardOption, ChatPort, OpenCardInput, OpenCardResult } from "@clearance/contracts";
+import { ownValue, type CardOption, type ChatPort, type OpenCardInput, type OpenCardResult } from "@clearance/contracts";
 import { randomUUID } from "node:crypto";
 import { roomSessionId, SwitchApiError, type ApprovalOption, type ApprovalQuestion, type SwitchAgent } from "./agent.js";
 
@@ -72,7 +72,7 @@ function checkLimits(input: OpenCardInput): void {
 /** The participant name Switch's targeted messages take. */
 function targetName(target: string, names: Record<string, string>): string {
   if (/^@.+:.+$/.test(target)) {
-    const name = names[target];
+    const name = ownValue(names, target);
     if (!name) throw new Error(`No name known for participant ${target}; Switch addresses by name`);
     return name;
   }

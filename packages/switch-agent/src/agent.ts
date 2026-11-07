@@ -387,6 +387,8 @@ export function createSwitchAgent(config: SwitchAgentConfig): SwitchAgent {
       data = JSON.parse(raw);
     } catch {
       log.error(`dropped an unparseable ${name} frame`);
+      // A message nobody can read is a message lost, and core has to know it may be missing who asked.
+      if (name === "message") enqueue(() => handlers.gap?.({ reason: "a message frame that could not be read" }));
       return;
     }
     handlers.frame?.(name, data);
@@ -398,7 +400,8 @@ export function createSwitchAgent(config: SwitchAgentConfig): SwitchAgent {
       }
       case "message": {
         const frame = parseFrame(name, MessageFrameSchema, data);
-        if (!frame) return;
+        // A message nobody can read is a message lost, and core has to know it may be missing who asked.
+        if (!frame) return enqueue(() => handlers.gap?.({ reason: "a message frame that could not be read" }));
         mergePosition(frame.position);
         enqueue(() => handlers.message?.(toChatMessageEvent(frame), { position: frame.position }));
         return;

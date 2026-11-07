@@ -104,13 +104,13 @@ sequenceDiagram
 
 So an agent that takes `@merges` and has no grant for merges is refused like any other, and a call is judged the same whether its agent holds a role or not. A person can't approve anything by holding one, and neither can an agent. Nothing on the decision path reads a role, and a test holds that.
 
-A role is read in one place, which is who counts as having asked. A message to `@merges` passes the sender's requesters to whoever holds it and to whoever has the grant for that job, so Priya can't launder her request through an agent and a role, then approve it. That can only add people who can't approve, so it's safe for a role to be believed there and nowhere else. If Switch can't say who holds a role, every other agent counts as asked too, as a guess, and a guess can't move a decision.
+A role is read in one place, which is who counts as having asked. A message to `@merges` passes the sender's requesters to whoever holds it and to whoever has the grant for that job, so Priya can't launder her request through an agent and a role, then approve it. Being believed there can't make anyone eligible, so that's the one place a role is believed. It could still move a decision, by barring everyone a class names, and an agent chooses when to name a role. So someone only on record through another agent stands aside when nobody the policy names would be left: they stay on the card, it takes one more approval than the policy says, and they can't break glass. [The threat model](threat-model.md) has the rest. If Switch can't say who holds a role, every other agent counts as asked too, as a guess, and a guess can't move a decision.
 
 The mapping from gate class to role is one table, `packages/contracts/src/job-roles.ts`, with tests holding it to the template and to the grants. A class with no role gets the plain refusal, and either way it's a 403 with nothing run.
 
 A held action is different, and is never handed around. A hold names no role, and the rule against trying a held action another way still stands.
 
-A role lasts as long as the session that took it, and one nobody holds reaches nobody. So when someone addresses a job role with no holder, core tells the first agent with the grant to take it and read the room. It doesn't quote the message, or an agent's words would go out as Clearance's.
+A role lasts as long as the session that took it, and one nobody holds reaches nobody. So when someone addresses a job role with no holder, in the job's own room, core tells the first agent with the grant to take it and read the room. It doesn't quote the message, or an agent's words would go out as Clearance's. Naming the role in another room that declares one of that name still counts as asking, and wakes nobody. A hand-off also stops the agent it reaches running anything alone for the next 10 minutes, because a person on record says someone asked it something, not that they asked for this.
 
 ## Decisions that shape the code
 

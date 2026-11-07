@@ -147,6 +147,22 @@ export function mayHaveAskedFlag(names: string, quorum: number): Flag {
   };
 }
 
+/** They asked another agent something, and it named this one. It might be what they wanted and it might not, and the agent chose. */
+export function passedOnFlag(names: string, quorum: number): Flag {
+  return {
+    code: "may_have_asked",
+    text: `${names} asked another agent something, and it passed that on to this one, so could be who asked, and nobody else the policy names is left. Rather than let an agent take this from them, this needs ${COUNT_WORDS[quorum] ?? quorum} approvals from different people, and they can't break glass on it.`,
+  };
+}
+
+/** A person on record says someone asked this agent something, not that they asked for this. */
+export function agentHandedOverFlag(names: string): Flag {
+  return {
+    code: "handed_over_by_agent",
+    text: `${names} addressed this agent in the last 10 minutes, so this may be that agent's idea and not a person's`,
+  };
+}
+
 export function messagesLostFlag(quorum: number): Flag {
   return {
     code: "messages_lost",

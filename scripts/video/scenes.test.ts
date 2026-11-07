@@ -429,7 +429,7 @@ describe("scenes.yaml", () => {
   it("puts on the slide what the numbers row asks for, with E2 only once it exists", () => {
     const numbers = board.scenes.find((scene) => scene.id === "numbers");
     if (numbers?.kind !== "numbers") throw new Error("no numbers scene");
-    expect(numbers.rows).toEqual(["E1", "AUDIT", "E2/risky", "E3/quiet", "E6", "NEG"]);
+    expect(numbers.rows).toEqual(["E1", "AUDIT", "E2/risky", "E2/yes", "E3/quiet", "E6", "NEG"]);
     const shown = (table: string) =>
       slideRows(parseResults(table), numbers.rows).map((row) => row.id);
     expect(shown(renderResults({}))).toEqual([]);

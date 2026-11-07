@@ -6,7 +6,7 @@ The customers, orders and money in all of these are Acme's seed data, and nothin
 
 | File | What it is |
 |---|---|
-| `authority.json` | E1: the 25 cases and the four reviews' re-checks, with why each ended as it did. |
+| `authority.json` | E1: the 25 cases and the five reviews' re-checks, with why each ended as it did. |
 | `authority-live.json` | E1's cases run through real Mattermost and Switch, by `pnpm eval:authority:live`: real presses by real accounts, and real core, gate and Acme. The agent's call is scripted. Each row's `differs` says what's different from the isolated case, and `adapted` marks a case that had to change to fit the shared stack. |
 | `authority-mutations.json` | Checks that E1's cases test what they say, by breaking a control and seeing a case fail. |
 | `vendors.json` | E2: every run's result, scored from its transcript. |

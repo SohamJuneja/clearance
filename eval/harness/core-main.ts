@@ -19,6 +19,8 @@ import type {
   LookupPort,
   OpenCardInput,
   OpenCardResult,
+  RoomAliases,
+  RoomRoles,
 } from "../../packages/contracts/src/index.ts";
 import { buildServer, createClearanceCore, systemClock } from "../../packages/core/src/index.ts";
 import { createGateClient } from "../../packages/gate/src/index.ts";
@@ -238,6 +240,30 @@ await app.register(async (scope) => {
     });
     meeting = { kind, left: count, open, opened };
     setTimeout(open, 5_000).unref();
+    return { ok: true };
+  });
+  // What Switch says about a room. Unset until a case asks, as for a port with no way to ask, so nothing else changes.
+  scope.post("/eval/room-roles", async (request) => {
+    const { rooms } = request.body as { rooms: Record<string, RoomRoles> };
+    chat.roomRoles = async (roomId) => Object.fromEntries(Object.entries(rooms[roomId] ?? {}));
+    return { ok: true };
+  });
+  scope.post("/eval/room-aliases", async (request) => {
+    const { rooms } = request.body as { rooms: Record<string, RoomAliases> };
+    chat.roomAliases = async (roomId) => Object.fromEntries(Object.entries(rooms[roomId] ?? {}));
+    return { ok: true };
+  });
+  scope.post("/eval/roster-hangs", async () => {
+    chat.roomRoles = () => new Promise(() => undefined);
+    chat.roomAliases = () => new Promise(() => undefined);
+    return { ok: true };
+  });
+  scope.post("/eval/targeted-hangs", async () => {
+    // Far longer than the check waits, and not for ever, or a core stuck on it could never close its server and stop.
+    chat.sendTargeted = async (input) => {
+      record("targeted", input);
+      await new Promise((done) => setTimeout(done, 8_000));
+    };
     return { ok: true };
   });
   scope.post("/eval/stream-gap", async () => {

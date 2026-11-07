@@ -475,6 +475,23 @@ describe("eval:report", () => {
       expect(text).toContain("A fourth independent review reproduced 23 more");
     });
 
+    it("adds a fifth review the same way", () => {
+      write({
+        "authority.json": {
+          ...authority,
+          audit: { passed: 5, total: 5 },
+          second_review: { passed: 28, total: 28 },
+          third_review: { passed: 19, total: 19 },
+          fourth_review: { passed: 25, total: 25 },
+          fifth_review: { passed: 24, total: 25, breaks: 21 },
+        },
+      });
+      report();
+      const text = readFileSync(resultsPath, "utf8");
+      expect(selectRow(parseResults(text), "AUDIT").clearance).toBe("Audit: 5 of 5; second review: 28 of 28; third review: 19 of 19; fourth review: 25 of 25; fifth review: 24 of 25");
+      expect(text, "a check that guards a fix isn't a break anyone found").toContain("A fifth independent review reproduced 21 more");
+    });
+
     it("adds a third review the same way", () => {
       write({
         "authority.json": {

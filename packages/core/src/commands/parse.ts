@@ -30,10 +30,47 @@ export function parseCommand(evt: { body: string; addressed: boolean; channelTyp
 /** What Clearance answers to. Anything else after its name is someone saying something. */
 const VERBS = new Set(["why", "status", "inbox", "autonomy", "policy", "incident", "away", "back", "breakglass", "counter", "resolve", "drills", "install", "uninstall", "help"]);
 
-/** Whether this message reads as a command to Clearance, whoever it reached, rather than something said with its name in it. */
-export function isCommandToClearance(evt: { body: string; channelType?: string | null | undefined }): boolean {
+/** A request as a command names one: `CLR-0042`, or a card's handle. */
+const REFERENCE = /^(?:clr-\d+|[ar]\d+)[.?!]?$/i;
+const AMOUNT_WORD = /^(?:₹|rs\.?|inr)?\d[\d,.]*(?:k|lakh|lac|crore|cr)?$/i;
+
+/**
+ * Whether a message is nothing but a command, so it asks nobody else for anything. A verb with words after it that it has no
+ * use for isn't: `@clearance help refund order A-2004 in full` is a request with Clearance's name in front of it, and an agent
+ * reading the room sees it as one. A command with a reason in it counts only for a request that exists, because then its words
+ * are on the record under the name of whoever wrote them. `isRealRequest` says which requests those are.
+ */
+export function isOnlyACommand(evt: { body: string; channelType?: string | null | undefined }, isRealRequest: (reference: string) => boolean = () => false): boolean {
   const command = parseCommand({ ...evt, addressed: true });
-  return command !== null && VERBS.has(command.verb);
+  if (!command || !VERBS.has(command.verb)) return false;
+  const [first, ...rest] = command.words;
+  const names = (word: string | undefined) => word !== undefined && REFERENCE.test(word);
+  switch (command.verb) {
+    case "help":
+    case "inbox":
+    case "back":
+    case "install":
+    case "uninstall":
+      return first === undefined;
+    case "why":
+    case "status":
+      return first === undefined || (names(first) && rest.length === 0);
+    case "autonomy":
+    case "drills":
+      return rest.length === 0;
+    case "policy":
+      return first === undefined;
+    case "away":
+      return AWAY.test(command.args.trim());
+    case "counter":
+      return first === undefined || (names(first) && rest.length <= 2 && rest.every((word) => AMOUNT_WORD.test(word) || /^(?:rupees|rs\.?|inr)$/i.test(word)));
+    case "incident":
+    case "breakglass":
+    case "resolve":
+      return first === undefined || (names(first) && isRealRequest(first.replace(/[.?!]$/, "")));
+    default:
+      return false;
+  }
 }
 
 const AWAY = /^until\s+(\d{1,2}):(\d{2})(?:\s+delegate\s+@?(\S+))?$/i;

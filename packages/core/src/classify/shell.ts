@@ -8,6 +8,7 @@
  * never a reason to allow.
  */
 import { posix } from "node:path";
+import { ownValue } from "@clearance/contracts";
 import { expandBraces, hasGlob, patternOf, sensitivePaths, type Atom } from "./globs.js";
 import { inlineCodeProblem } from "./inline-code.js";
 
@@ -242,7 +243,7 @@ function runsThroughAFlag(name: string, args: Word[]): string | null {
     man: /^(-P|--pager|-H|--html)(=|$)/,
     less: /^\+.*!/,
   };
-  const pattern = named[name];
+  const pattern = ownValue(named, name);
   const flag = pattern ? said(pattern) : undefined;
   return flag ? `${name} ${flag}, which runs what it's given` : null;
 }
@@ -856,7 +857,7 @@ class ShellParser {
       const runner = word.dynamic ? "" : baseName(word.text);
       if (RUNS_WHAT_IT_READS.has(runner)) return this.fail(`${runner} runs commands that are not on this line`);
       if ((RUNS_A_STRING.has(runner) || MAY_RUN_A_STRING.has(runner) || runner === "watch") && this.readStringRunner(runner, rest, kept)) return;
-      const wrapper = word.dynamic ? undefined : WRAPPERS[runner];
+      const wrapper = word.dynamic ? undefined : ownValue(WRAPPERS, runner);
       if (!wrapper) break;
       kept.push(word);
       rest = rest.slice(1);
@@ -880,7 +881,7 @@ class ShellParser {
           const takesValue = wrapper.flagsWithValue.has(next.text);
           // Whether a long option takes the next word decides which word is the command, so one this doesn't know is a hold.
           if (!takesValue && /^--[^=]+$/.test(next.text) && !LONG_FLAGS_ALONE.has(next.text)) return this.fail(`${runner} ${next.text}, which this can't read`);
-          const changes = CHANGES_DIRECTORY[baseName(word.text)];
+          const changes = ownValue(CHANGES_DIRECTORY, baseName(word.text));
           if (changes?.attached && next.text.startsWith(changes.attached)) {
             wrapperDirectory = { ...next, text: next.text.slice(changes.attached.length) };
           } else if (takesValue && rest[1] && changes?.flags.has(next.text)) {
@@ -1296,7 +1297,7 @@ function gitRunsSomething(subcommand: string, args: Word[]): string | null {
   if ((subcommand === "bisect" && first === "run") || (subcommand === "submodule" && args.some((word) => word.text === "foreach"))) {
     return `git ${subcommand} ${subcommand === "bisect" ? "run" : "foreach"}, which runs what it's given`;
   }
-  const short = GIT_RUNS_ITS_SHORT_OPTION[subcommand];
+  const short = ownValue(GIT_RUNS_ITS_SHORT_OPTION, subcommand);
   const flag = args.find((word) => GIT_RUNS_ITS_OPTION.test(word.text) || short?.test(word.text) || ((subcommand === "init" || subcommand === "clone") && /^--(template|config)(=|$)/.test(word.text)));
   return flag ? `git ${subcommand} ${flag.text.split("=", 1)[0] as string}, which runs what it's given` : null;
 }

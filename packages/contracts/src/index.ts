@@ -375,4 +375,12 @@ function sortKeys(value: unknown): unknown {
 
 export const DEFAULT_PORTS = { core: 7700, gate: 7710, acme: 7800, desk: 7900 } as const;
 
+/**
+ * A value from a plain object keyed by something a person or an agent typed. `record[key]` finds Object's own members too, so
+ * `@constructor` would read as an agent and `constructor -x` as a wrapper, which is how a word took a message off the record.
+ */
+export function ownValue<T>(record: Readonly<Record<string, T>> | null | undefined, key: string): T | undefined {
+  return record && Object.hasOwn(record, key) ? record[key] : undefined;
+}
+
 export * from "./job-roles.js";

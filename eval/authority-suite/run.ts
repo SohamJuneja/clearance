@@ -8,6 +8,7 @@
  *   pnpm eval:authority --case 1,F2  just those, printed but not saved
  *   pnpm eval:authority --group fourth-review   that review's checks alone, printed but not saved. Run with the code from
  *                                    before its fixes put back, this is how it shows the checks can fail.
+ *   pnpm eval:authority --group fifth-review    the same for the fifth.
  *   pnpm eval:authority --live       every case that can honestly run through real Mattermost and Switch: live-cases.ts
  *                                    says which, and why the rest can't. Touches the shared stack, so it also needs
  *                                    CLEARANCE_EVAL_LIVE_OK=1. With --case it's printed but not saved.
@@ -21,6 +22,7 @@ import { AUDIT_CHECKS, AUDIT_FOUND_BY } from "./audit.ts";
 import { SECOND_REVIEW_CHECKS, SECOND_REVIEW_FOUND_BY } from "./second-review.ts";
 import { THIRD_REVIEW_CHECKS, THIRD_REVIEW_FOUND_BY } from "./third-review.ts";
 import { FOURTH_REVIEW_CHECKS, FOURTH_REVIEW_FOUND_BY } from "./fourth-review.ts";
+import { FIFTH_REVIEW_CHECKS, FIFTH_REVIEW_FOUND_BY } from "./fifth-review.ts";
 import {
   BASELINE_BASIS,
   BASELINES,
@@ -77,11 +79,13 @@ async function main(): Promise<number> {
   const args = process.argv.slice(2).filter((arg) => arg !== "--");
   const caseArg = args[args.indexOf("--case") + 1];
   const group = args.includes("--group") ? args[args.indexOf("--group") + 1] : undefined;
-  if (group !== undefined && group !== "fourth-review") {
+  const GROUPS: Record<string, { id: string }[]> = { "fourth-review": FOURTH_REVIEW_CHECKS, "fifth-review": FIFTH_REVIEW_CHECKS };
+  const groupChecks = group === undefined ? undefined : Object.hasOwn(GROUPS, group) ? GROUPS[group] : undefined;
+  if (group !== undefined && !groupChecks) {
     print(`no group named ${group}`);
     return 1;
   }
-  const only = group ? new Set(FOURTH_REVIEW_CHECKS.map((one) => one.id)) : args.includes("--case") ? new Set((caseArg ?? "").split(",")) : undefined;
+  const only = groupChecks ? new Set(groupChecks.map((one) => one.id)) : args.includes("--case") ? new Set((caseArg ?? "").split(",")) : undefined;
   if (args.includes("--live")) {
     const { runLive } = await import("./live.ts");
     return runLive(print, only ? { only } : {});
@@ -91,6 +95,7 @@ async function main(): Promise<number> {
   const chosenSecond = only ? SECOND_REVIEW_CHECKS.filter((one) => only.has(one.id)) : SECOND_REVIEW_CHECKS;
   const chosenThird = only ? THIRD_REVIEW_CHECKS.filter((one) => only.has(one.id)) : THIRD_REVIEW_CHECKS;
   const chosenFourth = only ? FOURTH_REVIEW_CHECKS.filter((one) => only.has(one.id)) : FOURTH_REVIEW_CHECKS;
+  const chosenFifth = only ? FIFTH_REVIEW_CHECKS.filter((one) => only.has(one.id)) : FIFTH_REVIEW_CHECKS;
 
   // Baselines that no longer match the pinned code would be worse than none, so check before printing them.
   const switchFile = findUpwards("vendor/switch/core/switch_core");
@@ -199,6 +204,25 @@ async function main(): Promise<number> {
     if (result.outcome !== "prevented") print(`        ${result.why}`);
   }
 
+  const fifthResults = [];
+  for (const one of chosenFifth) {
+    const result = await runCheck(one);
+    fifthResults.push({
+      id: one.id,
+      title: one.title,
+      bad_outcome: one.badOutcome,
+      outcome: result.outcome,
+      why: result.why,
+      evidence: result.evidence,
+      duration_ms: result.durationMs,
+    });
+    const marker = result.outcome === "prevented" ? "ok  " : "FAIL";
+    print(
+      `${marker} ${one.id.padStart(3)}  ${result.outcome.padEnd(16)} ${one.title}  (${(result.durationMs / 1000).toFixed(1)} s)`,
+    );
+    if (result.outcome !== "prevented") print(`        ${result.why}`);
+  }
+
   print("");
   for (const line of table(results)) print(line);
   const prevented = (pick: (row: CaseOutcome) => Outcome): number =>
@@ -220,6 +244,11 @@ async function main(): Promise<number> {
     passed: countPrevented(fourthResults.map((row) => row.outcome)),
     total: fourthResults.length,
   };
+  const fifthReview = {
+    passed: countPrevented(fifthResults.map((row) => row.outcome)),
+    total: fifthResults.length,
+    breaks: chosenFifth.filter((one) => !one.guard).length,
+  };
   const summary = {
     b_auto: { prevented: prevented((row) => row.b_auto.outcome), total },
     b_ask: { prevented: prevented((row) => row.b_ask.outcome), total },
@@ -233,6 +262,7 @@ async function main(): Promise<number> {
   print(`Second review: ${secondReview.passed} of ${secondReview.total}, apart from the ${total}. ${SECOND_REVIEW_FOUND_BY}`);
   print(`Third review: ${thirdReview.passed} of ${thirdReview.total}, apart from the ${total}. ${THIRD_REVIEW_FOUND_BY}`);
   print(`Fourth review: ${fourthReview.passed} of ${fourthReview.total}, apart from the ${total}. ${FOURTH_REVIEW_FOUND_BY}`);
+  print(`Fifth review: ${fifthReview.passed} of ${fifthReview.total}, apart from the ${total}. ${FIFTH_REVIEW_FOUND_BY}`);
   print(BASELINE_BASIS);
   print(
     "C ran on isolated real processes with a fake ChatPort. Calls are scripted, so this proves the controls, not how an agent behaves.",
@@ -255,6 +285,7 @@ async function main(): Promise<number> {
         second_review: { ...secondReview, found_by: SECOND_REVIEW_FOUND_BY, per_check: secondResults },
         third_review: { ...thirdReview, found_by: THIRD_REVIEW_FOUND_BY, per_check: thirdResults },
         fourth_review: { ...fourthReview, found_by: FOURTH_REVIEW_FOUND_BY, per_check: fourthResults },
+        fifth_review: { ...fifthReview, found_by: FIFTH_REVIEW_FOUND_BY, per_check: fifthResults },
         baseline_basis: BASELINE_BASIS,
         switch_pin: SWITCH_PIN,
         mode: "isolated processes, fake ChatPort",

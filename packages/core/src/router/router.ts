@@ -3,7 +3,7 @@
  * `assessAnswer` applies the same rules to one person when they answer; `why` text is written from the
  * trace alone (F13), so there is no second implementation of who can approve what.
  */
-import type { Tier } from "@clearance/contracts";
+import { ownValue, type Tier } from "@clearance/contracts";
 import type { Directory, Person } from "../people/directory.js";
 import type { CompiledClass, CompiledPolicy } from "../policy/load.js";
 import type { TeamFile } from "../policy/schema.js";
@@ -53,6 +53,8 @@ export type RouteContext = {
   alreadyRouted: string[];
   /** True once this request has gone to its fallback group. */
   fallbackActive: boolean;
+  /** People who may have asked and stay on the card anyway: see `barsThatMoveTheDecision`. They count towards it, and can't break glass. */
+  mayHaveAsked?: string[];
 };
 
 export type RankedPerson = {
@@ -112,7 +114,7 @@ function ruleMatch(ctx: RouteContext, person: Person): string | null {
     if (ref.person === person.id) return `person:${person.id}`;
     if (ref.owner_of) {
       const resource = ctx.extracted[ref.owner_of];
-      if (resource !== undefined && ctx.team.owners.services[String(resource)] === person.id) {
+      if (resource !== undefined && ownValue(ctx.team.owners.services, String(resource)) === person.id) {
         return `owner_of:${ref.owner_of}`;
       }
     }
@@ -188,7 +190,7 @@ function rankPerson(ctx: RouteContext, person: Person, matchedBy: string): Ranke
     (ref) =>
       ref.owner_of &&
       ctx.extracted[ref.owner_of] !== undefined &&
-      ctx.team.owners.services[String(ctx.extracted[ref.owner_of])] === person.id,
+      ownValue(ctx.team.owners.services, String(ctx.extracted[ref.owner_of])) === person.id,
   )?.owner_of;
   if (ownerField) entry.ownerOf = String(ctx.extracted[ownerField]);
 
@@ -231,7 +233,9 @@ const SOD: Exclusion[] = ["requester", "agent_owner", "author"];
 
 /** Who someone is to this request that keeps them from deciding it, however they go about it. Being away or counted isn't that. */
 export function separationBars(ctx: RouteContext, id: string): Exclusion[] {
-  return exclusionsFor(ctx, id).filter((reason) => SOD.includes(reason));
+  const bars = exclusionsFor(ctx, id).filter((reason) => SOD.includes(reason));
+  // Kept on a card so that a guess or an agent can't move the decision. That's no reason to let them decide it alone.
+  return ctx.mayHaveAsked?.includes(id) && !bars.includes("requester") ? [...bars, "requester"] : bars;
 }
 
 /** Why nobody could take it, separation of duties first: that is the reason a reader needs. */
@@ -248,13 +252,16 @@ function fallbackReason(trace: Pick<RouteTrace, "excluded" | "capped" | "label">
  * room, or a question the agent hasn't answered, is a guess. An agent can bring about both, so a guess mustn't be able to
  * hand the decision to another group: these people go on deciding, and two of them have to agree.
  */
-export function barsThatMoveTheDecision(ctx: RouteContext, onlyMaybe: string[]): string[] {
+export function barsThatMoveTheDecision(ctx: RouteContext, onlyMaybe: string[], onlyPassedOn: string[] = []): string[] {
   const candidates = candidatesFor(ctx);
   const eligible = candidates.filter(({ person }) => exclusionsFor(ctx, person.id).length === 0);
   if (eligible.length >= ctx.quorumRequired) return [];
-  return candidates
-    .filter(({ person }) => onlyMaybe.includes(person.id) && exclusionsFor(ctx, person.id).every((reason) => reason === "requester"))
-    .map(({ person }) => person.id);
+  const barredOnlyForAsking = (ids: string[]) =>
+    candidates.filter(({ person }) => ids.includes(person.id) && exclusionsFor(ctx, person.id).every((reason) => reason === "requester")).map(({ person }) => person.id);
+  const maybes = barredOnlyForAsking(onlyMaybe);
+  // A chain is an agent's own act too, but someone on it may really have asked. So it only stands aside when the alternative is
+  // that nobody the policy names has any say. With one of them left, they decide, with the fallback making up the numbers.
+  return eligible.length + maybes.length > 0 ? maybes : [...maybes, ...barredOnlyForAsking(onlyPassedOn)];
 }
 
 /** Pick `need` more people. Fewer than that available means the fallback group, and the trace says why. */

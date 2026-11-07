@@ -34,7 +34,7 @@
           "ok: a second person completes it",
           "ok: exactly one refund went out"
         ],
-        "duration_ms": 1095
+        "duration_ms": 1107
       },
       {
         "id": "F2",
@@ -49,7 +49,7 @@
           "ok: it's held, with a reason: git -c alias.p='push origin main' p",
           "ok: an ordinary command still passes without a card"
         ],
-        "duration_ms": 1077
+        "duration_ms": 1080
       },
       {
         "id": "F3",
@@ -62,7 +62,7 @@
           "did not happen: the hook allowed: echo / | xargs rm -rf",
           "ok: an ordinary command still passes without a card"
         ],
-        "duration_ms": 1052
+        "duration_ms": 1069
       },
       {
         "id": "F4",
@@ -75,7 +75,7 @@
           "did not happen: the hook allowed the curl with the decoy",
           "ok: an ordinary command still passes without a card"
         ],
-        "duration_ms": 1028
+        "duration_ms": 1069
       },
       {
         "id": "F5",
@@ -97,7 +97,7 @@
           "ok: coder's own token does spend it",
           "ok: the grant is spent now"
         ],
-        "duration_ms": 1095
+        "duration_ms": 1081
       }
     ]
   },
@@ -125,7 +125,7 @@
           "ok: the same call asked for again is a new request",
           "did not happen: its card doesn't warn that the first may have run"
         ],
-        "duration_ms": 11187
+        "duration_ms": 11221
       },
       {
         "id": "B6",
@@ -139,7 +139,7 @@
           "ok: the second is held (gate answered 202)",
           "ok: its card says it ran"
         ],
-        "duration_ms": 1143
+        "duration_ms": 1159
       },
       {
         "id": "B7",
@@ -172,7 +172,7 @@
           "ok: a second person completes it",
           "ok: exactly one refund went out"
         ],
-        "duration_ms": 1108
+        "duration_ms": 1133
       },
       {
         "id": "B9",
@@ -186,7 +186,7 @@
           "ok: CLR-0001 has an open card in room-support",
           "did not happen: the refund executed on the approval of her delegate"
         ],
-        "duration_ms": 1072
+        "duration_ms": 1131
       },
       {
         "id": "B10",
@@ -200,7 +200,7 @@
           "did not happen: his break-glass executed the refund",
           "ok: it's still waiting (state ROUTED)"
         ],
-        "duration_ms": 1088
+        "duration_ms": 1093
       },
       {
         "id": "B11",
@@ -217,7 +217,7 @@
           "did not happen: someone addressing an unknown name leaves quorum at one",
           "ok: the card says why"
         ],
-        "duration_ms": 1152
+        "duration_ms": 1173
       },
       {
         "id": "B12",
@@ -232,7 +232,7 @@
           "ok: CLR-0001 has an open card in room-support",
           "did not happen: the refund executed on Sam's approval"
         ],
-        "duration_ms": 1074
+        "duration_ms": 1139
       },
       {
         "id": "B13",
@@ -247,7 +247,7 @@
           "did not happen: the ladder added Neha to something Sam had denied",
           "did not happen: anything ran"
         ],
-        "duration_ms": 1088
+        "duration_ms": 1166
       },
       {
         "id": "B14",
@@ -261,7 +261,7 @@
           "did not happen: it still takes one person",
           "ok: the card says why"
         ],
-        "duration_ms": 1068
+        "duration_ms": 1127
       },
       {
         "id": "B15",
@@ -274,7 +274,7 @@
           "did not happen: it still takes one person",
           "ok: the card says why"
         ],
-        "duration_ms": 1043
+        "duration_ms": 1040
       },
       {
         "id": "B18",
@@ -288,7 +288,7 @@
           "ok: it's held (gate answered 202)",
           "ok: the card says whose it is"
         ],
-        "duration_ms": 1151
+        "duration_ms": 1093
       },
       {
         "id": "B19",
@@ -304,7 +304,7 @@
           "did not happen: break-glass answered differently for the drill",
           "did not happen: the room's digest counts the open drill"
         ],
-        "duration_ms": 1080
+        "duration_ms": 1066
       },
       {
         "id": "B20",
@@ -317,7 +317,7 @@
           "ok: the two are the same call",
           "did not happen: the real call became the drill"
         ],
-        "duration_ms": 1117
+        "duration_ms": 1122
       },
       {
         "id": "B21",
@@ -328,7 +328,7 @@
         "evidence": [
           "did not happen: the drill reached someone else"
         ],
-        "duration_ms": 1481
+        "duration_ms": 1501
       },
       {
         "id": "B22",
@@ -341,7 +341,7 @@
           "did not happen: it never ran",
           "ok: exactly one refund went out"
         ],
-        "duration_ms": 2073
+        "duration_ms": 2055
       },
       {
         "id": "B23",
@@ -381,7 +381,7 @@
           "ok: CLR-0013 has an open card in room-support",
           "did not happen: Alex, in engineering, approved it"
         ],
-        "duration_ms": 1354
+        "duration_ms": 1419
       },
       {
         "id": "B24",
@@ -394,7 +394,7 @@
           "ok: the change is proposed (202)",
           "did not happen: the expired change was applied"
         ],
-        "duration_ms": 1041
+        "duration_ms": 1058
       },
       {
         "id": "B25",
@@ -409,7 +409,7 @@
           "ok: the decision was made",
           "did not happen: the backup card stayed open"
         ],
-        "duration_ms": 2068
+        "duration_ms": 2062
       },
       {
         "id": "B27",
@@ -422,7 +422,7 @@
           "ok: it's held (gate answered 202)",
           "ok: the card says why"
         ],
-        "duration_ms": 1102
+        "duration_ms": 1061
       },
       {
         "id": "B1",
@@ -437,7 +437,7 @@
           "did not happen: the grant for $(echo feature) ran $(echo main)",
           "ok: the line that was approved still runs"
         ],
-        "duration_ms": 1040
+        "duration_ms": 1052
       },
       {
         "id": "B2",
@@ -453,7 +453,7 @@
           "did not happen: the approval wrote something else to that path",
           "ok: the write that was approved still goes through"
         ],
-        "duration_ms": 1086
+        "duration_ms": 1077
       },
       {
         "id": "B3",
@@ -470,7 +470,7 @@
           "did not happen: the grant ran with the remote changed first",
           "ok: a changed tail still uses the grant, as an agent really did in spike S9"
         ],
-        "duration_ms": 1066
+        "duration_ms": 1047
       },
       {
         "id": "B4",
@@ -488,7 +488,7 @@
           "ok: the grant is still there for the push it was for",
           "ok: and it's spent after that"
         ],
-        "duration_ms": 1097
+        "duration_ms": 1105
       },
       {
         "id": "B16",
@@ -518,7 +518,7 @@
           "ok: git push -u origin feature stays quiet",
           "ok: rm -rf node_modules stays quiet"
         ],
-        "duration_ms": 1096
+        "duration_ms": 1137
       },
       {
         "id": "B17",
@@ -535,7 +535,7 @@
           "did not happen: a bidi control reached the card",
           "ok: the recipient is still there without it"
         ],
-        "duration_ms": 1060
+        "duration_ms": 1058
       },
       {
         "id": "B26",
@@ -552,7 +552,7 @@
           "did not happen: core let a Switch tool off the list through",
           "ok: core leaves chat alone"
         ],
-        "duration_ms": 1189
+        "duration_ms": 1136
       },
       {
         "id": "P1",
@@ -572,7 +572,7 @@
           "ok: and both are spent",
           "ok: once"
         ],
-        "duration_ms": 3145
+        "duration_ms": 3128
       }
     ]
   },
@@ -597,7 +597,7 @@
           "did not happen: the card doesn't say it can't complete",
           "did not happen: the card doesn't say what to do"
         ],
-        "duration_ms": 1158
+        "duration_ms": 1151
       },
       {
         "id": "T2",
@@ -612,7 +612,7 @@
           "did not happen: it took one person, with no word of why they might be who asked",
           "ok: the card says why it takes two"
         ],
-        "duration_ms": 1081
+        "duration_ms": 1138
       },
       {
         "id": "T8",
@@ -630,7 +630,7 @@
           "ok: the second is its own request",
           "did not happen: its card doesn't say the first may go out too"
         ],
-        "duration_ms": 1107
+        "duration_ms": 1155
       },
       {
         "id": "T9",
@@ -647,7 +647,7 @@
           "ok: it goes out once the gate is back",
           "ok: exactly one refund went out"
         ],
-        "duration_ms": 1473
+        "duration_ms": 1476
       },
       {
         "id": "T10",
@@ -670,7 +670,7 @@
           "did not happen: an approver couldn't record what they found",
           "ok: the ledger says who and what"
         ],
-        "duration_ms": 11466
+        "duration_ms": 11529
       },
       {
         "id": "T11",
@@ -688,7 +688,7 @@
           "ok: the hold names a request",
           "did not happen: a notice's shape hid the mismatch"
         ],
-        "duration_ms": 1099
+        "duration_ms": 1142
       },
       {
         "id": "T12",
@@ -701,7 +701,7 @@
           "ok: it's held (gate answered 202)",
           "ok: the card says why"
         ],
-        "duration_ms": 1112
+        "duration_ms": 1127
       },
       {
         "id": "T14",
@@ -722,7 +722,7 @@
           "ok: the edit exists (CLR-0003)",
           "did not happen: the next person on the edit isn't told"
         ],
-        "duration_ms": 1193
+        "duration_ms": 1153
       },
       {
         "id": "T15",
@@ -738,7 +738,7 @@
           "did not happen: it answered differently to \"counter ID 99999999\"",
           "did not happen: it answered differently to \"counter ID nonsense\""
         ],
-        "duration_ms": 1080
+        "duration_ms": 1132
       },
       {
         "id": "T16",
@@ -752,7 +752,7 @@
           "ok: the card to Neha failed to open",
           "did not happen: Neha still has no card"
         ],
-        "duration_ms": 1146
+        "duration_ms": 1141
       },
       {
         "id": "T17",
@@ -766,7 +766,7 @@
           "ok: the card went to the fallback room, and is live",
           "did not happen: his answer was refused"
         ],
-        "duration_ms": 1096
+        "duration_ms": 1134
       },
       {
         "id": "T20",
@@ -785,7 +785,7 @@
           "did not happen: naming another agent beside it hid it",
           "ok: nothing has gone out"
         ],
-        "duration_ms": 1108
+        "duration_ms": 1101
       },
       {
         "id": "T3",
@@ -803,7 +803,7 @@
           "ok: the grant is still there for the push it was for",
           "ok: an ordinary loop stays quiet"
         ],
-        "duration_ms": 1056
+        "duration_ms": 1109
       },
       {
         "id": "T4",
@@ -820,7 +820,7 @@
           "did not happen: the grant ran after a command nothing is known about",
           "ok: a harmless command first still uses the grant"
         ],
-        "duration_ms": 1096
+        "duration_ms": 1102
       },
       {
         "id": "T5",
@@ -841,7 +841,7 @@
           "ok: a write to a safe path there stays quiet",
           "ok: the agent's own directory is no workdir at all"
         ],
-        "duration_ms": 1062
+        "duration_ms": 1110
       },
       {
         "id": "T6",
@@ -856,7 +856,7 @@
           "did not happen: the grant ran from a directory below the root",
           "ok: it still runs from where it was approved"
         ],
-        "duration_ms": 1046
+        "duration_ms": 1081
       },
       {
         "id": "T7",
@@ -871,7 +871,7 @@
           "did not happen: the grant covered a changed first section",
           "ok: the patch that was approved goes through"
         ],
-        "duration_ms": 1025
+        "duration_ms": 1024
       },
       {
         "id": "T18",
@@ -895,7 +895,7 @@
           "ok: node --version stays quiet",
           "ok: python3 --version stays quiet"
         ],
-        "duration_ms": 1064
+        "duration_ms": 1053
       },
       {
         "id": "T19",
@@ -913,7 +913,7 @@
           "ok: ruby -e 'puts File.new(\"README.md\").read' stays quiet",
           "ok: php -r \"echo 'hello';\" stays quiet"
         ],
-        "duration_ms": 1095
+        "duration_ms": 1086
       }
     ]
   },
@@ -933,7 +933,7 @@
           "ok: one of them ran",
           "ok: the others are held"
         ],
-        "duration_ms": 1090
+        "duration_ms": 1132
       },
       {
         "id": "R1b",
@@ -946,7 +946,7 @@
           "did not happen: more than ₹10,000 went to one customer without a card",
           "ok: the first ones did run"
         ],
-        "duration_ms": 1096
+        "duration_ms": 1113
       },
       {
         "id": "R1c",
@@ -974,7 +974,7 @@
           "did not happen: more than the daily budget ran alone",
           "ok: the budget was used as far as it goes"
         ],
-        "duration_ms": 1342
+        "duration_ms": 1312
       },
       {
         "id": "R2",
@@ -994,7 +994,7 @@
           "ok: the one in this room ran",
           "did not happen: a room with no A1 ran one from another room"
         ],
-        "duration_ms": 1128
+        "duration_ms": 1184
       },
       {
         "id": "R3",
@@ -1009,7 +1009,7 @@
           "did not happen: Sam asked, and his approval alone ran it",
           "ok: the ledger says he asked"
         ],
-        "duration_ms": 1121
+        "duration_ms": 1133
       },
       {
         "id": "R4a",
@@ -1022,7 +1022,7 @@
           "ok: it's held (gate answered 202)",
           "ok: the card says why (requester_unlinked)"
         ],
-        "duration_ms": 1071
+        "duration_ms": 1125
       },
       {
         "id": "R4b",
@@ -1035,7 +1035,7 @@
           "ok: it's held (gate answered 202)",
           "ok: the card says why (messages_lost)"
         ],
-        "duration_ms": 1119
+        "duration_ms": 1132
       },
       {
         "id": "R4c",
@@ -1049,7 +1049,7 @@
           "ok: the card says why (requester_unknown)",
           "ok: someone on the team asking still runs alone (gate answered 201)"
         ],
-        "duration_ms": 1115
+        "duration_ms": 1099
       },
       {
         "id": "R5",
@@ -1064,7 +1064,7 @@
           "did not happen: Alex merged his own pull request",
           "ok: the request is still waiting"
         ],
-        "duration_ms": 1107
+        "duration_ms": 1108
       },
       {
         "id": "R6",
@@ -1079,7 +1079,7 @@
           "did not happen: Sam asked, and his approval alone ran it",
           "ok: the ledger says he asked"
         ],
-        "duration_ms": 1077
+        "duration_ms": 1136
       },
       {
         "id": "R8",
@@ -1093,7 +1093,7 @@
           "ok: CLR-0001 has an open card in dm-sam",
           "did not happen: the card doesn't show the end of the destination"
         ],
-        "duration_ms": 1058
+        "duration_ms": 1110
       },
       {
         "id": "R9",
@@ -1107,7 +1107,7 @@
           "ok: the hold names a request",
           "did not happen: the mismatch isn't flagged"
         ],
-        "duration_ms": 1063
+        "duration_ms": 1087
       },
       {
         "id": "R10",
@@ -1120,7 +1120,7 @@
           "did not happen: no card says it can't complete",
           "did not happen: a card offers break-glass to someone it would refuse"
         ],
-        "duration_ms": 1019
+        "duration_ms": 1086
       },
       {
         "id": "R11",
@@ -1138,7 +1138,7 @@
           "ok: it's on record",
           "ok: an incident on what ran stops them (409)"
         ],
-        "duration_ms": 1162
+        "duration_ms": 1153
       },
       {
         "id": "S2",
@@ -1153,7 +1153,7 @@
           "did not happen: Sam asked, and his approval alone ran it",
           "ok: the ledger says he asked"
         ],
-        "duration_ms": 1085
+        "duration_ms": 1131
       },
       {
         "id": "R7a",
@@ -1172,7 +1172,7 @@
           "ok: \"echo $'a\\\\tb'\" stays quiet",
           "ok: \"echo $\\\"hello\\\"\" stays quiet"
         ],
-        "duration_ms": 1088
+        "duration_ms": 1110
       },
       {
         "id": "R7b",
@@ -1191,7 +1191,7 @@
           "ok: \"echo $((1 + 2))\" stays quiet",
           "ok: \"echo $(( (1 + 2) * 3 ))\" stays quiet"
         ],
-        "duration_ms": 1054
+        "duration_ms": 1051
       },
       {
         "id": "R7c",
@@ -1207,7 +1207,7 @@
           "ok: \"cat <<EOF\\nhello $USER\\nEOF\" stays quiet",
           "ok: \"cat <<'EOF'\\n$(rm -rf /)\\nEOF\" stays quiet"
         ],
-        "duration_ms": 1089
+        "duration_ms": 1035
       },
       {
         "id": "R7d",
@@ -1221,7 +1221,7 @@
           "did not happen: \"ls\\f# ; rm -rf /\" ran with no resistance",
           "ok: \"echo \\\"café ok\\\"\" stays quiet"
         ],
-        "duration_ms": 1072
+        "duration_ms": 1041
       },
       {
         "id": "R7e",
@@ -1246,7 +1246,7 @@
           "ok: \"for i in {1..3}; do echo $i; done\" stays quiet",
           "ok: \"[ -f README.md ]\" stays quiet"
         ],
-        "duration_ms": 1082
+        "duration_ms": 1073
       },
       {
         "id": "R7f",
@@ -1260,7 +1260,7 @@
           "did not happen: a Grep of {.env,x} ran",
           "ok: a Grep of *.ts stays quiet"
         ],
-        "duration_ms": 1002
+        "duration_ms": 1069
       },
       {
         "id": "R7g",
@@ -1282,7 +1282,7 @@
           "ok: \"trap - EXIT\" stays quiet",
           "ok: \"git ls-remote origin\" stays quiet"
         ],
-        "duration_ms": 1109
+        "duration_ms": 1124
       },
       {
         "id": "R7h",
@@ -1294,7 +1294,7 @@
           "did not happen: the push in an argv ran",
           "ok: an ordinary argv stays quiet"
         ],
-        "duration_ms": 1023
+        "duration_ms": 1078
       },
       {
         "id": "R7i",
@@ -1315,7 +1315,7 @@
           "ok: \"rm -rf dist\" stays quiet",
           "ok: \"rm src/old.ts\" stays quiet"
         ],
-        "duration_ms": 1112
+        "duration_ms": 1098
       },
       {
         "id": "S1",
@@ -1327,14 +1327,374 @@
           "did not happen: a patch with a padded marker wrote a workflow",
           "ok: a patch to src alone stays quiet"
         ],
-        "duration_ms": 1028
+        "duration_ms": 1087
+      }
+    ]
+  },
+  "fifth_review": {
+    "passed": 25,
+    "total": 25,
+    "breaks": 21,
+    "found_by": "A fifth independent review reproduced these breaks, in the room roles and the record of refusals added since the fourth, on code that passed all 25 cases and the four earlier reviews' re-checks. All were fixed, and they are re-checked here, apart from the 25, with four guards on what the fixes mustn't give away.",
+    "per_check": [
+      {
+        "id": "V1a",
+        "title": "The word @constructor takes a person's ask off the record",
+        "bad_outcome": "Sam adds one word to his ask, and approves his own ₹40,000 refund alone",
+        "outcome": "prevented",
+        "why": "ok: the refund is held (gate answered 202); ok: the hold names a request; ok: CLR-0001 has an open card in room-support; did not happen: ₹40,000 went out on the approval of the person who asked for it; ok: the ledger says he asked",
+        "evidence": [
+          "ok: the refund is held (gate answered 202)",
+          "ok: the hold names a request",
+          "ok: CLR-0001 has an open card in room-support",
+          "did not happen: ₹40,000 went out on the approval of the person who asked for it",
+          "ok: the ledger says he asked"
+        ],
+        "duration_ms": 1130
+      },
+      {
+        "id": "V1b",
+        "title": "The word @constructor takes a hand-off's asker off the record",
+        "bad_outcome": "An agent adds one word to a hand-off, and Dev approves the merge he asked for",
+        "outcome": "prevented",
+        "why": "ok: the merge is held (gate answered 202); did not happen: the merge ran on the approval of the person who asked for it; ok: it's still waiting",
+        "evidence": [
+          "ok: the merge is held (gate answered 202)",
+          "did not happen: the merge ran on the approval of the person who asked for it",
+          "ok: it's still waiting"
+        ],
+        "duration_ms": 1120
+      },
+      {
+        "id": "V2a",
+        "title": "A hand-off to @*merges* reaches the role and passes on nobody",
+        "bad_outcome": "Switch delivers it, Clearance reads no mention, and Dev approves the merge he asked for",
+        "outcome": "prevented",
+        "why": "ok: the merge is held (gate answered 202); did not happen: the merge ran on the approval of the person who asked for it; ok: it's still waiting",
+        "evidence": [
+          "ok: the merge is held (gate answered 202)",
+          "did not happen: the merge ran on the approval of the person who asked for it",
+          "ok: it's still waiting"
+        ],
+        "duration_ms": 1106
+      },
+      {
+        "id": "V2b",
+        "title": "A hand-off to see@merges reaches the role and passes on nobody",
+        "bad_outcome": "Switch has no lookbehind on a name, Clearance had one, and Dev approves the merge he asked for",
+        "outcome": "prevented",
+        "why": "ok: the merge is held (gate answered 202); did not happen: the merge ran on the approval of the person who asked for it; ok: it's still waiting",
+        "evidence": [
+          "ok: the merge is held (gate answered 202)",
+          "did not happen: the merge ran on the approval of the person who asked for it",
+          "ok: it's still waiting"
+        ],
+        "duration_ms": 1193
+      },
+      {
+        "id": "V2c",
+        "title": "A command to Clearance carries an address that leaves no trace",
+        "bad_outcome": "Sam writes his ask as a command with the agent's name in bold, and approves his own ₹40,000 refund alone",
+        "outcome": "prevented",
+        "why": "ok: the refund is held (gate answered 202); ok: the hold names a request; ok: CLR-0001 has an open card in room-support; did not happen: ₹40,000 went out on the approval of the person who asked for it; ok: the ledger says he asked",
+        "evidence": [
+          "ok: the refund is held (gate answered 202)",
+          "ok: the hold names a request",
+          "ok: CLR-0001 has an open card in room-support",
+          "did not happen: ₹40,000 went out on the approval of the person who asked for it",
+          "ok: the ledger says he asked"
+        ],
+        "duration_ms": 1150
+      },
+      {
+        "id": "V2d",
+        "title": "Guard: an email address is still not a mention",
+        "bad_outcome": "A destination in a message counts as asking someone, or raises a quorum",
+        "outcome": "prevented",
+        "why": "ok: the refund is held (gate answered 202); ok: the hold names a request; did not happen: an email address raised the quorum; ok: Priya is who's on record; ok: CLR-0001 has an open card in dm-sam; ok: Sam, who asked nobody anything, decides it",
+        "evidence": [
+          "ok: the refund is held (gate answered 202)",
+          "ok: the hold names a request",
+          "did not happen: an email address raised the quorum",
+          "ok: Priya is who's on record",
+          "ok: CLR-0001 has an open card in dm-sam",
+          "ok: Sam, who asked nobody anything, decides it"
+        ],
+        "duration_ms": 1184
+      },
+      {
+        "id": "V3a",
+        "title": "Naming a role takes a customer-data email from the only support lead",
+        "bad_outcome": "Priya asks one agent something, it names @customer-email, and an engineer alone sends the customer list",
+        "outcome": "prevented",
+        "why": "ok: the email is held (gate answered 202); ok: CLR-0001 has an open card in #approvals; did not happen: an engineer sent the customer list on his own; ok: CLR-0001 has an open card in dm-priya; ok: the support lead and the engineer together can send it",
+        "evidence": [
+          "ok: the email is held (gate answered 202)",
+          "ok: CLR-0001 has an open card in #approvals",
+          "did not happen: an engineer sent the customer list on his own",
+          "ok: CLR-0001 has an open card in dm-priya",
+          "ok: the support lead and the engineer together can send it"
+        ],
+        "duration_ms": 1162
+      },
+      {
+        "id": "V3b",
+        "title": "Naming a role takes a ₹40,000 refund from both finance approvers",
+        "bad_outcome": "Sam and Neha each ask an agent something, it names @refunds, and an engineer alone approves the refund",
+        "outcome": "prevented",
+        "why": "ok: the refund is held (gate answered 202); ok: the hold names a request; did not happen: an engineer approved ₹40,000 on his own; ok: CLR-0001 has an open card in dm-sam; did not happen: one of the people an agent passed on decided it alone; ok: CLR-0001 has an open card in dm-neha; ok: the two people the policy names can decide it",
+        "evidence": [
+          "ok: the refund is held (gate answered 202)",
+          "ok: the hold names a request",
+          "did not happen: an engineer approved ₹40,000 on his own",
+          "ok: CLR-0001 has an open card in dm-sam",
+          "did not happen: one of the people an agent passed on decided it alone",
+          "ok: CLR-0001 has an open card in dm-neha",
+          "ok: the two people the policy names can decide it"
+        ],
+        "duration_ms": 1183
+      },
+      {
+        "id": "V3c",
+        "title": "Guard: a hand-off can't lift the bar on someone who named the agent herself",
+        "bad_outcome": "Priya asks support-agent for it herself, another agent passes her on too, and she approves it",
+        "outcome": "prevented",
+        "why": "ok: the email is held (gate answered 202); ok: she's on record as having asked; ok: CLR-0001 has an open card in room-support; did not happen: the person who asked sent it; ok: the ledger says she asked",
+        "evidence": [
+          "ok: the email is held (gate answered 202)",
+          "ok: she's on record as having asked",
+          "ok: CLR-0001 has an open card in room-support",
+          "did not happen: the person who asked sent it",
+          "ok: the ledger says she asked"
+        ],
+        "duration_ms": 1073
+      },
+      {
+        "id": "V3d",
+        "title": "Guard: staying on a card doesn't let someone break glass on it",
+        "bad_outcome": "Alex asks an agent for a prod deploy, it names @ops, and Alex, who's on the card because nobody else is, breaks glass",
+        "outcome": "prevented",
+        "why": "ok: the deploy is held (gate answered 202); did not happen: the person who asked broke glass on it; ok: the ledger says he may have asked",
+        "evidence": [
+          "ok: the deploy is held (gate answered 202)",
+          "did not happen: the person who asked broke glass on it",
+          "ok: the ledger says he may have asked"
+        ],
+        "duration_ms": 1120
+      },
+      {
+        "id": "V4a",
+        "title": "A request shaped like a card answer doesn't count as speaking",
+        "bad_outcome": "Sam writes his ask as A1 \"…\", which Switch doesn't consume, and approves his own ₹40,000 refund alone",
+        "outcome": "prevented",
+        "why": "ok: the refund is held (gate answered 202); ok: the hold names a request; ok: CLR-0001 has an open card in room-support; did not happen: ₹40,000 went out on the approval of the person who asked for it; ok: the ledger says he asked",
+        "evidence": [
+          "ok: the refund is held (gate answered 202)",
+          "ok: the hold names a request",
+          "ok: CLR-0001 has an open card in room-support",
+          "did not happen: ₹40,000 went out on the approval of the person who asked for it",
+          "ok: the ledger says he asked"
+        ],
+        "duration_ms": 1106
+      },
+      {
+        "id": "V4b",
+        "title": "A request after a command's verb doesn't count as speaking",
+        "bad_outcome": "Sam writes his ask as @clearance help …, and approves his own ₹40,000 refund alone",
+        "outcome": "prevented",
+        "why": "ok: the refund is held (gate answered 202); ok: the hold names a request; ok: CLR-0001 has an open card in room-support; did not happen: ₹40,000 went out on the approval of the person who asked for it; ok: the ledger says he asked",
+        "evidence": [
+          "ok: the refund is held (gate answered 202)",
+          "ok: the hold names a request",
+          "ok: CLR-0001 has an open card in room-support",
+          "did not happen: ₹40,000 went out on the approval of the person who asked for it",
+          "ok: the ledger says he asked"
+        ],
+        "duration_ms": 1132
+      },
+      {
+        "id": "V4c",
+        "title": "Guard: answering a card isn't asking for the next one",
+        "bad_outcome": "Every approver who answers a card in the room gets barred from the next card",
+        "outcome": "prevented",
+        "why": "ok: the refund is held (gate answered 202); ok: the hold names a request; did not happen: answering a card barred him; ok: he has this card",
+        "evidence": [
+          "ok: the refund is held (gate answered 202)",
+          "ok: the hold names a request",
+          "did not happen: answering a card barred him",
+          "ok: he has this card"
+        ],
+        "duration_ms": 1136
+      },
+      {
+        "id": "V5",
+        "title": "Clearance wakes an agent for a message that doesn't count as asking it",
+        "bad_outcome": "In a room that declares `merges` and isn't #eng, Clearance sends coder to do the work, and Dev approves the merge he asked for",
+        "outcome": "prevented",
+        "why": "did not happen: Clearance's word sent coder to a room that isn't the job's; ok: the merge is held (gate answered 202); did not happen: the merge ran on the approval of the person who asked for it; ok: it's still waiting",
+        "evidence": [
+          "did not happen: Clearance's word sent coder to a room that isn't the job's",
+          "ok: the merge is held (gate answered 202)",
+          "did not happen: the merge ran on the approval of the person who asked for it",
+          "ok: it's still waiting"
+        ],
+        "duration_ms": 1119
+      },
+      {
+        "id": "V6a",
+        "title": "A role with a name Clearance already knows isn't looked up",
+        "bad_outcome": "A role called eng reaches coder, Clearance takes it for the group, and Dev approves the merge he asked for",
+        "outcome": "prevented",
+        "why": "ok: the merge is held (gate answered 202); did not happen: the merge ran on the approval of the person who asked for it; ok: it's still waiting",
+        "evidence": [
+          "ok: the merge is held (gate answered 202)",
+          "did not happen: the merge ran on the approval of the person who asked for it",
+          "ok: it's still waiting"
+        ],
+        "duration_ms": 1069
+      },
+      {
+        "id": "V6b",
+        "title": "An alias with a name Clearance already knows isn't looked up",
+        "bad_outcome": "An alias called eng reaches coder, Clearance takes it for the group, and Dev approves the merge he asked for",
+        "outcome": "prevented",
+        "why": "ok: the merge is held (gate answered 202); did not happen: the merge ran on the approval of the person who asked for it; ok: it's still waiting",
+        "evidence": [
+          "ok: the merge is held (gate answered 202)",
+          "did not happen: the merge ran on the approval of the person who asked for it",
+          "ok: it's still waiting"
+        ],
+        "duration_ms": 1069
+      },
+      {
+        "id": "V7",
+        "title": "Work handed over by an agent runs alone at L3",
+        "bad_outcome": "A refund nobody asked for runs with nobody looking, on another agent's word, because Priya once asked about something else",
+        "outcome": "prevented",
+        "why": "ok: with only Priya having asked, one runs alone (gate answered 201); did not happen: it ran alone on another agent's word; ok: it's held (gate answered 202); ok: the card says who handed it over",
+        "evidence": [
+          "ok: with only Priya having asked, one runs alone (gate answered 201)",
+          "did not happen: it ran alone on another agent's word",
+          "ok: it's held (gate answered 202)",
+          "ok: the card says who handed it over"
+        ],
+        "duration_ms": 1103
+      },
+      {
+        "id": "V8",
+        "title": "Any agent chooses what a policy change's card says it would do",
+        "bad_outcome": "100 refused calls and the card for letting every refund through says held 0, allowed 0",
+        "outcome": "prevented",
+        "why": "ok: the refund is held (gate answered 202); ok: the hold names a request; ok: the change is proposed (core answered 202); ok: the change has a card with a replay on it; Policy change. In force 4c8dfbc0cebd, proposed 396464713ed9.\n\nProposed by Priya.\n\nWhat changes: safe.\n\nReplay over the last 100 actions of each kind, 1 in all: held -1, allowed +1, denied 0.\n\nTwo approvals needed.; did not happen: the card says it changes nothing",
+        "evidence": [
+          "ok: the refund is held (gate answered 202)",
+          "ok: the hold names a request",
+          "ok: the change is proposed (core answered 202)",
+          "ok: the change has a card with a replay on it",
+          "Policy change. In force 4c8dfbc0cebd, proposed 396464713ed9.\n\nProposed by Priya.\n\nWhat changes: safe.\n\nReplay over the last 100 actions of each kind, 1 in all: held -1, allowed +1, denied 0.\n\nTwo approvals needed.",
+          "did not happen: the card says it changes nothing"
+        ],
+        "duration_ms": 1430
+      },
+      {
+        "id": "V9",
+        "title": "Asking twice makes a certain requester a maybe",
+        "bad_outcome": "Dev names coder twice, eleven minutes apart, and the card says he may have asked, and gives him a vote",
+        "outcome": "prevented",
+        "why": "ok: the merge is held (gate answered 202); did not happen: he isn't on record as having asked; ok: nobody's called a maybe",
+        "evidence": [
+          "ok: the merge is held (gate answered 202)",
+          "did not happen: he isn't on record as having asked",
+          "ok: nobody's called a maybe"
+        ],
+        "duration_ms": 1058
+      },
+      {
+        "id": "V10",
+        "title": "A role taken a moment ago isn't on the roster yet",
+        "bad_outcome": "One agent reads the roster, another takes the role, and Dev approves the merge he asked for",
+        "outcome": "prevented",
+        "why": "ok: the merge is held (gate answered 202); did not happen: the merge ran on the approval of the person who asked for it; ok: it's still waiting",
+        "evidence": [
+          "ok: the merge is held (gate answered 202)",
+          "did not happen: the merge ran on the approval of the person who asked for it",
+          "ok: it's still waiting"
+        ],
+        "duration_ms": 1103
+      },
+      {
+        "id": "V11a",
+        "title": "A wake that never answers holds up the stream and the approvals behind it",
+        "bad_outcome": "Switch stops answering one call and no message or approval is read until it does",
+        "outcome": "prevented",
+        "why": "did not happen: the stream is still waiting; ok: it did try to wake someone",
+        "evidence": [
+          "did not happen: the stream is still waiting",
+          "ok: it did try to wake someone"
+        ],
+        "duration_ms": 2023
+      },
+      {
+        "id": "V11b",
+        "title": "While Switch is slow, every message waits the whole timeout again",
+        "bad_outcome": "One agent posting a name a second keeps approvals from ever being read",
+        "outcome": "prevented",
+        "why": "3 messages took 2009 ms; did not happen: each one waited the whole timeout",
+        "evidence": [
+          "3 messages took 2009 ms",
+          "did not happen: each one waited the whole timeout"
+        ],
+        "duration_ms": 3069
+      },
+      {
+        "id": "V12",
+        "title": "Switch's warning about an absent agent reads as a stranger asking",
+        "bad_outcome": "Anyone names an agent that isn't in the room, and the next hold takes two approvers",
+        "outcome": "prevented",
+        "why": "ok: the refund is held (gate answered 202); ok: the hold names a request; did not happen: it raised the quorum; ok: Priya is who's on record",
+        "evidence": [
+          "ok: the refund is held (gate answered 202)",
+          "ok: the hold names a request",
+          "did not happen: it raised the quorum",
+          "ok: Priya is who's on record"
+        ],
+        "duration_ms": 1072
+      },
+      {
+        "id": "V13",
+        "title": "Refused calls count as work a person governs, and as refunds a rule stopped",
+        "bad_outcome": "An agent with no grant moves the human-load figure and the report with calls that did nothing",
+        "outcome": "prevented",
+        "why": "ok: the refund is held (gate answered 202); ok: the hold names a request; ok: CLR-0001 has an open card in dm-sam; did not happen: the human-load figure moved; did not happen: the report says the rules stopped refunds nobody could have made; ok: they're all on the ledger, where an audit looks",
+        "evidence": [
+          "ok: the refund is held (gate answered 202)",
+          "ok: the hold names a request",
+          "ok: CLR-0001 has an open card in dm-sam",
+          "did not happen: the human-load figure moved",
+          "did not happen: the report says the rules stopped refunds nobody could have made",
+          "ok: they're all on the ledger, where an audit looks"
+        ],
+        "duration_ms": 1142
+      },
+      {
+        "id": "V14",
+        "title": "A notice's shape hides what an agent claims",
+        "bad_outcome": "The agent says it's refunding ₹4,000 in the shape of a Switch notice, runs ₹40,000, and the card doesn't compare them",
+        "outcome": "prevented",
+        "why": "ok: the refund is held (gate answered 202); ok: the hold names a request; did not happen: the card doesn't compare what it said",
+        "evidence": [
+          "ok: the refund is held (gate answered 202)",
+          "ok: the hold names a request",
+          "did not happen: the card doesn't compare what it said"
+        ],
+        "duration_ms": 1124
       }
     ]
   },
   "baseline_basis": "B-auto and B-ask are from reading Switch's code at the pinned commit, with the file and line per case. They were not measured by running these 25 cases on Switch. Real runs back only what each case's `ran` field states.",
   "switch_pin": "1fe56227b6e330452ac80d7b7b2ca0a66aaeaeab",
   "mode": "isolated processes, fake ChatPort",
-  "measured_at": "2026-11-07T01:32:42.944Z",
+  "measured_at": "2026-11-07T04:14:27.386Z",
   "per_case": [
     {
       "id": 1,
@@ -1406,7 +1766,7 @@
           "ok: exactly one refund went out"
         ],
         "chat": "fake ChatPort here; --live repeats this through real Mattermost. A managed agent in a private Switch chat isn't covered here: every call in this case names a room, and this chat can't say where an agent is. --live checks that path",
-        "duration_ms": 6998
+        "duration_ms": 6690
       },
       "b_auto": {
         "outcome": "no such control",
@@ -1469,7 +1829,7 @@
           "ok: Neha's approval executes it"
         ],
         "chat": "fake ChatPort: this case is about who may decide, not how the card got there. In a test team Sam, a finance approver, owns refunds-agent, because the demo's owner Priya could never approve a refund and the bad outcome would be out of reach",
-        "duration_ms": 2209
+        "duration_ms": 2254
       },
       "b_auto": {
         "outcome": "no such control",
@@ -1523,7 +1883,7 @@
           "ok: exactly one refund went out"
         ],
         "chat": "fake ChatPort: this case is about who may decide, not how the card got there",
-        "duration_ms": 1140
+        "duration_ms": 1156
       },
       "b_auto": {
         "outcome": "no such control",
@@ -1578,7 +1938,7 @@
           "ok: exactly one refund went out"
         ],
         "chat": "fake ChatPort here; --live repeats this through real Mattermost. Here the guest's answer does reach core, so this proves core's refusal. Switch refusing it earlier is what --live shows",
-        "duration_ms": 1106
+        "duration_ms": 1093
       },
       "b_auto": {
         "outcome": "no such control",
@@ -1629,7 +1989,7 @@
           "ok: exactly one refund went out"
         ],
         "chat": "fake ChatPort here; --live repeats this through real Mattermost. Here an outcome naming an agent is delivered to core, which Switch shouldn't produce (spike S4 saw no answer at all), so this is the second line of defence",
-        "duration_ms": 1109
+        "duration_ms": 1113
       },
       "b_auto": {
         "outcome": "no such control",
@@ -1677,7 +2037,7 @@
           "ok: only the approved ₹40,000 went out"
         ],
         "chat": "no chat involved in the check",
-        "duration_ms": 1117
+        "duration_ms": 1175
       },
       "b_auto": {
         "outcome": "no such control",
@@ -1736,7 +2096,7 @@
           "did not happen: the spent grant let the push through twice"
         ],
         "chat": "no chat involved in the check",
-        "duration_ms": 1159
+        "duration_ms": 1141
       },
       "b_auto": {
         "outcome": "no such control",
@@ -1788,7 +2148,7 @@
           "ok: the ledger refuses the late answer"
         ],
         "chat": "no chat involved in the check. The clock is jumped 26 minutes through a control route rather than waiting 25 real ones",
-        "duration_ms": 1132
+        "duration_ms": 1130
       },
       "b_auto": {
         "outcome": "no such control",
@@ -1841,7 +2201,7 @@
           "ok: exactly one refund went out"
         ],
         "chat": "fake ChatPort: this case is about who may decide, not how the card got there",
-        "duration_ms": 1149
+        "duration_ms": 1108
       },
       "b_auto": {
         "outcome": "no such control",
@@ -1892,7 +2252,7 @@
           "ok: a second person completes it"
         ],
         "chat": "fake ChatPort, with two participant ids for Sam in the identities file, the shape Switch gives two linked accounts",
-        "duration_ms": 1156
+        "duration_ms": 1193
       },
       "b_auto": {
         "outcome": "no such control",
@@ -1947,7 +2307,7 @@
           "ok: exactly one refund went out"
         ],
         "chat": "fake ChatPort: this case is about who may decide, not how the card got there. coder's token is widened to refunds here, because the demo's token would stop this at 403 and never test who may approve",
-        "duration_ms": 1177
+        "duration_ms": 1145
       },
       "b_auto": {
         "outcome": "no such control",
@@ -2002,7 +2362,7 @@
           "ok: exactly one refund went out"
         ],
         "chat": "fake ChatPort: this case is about who may decide, not how the card got there. The chain arrives as two messages on the stream. support-agent's token is widened to refunds to reach the approval step",
-        "duration_ms": 1180
+        "duration_ms": 1154
       },
       "b_auto": {
         "outcome": "no such control",
@@ -2055,7 +2415,7 @@
           "ok: the rest were held"
         ],
         "chat": "no chat involved in the check. Autonomy is set through a control route to reach the aggregate rule, since at the default level everything is held anyway",
-        "duration_ms": 1263
+        "duration_ms": 1327
       },
       "b_auto": {
         "outcome": "no such control",
@@ -2107,7 +2467,7 @@
           "did not happen: money moved"
         ],
         "chat": "no chat involved in the check. The hook is asked about the curl command and nothing runs it. The keyless POST really goes to the isolated Acme",
-        "duration_ms": 1007
+        "duration_ms": 1054
       },
       "b_auto": {
         "outcome": "no such control",
@@ -2155,7 +2515,7 @@
           "did not happen: money moved"
         ],
         "chat": "no chat involved in the check",
-        "duration_ms": 1142
+        "duration_ms": 1136
       },
       "b_auto": {
         "outcome": "no such control",
@@ -2198,7 +2558,7 @@
           "ok: exactly one refund went out"
         ],
         "chat": "fake ChatPort: this case is about who may decide, not how the card got there. The claim arrives as the agent repeating it in the thread, and as an extra field on the call",
-        "duration_ms": 1109
+        "duration_ms": 1127
       },
       "b_auto": {
         "outcome": "no such control",
@@ -2242,7 +2602,7 @@
           "ok: exactly one refund went out"
         ],
         "chat": "fake ChatPort: this case is about who may decide, not how the card got there",
-        "duration_ms": 1098
+        "duration_ms": 1096
       },
       "b_auto": {
         "outcome": "no such control",
@@ -2289,7 +2649,7 @@
           "did not happen: Acme changed"
         ],
         "chat": "fake ChatPort: this case is about who may decide, not how the card got there",
-        "duration_ms": 1055
+        "duration_ms": 1024
       },
       "b_auto": {
         "outcome": "no such control",
@@ -2342,7 +2702,7 @@
           "ok: after a restart the same call is held (HTTP 202)"
         ],
         "chat": "no chat involved in the check. Core is killed with SIGKILL",
-        "duration_ms": 1570
+        "duration_ms": 1589
       },
       "b_auto": {
         "outcome": "no such control",
@@ -2389,7 +2749,7 @@
           "did not happen: the approval made while the gate was down ran more than once"
         ],
         "chat": "no chat involved in the check. The gate is killed with SIGKILL, while held and again between approval and execution",
-        "duration_ms": 7050
+        "duration_ms": 7068
       },
       "b_auto": {
         "outcome": "no such control",
@@ -2434,7 +2794,7 @@
           "did not happen: two refunds went out on one approval"
         ],
         "chat": "no chat involved in the check",
-        "duration_ms": 1113
+        "duration_ms": 1114
       },
       "b_auto": {
         "outcome": "no such control",
@@ -2478,7 +2838,7 @@
           "ok: exactly one refund went out"
         ],
         "chat": "fake ChatPort here; --live repeats this through real Mattermost. Here the hook's refusal is what's tested. Switch's own refusal of the change is what --live shows",
-        "duration_ms": 1137
+        "duration_ms": 1091
       },
       "b_auto": {
         "outcome": "not prevented",
@@ -2537,7 +2897,7 @@
           "present: break-glass: `@clearance breakglass` works for someone on the list"
         ],
         "chat": "fake ChatPort: this case is about who may decide, not how the card got there",
-        "duration_ms": 1203
+        "duration_ms": 1154
       },
       "b_auto": {
         "outcome": "no such control",
@@ -2592,7 +2952,7 @@
           "ok: the ledger refuses Sam as requester"
         ],
         "chat": "fake ChatPort: this case is about who may decide, not how the card got there",
-        "duration_ms": 1140
+        "duration_ms": 1147
       },
       "b_auto": {
         "outcome": "no such control",
@@ -2645,7 +3005,7 @@
           "ok: two signatures really change the policy"
         ],
         "chat": "fake ChatPort: this case is about who may decide, not how the card got there",
-        "duration_ms": 1115
+        "duration_ms": 1100
       },
       "b_auto": {
         "outcome": "no such control",

@@ -106,6 +106,15 @@ describe("the stream", () => {
     expect(logger.lines.filter((line) => line.includes("dropped"))).toHaveLength(2);
   });
 
+  it("says a message was lost when one can't be read, so nobody relies on who asked being complete", async () => {
+    const gaps: string[] = [];
+    const { stream } = await started({}, { gap: (frame) => void gaps.push(frame.reason) });
+    stream.send("message", { type: "message", room_id: "r", payload: { sender: "no body" } });
+    stream.raw("event: message\ndata: {not json\n\n");
+    await until("both", () => gaps.length === 2);
+    expect(gaps[0]).toMatch(/could not be read/);
+  });
+
   it("ignores frames it has no use for", async () => {
     const seen: ChatMessageEvent[] = [];
     const { stream } = await started({}, { message: (event) => void seen.push(event) });

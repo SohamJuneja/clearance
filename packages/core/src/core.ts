@@ -13,6 +13,7 @@ import {
   ChatMessageEventSchema,
   GATE_WORDS,
   jobRoleNamed,
+  ownValue,
   readExecuteResult,
   RequestStateSchema,
   type Action,
@@ -71,7 +72,7 @@ import { loadPolicy, loadTeam, parseDuration, parsePolicy, PolicyLoadError, type
 import type { TeamFile } from "./policy/schema.js";
 import { OPEN_STATES, RequestStore, type NewRequest, type RequestRecord } from "./requests/store.js";
 import { AggregateStore } from "./risk/aggregates.js";
-import { agentElsewhereFlag, agentReachUnknownFlag, authorUnknownFlag, mayHaveAskedFlag, messagesLostFlag, possibleAliasFlag, requesterUnknownFlag, requesterUnlinkedFlag, uniqueFlags } from "./risk/flags.js";
+import { agentElsewhereFlag, agentHandedOverFlag, agentReachUnknownFlag, authorUnknownFlag, mayHaveAskedFlag, messagesLostFlag, passedOnFlag, possibleAliasFlag, requesterUnknownFlag, requesterUnlinkedFlag, uniqueFlags } from "./risk/flags.js";
 import {
   evidenceLines,
   ignoredFlags,
@@ -85,7 +86,7 @@ import { AgentReachCheck, type AgentReach } from "./router/reach.js";
 import { DRILL_RESULT_GROUP } from "./ledger/mirror.js";
 import { buildRoiReport, type RoiReport } from "./reports/roi.js";
 import { medianDecisionMs, OPEN_STATES_SQL, readRequestFacts, tallyRequests } from "./reports/tally.js";
-import { mentionedNames, RequesterTracker, REQUESTER_WINDOW_MS, withoutRequestFragments } from "./router/requesters.js";
+import { addressedNames, RequesterTracker, REQUESTER_WINDOW_MS, withoutRequestFragments } from "./router/requesters.js";
 import { assessAnswer, barsThatMoveTheDecision, route, separationBars, type Refusal, type RouteContext, type RouteTrace } from "./router/router.js";
 import { RouteStore, type RouteRow, type RouteStep } from "./router/routes.js";
 import { TraceStore } from "./router/traces.js";
@@ -140,6 +141,10 @@ export type Evidence = {
   autoEligible?: boolean;
   /** People who asked this agent in other rooms in the window. Not who asked for this, but they can't approve it. */
   askedElsewhereIds?: string[];
+  /** People who may have asked, and stay on the card because barring them would move the decision. They can't break glass on it. */
+  mayHaveAskedIds?: string[];
+  /** Those of them only on record through another agent. Their approval needs one more person's than the policy asks for. */
+  passedOnIds?: string[];
   /** This request is an approver's smaller offer on another one (F20), which the gate still holds. */
   editOf?: EditOf;
 };
@@ -261,8 +266,8 @@ const LOOK_AGAIN_FOR_MS = DAY_MS;
 /** A room's aliases rarely change, and asking holds up the stream. */
 const ALIAS_CACHE_MS = 60_000;
 const ALIAS_TIMEOUT_MS = 1_000;
-/** A burst of messages asks once. A role changes hands, so this is much shorter than the aliases'. */
-const ROLE_CACHE_MS = 3_000;
+/** Switch not answering in time costs the stream a wait, so for this long it isn't asked again about that room. Not answering is what's kept. */
+const SWITCH_LATE_MS = 5_000;
 /** Long enough for a session to start and take the role, so a second mention doesn't start a second one. */
 const ROLE_WAKE_MS = 2 * 60_000;
 
@@ -352,7 +357,7 @@ export class Clearance implements ClearanceCore {
   private readonly toldCannotComplete = new Set<string>();
   private readonly executing = new Set<string>();
   private readonly aliasCache = new Map<string, { aliases: RoomAliases; atMs: number }>();
-  private readonly roleCache = new Map<string, { roles: RoomRoles; atMs: number }>();
+  private readonly switchLate = new Map<string, number>();
   private readonly lastRoleWake = new Map<string, number>();
   private readonly reach: AgentReachCheck;
   private turns: Promise<unknown> = Promise.resolve();
@@ -854,11 +859,11 @@ export class Clearance implements ClearanceCore {
     const closed = `r.state NOT IN (${OPEN_STATES_SQL})`;
     const actions = (
       since === undefined
-        ? db.prepare(`SELECT class, step, COUNT(*) AS n FROM actions GROUP BY class, step`).all()
+        ? db.prepare(`SELECT class, step, COUNT(*) AS n FROM actions WHERE step != 'outside_role' GROUP BY class, step`).all()
         : db
             .prepare(
               `SELECT a.class, a.step, COUNT(*) AS n FROM actions a LEFT JOIN requests r ON r.id = a.request_id
-               WHERE julianday(a.at) >= julianday(?) AND (r.id IS NULL OR ${closed}) GROUP BY a.class, a.step`,
+               WHERE a.step != 'outside_role' AND julianday(a.at) >= julianday(?) AND (r.id IS NULL OR ${closed}) GROUP BY a.class, a.step`,
             )
             .all(new Date(since).toISOString())
     ) as { class: string | null; step: string; n: number }[];
@@ -891,10 +896,21 @@ export class Clearance implements ClearanceCore {
    * POST /v1/policy/simulate with `last`: replays the last N actions under the policy in force and under a proposed
    * one, each at its own time and with its own running window, and reports the deltas. Writes nothing.
    */
-  async replayPolicy(input: { policy?: string | undefined; last: number }): Promise<Record<string, unknown>> {
+  async replayPolicy(input: { policy?: string | undefined; last: number; eachClass?: boolean | undefined }): Promise<Record<string, unknown>> {
     const proposed = input.policy !== undefined ? parsePolicy(input.policy, "proposed policy") : this.currentPolicy;
+    // A call the gate refused never reached a policy, and `eachClass` is the last N of each kind of call, not of all of them
+    // together. A card reads this, and otherwise any agent decides what's on it with 100 calls that don't matter.
     const rows = (
-      this.stores.db.prepare(`SELECT id, at, agent, action_json FROM actions ORDER BY rowid DESC LIMIT ?`).all(input.last) as {
+      this.stores.db
+        .prepare(
+          input.eachClass
+            ? `SELECT id, at, agent, action_json FROM (
+                 SELECT rowid AS position, id, at, agent, action_json, ROW_NUMBER() OVER (PARTITION BY class ORDER BY rowid DESC) AS place
+                 FROM actions WHERE step != 'outside_role'
+               ) WHERE place <= ? ORDER BY position DESC`
+            : `SELECT id, at, agent, action_json FROM actions WHERE step != 'outside_role' ORDER BY rowid DESC LIMIT ?`,
+        )
+        .all(input.last) as {
         id: string;
         at: string;
         agent: string;
@@ -1063,14 +1079,25 @@ export class Clearance implements ClearanceCore {
 
   async onMessage(input: ChatMessageEvent): Promise<void> {
     const parsed = ChatMessageEventSchema.safeParse(input);
-    if (!parsed.success) return;
+    if (!parsed.success) {
+      this.onStreamGap();
+      return;
+    }
     const evt = parsed.data;
     const { directory, store, requesters } = this.people;
     if (directory.isSelf(evt.sender, evt.senderName)) return;
     const person = directory.personByParticipant(evt.sender);
-    if (person) store.noteActive(person.id, evt.roomId, evt.messageId);
-    const roles = await this.rolesIn(evt);
-    requesters.observe(evt, await this.aliasesIn(evt), roles);
+    let roles: RoomRoles | null = null;
+    try {
+      if (person) store.noteActive(person.id, evt.roomId, evt.messageId);
+      roles = await this.rolesIn(evt);
+      requesters.observe(evt, await this.aliasesIn(evt), roles, (reference) => this.findRequest(reference, evt.roomId) !== null);
+    } catch (error) {
+      // Switch has delivered this to whoever it addressed. If core can't take it in, who asked may be missing someone, which is
+      // what lost messages mean, and it gets the same answer: holds take two people for as long as anyone counts as having asked.
+      console.error(`could not read who a message asked, so holds take two for a while: ${(error as Error).message}`);
+      this.onStreamGap();
+    }
     await this.wakeForRole(evt, roles);
     await this.handleCommand(evt, person?.id ?? null);
   }
@@ -1136,41 +1163,52 @@ export class Clearance implements ClearanceCore {
   private async aliasesIn(evt: ChatMessageEvent): Promise<RoomAliases | null> {
     const { chat } = this.deps;
     const { directory } = this.people;
-    if (!chat.roomAliases || !mentionedNames(evt.body).some((name) => !directory.knowsMention(name))) return null;
+    if (!chat.roomAliases) return null;
+    // Switch knows nothing of a team file: an alias can be called `eng`. A person's own name is the one left alone, or every
+    // `hello @neha` would ask, and an agent's hand-off is read whatever it says, because that's where a chain can be hidden.
+    const fromAgent = directory.agentForSender(evt.sender, evt.senderName) !== null;
+    const couldBeAnAlias = (name: string) => !directory.isReservedMention(name) && !directory.agentNamed(name) && (fromAgent || !directory.isPersonName(name));
+    if (!addressedNames(evt.body).some(couldBeAnAlias)) return null;
     const now = this.deps.clock.nowMs();
     const cached = this.aliasCache.get(evt.roomId);
     if (cached && now - cached.atMs < ALIAS_CACHE_MS) return cached.aliases;
-    let timer: NodeJS.Timeout | undefined;
-    const late = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => reject(new Error("no answer in time")), ALIAS_TIMEOUT_MS);
-    });
-    try {
-      const aliases = await Promise.race([chat.roomAliases(evt.roomId), late]);
-      this.aliasCache.set(evt.roomId, { aliases, atMs: now });
-      return aliases;
-    } catch {
-      return null;
-    } finally {
-      clearTimeout(timer);
-    }
+    const aliases = await this.askSwitchInTime("aliases", evt.roomId, () => chat.roomAliases?.(evt.roomId) ?? Promise.resolve({}));
+    if (aliases) this.aliasCache.set(evt.roomId, { aliases, atMs: now });
+    return aliases;
   }
 
-  /** The room's roles and who holds them, read as its aliases are but kept only briefly, since a role changes hands. Null means Switch can't say. */
+  /**
+   * The room's roles and who holds them. Null means Switch can't say. Read fresh each time, because a role changes hands, and
+   * Switch goes by who holds it the moment it delivers. A role can have any name, so any name but a reserved word may be one.
+   */
   private async rolesIn(evt: ChatMessageEvent): Promise<RoomRoles | null> {
     const { chat } = this.deps;
     const { directory } = this.people;
-    if (!chat.roomRoles || !mentionedNames(evt.body).some((name) => !directory.knowsMention(name))) return {};
+    if (!chat.roomRoles || !addressedNames(evt.body).some((name) => !directory.isReservedMention(name))) return {};
+    return this.askSwitchInTime("roles", evt.roomId, () => chat.roomRoles?.(evt.roomId) ?? Promise.resolve({}));
+  }
+
+  /**
+   * What the stream can't wait long for, and everything behind it in the queue is waiting too, approvals included. Not answering
+   * in time is kept for a moment, so a run of messages while Switch is slow costs one wait and not one each. An error is quick,
+   * so it costs nothing and isn't kept.
+   */
+  private async askSwitchInTime<T>(what: string, roomId: string, ask: () => Promise<T>): Promise<T | null> {
+    const key = `${what}\u0000${roomId}`;
     const now = this.deps.clock.nowMs();
-    const cached = this.roleCache.get(evt.roomId);
-    if (cached && now - cached.atMs < ROLE_CACHE_MS) return cached.roles;
+    if (now - (this.switchLate.get(key) ?? Number.NEGATIVE_INFINITY) < SWITCH_LATE_MS) return null;
     let timer: NodeJS.Timeout | undefined;
-    const late = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => reject(new Error("no answer in time")), ALIAS_TIMEOUT_MS);
+    const late = Symbol("late");
+    const deadline = new Promise<typeof late>((done) => {
+      timer = setTimeout(() => done(late), ALIAS_TIMEOUT_MS);
     });
     try {
-      const roles = await Promise.race([chat.roomRoles(evt.roomId), late]);
-      this.roleCache.set(evt.roomId, { roles, atMs: now });
-      return roles;
+      const answer = await Promise.race([ask(), deadline]);
+      if (answer === late) {
+        this.switchLate.set(key, now);
+        return null;
+      }
+      return answer as T;
     } catch {
       return null;
     } finally {
@@ -1182,16 +1220,31 @@ export class Clearance implements ClearanceCore {
    * F24. A role with no live holder reaches nobody, and Switch only warns the sender, so work handed to one would sit there.
    * A role is held only while a session runs and sessions end, so this is what makes a job's address dependable: whoever has
    * the grant is asked to take the role and read the room. It quotes nothing, or an agent's words would go out as Clearance's.
-   * It decides nothing, and failing leaves Switch's warning. Who asked is on record by now, whatever happens here.
+   * It decides nothing, and failing leaves Switch's warning. Who asked is on record by now, whatever happens here. Only the job's
+   * own room wakes anyone: a room can declare a role of any name, and Clearance's word shouldn't send an agent to whichever one did.
+   * The stream waits a moment for this and no longer, and it carries on in the background if Switch is slow.
    */
   private async wakeForRole(evt: ChatMessageEvent, roles: RoomRoles | null): Promise<void> {
     if (roles === null) return;
+    const work = this.wakeHoldersFor(evt, roles).catch((error: unknown) => console.error(`could not wake anyone for a role: ${(error as Error).message}`));
+    let timer: NodeJS.Timeout | undefined;
+    await Promise.race([
+      work,
+      new Promise((done) => {
+        timer = setTimeout(done, ALIAS_TIMEOUT_MS);
+      }),
+    ]);
+    clearTimeout(timer);
+  }
+
+  private async wakeHoldersFor(evt: ChatMessageEvent, roles: RoomRoles): Promise<void> {
     const now = this.deps.clock.nowMs();
-    for (const name of mentionedNames(evt.body)) {
+    for (const name of addressedNames(evt.body)) {
       const job = jobRoleNamed(name);
-      const holders = roles[name.toLowerCase()];
+      const holders = ownValue(roles, name.toLowerCase());
       // Not declared in this room, or someone holds it and Switch has delivered it.
       if (!job || holders === undefined || holders.length > 0) continue;
+      if (this.people.directory.roomName(evt.roomId) !== `#${job.room}`) continue;
       const key = `${evt.roomId}\u0000${job.role}`;
       if (now - (this.lastRoleWake.get(key) ?? Number.NEGATIVE_INFINITY) < ROLE_WAKE_MS) continue;
       this.lastRoleWake.set(key, now);
@@ -1404,11 +1457,13 @@ export class Clearance implements ClearanceCore {
   private newHold(action: Action, evaluation: Evaluation, now: number, reach: AgentReach): NewRequest {
     const { requesters } = this.people;
     const first = this.newRequest(action, evaluation, now, undefined, reach);
-    const onlyMaybe = [...requesters.voicesOf(action.agent.name), ...requesters.stillWaitingOn(action.agent.name)];
-    if (onlyMaybe.length === 0) return first;
+    const onlyMaybe = requesters.onlyMaybeAsked(action.agent.name);
+    const onlyPassedOn = requesters.onlyPassedOn(action.agent.name);
+    if (onlyMaybe.length === 0 && onlyPassedOn.length === 0) return first;
     const lifted = barsThatMoveTheDecision(
       this.routeContext({ ...first, id: "", state: "HELD", isDrill: false, createdAtMs: now, decidedAtMs: null, execAttempts: 0 }),
       onlyMaybe,
+      onlyPassedOn,
     );
     return lifted.length === 0 ? first : this.newRequest(action, evaluation, now, undefined, reach, undefined, lifted);
   }
@@ -1486,10 +1541,20 @@ export class Clearance implements ClearanceCore {
     const alias = !drill && (edit ? carried("possible_alias") : requesters.possibleAskers(action.agent.name).some((id) => !requesterIds.includes(id) && !everyoneAsking.includes(id)));
     if (alias) flags.push(possibleAliasFlag(unknownQuorum));
     const maybe = !drill && (edit ? carried("may_have_asked") : lifted.length > 0);
+    // Someone who only reached this agent through another may really have asked, so they don't count as the policy's number on
+    // their own: it takes one more than it says, and whoever else approves makes that up. Below that a chain would buy a vote.
+    const editedEvidence = edit ? this.evidenceOf(edit) : null;
+    const mayHaveAsked = editedEvidence?.mayHaveAskedIds ?? lifted;
+    const liftedAndPassedOn = editedEvidence?.passedOnIds ?? (drill ? [] : lifted.filter((id) => requesters.onlyPassedOn(action.agent.name).includes(id)));
+    const liftedQuorum = liftedAndPassedOn.length > 0 ? Math.max(unknownQuorum, stated + 1) : unknownQuorum;
     if (maybe) {
       const names = joinNames(lifted.map((id) => directory.person(id)?.name ?? id));
-      flags.push(edit?.flags.find((flag) => flag.code === "may_have_asked") ?? mayHaveAskedFlag(names, unknownQuorum));
+      const anyPassedOn = liftedAndPassedOn.length > 0;
+      flags.push(edit?.flags.find((flag) => flag.code === "may_have_asked") ?? (anyPassedOn ? passedOnFlag(names, liftedQuorum) : mayHaveAskedFlag(names, unknownQuorum)));
     }
+    // A person on record says someone asked this agent something, and another agent can hand it work nobody asked for.
+    const handedOver = !drill && (edit ? carried("handed_over_by_agent") : requesters.agentsAsking(action.agent.name).length > 0);
+    if (handedOver) flags.push(edit?.flags.find((flag) => flag.code === "handed_over_by_agent") ?? agentHandedOverFlag(joinNames(requesters.agentsAsking(action.agent.name))));
     // The same reasoning when someone is on record but the record may not be everyone.
     if (reach === "elsewhere") flags.push(agentElsewhereFlag(unknownQuorum));
     if (reach === "unknown") flags.push(agentReachUnknownFlag(unknownQuorum));
@@ -1510,7 +1575,7 @@ export class Clearance implements ClearanceCore {
     }
 
     const window = evaluation.aggregates[0];
-    const serviceOwner = this.team.owners.services[String(evaluation.extracted.service)];
+    const serviceOwner = ownValue(this.team.owners.services, String(evaluation.extracted.service));
     const description = describeCall({
       cls: clsName,
       call: evaluation.call,
@@ -1541,6 +1606,8 @@ export class Clearance implements ClearanceCore {
     // A room on a call is only the agent's word for it, so someone asking elsewhere still can't approve.
     const askedElsewhereIds = [...new Set([...everyoneAsking, ...stillWaiting])].filter((id) => !requesterIds.includes(id));
     if (askedElsewhereIds.length > 0) evidence.askedElsewhereIds = askedElsewhereIds;
+    if (mayHaveAsked.length > 0) evidence.mayHaveAskedIds = mayHaveAsked;
+    if (liftedAndPassedOn.length > 0) evidence.passedOnIds = liftedAndPassedOn;
     const claim = action.agentClaim ?? said[0];
     if (claim) evidence.agentClaim = claim;
 
@@ -1562,6 +1629,7 @@ export class Clearance implements ClearanceCore {
       evidence: evidence as unknown as Record<string, unknown>,
       flags,
       quorumRequired: requesterIds.length === 0 || unlinked || lost || alias || maybe || authorLookupFailed ? unknownQuorum : asked,
+      ...(liftedAndPassedOn.length > 0 ? { quorumRequired: liftedQuorum } : {}),
       expiresAtMs: now + this.deps.clock.scaledMs(policy.requestTtlMs),
       ...(drill ? { isDrill: true } : {}),
     };
@@ -2405,6 +2473,7 @@ export class Clearance implements ClearanceCore {
       failedConfirm: answers.failedConfirmations(request.id, CONFIRM_TRIES),
       alreadyRouted: open.flatMap((row) => (row.user_id && row.step !== "counter" ? [row.user_id] : [])),
       fallbackActive: routes.fallbackTried(request.id),
+      ...(evidence.mayHaveAskedIds ? { mayHaveAsked: evidence.mayHaveAskedIds } : {}),
     };
   }
 
@@ -3403,6 +3472,11 @@ export class Clearance implements ClearanceCore {
       refuse(["requester"]);
       return `${actor?.name ?? "That account"} asked for ${found.id}, so can't break glass on it.`;
     }
+    // On the card so that nothing could move the decision away from them. Deciding it alone is another thing.
+    if (ctx.mayHaveAsked?.includes(actorId)) {
+      refuse(["requester"]);
+      return `${actor?.name ?? "That account"} may have asked for ${found.id}, so can't break glass on it.`;
+    }
     // An emergency doesn't turn the person who wrote the code into someone else, or the agent's owner.
     const bars = separationBars(ctx, actorId);
     if (bars.length > 0) {
@@ -4163,14 +4237,14 @@ export class Clearance implements ClearanceCore {
     const proposer = source.proposedBy ? (this.people.directory.person(source.proposedBy)?.name ?? source.proposedBy) : null;
     const why = source.reason ? `Reason${proposer ? ` from ${proposer}` : ""}: ${oneLine(source.reason, 200)}` : proposer ? `Proposed by ${proposer}.` : null;
     const changed = changeSummary(policyChanges(this.currentPolicy.file, next.file));
-    const replay = await this.replayPolicy({ policy: next.text, last: POLICY_CARD_REPLAY });
+    const replay = await this.replayPolicy({ policy: next.text, last: POLICY_CARD_REPLAY, eachClass: true });
     const delta = replay.delta as { allow: number; hold: number; deny: number };
     const signed = (value: number) => (value > 0 ? `+${value}` : String(value));
     const detail = [
       `Policy change. In force ${this.currentPolicy.hash.slice(0, 12)}, proposed ${next.hash.slice(0, 12)}.`,
       ...(why ? [why] : []),
       `What changes: ${changed}.`,
-      `Replay over the last ${String(replay.replayed)} actions: held ${signed(delta.hold)}, allowed ${signed(delta.allow)}, denied ${signed(delta.deny)}.`,
+      `Replay over the last ${String(POLICY_CARD_REPLAY)} actions of each kind, ${String(replay.replayed)} in all: held ${signed(delta.hold)}, allowed ${signed(delta.allow)}, denied ${signed(delta.deny)}.`,
       `${["Zero", "One", "Two", "Three", "Four", "Five"][quorum] ?? quorum} approvals needed.`,
     ].join("\n\n");
     const write = this.stores.db.transaction(() => {

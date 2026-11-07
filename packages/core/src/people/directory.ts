@@ -4,7 +4,7 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import type { Vendor } from "@clearance/contracts";
+import { ownValue, type Vendor } from "@clearance/contracts";
 import { z } from "zod";
 import type { TeamFile } from "../policy/schema.js";
 
@@ -43,7 +43,8 @@ export function loadIdentities(path: string | undefined): Identities {
   return IdentitiesSchema.parse(JSON.parse(readFileSync(path, "utf8")));
 }
 
-const BROADCAST_MENTIONS = new Set(["all", "channel", "here"]);
+/** Switch reserves these, so none can be an agent, an alias or a role: delivery/room_wide_mention.py. */
+const BROADCAST_MENTIONS = new Set(["all", "channel", "here", "everyone"]);
 
 /** Shorter than this and a name is more likely to be something else that happens to start the same way. */
 const MIN_NAME_PREFIX = 4;
@@ -177,6 +178,17 @@ export class Directory {
     return written === own || (written.length >= MIN_NAME_PREFIX && own.startsWith(written));
   }
 
+  /** A word Switch keeps for paging the room, which addresses no agent whatever else has that name. */
+  isReservedMention(mention: string): boolean {
+    return BROADCAST_MENTIONS.has(mention.toLowerCase());
+  }
+
+  /** A person's own name. Switch knows nothing of this, and a role or an alias can have the same name: see `aliasesIn`. */
+  isPersonName(mention: string): boolean {
+    const lower = mention.toLowerCase();
+    return this.all().some((person) => [person.id, person.userName, person.name].some((name) => name.toLowerCase() === lower));
+  }
+
   /** Whether a mention means anything we know of. One that doesn't could be an agent's alias, which only Switch knows. */
   knowsMention(mention: string): boolean {
     const lower = mention.toLowerCase();
@@ -192,13 +204,13 @@ export class Directory {
   }
 
   agentVendor(name: string): Vendor | null {
-    return this.team.agents[name]?.vendor ?? null;
+    return ownValue(this.team.agents, name)?.vendor ?? null;
   }
 
   /** Owners on file for an agent: team.yaml, plus whoever Switch said owns it when the Action carries that. */
   agentOwners(name: string, ownerUserId?: string): string[] {
     const owners: string[] = [];
-    const onFile = this.team.agents[name]?.owner;
+    const onFile = ownValue(this.team.agents, name)?.owner;
     if (onFile) owners.push(onFile);
     const fromSwitch = this.personBySwitchUser(ownerUserId)?.id;
     if (fromSwitch && !owners.includes(fromSwitch)) owners.push(fromSwitch);
@@ -214,14 +226,14 @@ export class Directory {
         return [person.id];
       }
     }
-    const owner = this.team.agents[String(value)]?.owner;
+    const owner = ownValue(this.team.agents, String(value))?.owner;
     return owner ? [owner] : [];
   }
 
   /** Maps a hook's cwd to its agent. `<host>` in team.yaml matches one path segment. Null is never an allow. */
   resolveAgent(cwd: string | undefined, agentType?: string): string | null {
     // The vendor named the agent: answer for that name only, and never fall back to the directory.
-    if (agentType !== undefined) return this.team.agents[agentType] ? agentType : null;
+    if (agentType !== undefined) return ownValue(this.team.agents, agentType) ? agentType : null;
     if (!cwd) return null;
     let best: { name: string; length: number } | null = null;
     for (const [name, agent] of Object.entries(this.team.agents)) {

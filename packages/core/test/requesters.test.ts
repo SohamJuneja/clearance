@@ -39,8 +39,13 @@ describe("requester tracking from the message stream", () => {
   });
 
   it("does not read an email address as a mention", async () => {
-    await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "write to someone@refunds-agent please"));
+    await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "write to someone@example.com please"));
     expect(requesters("refunds-agent")).toEqual([]);
+  });
+
+  it("does read one that ends in an agent's name, because Switch addresses that agent", async () => {
+    await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "write to someone@refunds-agent please"));
+    expect(requesters("refunds-agent")).toEqual(["priya"]);
   });
 
   it("tolerates punctuation after a mention", async () => {

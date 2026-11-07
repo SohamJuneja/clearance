@@ -2,7 +2,7 @@
  * What the gate does, independent of transport. HTTP routes and MCP tools both call `perform`, so
  * there is one path through core's `check` and one place that holds or executes a call.
  */
-import { GATE_WORDS, jobRoleFor, type Action, type ExecuteResult, type JobRole } from "@clearance/contracts";
+import { GATE_WORDS, jobRoleFor, ownValue, type Action, type ExecuteResult, type JobRole } from "@clearance/contracts";
 import { ulid } from "ulid";
 import type { GateConfig } from "./config.js";
 import { AMOUNT_EDITABLE, LOOKUP_PATHS, OPERATIONS, type Operation } from "./operations.js";
@@ -427,7 +427,7 @@ export class GateService {
   }
 
   async lookup(kind: string, id: string): Promise<GateReply> {
-    const base = LOOKUP_PATHS[kind];
+    const base = ownValue(LOOKUP_PATHS, kind);
     if (!base) return { status: 404, body: { error: "unknown lookup kind" } };
     try {
       const res = await this.acme.call("GET", `${base}/${encodeURIComponent(id)}`);

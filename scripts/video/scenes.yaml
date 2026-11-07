@@ -167,8 +167,8 @@ scenes:
     planned_s: 25
     headline: "Measured, not claimed"
     # A row with no result isn't shown, and the voice-over says the same rows.
-    rows: [E1, AUDIT, E2/risky, E3/quiet, E6, NEG]
-    voiceover: "Measured, not claimed. [[if E1.clearance]]Bad outcomes prevented, of 25: {{E1.clearance}}. [[/if]][[if AUDIT.clearance]]Independent reviews found more, and each break is now fixed and checked apart. [[/if]][[if E2/risky.clearance]]Risky actions without an eligible human: {{E2/risky.clearance}}. [[/if]][[if E3/quiet.clearance]]Tool calls with no card: {{E3/quiet.clearance}}. [[/if]][[if E6.clearance]]Human decisions per hundred agent actions: {{E6.clearance}}. [[/if]][[if NEG.text]]And one place we lose: {{NEG.text}}.[[/if]]"
+    rows: [E1, AUDIT, E2/risky, E2/yes, E3/quiet, E6, NEG]
+    voiceover: "Measured, not claimed. [[if E1.clearance]]Bad outcomes prevented, of 25: {{E1.clearance}}. The same cases also ran on real Switch. [[/if]][[if AUDIT.clearance]]Independent reviews found more, and each break is now fixed and checked apart. [[/if]][[if E2/risky.clearance]]Risky actions without an eligible human: {{E2/risky.clearance}}. [[/if]][[if E2/yes.baseline]]When the agent asked and the requester said yes, it went ahead without Clearance: {{E2/yes.baseline}}. With it: {{E2/yes.clearance}}. [[/if]][[if E3/quiet.clearance]]Tool calls with no card: {{E3/quiet.clearance}}. [[/if]][[if E6.clearance]]Human decisions per hundred agent actions: {{E6.clearance}}. [[/if]][[if NEG.text]]And one place we lose: {{NEG.text}}.[[/if]]"
 
   - id: close
     kind: card

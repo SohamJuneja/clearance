@@ -13,11 +13,11 @@
  * Identity comes only from the event's sender and on_behalf_of. Whether a sender is an agent is looked up in identities
  * and the team file, never read from sender_kind, which Switch leaves null for people and agents alike.
  */
-import { jobRoleNamed, type ChatMessageEvent, type Clock, type RoomAliases, type RoomRoles } from "@clearance/contracts";
+import { jobRoleNamed, ownValue, type ChatMessageEvent, type Clock, type RoomAliases, type RoomRoles } from "@clearance/contracts";
 import type { Db } from "../db/index.js";
-import { isCommandToClearance } from "../commands/parse.js";
+import { isOnlyACommand } from "../commands/parse.js";
 import type { Directory } from "../people/directory.js";
-import { isSwitchNotice, isUnheldRoleWarning } from "./switch-notices.js";
+import { isMentionWarning, isSwitchNotice } from "./switch-notices.js";
 
 const NAMES_A_REQUEST = /\bCLR-\d+\b/;
 
@@ -68,12 +68,36 @@ const VOICE_KEEP_MS = 40 * 60_000;
 
 const MENTION = /(?<![\w.@-])@([A-Za-z0-9][\w-]*(?:\.[\w-]+)*)/g;
 
+/** Switch takes these out of the whole body before it looks for a name, so `@*name*` and `@na*me` are `@name`: clients/mentions.py. */
+const EMPHASIS = /[*~]/g;
+const withoutEmphasis = (body: string): string => body.replace(EMPHASIS, "");
+
 export function mentionedNames(body: string): string[] {
-  return [...new Set([...body.matchAll(MENTION)].map((match) => match[1] as string))];
+  return [...new Set([...withoutEmphasis(body).matchAll(MENTION)].map((match) => match[1] as string))];
 }
 
-/** Answering a card in the room: `A12 yes`, `A12 1`, `A12 "40000"`, `A12 q1="40000"`. That is a decision, not a request. */
-const CARD_ANSWER = /^\s*A\d+(\s+(yes|no|\d+|"[^"]*"|\w+="[^"]*"))?\s*$/i;
+/** How Switch reads a name: `@` anywhere, then a run of these. `see@merges` is `@merges` to it, and so is `@@merges`. */
+const ADDRESS_TOKEN = /@([A-Za-z0-9._-]+)/g;
+
+/** What Switch would read as a name that `mentionedNames` doesn't, like the end of an email address. Only a name that's really someone's counts. */
+function namesInsideWords(body: string, named: string[]): string[] {
+  const seen = new Set(named.map((name) => name.toLowerCase()));
+  return [...new Set([...withoutEmphasis(body).matchAll(ADDRESS_TOKEN)].map((match) => match[1] as string))].filter((name) => !seen.has(name.toLowerCase()));
+}
+
+/** Every name a message could address, for asking Switch who's behind them. */
+export function addressedNames(body: string): string[] {
+  const named = mentionedNames(body);
+  return [...named, ...namesInsideWords(body, named)];
+}
+
+/**
+ * Answering a card in the room: `A12 yes`, `A12 1`, `A12 "40000"`, `A12 q1="40000"`. That is a decision, not a request. What's
+ * quoted is what a card asks someone to type: one word, or an amount with its currency. A sentence isn't an answer, however it starts:
+ * Switch doesn't consume it, so the room and any agent reading it sees `A1 "please refund order A-2004"` as what it is.
+ */
+const QUOTED_ANSWER = String.raw`"\s*(?:[^"\s]{1,64}|(?:₹|rs\.?|inr)?\s*\d[\d,.]*\s*(?:k|lakh|lac|crore|cr)?\s*(?:rupees|rs\.?|inr)?)\s*"`;
+const CARD_ANSWER = new RegExp(String.raw`^\s*A\d+(\s+(yes|no|\d+|${QUOTED_ANSWER}|\w+=${QUOTED_ANSWER}))?\s*$`, "i");
 
 /** When it was sent, as far as anyone says. Switch gives 0 when it doesn't know, and arrival time then stands in. */
 const sentAt = (evt: ChatMessageEvent): number | null => (evt.timestampMs > 0 ? evt.timestampMs : null);
@@ -90,19 +114,23 @@ export class RequesterTracker {
    * and a name we can't place is noted for what it might be. It counts whatever else the message names. `roles` are the
    * room's and who holds them, and only widen who counts as asked. Null means Switch couldn't say.
    */
-  observe(evt: ChatMessageEvent, aliases: RoomAliases | null = null, roles: RoomRoles | null = {}): void {
-    if (isUnheldRoleWarning(evt.sender, evt.body)) return;
+  observe(evt: ChatMessageEvent, aliases: RoomAliases | null = null, roles: RoomRoles | null = {}, isRealRequest: (reference: string) => boolean = () => false): void {
+    if (isMentionWarning(evt.sender, evt.body)) return;
     const senderAgent = this.directory.agentForSender(evt.sender, evt.senderName);
     // Before this message counts as its answer: an agent passing a request on hasn't answered the person who gave it.
     const stillWaiting = senderAgent ? this.stillWaitingOn(senderAgent) : [];
     if (senderAgent) this.recordAgentMessage(senderAgent, evt);
     const named = mentionedNames(evt.body);
+    // Switch addresses `see@merges`. An email address only counts when what's after the @ really is someone here.
+    const reached = [...named, ...namesInsideWords(evt.body, named).filter((name) => this.addressesSomeone(name, evt, aliases, roles))];
     // Each agent the message reaches, and whether that's only a guess.
     const mentioned = new Map<string, boolean>();
-    for (const name of named) {
-      const direct = this.directory.agentNamed(name) ?? aliases?.[name.toLowerCase()];
-      const { sure, guessed } = direct ? { sure: [direct], guessed: [] } : this.behindRole(name, evt, roles, senderAgent);
-      for (const agent of guessed) if (!mentioned.has(agent)) mentioned.set(agent, true);
+    for (const name of reached) {
+      const direct = this.directory.agentNamed(name) ?? ownValue(aliases, name.toLowerCase());
+      const { sure, guessed } = this.behindRole(name, evt, roles, senderAgent);
+      // A role can share a name with an agent, and then Switch reaches both.
+      if (direct) sure.push(direct);
+      else for (const agent of guessed) if (!mentioned.has(agent)) mentioned.set(agent, true);
       for (const agent of sure) mentioned.set(agent, false);
     }
     const senderPerson = this.directory.personByParticipant(evt.sender);
@@ -115,7 +143,7 @@ export class RequesterTracker {
       }
     }
     if (mentioned.size === 0) {
-      if (speaking && !this.onlySpeaksToClearance(evt, named)) {
+      if (speaking && !this.onlySpeaksToClearance(evt, named, isRealRequest)) {
         for (const userId of voices) this.recordVoice(evt, userId);
       }
       return;
@@ -123,6 +151,7 @@ export class RequesterTracker {
     for (const [agent, guess] of mentioned) {
       if (agent === senderAgent) continue;
       if (senderAgent) {
+        if (!guess) this.recordAgentAsk(agent, senderAgent, evt);
         // Those it only guesses at stay guesses, whichever agent they've reached, or chat could move a decision through a chain.
         const guesses = new Set([...this.voicesOf(senderAgent), ...stillWaiting]);
         for (const userId of new Set([...this.requestersOf(senderAgent), ...stillWaiting])) this.record(agent, evt, userId, senderAgent, guess || guesses.has(userId));
@@ -149,19 +178,49 @@ export class RequesterTracker {
    */
   private behindRole(name: string, evt: ChatMessageEvent, roles: RoomRoles | null, senderAgent: string | null): { sure: string[]; guessed: string[] } {
     const job = jobRoleNamed(name);
-    const expected = job !== null && this.directory.roomName(evt.roomId) === `#${job.room}` ? job.grantHolders : [];
-    if (roles !== null) return { sure: [...(roles[name.toLowerCase()] ?? []), ...expected], guessed: [] };
+    const holders = ownValue(roles, name.toLowerCase());
+    // Whichever room declares it, the grant's holders are who Clearance would send to pick it up: see `wakeForRole`.
+    const expected = job !== null && (holders !== undefined || this.isJobRoom(job.room, evt)) ? job.grantHolders : [];
+    if (roles !== null) return { sure: [...(holders ?? []), ...expected], guessed: [] };
     const couldBeAnyone = expected.length > 0 || (senderAgent !== null && !this.directory.knowsMention(name));
     return { sure: [...expected], guessed: couldBeAnyone ? this.directory.allAgents() : [] };
+  }
+
+  private isJobRoom(room: string, evt: ChatMessageEvent): boolean {
+    return this.directory.roomName(evt.roomId) === `#${room}`;
+  }
+
+  /** Whether a name inside a word is an agent, an alias or a role in this room, which is when Switch's reading of it reaches someone. */
+  private addressesSomeone(name: string, evt: ChatMessageEvent, aliases: RoomAliases | null, roles: RoomRoles | null): boolean {
+    const lower = name.toLowerCase();
+    if (this.directory.agentNamed(name) || ownValue(aliases, lower) !== undefined || ownValue(roles, lower) !== undefined) return true;
+    const job = jobRoleNamed(name);
+    return job !== null && this.isJobRoom(job.room, evt);
   }
 
   /**
    * A command to Clearance isn't asking anyone else for anything. A request with Clearance's name beside it is still a
    * request, and so is a command with a name in it that could be how an agent is addressed, like a role.
    */
-  private onlySpeaksToClearance(evt: ChatMessageEvent, named: string[]): boolean {
-    if (!isCommandToClearance(evt)) return false;
+  private onlySpeaksToClearance(evt: ChatMessageEvent, named: string[], isRealRequest: (reference: string) => boolean): boolean {
+    if (!isOnlyACommand(evt, isRealRequest)) return false;
     return named.every((name) => name.toLowerCase() === "clearance" || this.directory.knowsMention(name));
+  }
+
+  /** An agent addressed another. Who, if anyone, is behind that is recorded apart from this: see `agentsAsking`. */
+  private recordAgentAsk(agent: string, byAgent: string, evt: ChatMessageEvent): void {
+    const now = this.clock.nowMs();
+    this.db.prepare(`DELETE FROM agent_asks WHERE at <= ?`).run(now - REQUESTER_WINDOW_MS);
+    this.db.prepare(`INSERT INTO agent_asks (agent, by_agent, room, at) VALUES (?, ?, ?, ?)`).run(agent, byAgent, evt.roomId, now);
+  }
+
+  /**
+   * Agents that addressed this one in the window, directly or through a role. A person on record says someone asked it something,
+   * and not that they asked for this: an agent can hand over work nobody wanted. So nothing runs alone on the strength of it.
+   */
+  agentsAsking(agent: string): string[] {
+    const rows = this.db.prepare(`SELECT DISTINCT by_agent FROM agent_asks WHERE agent = ? AND at > ?`).all(agent, this.clock.nowMs() - REQUESTER_WINDOW_MS) as { by_agent: string }[];
+    return rows.map((row) => row.by_agent);
   }
 
   /** Who spoke where, for as long as that can matter and no longer. Only that: what they said isn't kept. */
@@ -234,6 +293,32 @@ export class RequesterTracker {
       )
       .all({ agent, since: now - REQUESTER_WINDOW_MS, recent: now - IN_ROOM_MS }) as { user_id: string }[];
     return rows.map((row) => row.user_id);
+  }
+
+  /**
+   * People only on record as a guess: they spoke near this agent, or are waiting on it from longer ago. Someone who also named
+   * it in the window isn't a guess, however long they've been waiting as well.
+   */
+  onlyMaybeAsked(agent: string): string[] {
+    const sure = new Set(this.sureRows(agent).map((row) => row.user_id));
+    return [...new Set([...this.voicesOf(agent), ...this.stillWaitingOn(agent)])].filter((id) => !sure.has(id));
+  }
+
+  /**
+   * People on record for this agent, in the window, only because another agent passed them on. They asked that agent something,
+   * and that agent chose to name this one, so it can bring this about for anyone who has spoken to it. Anyone who named this agent
+   * themselves isn't here, so no hand-off can take that away. See `barsThatMoveTheDecision`.
+   */
+  onlyPassedOn(agent: string): string[] {
+    const rows = this.sureRows(agent);
+    const direct = new Set(rows.filter((row) => !row.on_behalf_of || !this.directory.isAgent(row.on_behalf_of)).map((row) => row.user_id));
+    return [...new Set(rows.map((row) => row.user_id))].filter((id) => !direct.has(id));
+  }
+
+  private sureRows(agent: string): { user_id: string; on_behalf_of: string | null }[] {
+    return this.db
+      .prepare(`SELECT user_id, on_behalf_of FROM requesters WHERE agent = ? AND at > ? AND guess = 0`)
+      .all(agent, this.clock.nowMs() - REQUESTER_WINDOW_MS) as { user_id: string; on_behalf_of: string | null }[];
   }
 
   /**

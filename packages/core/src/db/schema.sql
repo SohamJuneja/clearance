@@ -152,6 +152,15 @@ CREATE TABLE IF NOT EXISTS requesters (
 );
 CREATE INDEX IF NOT EXISTS requesters_agent ON requesters (agent, at);
 
+CREATE TABLE IF NOT EXISTS agent_asks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  agent TEXT NOT NULL,
+  by_agent TEXT NOT NULL,
+  room TEXT NOT NULL,
+  at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS agent_asks_agent ON agent_asks (agent, at);
+
 CREATE TABLE IF NOT EXISTS room_voices (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   room TEXT NOT NULL,

@@ -138,13 +138,13 @@ function windowStart(nowMs: number, tz: string): number {
 
 type ActionRow = { cls: string | null; step: string; decision: string; would_decide: string | null; request_id: string | null; request_state: string | null };
 
-/** Tool calls since then, leaving out any on a card still open. A drill has no row here. */
+/** Tool calls since then, leaving out any on a card still open and any the gate refused, which reached nothing. A drill has no row here. */
 function readActions(db: Db, sinceMs: number): ActionRow[] {
   return db
     .prepare(
       `SELECT a.class AS cls, a.step, a.decision, a.would_decide, a.request_id, r.state AS request_state
        FROM actions a LEFT JOIN requests r ON r.id = a.request_id
-       WHERE julianday(a.at) >= julianday(?) AND (r.id IS NULL OR r.state NOT IN (${OPEN_STATES_SQL}))`,
+       WHERE a.step != 'outside_role' AND julianday(a.at) >= julianday(?) AND (r.id IS NULL OR r.state NOT IN (${OPEN_STATES_SQL}))`,
     )
     .all(new Date(sinceMs).toISOString()) as ActionRow[];
 }
@@ -245,7 +245,7 @@ function loadFigures(input: RoiInput, sinceMs: number, actions: ActionRow[]): No
   const { n: noCard } = input.db
     .prepare(
       `SELECT COUNT(*) AS n FROM actions a LEFT JOIN requests r ON r.id = a.request_id
-       WHERE julianday(a.at) >= julianday(?) AND a.step != 'via_gate' AND (r.id IS NULL OR r.state NOT IN (${OPEN_STATES_SQL}))
+       WHERE julianday(a.at) >= julianday(?) AND a.step NOT IN ('via_gate', 'outside_role') AND (r.id IS NULL OR r.state NOT IN (${OPEN_STATES_SQL}))
          AND NOT EXISTS (SELECT 1 FROM routes ro WHERE ro.request_id = a.request_id AND ro.open_state IS NOT 'failed')`,
     )
     .get(new Date(sinceMs).toISOString()) as { n: number };

@@ -56,7 +56,8 @@
     "eval:all": "tsx eval/all.ts",
     "seed:history": "tsx scripts/seed-history.ts",
     "core:start": "tsx --env-file=.env packages/core/src/main.ts",
-    "gate:start": "tsx --env-file=.env packages/gate/src/main.ts"
+    "gate:start": "tsx --env-file=.env packages/gate/src/main.ts",
+    "site:build": "tsx site/build.ts"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

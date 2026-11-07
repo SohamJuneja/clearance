@@ -20,3 +20,10 @@ test-results/
 .claude/worktrees/
 .tmp/
 docs/media/social/
+
+# Design references: notes and captures stay local.
+.design-refs/
+!site/dist/
+site/dist/.vercel/
+site/dist/artifact.html
+site/dist/media/*.mp4

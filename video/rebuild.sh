@@ -24,6 +24,9 @@ python3 cue_fix.py
 python3 "$TOOLS/sfx_synth.py" track sfx_cues.json "$OUT/audio/sfx_track.wav" | tail -1
 mkdir -p "$OUT/tmp"
 (cd film && TMPDIR="$OUT/tmp" npx remotion render src/index.ts Film "$OUT/film-$TAG.mp4" --log=error)
-python3 "$TOOLS/mix.py" mix.json --mux "$OUT/film-$TAG.mp4" "$OUT/clearance-$TAG.mp4" | tail -1
+python3 "$TOOLS/mix.py" mix.json | tail -1
+# The AAC encode lifts true peak about 0.3 dB over the master's -1.5 dBTP; 0.4 dB off keeps the file under it (about -14.8 LUFS).
+ffmpeg -loglevel error -y -i "$OUT/film-$TAG.mp4" -i master.wav -map 0:v -map 1:a -c:v copy -af volume=-0.4dB -c:a aac -b:a 256k \
+  -shortest -movflags +faststart "$OUT/clearance-$TAG.mp4"
 ffmpeg -loglevel error -y -i "$OUT/clearance-$TAG.mp4" -vf scale=1280:-2 -c:v libx264 -crf 28 -preset medium -c:a aac -b:a 128k "$OUT/clearance-$TAG-720p.mp4"
 ls -la "$OUT/clearance-$TAG.mp4" "$OUT/clearance-$TAG-720p.mp4"

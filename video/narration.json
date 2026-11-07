@@ -67,10 +67,10 @@
  {
   "scene": "S07",
   "id": "l08",
-  "caption": "Same refund, with Clearance. The refund is held at the gate, which holds the keys, and a Switch card opens, built from what the agent really ran.",
+  "caption": "Now a refund with Clearance. It's held at the gate, which holds the keys, and a Switch card opens, built from what the agent really ran.",
   "exaggeration": 0.55,
   "cfg": 0.4,
-  "spoken": "Same refund, with Clearance. The refund is held at the gate, which holds the keys, and a Switch card opens, built from what the agent really ran."
+  "spoken": "Now a refund with Clearance. It's held at the gate, which holds the keys, and a Switch card opens, built from what the agent really ran."
  },
  {
   "scene": "S07",
@@ -139,10 +139,10 @@
  {
   "scene": "S14",
   "id": "l17",
-  "caption": "None of this works without Switch. Switch is the room where people and agents meet, and it knows who asked from its own events, never from an agent's words.",
+  "caption": "Clearance is built on Switch. Switch is the room where people and agents meet, and it knows who asked from its own events, never from an agent's words.",
   "exaggeration": 0.65,
   "cfg": 0.35,
-  "spoken": "None of this works without Switch. Switch is the room where people and agents meet, and it knows who asked from its own events, never from an agent's words."
+  "spoken": "Clearance is built on Switch. Switch is the room where people and agents meet, and it knows who asked from its own events, never from an agent's words."
  },
  {
   "scene": "S14",
@@ -187,10 +187,10 @@
  {
   "scene": "S18",
   "id": "l23",
-  "caption": "All 25 attack cases were stopped, on real Switch too. Six independent reviews tried to break it, and every break is fixed.",
+  "caption": "All 25 attack cases were stopped, on real Switch too. Six reviews tried to break it, one by a teammate, and every break is fixed.",
   "exaggeration": 0.6,
   "cfg": 0.35,
-  "spoken": "All 25 attack cases were stopped, on real Switch too. Six independent reviews tried to break it, and every break is fixed."
+  "spoken": "All 25 attack cases were stopped, on real Switch too. Six reviews tried to break it, one by a teammate, and every break is fixed."
  },
  {
   "scene": "S19",

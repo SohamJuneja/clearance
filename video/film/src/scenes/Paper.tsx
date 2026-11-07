@@ -298,7 +298,7 @@ export const LedgerProof: React.FC<LedgerProofProps> = ({ title, metric, rows, f
                     position: "relative" }}>
                     {String(txt)}
                     {j === 1 && Number(v) === 0 && (
-                      <span style={{ position: "absolute", left: 230, top: -18 }}>
+                      <span style={{ position: "absolute", left: -300, top: -20 }}>
                         <Stamp text="NONE" color={T.green} w={190} rot={-10} t={f - a - sec(1.7, fps)} seed={i + 5} />
                       </span>
                     )}

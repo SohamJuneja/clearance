@@ -27,6 +27,10 @@ Clearance is a Switch agent plus a small gate in front of business APIs. The gat
 
 Approval gates decay, so Clearance also measures attention. Practice requests with planted flaws work like phishing tests, a fast approval earns a typed confirmation on the next high-risk card, and an agent can earn autonomy for small refunds from a record that two people sign. One incident takes it away.
 
+Approvers and operators can ask Clearance questions from Claude Code, Claude Desktop or Cursor. `packages/mcp-connector` is a read-only MCP server with six tools: what's pending and who can decide it, what's waiting on you, why a request was held, the recent ledger, whether its hash chain verifies, and a dry run that records nothing. Its routes sit behind Clearance's internal token, which no agent holds, and `@clearance policy test` answers only people on the team, so an agent can't use either to look for a way round a hold. There's no route to approve anything: an answer counts only from Switch's own approval event.
+
+The project page has a "Try it" form that runs Clearance's own classifier and policy engine in the browser, on the demo's policy file: type a command and see whether it's held and who could approve it.
+
 No LLM sits in the decision path. Identity comes from Switch's events, never from an agent's text. If anything needed for a decision is missing, the answer is hold.
 
 ## How it uses Switch
@@ -52,6 +56,8 @@ The scenario we planned didn't happen: the agent attempted the ₹40,000 refund 
 Repo: {{REPO_URL}}
 
 Video: VIDEO_URL
+
+Site: SITE_URL
 
 Blog: BLOG_URL
 

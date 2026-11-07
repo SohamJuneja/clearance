@@ -8,12 +8,31 @@ import json
 import os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-CHAPTERS = [("S00", "The problem, in a minute"), ("S01", "Clearance, built on Switch"), ("S04", "How big this is"),
-            ("S02", "Switch today, without Clearance"), ("S05", "The rule finance already has"), ("S07", "Refunds: whoever asks can't approve"),
-            ("S08", "Code: Switch's room roles route the work"), ("S09", "Deploys: the service owner decides"),
-            ("S10", "Nobody answers: it escalates"), ("S11", "Rubber-stamping: drills and type-to-confirm"),
-            ("S12", "Earned autonomy, signed by two people"), ("S13", "What agents tried"), ("S14", "Switch is the room"),
-            ("S15", "Under the hood"), ("S16", "The rule in the code"), ("S17", "Results, measured with real agents"), ("S21", "Recap")]
+CHAPTERS = [("S00", "Intro"), ("S01", "Clearance, built on Switch"), ("S04", "How big the problem is"),
+            ("S02", "Switch today, without Clearance"), ("S05", "The rule finance already has"), ("S14", "Why Switch matters"),
+            ("S07", "Refunds: whoever asks can't approve"), ("S08", "Code: Switch's room roles route the work"),
+            ("S09", "Deploys: another vendor, same policy"), ("S10", "Nobody answers: it escalates"),
+            ("S11", "Rubber-stamping: drills and type-to-confirm"), ("S12", "Earned autonomy, signed by two people"),
+            ("S13", "Attacks we tested"), ("S15", "Under the hood"), ("S16", "The rule in the code"),
+            ("S17", "Results, measured with real agents"), ("S21", "Recap")]
+MIN_CHAPTER = 10.5  # YouTube ignores chapters under 10 s; the half second covers rounding down to whole seconds
+
+
+def chapters(starts: dict, total: float) -> list:
+    """Chapters in film order; one shorter than YouTube's minimum is joined to the next, so the list stays valid for any voice."""
+    out = sorted(([starts[sid], name] for sid, name in CHAPTERS if sid in starts), key=lambda c: c[0])
+    i = 0
+    while i < len(out):
+        end = out[i + 1][0] if i + 1 < len(out) else total
+        if end - out[i][0] < MIN_CHAPTER and i + 1 < len(out):
+            out[i][1] = f"{out[i][1]} · {out[i + 1][1]}"
+            del out[i + 1]
+        elif end - out[i][0] < MIN_CHAPTER and i > 0:
+            out[i - 1][1] = f"{out[i - 1][1]} · {out[i][1]}"
+            del out[i]
+        else:
+            i += 1
+    return out
 
 
 def stamp(sec: float) -> str:
@@ -24,6 +43,7 @@ def stamp(sec: float) -> str:
 def main() -> None:
     tl = json.load(open(os.path.join(HERE, "narration/timeline.json")))
     starts = {s["id"]: s["start"] for s in tl["scenes"]}
+    total = max(s["start"] + s["duration"] for s in tl["scenes"])
     cited = json.load(open(os.path.join(HERE, "cited.json"), encoding="utf8"))
     lines = [
         "# Upload kit",
@@ -44,9 +64,8 @@ def main() -> None:
         "",
         "Chapters:",
     ]
-    for sid, name in CHAPTERS:
-        if sid in starts:
-            lines.append(f"{stamp(starts[sid])} {name}")
+    for start, name in chapters(starts, total):
+        lines.append(f"{stamp(start)} {name}")
     lines += ["", "Sources for the figures on screen:"]
     for c in cited:
         lines.append(f"- {c['source']}: {c['url']}")

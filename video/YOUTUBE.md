@@ -15,23 +15,18 @@ Code: https://github.com/SohamJuneja/clearance
 Team dellfargo · Flip the Switch hackathon, Track 01
 
 Chapters:
-0:00 The problem, in a minute
-0:31 Clearance, built on Switch
-0:36 How big this is
-0:52 Switch today, without Clearance
-1:10 The rule finance already has
-1:20 Refunds: whoever asks can't approve
-1:39 Code: Switch's room roles route the work
-1:57 Deploys: the service owner decides
-2:11 Nobody answers: it escalates
-2:21 Rubber-stamping: drills and type-to-confirm
-2:36 Earned autonomy, signed by two people
-2:49 What agents tried
-2:58 Switch is the room
-3:12 Under the hood
-3:27 The rule in the code
-3:33 Results, measured with real agents
-3:58 Recap
+0:00 Intro
+0:31 Clearance, built on Switch · How big the problem is
+0:49 Switch today, without Clearance
+1:07 The rule finance already has · Why Switch matters
+1:31 Refunds: whoever asks can't approve
+1:49 Code: Switch's room roles route the work
+2:07 Deploys: another vendor, same policy
+2:20 Nobody answers: it escalates · Rubber-stamping: drills and type-to-confirm
+2:42 Earned autonomy, signed by two people · Attacks we tested
+3:01 Under the hood
+3:16 The rule in the code · Results, measured with real agents
+3:48 Recap
 
 Sources for the figures on screen:
 - Gartner press release, 19 Oct 2026 · survey of 2,000+ CIOs and technology executives: https://finviz.com/news/404098/gartner-says-ai-risk-is-rising-faster-than-ai-value

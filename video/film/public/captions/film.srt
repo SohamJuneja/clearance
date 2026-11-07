@@ -1,13 +1,13 @@
 1
-00:00:31,180 --> 00:00:32,270
+00:00:31,180 --> 00:00:32,250
 This is Clearance,
 
 2
-00:00:32,120 --> 00:00:33,970
+00:00:32,100 --> 00:00:33,970
 built on Switch by team dellfargo.
 
 3
-00:00:36,420 --> 00:00:38,510
+00:00:36,420 --> 00:00:38,490
 AI agents are arriving fast.
 
 4
@@ -23,410 +23,410 @@ to deploy them within a year,
 and only 21% can govern them.
 
 7
-00:00:44,920 --> 00:00:45,690
+00:00:44,820 --> 00:00:45,670
 In one survey,
 
 8
-00:00:45,980 --> 00:00:47,650
+00:00:45,960 --> 00:00:47,650
 80% said their agents had already
 
 9
-00:00:47,500 --> 00:00:49,070
+00:00:47,500 --> 00:00:49,030
 done things nobody intended.
 
 10
-00:00:52,220 --> 00:00:53,790
+00:00:50,080 --> 00:00:51,410
 Here's a team on Switch today.
 
 11
-00:00:54,080 --> 00:00:55,490
+00:00:51,700 --> 00:00:53,130
 Priya asks an agent for a
 
 12
-00:00:55,340 --> 00:00:56,390
+00:00:52,980 --> 00:00:54,030
 ₹40,000 refund,
 
 13
-00:00:56,240 --> 00:00:58,090
+00:00:53,880 --> 00:00:55,630
 and a native approval card opens.
 
 14
-00:00:59,380 --> 00:00:59,930
+00:00:57,000 --> 00:00:57,570
 Priya asked,
 
 15
-00:01:00,140 --> 00:01:00,930
+00:00:57,740 --> 00:00:58,550
 so Priya approves.
 
 16
-00:01:00,780 --> 00:01:02,230
+00:00:58,400 --> 00:00:59,810
 And the money goes out.
 
 17
-00:01:04,460 --> 00:01:05,930
+00:01:01,880 --> 00:01:03,530
 We ran this with real agents.
 
 18
-00:01:06,200 --> 00:01:07,510
+00:01:03,780 --> 00:01:05,150
 That refund still went out in
 
 19
-00:01:07,360 --> 00:01:08,290
+00:01:05,000 --> 00:01:05,910
 6 of 8 runs.
 
 20
-00:01:10,540 --> 00:01:12,190
+00:01:08,220 --> 00:01:09,830
 Finance fixed this long ago:
 
 21
-00:01:12,480 --> 00:01:14,230
+00:01:10,100 --> 00:01:11,870
 whoever asks for a payment can't
 
 22
-00:01:14,080 --> 00:01:14,930
+00:01:11,720 --> 00:01:12,490
 approve it.
 
 23
-00:01:16,300 --> 00:01:17,690
+00:01:13,920 --> 00:01:15,330
 Clearance brings that rule to every
 
 24
-00:01:17,540 --> 00:01:18,470
+00:01:15,180 --> 00:01:16,110
 agent on Switch.
 
 25
-00:01:20,620 --> 00:01:21,410
-Same refund,
+00:01:18,140 --> 00:01:19,550
+Clearance is built on Switch.
 
 26
-00:01:21,260 --> 00:01:22,190
-with Clearance.
-
-27
-00:01:22,600 --> 00:01:23,810
-The refund is held at the gate,
-
-28
-00:01:23,660 --> 00:01:24,790
-which holds the keys,
-
-29
-00:01:24,640 --> 00:01:25,890
-and a Switch card opens,
-
-30
-00:01:25,740 --> 00:01:27,590
-built from what the agent really ran.
-
-31
-00:01:28,820 --> 00:01:30,110
-Priya presses the Approve button.
-
-32
-00:01:30,540 --> 00:01:31,470
-Clearance refuses her,
-
-33
-00:01:31,320 --> 00:01:32,210
-right in the room,
-
-34
-00:01:32,060 --> 00:01:32,970
-because she asked.
-
-35
-00:01:33,340 --> 00:01:34,750
-Sam in finance sees a payment
-
-36
-00:01:34,600 --> 00:01:36,010
-ID added minutes ago,
-
-37
-00:01:35,860 --> 00:01:36,990
-and says no.
-
-38
-00:01:40,080 --> 00:01:41,490
-Code works the same way.
-
-39
-00:01:41,960 --> 00:01:43,350
-Priya asks the wrong agent to
-
-40
-00:01:43,200 --> 00:01:44,250
-merge a pull request.
-
-41
-00:01:44,600 --> 00:01:45,650
-The gate refuses it,
-
-42
-00:01:45,500 --> 00:01:46,930
-and the agent hands the job
-
-43
-00:01:46,780 --> 00:01:48,110
-to the merges role in Switch.
-
-44
-00:01:48,960 --> 00:01:50,670
-The coding agent's merge is held,
-
-45
-00:01:50,820 --> 00:01:51,870
-the card goes to Dev,
-
-46
-00:01:51,960 --> 00:01:53,270
-and Priya is refused again.
-
-47
-00:01:57,780 --> 00:01:59,970
-An OpenCode agent tries to deploy
-
-48
-00:01:59,820 --> 00:02:00,950
-with two failing checks.
-
-49
-00:02:01,200 --> 00:02:01,810
-Same policy,
-
-50
-00:02:02,020 --> 00:02:02,570
-different vendor.
-
-51
-00:02:02,880 --> 00:02:04,090
-The service owner says no.
-
-52
-00:02:11,280 --> 00:02:12,610
-If nobody answers,
-
-53
-00:02:12,820 --> 00:02:14,710
-the card escalates to a backup approver,
-
-54
-00:02:14,560 --> 00:02:15,730
-and nothing moves.
-
-55
-00:02:21,980 --> 00:02:23,270
-People stop reading.
-
-56
-00:02:23,660 --> 00:02:25,190
-So Clearance sends practice requests
-
-57
-00:02:25,040 --> 00:02:26,110
-with a planted flaw,
-
-58
-00:02:25,960 --> 00:02:27,590
-and risky cards make you type
-
-59
-00:02:27,440 --> 00:02:28,770
-a detail from the evidence.
-
-60
-00:02:37,100 --> 00:02:39,070
-Agents can earn small refunds on
-
-61
-00:02:38,920 --> 00:02:39,430
-their own,
-
-62
-00:02:39,280 --> 00:02:40,850
-once two people sign off.
-
-63
-00:02:41,020 --> 00:02:42,410
-One incident takes that away.
-
-64
-00:02:49,340 --> 00:02:51,010
-And when an agent tries a trick,
-
-65
-00:02:51,140 --> 00:02:52,310
-like a fake pre-approval,
-
-66
-00:02:52,460 --> 00:02:53,690
-or switching off its own hook,
-
-67
-00:02:53,900 --> 00:02:55,050
-it's held or refused.
-
-68
-00:02:58,560 --> 00:03:00,170
-None of this works without Switch.
-
-69
-00:03:00,540 --> 00:03:01,710
+00:01:20,220 --> 00:01:21,210
 Switch is the room where people
 
-70
-00:03:01,560 --> 00:03:02,510
+27
+00:01:21,060 --> 00:01:21,930
 and agents meet,
 
-71
-00:03:02,660 --> 00:03:03,830
+28
+00:01:21,780 --> 00:01:23,130
 and it knows who asked from
 
-72
-00:03:03,680 --> 00:03:04,370
+29
+00:01:22,980 --> 00:01:23,750
 its own events,
 
-73
-00:03:04,660 --> 00:03:05,790
+30
+00:01:23,980 --> 00:01:25,030
 never from an agent's words.
 
-74
-00:03:06,820 --> 00:03:08,690
+31
+00:01:26,140 --> 00:01:28,010
 It gives every decision a native card,
 
-75
-00:03:09,020 --> 00:03:10,530
+32
+00:01:28,300 --> 00:01:29,850
 every approver a direct room,
 
-76
-00:03:10,660 --> 00:03:11,810
+33
+00:01:29,940 --> 00:01:31,090
 and every job a role.
 
-77
-00:03:12,700 --> 00:03:13,650
+34
+00:01:32,420 --> 00:01:33,870
+Now a refund with Clearance.
+
+35
+00:01:34,180 --> 00:01:35,090
+It's held at the gate,
+
+36
+00:01:34,940 --> 00:01:36,110
+which holds the keys,
+
+37
+00:01:35,960 --> 00:01:37,390
+and a Switch card opens,
+
+38
+00:01:37,240 --> 00:01:38,990
+built from what the agent really ran.
+
+39
+00:01:40,160 --> 00:01:41,510
+Priya presses the Approve button.
+
+40
+00:01:41,920 --> 00:01:42,850
+Clearance refuses her,
+
+41
+00:01:42,700 --> 00:01:43,590
+right in the room,
+
+42
+00:01:43,440 --> 00:01:44,350
+because she asked.
+
+43
+00:01:44,920 --> 00:01:46,130
+Sam in finance sees a payment
+
+44
+00:01:45,980 --> 00:01:47,390
+ID added minutes ago,
+
+45
+00:01:47,240 --> 00:01:48,370
+and says no.
+
+46
+00:01:49,860 --> 00:01:51,350
+Code works the same way.
+
+47
+00:01:51,780 --> 00:01:53,150
+Priya asks the wrong agent to
+
+48
+00:01:53,000 --> 00:01:54,030
+merge a pull request.
+
+49
+00:01:54,420 --> 00:01:55,470
+The gate refuses it,
+
+50
+00:01:55,320 --> 00:01:56,730
+and the agent hands the job
+
+51
+00:01:56,580 --> 00:01:57,910
+to the merges role in Switch.
+
+52
+00:01:58,800 --> 00:02:00,510
+The coding agent's merge is held,
+
+53
+00:02:00,720 --> 00:02:01,710
+the card goes to Dev,
+
+54
+00:02:01,820 --> 00:02:03,130
+and Priya is refused again.
+
+55
+00:02:07,720 --> 00:02:09,770
+An OpenCode agent tries to deploy
+
+56
+00:02:09,620 --> 00:02:10,770
+with two failing checks.
+
+57
+00:02:11,000 --> 00:02:11,610
+Same policy,
+
+58
+00:02:11,780 --> 00:02:12,390
+different vendor.
+
+59
+00:02:12,640 --> 00:02:13,870
+The service owner says no.
+
+60
+00:02:19,960 --> 00:02:21,610
+If nobody answers,
+
+61
+00:02:21,840 --> 00:02:23,730
+the card escalates to a backup approver,
+
+62
+00:02:23,580 --> 00:02:24,730
+and nothing moves.
+
+63
+00:02:28,860 --> 00:02:29,750
+People stop reading.
+
+64
+00:02:30,140 --> 00:02:31,710
+So Clearance sends practice requests
+
+65
+00:02:31,560 --> 00:02:32,610
+with a planted flaw,
+
+66
+00:02:32,460 --> 00:02:34,090
+and risky cards make you type
+
+67
+00:02:33,940 --> 00:02:35,250
+a detail from the evidence.
+
+68
+00:02:42,780 --> 00:02:44,770
+Agents can earn small refunds on
+
+69
+00:02:44,620 --> 00:02:45,150
+their own,
+
+70
+00:02:45,000 --> 00:02:46,530
+once two people sign off.
+
+71
+00:02:46,740 --> 00:02:48,150
+One incident takes that away.
+
+72
+00:02:52,500 --> 00:02:54,190
+And when an agent tries a trick,
+
+73
+00:02:54,340 --> 00:02:55,490
+like a fake pre-approval,
+
+74
+00:02:55,340 --> 00:02:56,890
+or switching off its own hook,
+
+75
+00:02:57,000 --> 00:02:58,250
+it's held or refused.
+
+76
+00:03:01,520 --> 00:03:02,450
 Under the hood,
 
-78
-00:03:13,760 --> 00:03:14,950
+77
+00:03:02,560 --> 00:03:03,750
 the agent's hook and the gate
 
-79
-00:03:14,800 --> 00:03:16,270
+78
+00:03:03,600 --> 00:03:05,090
 send every risky call to Clearance.
 
-80
-00:03:16,500 --> 00:03:17,690
+79
+00:03:05,300 --> 00:03:06,510
 A policy file decides,
 
-81
-00:03:17,540 --> 00:03:19,190
+80
+00:03:06,360 --> 00:03:07,990
 with no AI in the decision.
 
-82
-00:03:20,540 --> 00:03:21,530
+81
+00:03:09,320 --> 00:03:10,330
 Switch delivers the card.
 
-83
-00:03:21,860 --> 00:03:24,050
+82
+00:03:10,640 --> 00:03:12,850
 The gate runs exactly that call, once.
 
-84
-00:03:24,360 --> 00:03:26,470
+83
+00:03:13,160 --> 00:03:15,270
 And everything lands on a hash-chained ledger.
 
-85
-00:03:27,920 --> 00:03:29,210
+84
+00:03:16,660 --> 00:03:18,030
 Here's the rule in our code:
 
-86
-00:03:29,380 --> 00:03:31,250
+85
+00:03:18,180 --> 00:03:20,050
 whoever asked is taken out before
 
-87
-00:03:31,100 --> 00:03:32,050
+86
+00:03:19,900 --> 00:03:20,890
 anyone is chosen.
 
-88
-00:03:33,280 --> 00:03:34,950
+87
+00:03:22,140 --> 00:03:23,770
 We measured it with real agents.
 
-89
-00:03:35,440 --> 00:03:37,650
+88
+00:03:24,240 --> 00:03:26,350
 Risky actions without the right approver: Claude,
 
-90
-00:03:37,500 --> 00:03:39,130
+89
+00:03:26,440 --> 00:03:27,870
 5 of 20 without Clearance,
 
-91
-00:03:39,260 --> 00:03:40,030
+90
+00:03:28,120 --> 00:03:28,810
 0 with it.
 
-92
-00:03:40,220 --> 00:03:40,770
+91
+00:03:29,000 --> 00:03:29,550
 OpenCode,
 
-93
-00:03:40,620 --> 00:03:41,650
+92
+00:03:29,400 --> 00:03:30,430
 13 of 18,
 
-94
-00:03:41,720 --> 00:03:42,370
+93
+00:03:30,280 --> 00:03:31,150
 down to 0.
 
-95
-00:03:43,520 --> 00:03:45,630
+94
+00:03:32,380 --> 00:03:34,470
 All 25 attack cases were stopped,
 
-96
-00:03:45,760 --> 00:03:46,710
+95
+00:03:34,320 --> 00:03:35,670
 on real Switch too.
 
+96
+00:03:36,060 --> 00:03:37,530
+Six reviews tried to break it,
+
 97
-00:03:47,140 --> 00:03:49,030
-Six independent reviews tried to break it,
+00:03:37,580 --> 00:03:38,350
+one by a teammate,
 
 98
-00:03:49,040 --> 00:03:50,150
+00:03:38,560 --> 00:03:39,770
 and every break is fixed.
 
 99
-00:03:51,260 --> 00:03:52,890
+00:03:40,920 --> 00:03:42,630
 It also holds some harmless work.
 
 100
-00:03:53,080 --> 00:03:53,830
+00:03:42,840 --> 00:03:43,570
 That's the cost,
 
 101
-00:03:54,040 --> 00:03:54,830
+00:03:43,760 --> 00:03:44,570
 and we publish it,
 
 102
-00:03:54,880 --> 00:03:57,230
+00:03:44,620 --> 00:03:46,930
 along with more than 6,500 passing tests.
 
 103
-00:03:58,840 --> 00:04:00,250
+00:03:48,460 --> 00:03:49,970
 Who asked comes from Switch.
 
 104
-00:04:00,560 --> 00:04:02,190
+00:03:49,820 --> 00:03:51,950
 Who approves comes from the policy.
 
 105
-00:04:02,560 --> 00:04:04,050
+00:03:52,420 --> 00:03:53,810
 The agent never holds the keys.
 
 106
-00:04:05,640 --> 00:04:06,150
+00:03:55,260 --> 00:03:55,890
 Clearance.
 
 107
-00:04:06,580 --> 00:04:08,090
+00:03:56,220 --> 00:03:57,810
 The person who asks can't be
 
 108
-00:04:07,940 --> 00:04:08,710
+00:03:57,660 --> 00:03:58,470
 the one who approves.
 

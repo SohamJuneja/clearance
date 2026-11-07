@@ -10,7 +10,7 @@
  {"scene": "S05", "id": "l07a", "caption": "Finance fixed this long ago: whoever asks for a payment can't approve it.", "exaggeration": 0.65, "cfg": 0.3},
  {"scene": "S06", "id": "l07b", "caption": "Clearance brings that rule to every agent on Switch.", "exaggeration": 0.7, "cfg": 0.3},
 
- {"scene": "S07", "id": "l08", "caption": "Same refund, with Clearance. The refund is held at the gate, which holds the keys, and a Switch card opens, built from what the agent really ran.", "exaggeration": 0.55, "cfg": 0.4},
+ {"scene": "S07", "id": "l08", "caption": "Now a refund with Clearance. It's held at the gate, which holds the keys, and a Switch card opens, built from what the agent really ran.", "exaggeration": 0.55, "cfg": 0.4},
  {"scene": "S07", "id": "l09", "caption": "Priya presses the Approve button. Clearance refuses her, right in the room, because she asked. Sam in finance sees a payment ID added minutes ago, and says no.", "spoken": "Priya presses the Approve button. Clearance refuses her, right in the room, because she asked. Sam in finance sees a payment I D added minutes ago, and says no.", "exaggeration": 0.6, "cfg": 0.35},
 
  {"scene": "S08", "id": "l10", "caption": "Code works the same way. Priya asks the wrong agent to merge a pull request. The gate refuses it, and the agent hands the job to the merges role in Switch.", "exaggeration": 0.55, "cfg": 0.4},
@@ -22,14 +22,14 @@
  {"scene": "S12", "id": "l15", "caption": "Agents can earn small refunds on their own, once two people sign off. One incident takes that away.", "exaggeration": 0.55, "cfg": 0.4},
  {"scene": "S13", "id": "l16", "caption": "And when an agent tries a trick, like a fake pre-approval, or switching off its own hook, it's held or refused.", "exaggeration": 0.6, "cfg": 0.35},
 
- {"scene": "S14", "id": "l17", "caption": "None of this works without Switch. Switch is the room where people and agents meet, and it knows who asked from its own events, never from an agent's words.", "exaggeration": 0.65, "cfg": 0.35},
+ {"scene": "S14", "id": "l17", "caption": "Clearance is built on Switch. Switch is the room where people and agents meet, and it knows who asked from its own events, never from an agent's words.", "exaggeration": 0.65, "cfg": 0.35},
  {"scene": "S14", "id": "l18", "caption": "It gives every decision a native card, every approver a direct room, and every job a role.", "exaggeration": 0.6, "cfg": 0.35},
  {"scene": "S15", "id": "l19", "caption": "Under the hood, the agent's hook and the gate send every risky call to Clearance. A policy file decides, with no AI in the decision.", "spoken": "Under the hood, the agent's hook and the gate send every risky call to Clearance. A policy file decides, with no A I in the decision.", "exaggeration": 0.55, "cfg": 0.4},
  {"scene": "S15", "id": "l20", "caption": "Switch delivers the card. The gate runs exactly that call, once. And everything lands on a hash-chained ledger.", "exaggeration": 0.55, "cfg": 0.4},
  {"scene": "S16", "id": "l21", "caption": "Here's the rule in our code: whoever asked is taken out before anyone is chosen.", "exaggeration": 0.55, "cfg": 0.4},
 
  {"scene": "S17", "id": "l22", "caption": "We measured it with real agents. Risky actions without the right approver: Claude, {{CLAUDE_RISKY_BEFORE}} of {{RISKY_OF}} without Clearance, {{CLAUDE_RISKY_AFTER}} with it. OpenCode, {{OC_RISKY_BEFORE}}, down to {{OC_RISKY_AFTER_N}}.", "spoken": "We measured it with real agents. Risky actions without the right approver: Claude, {{CLAUDE_RISKY_BEFORE}} of {{RISKY_OF}} without Clearance, {{CLAUDE_RISKY_AFTER}} with it. Open Code, {{OC_RISKY_BEFORE}}, down to {{OC_RISKY_AFTER_N}}.", "exaggeration": 0.6, "cfg": 0.35},
- {"scene": "S18", "id": "l23", "caption": "All {{E1_PREVENTED}} attack cases were stopped, on real Switch too. Six independent reviews tried to break it, and every break is fixed.", "exaggeration": 0.6, "cfg": 0.35},
+ {"scene": "S18", "id": "l23", "caption": "All {{E1_PREVENTED}} attack cases were stopped, on real Switch too. Six reviews tried to break it, one by a teammate, and every break is fixed.", "exaggeration": 0.6, "cfg": 0.35},
  {"scene": "S19", "id": "l24", "caption": "It also holds some harmless work. That's the cost, and we publish it, along with more than {{TESTS_FLOOR}} passing tests.", "spoken": "It also holds some harmless work. That's the cost, and we publish it, along with more than six and a half thousand passing tests.", "exaggeration": 0.55, "cfg": 0.4},
 
  {"scene": "S21", "id": "l25", "caption": "Who asked comes from Switch. Who approves comes from the policy. The agent never holds the keys.", "exaggeration": 0.65, "cfg": 0.35},

@@ -122,7 +122,7 @@ export const Screen: React.FC<{
       {fast && (
         <div style={{ position: "absolute", right: T.safeX + 20, top: 52, fontFamily: T.monoFont, fontWeight: 600, fontSize: 26, letterSpacing: 1,
           color: T.ink, background: T.canary, border: `2px solid ${T.ink}`, padding: "8px 16px" }}>
-          ▶▶ {Math.round(fast.speed)}× while the agent works
+          ▶▶ {fast.speed >= 3 ? Math.round(fast.speed) : fast.speed.toFixed(1)}× speed
         </div>
       )}
       {note && (

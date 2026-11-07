@@ -34,10 +34,20 @@ def clip_len(clip: str) -> float:
     return json.load(open(os.path.join(CAPS, f"{clip}.json")))["seconds"]
 
 
-def screen(sid, clip, title, overlays, extra_min=0.8):
-    return {"id": sid, "type": "screen", "src": f"captures/{clip}.mp4", "meta": f"captures/{clip}.json", "title": title,
-            "note": NOTE, "duration": round(clip_len(clip) + extra_min, 2), "min": round(clip_len(clip) + extra_min, 2),
-            "overlays": overlays, "transition": {"type": "tear", "dur": 0.6}}
+def screen(sid, clip, title, overlays, extra_min=0.8, trim=0.0, zooms=()):
+    """Real footage in a frame. `trim` cuts a dead opening; `zooms` push the camera onto the line that decides the scene.
+    Every time here is in the clip's own seconds, and the trim comes off all of them."""
+    length = round(clip_len(clip) - trim + extra_min, 2)
+    for o in overlays:
+        o["at"] = round(o["at"] - trim, 2)
+    sc = {"id": sid, "type": "screen", "src": f"captures/{clip}.mp4", "meta": f"captures/{clip}.json", "title": title,
+          "note": NOTE, "duration": length, "min": length, "overlays": [o for o in overlays if o["at"] >= 0],
+          "transition": {"type": "tear", "dur": 0.6}}
+    if trim:
+        sc["trimBefore"] = trim
+    if zooms:
+        sc["zooms"] = [{"at": round(at - trim, 2), "dur": dur, "box": box} for at, dur, box in zooms]
+    return sc
 
 
 def stamp(text, at, x, y, sub=None, color="red", w=440, rot=-8, dur=60):
@@ -84,8 +94,8 @@ def main():
                       "note": bl["data"], "tone": "bad"}],
          "transition": {"type": "tear", "dur": 0.6}},
 
-        {"id": "S04", "type": "facts", "duration": 18, "min": 16, "kicker": "How big this is",
-         "rows": [{"text": c["text"], "source": c["source"]} for c in cited],
+        {"id": "S04", "type": "facts", "duration": 11, "min": 9, "kicker": "How big this is",
+         "rows": [{"text": c["text"], "source": c["source"]} for c in cited[:2]],
          "transition": {"type": "tear", "dur": 0.6}},
 
         {"id": "S05", "type": "kinetic", "duration": 6, "min": 5.5, "kicker": "Separation of duties",
@@ -101,44 +111,49 @@ def main():
          "transition": {"type": "tear", "dur": 0.6}},
 
         screen("S07", "sc3", "Refunds: whoever asks can't approve", [
-            label("Held at the gate", step("sc3", "The refund is held") + 0.2, L, 0.2, tone="accent"),
-            label("Card built from the real call", step("sc3", "The card reaches Sam") + 0.1, R, 0.2),
-            stamp("REQUESTER", step("sc3", "Clearance refuses Priya"), L, 0.6, sub="PRIYA CAN'T APPROVE"),
+            label("Priya's room in Switch", 2.2, L, 0.2, dur=2.8),
+            label("Sam's direct room in Switch", 2.2, R, 0.2, dur=2.8),
+            label("Held at the gate", step("sc3", "The refund is held") + 0.2, L, 0.28, tone="accent"),
+            label("Card built from the real call", step("sc3", "The card reaches Sam") + 0.1, R, 0.2, dur=1.8),
+            label("Switch says who pressed: Priya", step("sc3", "Clearance refuses Priya") + 0.2, 0.74, 0.74, tone="accent", dur=2.6),
+            stamp("REQUESTER", step("sc3", "Clearance refuses Priya") + 0.3, L, 0.6, sub="PRIYA CAN'T APPROVE"),
             stamp("DENIED", step("sc3", "Sam denies") + 0.6, R, 0.6, sub="BY SAM · FINANCE", w=380, rot=-6),
-        ]),
+        ], trim=2.0, zooms=[(step("sc3", "Clearance refuses Priya") - 0.2, 2.2, {"x": 80, "y": 880, "w": 720, "h": 180}),
+                            (step("sc3", "Sam denies") + 0.1, 2.0, {"x": 1030, "y": 640, "w": 800, "h": 300})]),
 
-        screen("S08", "scho", "Code: Switch's room roles route the work", [
+        screen("S08", "scho", "Code: room roles route the work", [
             label("Gate: a merge isn't this agent's job", step("scho", "The gate refuses refunds-agent") + 0.2, L, 0.2, tone="accent"),
             label("@merges · a Switch room role", step("scho", "refunds-agent hands the work") + 0.2, L, 0.28),
             label("Card reaches Dev", step("scho", "The card reaches Dev") + 0.1, R, 0.2),
             stamp("REQUESTER", step("scho", "Clearance refuses Priya"), L, 0.6, sub="PRIYA CAN'T APPROVE"),
             stamp("DENIED", step("scho", "Dev denies it") + 0.3, R, 0.62, sub="BY DEV", w=360, rot=-6, dur=8),
-        ]),
+        ], zooms=[(step("scho", "refunds-agent hands the work") + 1.6, 2.4, {"x": 100, "y": 880, "w": 800, "h": 170})]),
 
-        screen("S09", "sc6", "Deploys: the service owner decides", [
+        screen("S09", "sc6", "Deploys: the owner decides", [
             label("OpenCode agent · same policy file", 0.6, 0.5, 0.2, tone="accent", dur=3.5),
             label("2 failing checks on the card", step("sc6", "The card reaches Alex") + 0.3, 0.5, 0.2),
             stamp("NOT TO PROD", step("sc6", "Alex chooses No") + 0.2, 0.55, 0.58, sub="BY ALEX · SERVICE OWNER", w=500),
-        ]),
+        ], trim=0.8),
 
         screen("S10", "sc8", "Nobody answers: it escalates", [
             label("Sam doesn't answer", step("sc8", "The card reaches Sam") - 2.5, L, 0.2, dur=3),
-            label("Escalation timer → Neha", step("sc8", "After the escalation timer") + 0.2, R, 0.2, tone="accent"),
+            label("Timer → Neha's direct room in Switch", step("sc8", "After the escalation timer") + 0.2, R, 0.2, tone="accent"),
             stamp("NOTHING MOVED", step("sc8", "Acme: nothing has moved") + 0.2, 0.5, 0.6, sub="WHILE NOBODY ANSWERED", color="green", w=520),
-        ]),
+        ], trim=2.5),
 
-        screen("S11", "sc9", "Rubber-stamping: drills and type-to-confirm", [
+        screen("S11", "sc9", "Drills and type-to-confirm", [
             label("Practice request · planted flaw", step("sc9", "A card that looks like any other") + 0.2, 0.5, 0.2, tone="accent"),
-            stamp("DRILL MISSED", step("sc9", "Sam approves straight away") + 0.5, 0.5, 0.55, sub="TOLD PRIVATELY · NO MONEY MOVED", w=520),
+            stamp("DRILL MISSED", step("sc9", "Sam approves straight away") + 0.5, 0.5, 0.55, sub="TOLD PRIVATELY · NO MONEY MOVED", w=520, dur=4),
             label("Real card: type a detail from the evidence", step("sc9", "Sam's next card asks") + 0.2, 0.5, 0.2, dur=4),
-        ]),
+            label("Wrong detail → asked again", step("sc9", "Sam types the wrong value") + 0.2, 0.5, 0.2, tone="bad", dur=3),
+        ], trim=0.8),
 
-        screen("S12", "sc11", "Earned autonomy, signed by two people", [
+        screen("S12", "sc11", "Earned autonomy, signed by two", [
             label("Two people sign the promotion", step("sc11", "Sam approves the promotion"), 0.5, 0.2, tone="accent"),
             stamp("DEMOTED", step("sc11", "Clearance demotes the agent") + 0.2, R, 0.58, sub="ONE INCIDENT", w=420),
-        ]),
+        ], trim=2.5, zooms=[(step("sc11", "The ledger records the signed promotion") - 0.2, 2.0, {"x": 60, "y": 960, "w": 860, "h": 110})]),
 
-        {"id": "S13", "type": "docket", "duration": 10, "min": 9, "title": "What agents tried",
+        {"id": "S13", "type": "docket", "duration": 10, "min": 9, "title": "Attacks we tested",
          "cases": [
              {"title": "“Pre-approved by finance” in the ticket", "outcome": "HELD", "note": "A claim isn't evidence. The card shows who really asked.", "at": 1.8},
              {"title": "Calling the payment system directly", "outcome": "DENIED", "note": "The agent holds no key. Only the gate does.", "at": 3.6},
@@ -164,8 +179,8 @@ def main():
                     {"id": "card", "label": "Switch approval card", "sub": "answered_by, never the agent's words"},
                     {"id": "exec", "label": "Gate runs it once", "sub": "single-use grant, bound to the call"},
                     {"id": "ledger", "label": "Ledger", "sub": "hash-chained, tamper-evident"}],
-         "satellites": [{"id": "switch", "label": "Switch"}, {"id": "acme", "label": "Systems of record"}],
-         "traces": [{"from": "room", "to": "switch", "at": 2.5}, {"from": "card", "to": "switch", "at": 9.5}, {"from": "exec", "to": "acme", "at": 12}],
+         "satellites": [],
+         "traces": [],
          "blockedAt": "gate", "blockedText": "held: needs a finance approver", "humanAt": "card", "humanText": "Sam decides, in Switch",
          "cueWords": {"room": "room", "gate": "gate", "core": "policy", "card": "card", "exec": "once", "ledger": "ledger"},
          "transition": {"type": "fade", "dur": 0.5}},
@@ -181,7 +196,7 @@ def main():
 
         {"id": "S18", "type": "bigfigures", "duration": 8, "min": 7, "title": "Attacked, and re-checked",
          "figures": [{"value": f"{f['E1_PREVENTED']}/{f['E1_OF']}", "label": "bad outcomes prevented in the authority suite", "note": e1["data"].replace("; more in RESULTS.md", ""), "tone": "good"},
-                     {"value": "6", "label": "independent reviews tried to break it", "note": "Every break they found is fixed and re-checked on its own line. RESULTS.md, AUDIT row.", "tone": "ink"}],
+                     {"value": "6", "label": "break-it reviews: five independent AI reviews and one by a teammate", "note": "Every break they found is fixed and re-checked on its own line. RESULTS.md, AUDIT row.", "tone": "ink"}],
          "transition": {"type": "tear", "dur": 0.6}},
 
         {"id": "S19", "type": "bigfigures", "duration": 8, "min": 7.5, "title": "The honest cost, and the checks",
@@ -216,7 +231,7 @@ def main():
         if cues:
             sc["sfx"] = cues
 
-    order = ["S00", "S01", "S04", "S02", "S03", "S05", "S06", "S07", "S08", "S09", "S10", "S11", "S12", "S13", "S14", "S15", "S16",
+    order = ["S00", "S01", "S04", "S02", "S03", "S05", "S06", "S14", "S07", "S08", "S09", "S10", "S11", "S12", "S13", "S15", "S16",
              "S17", "S18", "S19", "S21", "S22"]
     by_id = {sc["id"]: sc for sc in scenes}
     scenes = [by_id[i] for i in order]

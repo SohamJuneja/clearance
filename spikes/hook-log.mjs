@@ -10,7 +10,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { homedir, userInfo } from 'node:os';
 import { parseArgs } from 'node:util';
 
-const LOG = '/home/prashant/projects/Clearance/data/spike-logs/hook-calls.jsonl';
+const LOG = '/home/you/projects/Clearance/data/spike-logs/hook-calls.jsonl';
 const { values, positionals } = parseArgs({
   allowPositionals: true,
   options: { since: { type: 'string' } },

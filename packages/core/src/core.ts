@@ -5,6 +5,7 @@
  * The rule for concurrency: every state change happens in a synchronous SQLite transaction and only then
  * does anything talk to the outside. Two answers arriving together can never both think they decided.
  */
+import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import {
@@ -56,7 +57,7 @@ import {
   type ConfirmField,
 } from "./confirm/typed.js";
 import { openDatabase, type Db } from "./db/index.js";
-import { DrillStore, loadFlaws, rollsDrill, type Flaw } from "./drills/library.js";
+import { drillWaitMs, DrillStore, loadFlaws, rollsDrill, type Flaw } from "./drills/library.js";
 import { TimerStore, type TimerRow } from "./escalation/timers.js";
 import { formatMoney, joinNames, oneLine, toNumber } from "./format.js";
 import { GrantStore } from "./grants/grants.js";
@@ -104,6 +105,8 @@ export type CoreDeps = {
   rollDrills?: boolean;
   /** CLEARANCE_DRILL_RATE: replaces the policy's rate for natural drills, so a take can be reproducible. */
   drillRate?: number | undefined;
+  /** Tests only, so a roll comes out the same each run. Otherwise it's this install's own, from its database. */
+  drillSeed?: string;
   chat: ChatPort;
   gate: GatePort;
   lookup: LookupPort;
@@ -359,6 +362,8 @@ export class Clearance implements ClearanceCore {
   private readonly aliasCache = new Map<string, { aliases: RoomAliases; atMs: number }>();
   private readonly switchLate = new Map<string, number>();
   private readonly lastRoleWake = new Map<string, number>();
+  /** Not kept over a restart: a drill that's lost costs nothing, and no one was waiting for it. */
+  private drillsDue: { personId: string; atMs: number }[] = [];
   private readonly reach: AgentReachCheck;
   private turns: Promise<unknown> = Promise.resolve();
 
@@ -1283,6 +1288,7 @@ export class Clearance implements ClearanceCore {
         if (!request.isDrill) await this.routeAndOpen(request, request.state === "HELD" ? "primary" : "reroute");
       }
       for (const timer of timers.due(now)) await this.fireEscalation(timer);
+      await this.sendDueDrills(now);
       for (const request of requests.listInState(["APPROVED", "BREAK_GLASS"])) await this.retryExecution(request);
       for (const request of requests.listInState(["OUTCOME_UNKNOWN"])) await this.lookAgain(request);
       for (const row of routes.staleReviews(now)) await this.closeOpenCards(requests.require(row.request_id));
@@ -1710,9 +1716,29 @@ export class Clearance implements ClearanceCore {
   private async maybeRollDrill(request: RequestRecord): Promise<void> {
     const settings = this.currentPolicy.file.drills;
     if (this.deps.rollDrills === false || !settings || !this.classOf(request.cls)?.drills) return;
-    if (!rollsDrill(request.id, this.currentPolicy.hash, this.deps.drillRate ?? settings.rate)) return;
+    const seed = this.deps.drillSeed ?? this.drillSeed();
+    if (!rollsDrill(request.id, seed, this.deps.drillRate ?? settings.rate)) return;
     const approver = this.traces.latest(request.id)?.chosen[0];
-    if (approver) await this.sendDrill(approver);
+    if (!approver) return;
+    this.drillsDue.push({ personId: approver, atMs: this.deps.clock.nowMs() + this.deps.clock.scaledMs(drillWaitMs(request.id, seed)) });
+  }
+
+  /** This install's own: see `rollsDrill`. */
+  private drillSeed(): string {
+    const { db } = this.stores;
+    const row = db.prepare(`SELECT value FROM meta WHERE key = 'drill_seed'`).get() as { value: string } | undefined;
+    if (row) return row.value;
+    const seed = randomBytes(32).toString("hex");
+    db.prepare(`INSERT INTO meta (key, value) VALUES ('drill_seed', ?)`).run(seed);
+    return seed;
+  }
+
+  /** The limits are read when it goes, not when it rolled: someone may have had one since, or an incident may have opened. */
+  private async sendDueDrills(now: number): Promise<void> {
+    const due = this.drillsDue.filter((drill) => drill.atMs <= now);
+    if (due.length === 0) return;
+    this.drillsDue = this.drillsDue.filter((drill) => drill.atMs > now);
+    for (const drill of due) await this.sendDrill(drill.personId);
   }
 
   /** Sends one person a practice request. Everything that would stop it says why, in words. */

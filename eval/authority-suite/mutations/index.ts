@@ -174,8 +174,13 @@ export const MUTATIONS: Mutation[] = [
     expect: "flips",
     policy: [
       { find: "      - { file_write: '(^|/)\\.(claude|codex|opencode|cursor)/' }\n", replace: "" },
+      { find: "      - { file_write: '(^|/)(bin/(clearance-hook|mcp-headers)|opencode\\.json|\\.mcp\\.json)$' }\n", replace: "" },
       {
-        find: "      - { shell: '(^|[\\s/\"''=>])\\.(claude|codex|opencode|cursor)/' }\n",
+        find: "      - { shell: '(^|[\\s/\"''=>])\\.(claude|codex|opencode|cursor)(/|[\\s\"'';&|)]|$)' }\n",
+        replace: "",
+      },
+      {
+        find: "      - { shell: '(^|[\\s/\"''=>])(bin/(clearance-hook|mcp-headers)|opencode\\.json|\\.mcp\\.json)([\\s\"'';&|)]|$)' }\n",
         replace: "",
       },
     ],
@@ -220,13 +225,25 @@ export const MUTATIONS: Mutation[] = [
   {
     id: "f3-xargs-unchecked",
     target: "F3",
-    removes: "the check on what `xargs` and `find -exec` destroy",
+    // Two layers now: the check on what they destroy, and reading what they run as commands in their own right, so `rm -rf` is a
+    // delete wherever it came from. Either alone holds it, so this only flips with both gone.
+    removes: "the check on what `xargs` and `find -exec` destroy, and reading what they run as commands of their own",
     expect: "flips",
     source: [
       {
         file: SHELL,
         find: `if (DESTROYS_ITS_TARGET.has(name) && (carried.by === "xargs" || words.slice(1).some(has))) {`,
         replace: "if (false) {",
+      },
+      {
+        file: SHELL,
+        find: `if (name === "find" && !this.readFindChildren(rest, kept, builder)) return;`,
+        replace: "",
+      },
+      {
+        file: SHELL,
+        find: "const wrapper = word.dynamic ? undefined : ownValue(WRAPPERS, runner);",
+        replace: `const wrapper = word.dynamic || runner === "xargs" ? undefined : ownValue(WRAPPERS, runner);`,
       },
     ],
   },

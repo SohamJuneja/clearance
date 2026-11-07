@@ -21,6 +21,7 @@ export interface NumberSources {
     fourth_review: { passed: number; total: number };
     /** Optional only because result files from before it was run don't have one. A draft that names it then won't fill. */
     fifth_review?: { passed: number; total: number; breaks?: number };
+    sixth_review?: { passed: number; total: number; breaks?: number };
   };
   autonomy: {
     synthetic: boolean;
@@ -69,6 +70,9 @@ export function valuesFrom(sources: NumberSources): Record<string, string> {
   if (authority.fourth_review.passed !== authority.fourth_review.total) {
     throw new Error(`fourth review: ${authority.fourth_review.passed} of ${authority.fourth_review.total} pass, and the drafts say all are fixed`);
   }
+  if (authority.sixth_review && authority.sixth_review.passed !== authority.sixth_review.total) {
+    throw new Error(`sixth review: ${authority.sixth_review.passed} of ${authority.sixth_review.total} pass, and the drafts say all are fixed`);
+  }
   if (authority.fifth_review && authority.fifth_review.passed !== authority.fifth_review.total) {
     throw new Error(`fifth review: ${authority.fifth_review.passed} of ${authority.fifth_review.total} pass, and the drafts say all are fixed`);
   }
@@ -84,6 +88,7 @@ export function valuesFrom(sources: NumberSources): Record<string, string> {
     THIRD_REVIEW_BREAKS: String(authority.third_review.total),
     FOURTH_REVIEW_BREAKS: String(authority.fourth_review.total),
     ...(authority.fifth_review ? { FIFTH_REVIEW_BREAKS: String(authority.fifth_review.breaks ?? authority.fifth_review.total) } : {}),
+    ...(authority.sixth_review ? { SIXTH_REVIEW_BREAKS: String(authority.sixth_review.breaks ?? authority.sixth_review.total) } : {}),
     E6_BEFORE: String(autonomy.human_decisions_per_100.before),
     E6_AFTER: String(autonomy.human_decisions_per_100.after),
     E6_ORIGINAL: String(original.human_decisions_per_100.after),

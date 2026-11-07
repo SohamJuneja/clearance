@@ -1,7 +1,7 @@
 # Spike: what did the isolated-HOME sessions send to the local API stub? Names and counts only.
 import json
 
-rows = [json.loads(line) for line in open('/home/prashant/projects/Clearance/data/spike-logs/anthropic-stub.jsonl')]
+rows = [json.loads(line) for line in open('/home/you/projects/Clearance/data/spike-logs/anthropic-stub.jsonl')]
 print(len(rows), 'requests; paths', sorted({r['path'] for r in rows}))
 for r in [r for r in rows if r['path'].endswith('/v1/messages')][-3:]:
     names = r['tool_names']

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { secretValuesIn } from "./lib/secrets.ts";
-import { filesToPublish, publishResults, secretIn } from "./publish.ts";
+import { filesToPublish, publishResults, secretIn, withoutHome } from "./publish.ts";
 
 describe("what gets published", () => {
   it("is result files", () => {
@@ -21,6 +21,18 @@ describe("what gets published", () => {
 
   it("isn't a probe, or a database, which a secret scan of text can't read", () => {
     expect(filesToPublish(["vendors-probe.json", "e3-corpus.sqlite"])).toEqual([]);
+  });
+});
+
+describe("whose machine ran it", () => {
+  it("stays out of what's published, and where in the home it was stays in", () => {
+    expect(withoutHome('{"cwd":"/home/someone/.switch/agents/m/coder"}', "/home/someone")).toBe('{"cwd":"~/.switch/agents/m/coder"}');
+  });
+  it("takes out every one", () => {
+    expect(withoutHome("/home/someone/a /home/someone/b", "/home/someone")).toBe("~/a ~/b");
+  });
+  it("leaves everything alone when the home is the root, which is in every path", () => {
+    expect(withoutHome("/usr/bin", "/")).toBe("/usr/bin");
   });
 });
 

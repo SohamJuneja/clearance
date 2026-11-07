@@ -74,6 +74,18 @@ function sendReply(reply: FastifyReply, out: GateReply, log: FastifyBaseLogger):
  * A read path may only be segments that stay under Acme's root once decoded. `//` is refused too:
  * it would read as a host if anything downstream ever resolved it as a URL.
  */
+/**
+ * What an agent's token may read: the record it's working on, or a list it has to pick from. Nothing else Acme has, and `/state`
+ * above all, which holds every refund, every email's body and what was deleted. Read decoded, so `%73tate` is `state`, and a path
+ * this doesn't name is refused, not passed on.
+ */
+const READABLE = /^\/(?:orders|customers|tickets|destinations|services|ci|pulls|files)(?:\/|$)|^\/emails\/templates\/?$/;
+
+function isReadable(path: string): boolean {
+  const queryAt = path.indexOf("?");
+  return READABLE.test(decodeURIComponent(queryAt === -1 ? path : path.slice(0, queryAt)));
+}
+
 function safeReadPath(rawUrl: string): string | null {
   const stripped = rawUrl.slice("/acme".length);
   const queryAt = stripped.indexOf("?");
@@ -154,6 +166,7 @@ export function buildGateServer(
   app.get("/acme/*", { onRequest: requireAgent }, async (req, reply) => {
     const path = safeReadPath(req.url);
     if (!path) return reply.status(400).send({ status: "invalid", message: "Bad path." });
+    if (!isReadable(path)) return reply.status(403).send({ status: "denied", message: "An agent can read an order, customer, ticket, destination, service, CI run, pull request, file or email template, and nothing else of Acme's." });
     return sendReply(reply, await service.read(path), req.log);
   });
 

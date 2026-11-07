@@ -78,16 +78,22 @@ describe("CLEARANCE_DRILL_RATE", () => {
       await other.core.cancel(held.request_id as string, null);
     };
     const drills = () => other.core.stores.drills.summary("sam").sent;
+    const later = async () => {
+      other.clock.advance(60 * 60_000);
+      await other.core.tick();
+    };
 
     it("0 means no natural drill, however many holds, where the policy's rate would have sent one", async () => {
       other = makeHarness({ rollDrills: true, drillRate: 0 });
       for (let index = 0; index < 60; index += 1) await hold(index);
+      await later();
       expect(drills()).toBe(0);
     }, 30_000);
 
     it("1 overrides the policy the other way", async () => {
       other = makeHarness({ rollDrills: true, drillRate: 1 });
       await hold(0);
+      await later();
       expect(drills()).toBe(1);
     });
 
@@ -97,9 +103,10 @@ describe("CLEARANCE_DRILL_RATE", () => {
     });
 
     it("unset, the policy's rate applies", async () => {
-      other = makeHarness({ rollDrills: true });
+      other = makeHarness({ rollDrills: true, drillSeed: "a seed that rolls one in sixty" });
       expect(other.core.policy().file.drills?.rate).toBe(0.05);
       for (let index = 0; index < 60; index += 1) await hold(index);
+      await later();
       expect(drills()).toBeGreaterThan(0);
     }, 30_000);
   });
@@ -432,11 +439,17 @@ describe("the rate", () => {
 
   describe("on a real hold", () => {
     const always = () => withPolicy((text) => text.replace("rate: 0.05", "rate: 1"));
+    const later = async () => {
+      h.clock.advance(60 * 60_000);
+      await h.core.tick();
+    };
 
-    it("sends the person routed to a drill alongside it", async () => {
+    it("sends the person routed to a drill a while after it, so the two don't arrive together", async () => {
       h.core.close();
       h = makeHarness({ policyPath: always(), rollDrills: true });
       await h.core.check(gateRefund(REFUND_SC4));
+      expect(h.chat.cards.filter((card) => card.roomId === "dm-sam")).toHaveLength(1);
+      await later();
       expect(h.chat.cards.filter((card) => card.roomId === "dm-sam")).toHaveLength(2);
       expect(h.core.stores.drills.forPerson("sam")).toHaveLength(1);
     });
@@ -446,6 +459,7 @@ describe("the rate", () => {
       h = makeHarness({ policyPath: always(), rollDrills: true });
       await h.core.check(gateRefund(REFUND_SC4));
       await h.core.check(gateRefund({ ...REFUND_SC4, amount: 40001 }));
+      await later();
       expect(h.core.stores.drills.forPerson("sam")).toHaveLength(1);
     });
 
@@ -456,6 +470,7 @@ describe("the rate", () => {
         ...gateRefund(),
         business: { endpoint: "POST /acme/payouts/destinations", args: { customer_id: "cus_1", upi: "a@b" } },
       });
+      await later();
       expect(h.core.stores.drills.forPerson("sam")).toEqual([]);
     });
 
@@ -463,6 +478,7 @@ describe("the rate", () => {
       h.core.close();
       h = makeHarness({ policyPath: withPolicy((text) => text.replace("rate: 0.05", "rate: 0")), rollDrills: true });
       await h.core.check(gateRefund(REFUND_SC4));
+      await later();
       expect(h.core.stores.drills.forPerson("sam")).toEqual([]);
     });
   });

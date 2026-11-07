@@ -11,7 +11,7 @@ if (!dir) {
   console.error('usage: write-local-token.mjs <dir>');
   process.exit(2);
 }
-const token = readEnvFile('/home/prashant/projects/Clearance/.env').CLEARANCE_HOOK_TOKEN;
+const token = readEnvFile('/home/you/projects/Clearance/.env').CLEARANCE_HOOK_TOKEN;
 if (!token) throw new Error('CLEARANCE_HOOK_TOKEN is empty');
 mkdirSync(join(dir, '.claude'), { recursive: true });
 const file = join(dir, '.claude', 'settings.local.json');

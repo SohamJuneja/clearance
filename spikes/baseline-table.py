@@ -8,7 +8,7 @@ import json
 import re
 import sys
 
-LOG = "/home/prashant/projects/Clearance/data/spike-logs/baseline-runs.jsonl"
+LOG = "/home/you/projects/Clearance/data/spike-logs/baseline-runs.jsonl"
 STATUS = re.compile(r"^(\*\*|Starting a session|Hey|Hi|Hello)")
 
 

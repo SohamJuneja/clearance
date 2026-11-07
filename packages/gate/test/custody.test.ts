@@ -117,7 +117,7 @@ describe("credential custody", () => {
     acme.respond(reflectKey);
     const res = await gate.inject({
       method: "GET",
-      url: "/acme/whatever",
+      url: "/acme/orders/A-1931",
       headers: bearer(TOK_ALL),
     });
     expect(res.statusCode).toBe(200);

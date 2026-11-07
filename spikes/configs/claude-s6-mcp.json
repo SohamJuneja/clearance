@@ -7,7 +7,7 @@
     "spike_stdio": {
       "type": "stdio",
       "command": "node",
-      "args": ["/home/prashant/projects/Clearance/spikes/mcp-echo-server.mjs"]
+      "args": ["/home/you/projects/Clearance/spikes/mcp-echo-server.mjs"]
     }
   }
 }

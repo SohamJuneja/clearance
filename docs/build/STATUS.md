@@ -1,12 +1,13 @@
 # STATUS
 
-Updated: Sat Nov 7, 11:40 IST. Freeze Sat 15:00 and submit Sat 20:00 do not move. Soham's repo is the main repo. Its `master` is behind local `main`, and pushing is waiting on the owner's word.
+Updated: Sat Nov 7, after Soham's review. Freeze Sat 15:00 and submit Sat 20:00 do not move. Soham's repo is the main repo. Its `master` is behind local `main`, and pushing is waiting on the owner's word.
 
 Where things stand:
 - **E1:** 25 of 25 isolated, and all 25 also ran on real Switch and Mattermost, with 5 adapted and saying how (`pnpm eval:authority:live`).
 - **E2:** Claude's 120 runs are complete, with G-shadow and C rerun on the final code. OpenCode is partial, because its free tier ran out. It finishes with `--redo C` and `--retry-unfinished` if the limit lifts, and a background check is watching for that.
 - **E3:** a 200-call blind sample is with the owner, for the owner and Soham to label by hand by 13:00.
 - **F24:** Switch room roles say where refused work goes, and decide nothing. Live for the `merges` role.
+- **Sixth review:** a teammate's break-it review (REVIEW.md), on an older commit. Each finding was run again on current code. Twelve breaks fixed, and re-checked in E1 as their own group, with four guards. What runs a hook is now read-only in the fence.
 - **Fifth review:** 14 findings against the newest authority code, two of them self-approval that moves money. Fixed, and re-checked in E1 as its own group. E1 live passes on the fixed code. Waiting on the owner's word to push.
 - **Video:** the script is recut around a real hand-off scene, with cropped cards. Scenes are being re-recorded on the final code. SC6 keeps its earlier take while OpenCode's free tier refuses.
 

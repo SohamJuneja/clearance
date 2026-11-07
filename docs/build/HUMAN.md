@@ -10,6 +10,9 @@ Everything else is being done without you. Tick a box when done (or just tell me
 
 - [x] **0b. Pushed to Soham's repo.** `master` is on our code, with his 5 commits kept and his old code tagged `soham-python-first-cut`. Next: send Soham the message from the chat. Pushes from now on are `git push` from `main`, never `--force`.
 
+- [ ] **Send Soham this, once the fixes are pushed.** His review found real breaks, and a second look at the fixes is worth more than anything else he could do before the freeze.
+  > Your review was really useful, thanks. I reran every finding on current code, since you reviewed `43a468e`. H1 was already closed. H2, H3, M1, M2, M4, L1 and L2 are fixed, and they're re-checked in `pnpm eval:authority --group sixth-review`. M3 isn't real on Mattermost: Switch's adapter returns on anything but `posted` (`mattermost/adapter.py:2766`). The hook files are now read-only in the fence as well as denied, and we found one more ourselves, Claude's machine-wide settings file. REVIEW.md is on master under your name. Could you pull master and try to break the fixes? H2 and the fence matter most. `scripts/check-fence.sh --live` shows what's locked from inside, and the limits we kept are in `docs/threat-model.md`. Then please do your half of the E3 labels if you haven't.
+
 - [ ] **Soham: clear the GitHub billing lock.** Confirmed on the push itself: CI ran no steps, and GitHub says "The job was not started because your account is locked due to a billing issue." That's about his account, not our code, and only he can see or fix it, under Settings, Billing and plans. I've taken the CI badge off the README until it's green, and it isn't a hackathon rule, so this doesn't block submitting. Once it's cleared, either of you can run `gh run rerun 42282158902 -R SohamJuneja/clearance`. Why: a green badge is proof a judge can see, and no rule requires it. Deadline: before Sat 19:00.
 
 - [ ] **Study: Soham recruits, your laptop hosts.** Friday's slot has passed, so it's Sat 09:00-13:00 only. Target 20 sign-ups to land 12 to 16 people. Participants must be 18 or older. Consent is inside the link, so there's no form to set up. Why: the human study is one of the things only we have, and I can't recruit people. His recruitment text:
@@ -17,7 +20,7 @@ Everything else is being done without you. Tick a box when done (or just tell me
 
 - [ ] **Open the study by Sat 08:45, and look at it on your phone first (5 minutes).** My permission check refused the public tunnel, so this one is yours. It only exposes the Lab, and each link is signed. For your own look, use rehearsal mode so nothing counts:
   ```bash
-  cd /home/prashant/projects/Clearance
+  cd ~/projects/Clearance
   STUDY_DRY_RUN=1 STUDY_RESULTS_DIR=/tmp/lab-rehearsal pnpm study:start      # terminal 1, leave it running
   cloudflared tunnel --no-autoupdate --url http://127.0.0.1:7950             # terminal 2, prints an https://...trycloudflare.com address
   pnpm study:links https://THAT-ADDRESS 20                                   # terminal 3, prints the links and sends nothing
@@ -30,7 +33,7 @@ Everything else is being done without you. Tick a box when done (or just tell me
   ```
   Label by hand, with no AI help and no looking at each other's answers. When you've both finished, send me the two `*.labels.jsonl` files. Soham needs the labelling tool, which is on GitHub only after the next push. Why: E3's recall and quiet-share numbers need two people's labels, and nothing else can produce them. Deadline: Sat 13:00.
 
-- [ ] **Listen to the video once, 3 minutes.** `docs/media/raw/clearance-demo.mp4`, the 2:44 cut I sent you. I can read every frame but I can't hear anything, so the offline voice is unchecked by anyone. Tell me if a word is mispronounced, or if it sounds too robotic to use. The agents' words are real, so tell me about anything that reads wrong too, and I'll fix it or say why not.
+- [ ] **Listen to the video once, 3 minutes.** `docs/media/raw/clearance-demo.mp4`, the 2:59 cut I sent you. I can read every frame but I can't hear anything, so the offline voice is unchecked by anyone. Tell me if a word is mispronounced, or if it sounds too robotic to use. The agents' words are real, so tell me about anything that reads wrong too, and I'll fix it or say why not.
 
 - [ ] **Clear our leftover test folders from `/tmp` (1 minute, please do this before anything else).** Our tests left over 13,000 folders there, about 6 GB in RAM-backed storage, which is why the machine ran out of memory at 14:31. The leak is fixed, but my permission check refused the cleanup because `/tmp` is shared. This only removes folders named `clearance-*` that you own and that are over 5 minutes old:
   ```bash

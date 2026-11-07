@@ -1,6 +1,6 @@
 {
   "experiment": "E1-mutations",
-  "measured_at": "2026-11-06T12:27:24.256Z",
+  "measured_at": "2026-11-07T09:01:55.387Z",
   "results": [
     {
       "id": "no-requester-exclusion",
@@ -174,11 +174,12 @@
     {
       "id": "f3-xargs-unchecked",
       "target": "F3",
-      "removes": "the check on what `xargs` and `find -exec` destroy",
+      "removes": "the check on what `xargs` and `find -exec` destroy, and reading what they run as commands of their own",
       "expected": "flips",
       "got": "flips",
       "ok": true,
       "bad_outcomes": [
+        "the hook allowed: find . -exec rm -rf / {} \\;",
         "the hook allowed: echo / | xargs rm -rf"
       ]
     },

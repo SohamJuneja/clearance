@@ -10,6 +10,7 @@
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { withoutHome } from "../publish.ts";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { GATE_GRANTS } from "../../scripts/demo-env.mjs";
@@ -152,7 +153,7 @@ function exportRooms(runs: RunResult[], sinceMs: number | undefined, intents: Re
   });
   const all = [...kept, ...added];
   mkdirSync(RESULTS_DIR, { recursive: true });
-  writeFileSync(TRANSCRIPTS, serialiseTranscripts(all));
+  writeFileSync(TRANSCRIPTS, withoutHome(serialiseTranscripts(all)));
   print(`kept ${added.length} rooms in ${TRANSCRIPTS}, ${redactions} secret values taken out`);
   return all;
 }

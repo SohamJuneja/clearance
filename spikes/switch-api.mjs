@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 
 export const SWITCH_ENV_FILE =
-  process.env.SWITCH_ENV_FILE ?? '/home/prashant/projects/Clearance/vendor/switch/.env';
+  process.env.SWITCH_ENV_FILE ?? '/home/you/projects/Clearance/vendor/switch/.env';
 export const GATEWAY = process.env.SWITCH_GATEWAY_URL ?? 'http://127.0.0.1:3000';
 export const BRIDGE = process.env.SWITCH_BRIDGE_URL ?? 'http://127.0.0.1:8000';
 export const MATTERMOST = process.env.MATTERMOST_URL ?? 'http://127.0.0.1:8065';

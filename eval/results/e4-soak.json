@@ -13,39 +13,39 @@
   "counters": {
     "calls": 7200,
     "byKind": {
-      "hook_safe": 3993,
-      "hook_push": 362,
-      "gate_refund_large": 588,
-      "gate_read": 1046,
-      "gate_refund_small": 726,
-      "hook_curl": 140,
-      "gate_deploy": 345
+      "hook_safe": 3995,
+      "hook_push": 366,
+      "gate_refund_large": 585,
+      "gate_read": 1045,
+      "gate_refund_small": 723,
+      "hook_curl": 139,
+      "gate_deploy": 347
     },
     "byStatus": {
-      "hook allow": 3982,
-      "hook push held": 358,
-      "gate refund 202": 1309,
-      "gate read 200": 1046,
-      "curl denied": 140,
-      "gate deploy 202": 344,
-      "gate refund 503": 5,
-      "gate deploy 503": 1
+      "hook allow": 3979,
+      "hook push held": 366,
+      "gate refund 202": 1306,
+      "gate read 200": 1045,
+      "curl denied": 139,
+      "gate deploy 202": 346,
+      "gate deploy 503": 1,
+      "gate refund 503": 2
     },
-    "riskyWhileDown": 21,
-    "refusedWhileDown": 21,
-    "readsWhileDown": 3,
+    "riskyWhileDown": 19,
+    "refusedWhileDown": 19,
+    "readsWhileDown": 5,
     "answers": {
-      "deny": 719,
-      "approve": 1225,
-      "ignore": 485
+      "deny": 726,
+      "approve": 1249,
+      "ignore": 492
     },
-    "refusedAnswersTried": 730,
+    "refusedAnswersTried": 723,
     "transportErrors": 0
   },
   "chaos": [
     {
       "killed_at_s": 1800,
-      "back_at_s": 1809
+      "back_at_s": 1808
     },
     {
       "killed_at_s": 3600,
@@ -58,34 +58,34 @@
   ],
   "acme": {
     "refunds": 785,
-    "deploys": 199,
-    "money_out": 17207675
+    "deploys": 201,
+    "money_out": 17252991
   },
-  "ledger_entries": 11070,
+  "ledger_entries": 11193,
   "ledger_types": {
     "policy_loaded": 1,
-    "held": 2194,
-    "routed": 2205,
-    "answered": 1967,
-    "denied": 859,
-    "ineligible_answer": 707,
-    "approved": 1248,
-    "executed": 984,
-    "escalated": 418,
-    "grant_consumed": 183,
-    "expired": 304
+    "held": 2220,
+    "routed": 2222,
+    "answered": 2002,
+    "denied": 865,
+    "ineligible_answer": 696,
+    "approved": 1276,
+    "executed": 986,
+    "escalated": 421,
+    "grant_consumed": 202,
+    "expired": 302
   },
   "host_before": {
     "cpu_model": "13th Gen Intel(R) Core(TM) i7-13650HX",
     "logical_cpus": 20,
     "mem_total_gb": 14.8,
-    "mem_available_gb": 5.7,
+    "mem_available_gb": 5.5,
     "swap_total_gb": 18,
-    "swap_used_gb": 6.2,
+    "swap_used_gb": 14.1,
     "load_average": [
-      5.03,
-      9.93,
-      7.67
+      1.27,
+      2.91,
+      2.87
     ],
     "kernel": "Linux version 7.0.0-42-generic"
   },
@@ -93,16 +93,16 @@
     "cpu_model": "13th Gen Intel(R) Core(TM) i7-13650HX",
     "logical_cpus": 20,
     "mem_total_gb": 14.8,
-    "mem_available_gb": 4,
+    "mem_available_gb": 4.2,
     "swap_total_gb": 18,
-    "swap_used_gb": 8.9,
+    "swap_used_gb": 13.5,
     "load_average": [
-      1.78,
-      2.77,
-      3.03
+      1.61,
+      1.36,
+      1.09
     ],
     "kernel": "Linux version 7.0.0-42-generic"
   },
   "note": "Synthetic driver on isolated processes with a fake ChatPort. No agent is involved.",
-  "measured_at": "2026-11-06T04:41:44.301Z"
+  "measured_at": "2026-11-07T08:27:53.205Z"
 }

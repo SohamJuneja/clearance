@@ -5,7 +5,8 @@
  * Tool calls and chat can carry anything, so it stops without writing if a file holds a known secret value or anything
  * shaped like a real key. It names the file and never the value.
  */
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CALLS_FILE, readRunCalls } from "./classifier/store.ts";
@@ -19,6 +20,11 @@ const PUBLISHED = /\.(?:json|jsonl)$/;
 
 export function filesToPublish(names: string[]): string[] {
   return names.filter((name) => PUBLISHED.test(name) && !NOT_PUBLISHED.test(name)).sort();
+}
+
+/** Tool calls carry the working directory, and whose machine ran them isn't a result. `~` still says where in the home it was. */
+export function withoutHome(text: string, home: string = homedir()): string {
+  return home.length > 1 ? text.replaceAll(home, "~") : text;
 }
 
 export function secretIn(text: string, known: string[]): boolean {
@@ -48,8 +54,8 @@ export function publishResults(from: string, to: string, known: string[]): Publi
   const refused = names.filter((name) => secretIn(readFileSync(join(from, name), "utf8"), known));
   if (refused.length > 0) return { copied: [], refused };
   mkdirSync(to, { recursive: true });
-  for (const name of names) copyFileSync(join(from, name), join(to, name));
-  if (calls !== null) writeFileSync(join(to, CALLS_FILE), calls);
+  for (const name of names) writeFileSync(join(to, name), withoutHome(readFileSync(join(from, name), "utf8")));
+  if (calls !== null) writeFileSync(join(to, CALLS_FILE), withoutHome(calls));
   return { copied: calls !== null ? [...names, CALLS_FILE] : names, refused: [] };
 }
 

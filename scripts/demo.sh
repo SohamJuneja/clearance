@@ -125,12 +125,21 @@ check_tools() {
   fi
   check_claude
 }
+CLAUDE_MIN_VERSION=2.1.295
+
 # Found out here or not at all: the machines that run Claude agents can't start without it, so going on would build and
 # enroll everything else and then stop halfway.
 check_claude() {
   local no_agents="To see Clearance with no agents, no key and no LLM: just demo --no-agents"
   if ! command -v claude >/dev/null 2>&1; then
     BLOCKERS+=("Claude Code is not installed, and the agents run on it: npm install -g @anthropic-ai/claude-code. $no_agents")
+    return 1
+  fi
+  # Older ones ignore the hook's `onFailure: block`, so with core down a push would go straight through. Not knowing counts as older.
+  local version
+  version="$(claude --version 2>/dev/null | sed -n 's/^\([0-9][0-9.]*\).*/\1/p' | head -n 1)"
+  if [ -z "$version" ] || [ "$(printf '%s\n%s\n' "$CLAUDE_MIN_VERSION" "$version" | sort -V | head -n 1)" != "$CLAUDE_MIN_VERSION" ]; then
+    BLOCKERS+=("Claude Code ${version:-of an unknown version} doesn't fail closed: it needs $CLAUDE_MIN_VERSION or later, or a hook that can't reach core lets the call through. npm install -g @anthropic-ai/claude-code. $no_agents")
     return 1
   fi
   if [ -n "$(env_value ANTHROPIC_API_KEY)" ]; then
@@ -291,7 +300,11 @@ do_controllers() {
       scripts/setup-controller.sh --machine "$machine" || return 1
     fi
   done
-  # Agents are only created on a machine that has said what it can run.
+  until_machines_report
+}
+# Agents are only created on a machine that has said what it can run.
+until_machines_report() {
+  local _
   for _ in $(seq 1 30); do
     tsx scripts/demo-status.ts machines >/dev/null && return 0
     sleep 2
@@ -321,8 +334,15 @@ check_agents() {
 }
 # That line tells someone running the script by hand to restart core. Here the reset at the end of this run does.
 do_agents() {
+  local machine
   tsx scripts/setup-agents.ts --source acme-mini-app | grep -v '^hook tokens are in' || return 1
-  tsx scripts/setup-baseline.ts
+  tsx scripts/setup-baseline.ts || return 1
+  [ "$CLEARANCE_NO_FENCE" = 1 ] && return 0
+  # A controller started before its agents' folders were filled, so it couldn't mount their hook files read-only. Now it can.
+  for machine in "${MACHINES[@]}"; do
+    scripts/setup-controller.sh --machine "$machine" --restart || return 1
+  done
+  until_machines_report
 }
 
 # ── services: Acme, gate, core, desk ────────────────────────────────────────

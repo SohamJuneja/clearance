@@ -248,6 +248,8 @@ classes:
   protected_config:                    # anti-evasion (F14): never routed, always denied with a reason
     match:
       - { file_write: '(^|/)\.(claude|codex|opencode|cursor)/' }
+      # What runs the hook, or says whether it runs. The fence also mounts these read-only: this is for where there's no fence.
+      - { file_write: '(^|/)(bin/(clearance-hook|mcp-headers)|opencode\.json|\.mcp\.json)$' }
       - { file_write: 'clearance.*\.ya?ml$' }
       - { file_write: '(^|/)\.env' }
       - { file_read: '(^|/)\.env' }
@@ -275,7 +277,8 @@ classes:
       - { shell: '(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]):7800' }
       - { shell: '(^|[\s/"''=<])\.env(\b|\.)' }
       - { shell: '(^|[\s/"''])secrets/' }
-      - { shell: '(^|[\s/"''=>])\.(claude|codex|opencode|cursor)/' }
+      - { shell: '(^|[\s/"''=>])\.(claude|codex|opencode|cursor)(/|[\s"'';&|)]|$)' }
+      - { shell: '(^|[\s/"''=>])(bin/(clearance-hook|mcp-headers)|opencode\.json|\.mcp\.json)([\s"'';&|)]|$)' }
       - { shell: 'clearance[^\s]*\.ya?ml' }
       - { http: '(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]):7800' }
       - { mcp: 'update_agent_detail' }

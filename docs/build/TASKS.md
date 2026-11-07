@@ -127,7 +127,7 @@ Tick a box only when tests or a run prove it. Acceptance text is copied from PLA
 - [ ] **D7** (lead) `docs/threat-model.md`, `docs/architecture.md`, `docs/policy-reference.md`, `docs/built-by-voice.md`.
 - [ ] **D8** (lead) Blog draft, 1,000 to 1,500 words, in HUMAN.md.
 - [ ] **D9** (lead) Three #HowISwitch posts with clips, in HUMAN.md.
-- [ ] **D10** (switchboard) Track 03, now #833 Canva: connector built locally in `/home/prashant/projects/switch-track03`, comment and PR text drafted, go or drop waits on the owner's Canva probe.
+- [ ] **D10** (switchboard) Track 03, now #833 Canva: connector built locally in `~/projects/switch-track03`, comment and PR text drafted, go or drop waits on the owner's Canva probe.
 - [x] **D11** (world-ui, switchboard) Study: recruitment text, consent, sets X and Y, Approval Lab, in-Switch study bot, analysis. Built and rehearsed; no real participant yet.
-- [ ] **D12a** (lead) At release, commit the result files from gitignored `eval/out` to a tracked folder, after a secret scan, so a judge can read what each number came from. The baseline's raw runs are already tracked in `eval/baseline/runs/`.
+- [x] **D12a** (lead) At release, commit the result files from gitignored `eval/out` to a tracked folder, after a secret scan, so a judge can read what each number came from. The baseline's raw runs are already tracked in `eval/baseline/runs/`.
 - [ ] **D13** (lead) `SUBMISSION.md` with every form field. Tag `v1.0.0`. CI green. Fresh-clone `just demo` verified in a clean temp directory.

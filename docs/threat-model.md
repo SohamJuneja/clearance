@@ -38,6 +38,8 @@ What comes after a command on the line isn't bound. Agents really do change the 
 
 The requester comes from Switch's `sender` and `on_behalf_of` fields on message events. The approver comes from `answered_by` on Switch's `approval_outcome` event, resolved through identity claims. Nothing an agent writes can change either one. An answer from an account that maps to no known person is ineligible.
 
+`on_behalf_of` is the one field here that isn't an id. Switch knows who a platform message is for, but passes on only their name, and that name can come from a template's own text, so it's never believed in anyone's favour. The person named can't approve, and the account the message really came from stays on record as well, which makes it two approvers. A sender who is a known account needs neither: they're simply who asked. An edited message can't add a way round this on Mattermost: Switch's adapter at the pinned commit acts only on new posts, so an agent never acts on an edit. Other platforms haven't been checked.
+
 The Clearance agent has its own Switch owner, `clearance-admin`. Two agents with the same owner can change each other's addressing policy, so no persona or Acme agent shares that owner.
 
 When we can't tell exactly who asked, we take the cautious reading: everyone who addressed that agent in the last 10 minutes counts as a requester and can't approve, and so does anyone who spoke in a room the agent has been in within the hour. So does anyone whose message was sent before the hold and arrived after it, and anyone past the 10 minutes who has had no reply from the agent since they asked, for up to an hour. All Clearance can see of an agent's turn is its messages, so an agent that posts progress as it goes ends that second rule early.
@@ -81,13 +83,17 @@ From inside the fence, an agent cannot see:
 - Other machines' agent folders, data folders and homes.
 - The Docker socket, anything else under `/run`, and other processes, including core's and the gate's environments.
 
-Everything else on the host is read-only. Only the machine's own agent folders, data folder and home can be written.
+Everything else on the host is read-only. Only the machine's own agent folders, data folder and home can be written, and even there, what runs an agent's hook is mounted read-only (`FENCE_HOOK_PATHS`): `.claude`, `.codex`, `.cursor`, `.opencode/plugins`, `bin`, `.mcp.json`, `opencode.json`, and Claude's settings for the whole machine, where `disableAllHooks` would switch off every hook on it. The classifier denies these too, for a run with no fence, but it can't know every way of rewriting a file. The kernel doesn't have to.
 
 OpenCode's agent has its own machine, with no Claude or Codex login bound, because a third-party model is on the other end. In one run before the fence, that agent read this repo's scenario script and printed two tokens into its tool output, which is why this exists. The baseline has its own machine too, because its folder holds the Acme admin key on purpose.
 
 ## Where agents can be addressed
 
 Each protected agent can only be addressed in its own rooms, and Switch enforces it. In a listed room it hears the message. A direct message draws "You're not permitted", and the agent hears nothing. A private chat gets a 403. `scripts/setup-world.ts` sets this, by room id, each time rooms are recreated. Clearance can't check another agent's policy from outside, so `just demo --check` checks it as the owner. If a room that holds the agent and not Clearance still exists, such as one from an old direct message, that agent's requests need two approvers until it is archived, which each take does.
+
+## What an agent's token can read
+
+Only what its work needs: an order, customer, ticket, destination, service, CI run, pull request, file or email template. Not Acme's `/state`, which holds every refund and every email's body. It isn't split by class, though: a reviewer's token can read an order. Refusing a read before the agent has even tried the job would take away the refusal that tells it whose job it is (F24), and the writes are what the grants cover.
 
 ## Limits
 
@@ -135,7 +141,7 @@ Each protected agent can only be addressed in its own rooms, and Switch enforces
 
 **An agent can read its machine's controller credential,** which sits in the data folder the controller needs. With it, the agent could speak to Switch as that machine. We have not measured how far that goes.
 
-**An agent can write its own folder and home,** including the hook configuration in its clone. Hooks stay a guardrail for that reason, and the gate stays the boundary. The bare repository standing in for GitHub is writable too, because a local `git push` needs that, so a held push is a guardrail here. With real GitHub, only the gate holds the token.
+**An agent can write its own folder, its home and its machine's data folder,** apart from the files above. So it can't rewrite its hook, but a script could still change what its next session starts with: `controller.env` sets the session's `PATH`, and OpenCode's own folder can be moved away, because OpenCode installs packages there. Hooks stay a guardrail for that reason, and the gate stays the boundary: none of this reaches a refund, a merge or a deploy, which hold no credentials the agent can use. With `--no-fence` the classifier is all that protects the hook files. The bare repository standing in for GitHub is writable too, because a local `git push` needs that, so a held push is a guardrail here. With real GitHub, only the gate holds the token.
 
 **The gate and core run outside the fence as the same OS user.** The fence is what keeps agents from their files. In production, run the gate on another host or as another OS user.
 
@@ -164,6 +170,13 @@ A room Clearance isn't in counts for good once someone has written there. Switch
 A type-to-confirm prompt proves someone read one field. It doesn't prove they thought about it. Drills measure attention, and a drill catch rate from a small group is a pilot number, not a guarantee.
 
 ## What a drill can't hide
+
+A drill can't be worked out in advance, and doesn't arrive with the real card that rolled it: the roll uses a seed only core has, and it waits a random 5 to 45 minutes. A careful approver can still tell one from a real card:
+
+- It has no copy in a team room, because nobody in a room asked for it. A copy there would have people answering a request that doesn't exist.
+- Its order isn't in Acme, and the flaws it's built from are in this repo.
+
+So a drill measures whether someone reads a card they don't suspect. It says less about someone who has read `drills/flaws.yaml`.
 
 A drill answers commands the way a real request does, as far as it can: the same refusals and the same usage lines, for anyone. It has nothing behind it to run or edit, so two answers can still differ:
 

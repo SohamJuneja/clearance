@@ -115,6 +115,8 @@ describe("just demo, at its first step", () => {
     writeFileSync(file, `#!/bin/sh\n${body}\n`);
     chmodSync(file, 0o755);
   };
+  /** Claude Code as it answers `--version`, and `body` for anything else. */
+  const claude = (body: string, version = "2.1.301"): void => stub("claude", `if [ "$1" = --version ]; then echo "${version} (Claude Code)"; exit 0; fi\n${body}`);
 
   const demo = (...args: string[]) => {
     const result = spawnSync("bash", [join(root, "scripts/demo.sh"), ...args], {
@@ -135,7 +137,7 @@ describe("just demo, at its first step", () => {
     copyFileSync(join(HERE, "../justfile"), join(root, "justfile"));
     for (const name of STUBS) stub(name);
     symlinkSync(process.execPath, join(bin, "node"));
-    stub("claude", `echo '{"loggedIn": false}'`);
+    claude(`echo '{"loggedIn": false}'`);
   });
 
   afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -153,6 +155,28 @@ describe("just demo, at its first step", () => {
     expect(output).toContain("claude login");
     expect(output).toContain("just demo --no-agents");
     expect(output).not.toContain("== fetch");
+  });
+
+  it.each(["2.1.294", "2.0.99", "1.9.999"])("won't run Claude Code %s, which ignores a hook's failure rule and so doesn't fail closed", (version) => {
+    writeFileSync(join(root, ".env"), "ANTHROPIC_API_KEY=not-a-real-key\n");
+    claude(`echo '{"loggedIn": false}'`, version);
+    const { status, output } = demo("--check", "--only", "tools");
+    expect(status).toBe(1);
+    expect(output).toContain(`Claude Code ${version} doesn't fail closed`);
+  });
+
+  it("won't run a Claude Code that can't say what it is", () => {
+    writeFileSync(join(root, ".env"), "ANTHROPIC_API_KEY=not-a-real-key\n");
+    stub("claude", `echo nonsense`);
+    const { status, output } = demo("--check", "--only", "tools");
+    expect(status).toBe(1);
+    expect(output).toContain("of an unknown version");
+  });
+
+  it.each(["2.1.295", "2.1.301", "2.2.0", "3.0.0", "2.1.1000"])("takes Claude Code %s", (version) => {
+    writeFileSync(join(root, ".env"), "ANTHROPIC_API_KEY=not-a-real-key\n");
+    claude(`echo '{"loggedIn": false}'`, version);
+    expect(demo("--check", "--only", "tools").status).toBe(0);
   });
 
   it("says the same from --check, which is the first thing the README suggests", () => {
@@ -194,7 +218,7 @@ describe("just demo, at its first step", () => {
   });
 
   it("takes a login with no file behind it only with --no-fence, as macOS keeps it in the keychain", () => {
-    stub("claude", `echo '{"loggedIn": true}'`);
+    claude(`echo '{"loggedIn": true}'`);
     expect(demo("--check", "--only", "tools").status).toBe(1);
     const unfenced = demo("--check", "--no-fence", "--only", "tools");
     expect(unfenced.status).toBe(0);

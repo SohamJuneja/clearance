@@ -71,7 +71,7 @@ We could still lose: one PR is chosen, it's P3, and others are looking at the sa
 
 ## The code
 
-**Clone:** `/home/prashant/projects/switch-track03`, from `main` at `13f6a2c8`.
+**Clone:** `~/projects/switch-track03`, from `main` at `13f6a2c8`.
 **Branch:** `canva-connection`, one local commit. Its remote is upstream, read-only: nothing has been forked or pushed.
 
 | File | What |
@@ -129,10 +129,10 @@ Then tell the agent the tool list, and which tools need more than these scopes. 
 **2. Stack.** The connector guide wants this done from Switch Console, against a server running this branch. **It can't run beside the live demo stack**: `deploy/local/docker-compose.yml` fixes ports 5432 and 8065, and Core takes 8000. So do it when nobody is recording or running the demo, stop the demo stack first, and bring it back afterwards. The machine has run out of memory before: check `free -g` shows at least 4 GB available. Skip `just up`, which builds images and starts Mattermost. A Switch chat is a room, so Postgres is enough. **None of this has been run.**
 
 ```bash
-cd /home/prashant/projects/switch-track03
+cd ~/projects/switch-track03
 just init-env
 # In .env: FEATURE_FLAGS_ENABLED=service_connections
-#          CANVA_CLIENT_CONFIG_PATH=/home/prashant/.config/canva-track03/client.json
+#          CANVA_CLIENT_CONFIG_PATH=~/.config/canva-track03/client.json
 docker compose -f deploy/local/docker-compose.yml --project-directory . up -d postgres init-db
 just migrate
 just run 2>&1 | tee ~/.config/canva-track03/core.log   # switch-core on :8000; leave it running
@@ -222,7 +222,7 @@ Video (connect, grant, agent uses it in a room, grant off): <LINK OR ATTACHMENT>
 To send it, once there's nothing left in `<...>`. **These are the owner's alone**:
 
 ```bash
-cd /home/prashant/projects/switch-track03
+cd ~/projects/switch-track03
 gh repo fork --remote --remote-name fork   # Public
 git push fork canva-connection             # Public
 # Then open the PR on GitHub with the text above, attach the video, and sign the CLA when the bot asks.

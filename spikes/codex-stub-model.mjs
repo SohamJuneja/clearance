@@ -12,7 +12,7 @@ const { values } = parseArgs({
   options: {
     port: { type: 'string', default: '7792' },
     command: { type: 'string', default: 'git push' },
-    'log-dir': { type: 'string', default: '/home/prashant/projects/Clearance/data/spike-logs' },
+    'log-dir': { type: 'string', default: '/home/you/projects/Clearance/data/spike-logs' },
   },
 });
 mkdirSync(values['log-dir'], { recursive: true });

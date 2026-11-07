@@ -514,7 +514,7 @@ describe("eval:report", () => {
       expect(selectRow(rows, "E1").clearance).toBe("3");
       expect(selectRow(rows, "E1").metric).toContain("of 25");
       expect(selectRow(rows, "AUDIT").clearance).toBe("Audit: 4 of 5");
-      expect(selectRow(rows, "AUDIT").metric).toContain("independent AI review");
+      expect(selectRow(rows, "AUDIT").metric).toContain("independent review");
     });
 
     it("shows the quiet share as a percentage for both sides", () => {

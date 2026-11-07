@@ -17,7 +17,7 @@ Track 01: Best Business Workflow. Code with Wispr. Best Blog. Track 04: Best Int
 
 ## One line
 
-The approval layer for teams of people and AI agents, built on Switch: one policy across agent vendors, separation of duties, the real call on the card, and a way to tell whether approvers are still reading.
+A refund-approval workflow for teams of people and AI agents, built on Switch: the person who asks an agent to move money can't also be the one who approves it.
 
 ## Description
 
@@ -31,17 +31,17 @@ No LLM sits in the decision path. Identity comes from Switch's events, never fro
 
 ## How it uses Switch
 
-Clearance is a Switch agent on the agent protocol. Every card is a native Switch approval card, and each answer comes back as `approval_outcome` with `answered_by`, which is how Clearance knows who approved. It reads `sender` and `on_behalf_of` for who asked. It also uses direct rooms for per-person cards, targeted messages for escalations, room documents for the ledger mirror, templates for install, managed agents across vendors, and addressing policy to limit where a protected agent can be reached. Without Switch there's no room where people and different vendors' agents meet, no identity to separate requester from approver, and no card.
+Clearance is a Switch agent on the agent protocol. Every card is a native Switch approval card, and each answer comes back as `approval_outcome` with `answered_by`, which is how Clearance knows who approved. It reads `sender` and `on_behalf_of` for who asked. It also uses direct rooms for per-person cards, targeted messages for escalations, room documents for the ledger mirror, templates for install, managed agents across vendors, and addressing policy to limit where a protected agent can be reached. Room roles say where refused work goes: an agent told it can't merge writes `@merges`, and whoever holds that role picks it up. A role decides nothing, because any member can take one, so authority stays in the policy and the gate's grants. Without Switch there's no room where people and different vendors' agents meet, no identity to separate requester from approver, and no card.
 
 ## Results
 
 Every number comes from a script in `eval/`, and `RESULTS.md` has all of them, including the blanks. Data is synthetic and labelled.
 
-We scored {{E1}} on our authority suite: scripted cases on real core, gate and Acme, with a fake chat. Then we ran the same cases on the real stack: {{E1_LIVE}}. An independent review then found {{AUDIT_BREAKS}} breaks the suite had missed, a second reproduced {{SECOND_REVIEW_BREAKS}} more on code that passed all of that, a third reproduced {{THIRD_REVIEW_BREAKS}} more in what had been written since, a fourth reproduced {{FOURTH_REVIEW_BREAKS}} more, including one refund sent twice at once running twice, and a fifth reproduced {{FIFTH_REVIEW_BREAKS}} more, including one word that took a whole message off the record. They're fixed and re-checked on their own line.
+{{E2_MEASURED}}
+
+We scored {{E1}} on our authority suite: scripted cases on real core, gate and Acme, with a fake chat. Then we ran the same cases on the real stack: {{E1_LIVE}}. An independent AI review then found {{AUDIT_BREAKS}} breaks the suite had missed, a second reproduced {{SECOND_REVIEW_BREAKS}} more on code that passed all of that, a third reproduced {{THIRD_REVIEW_BREAKS}} more in what had been written since, a fourth reproduced {{FOURTH_REVIEW_BREAKS}} more, including one refund sent twice at once running twice, and a fifth reproduced {{FIFTH_REVIEW_BREAKS}} more, including one word that took a whole message off the record, and a teammate's break-it review reproduced {{SIXTH_REVIEW_BREAKS}} more, including a display name that let an approver pose as someone else. They're fixed and re-checked on their own line.
 
 On a synthetic week, an agent that earned autonomy needed {{E6_AFTER}} human decisions per 100 actions, against {{E6_BEFORE}} before promotion. The anomaly rule was changed after we saw the first result, which was {{E6_ORIGINAL}}, and both are published.
-
-{{E2_MEASURED}}
 
 With no Clearance, the ₹40,000 refund went out in {{BL_AUTO}} recorded runs with auto mode on, and in {{BL_ASK}} with approvals on, where Priya, who asked, pressed all {{BL_ASK_CARDS}} cards.
 
@@ -59,7 +59,7 @@ Wispr Insights screenshots: attach the ones taken at 19:00 on Saturday.
 
 ## AI tools used
 
-The code was written with Claude Code, working as a set of agents under the rules in `CLAUDE.md`, with decisions logged in `DECISIONS.md`. The owner dictated with Wispr Flow, described in `docs/built-by-voice.md`. Clearance itself uses no LLM to decide anything. The demo's agents run on Claude Code and OpenCode, and on any other vendor only if the coverage table in the README says it was tested.
+The code was written with Claude Code, working as a set of agents under the rules in `CLAUDE.md`, with decisions logged in `DECISIONS.md`. The owner dictated with Wispr Flow, described in `docs/built-by-voice.md`. Clearance itself uses no LLM to decide anything. The demo's agents run on Claude Code and OpenCode, and on any other vendor only if the coverage table in `docs/running-it.md` says it was tested.
 
 ## Licence and Switch's terms
 

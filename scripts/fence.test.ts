@@ -354,7 +354,112 @@ describe("services.sh after a reboot", () => {
 
 const works = spawnSync("bwrap", ["--unshare-user", "--unshare-pid", "--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "true"]).status === 0;
 
+describe("fence_hook_paths", () => {
+  const folder = () => join(fence("fence_workspaces").trim(), "ops-agent");
+  const fill = (dir: string, paths: string[]) => {
+    rmSync(dir, { recursive: true, force: true });
+    for (const path of paths) {
+      mkdirSync(dirname(join(dir, path)), { recursive: true });
+      writeFileSync(join(dir, path), "as set up\n");
+    }
+  };
+  const HOOKED = [".claude/settings.json", ".codex/hooks.json", ".cursor/hooks.json", ".opencode/plugins/clearance.ts", "bin/clearance-hook", "bin/mcp-headers", ".mcp.json", "opencode.json"];
+
+  it("names what runs an agent's hook, read-only, after the bind of its folder", () => {
+    const dir = folder();
+    fill(dir, HOOKED);
+    const args = argsOf("clearance-alex-open");
+    const at = args.indexOf(dir);
+    expect(at, "its folder is bound").toBeGreaterThan(-1);
+    for (const path of [".claude", ".codex", ".cursor", ".opencode/plugins", "bin", ".mcp.json", "opencode.json"]) {
+      const locked = args.indexOf(join(dir, path));
+      expect(locked, path).toBeGreaterThan(at);
+      expect(args[locked - 1]).toBe("--ro-bind");
+    }
+  });
+
+  it("locks Claude's settings for the whole machine where Claude reads them, which is under $HOME inside", () => {
+    const settingsFile = join(fence("fence_home clearance-alex-open").trim(), ".claude/settings.json");
+    const args = argsOf("clearance-alex-open");
+    const at = args.indexOf(settingsFile);
+    expect(args[at - 1]).toBe("--ro-bind-try");
+    expect(args[at + 1]).toBe(join(home, ".claude/settings.json"));
+    expect(at, "after the bind of the home itself").toBeGreaterThan(args.indexOf(home));
+  });
+
+  it("leaves OpenCode's own folder writable, where it installs its plugin's packages", () => {
+    const dir = folder();
+    fill(dir, HOOKED);
+    expect(argsOf("clearance-alex-open")).not.toContain(join(dir, ".opencode"));
+  });
+
+  it("leaves a folder alone that has no hook, as a baseline agent's hasn't", () => {
+    const dir = folder();
+    fill(dir, [".claude/settings.json", "opencode.json"]);
+    const args = argsOf("clearance-alex-open");
+    expect(args).toContain(dir);
+    expect(args).not.toContain(join(dir, ".claude"));
+    expect(args).not.toContain(join(dir, "opencode.json"));
+  });
+});
+
 describe.skipIf(!works)("the real sandbox", () => {
+  it("the kernel refuses every way of rewriting a hook, whatever a command looks like, and the agent's other files stay its own", () => {
+    const dir = join(fence("fence_workspaces").trim(), "ops-agent");
+    for (const path of [".claude/settings.json", ".opencode/plugins/clearance.ts", "bin/clearance-hook", ".mcp.json", "opencode.json"]) {
+      mkdirSync(dirname(join(dir, path)), { recursive: true });
+      writeFileSync(join(dir, path), "as set up\n");
+    }
+    // Written where setup writes it. Attacked where Claude reads it: inside, the machine's own home is at $HOME.
+    const settingsFile = join(fence("fence_home clearance-alex-open").trim(), ".claude/settings.json");
+    mkdirSync(dirname(settingsFile), { recursive: true });
+    writeFileSync(settingsFile, "as set up\n");
+    const machineSettings = join(home, ".claude/settings.json");
+    const attacks = [
+      "echo gone > .claude/settings.json",
+      "echo extra > .claude/settings.local.json",
+      "rm -f .claude/settings.json",
+      "rm -rf .claude",
+      "mv .claude .claude-old",
+      "mv bin bin-old",
+      "printf exit > bin/clearance-hook",
+      "chmod -x bin/clearance-hook",
+      "rm -f bin/clearance-hook",
+      "ln -sf /tmp/x bin/clearance-hook",
+      "echo gone > opencode.json",
+      "rm -f opencode.json",
+      "mv opencode.json opencode.old",
+      "echo gone > .mcp.json",
+      "echo gone > .opencode/plugins/clearance.ts",
+      "rm -rf .opencode/plugins",
+      `echo '{"disableAllHooks":true}' > ${machineSettings}`,
+      `rm -f ${machineSettings}`,
+      `mv ${machineSettings} ${machineSettings}.old`,
+    ];
+    const script = attacks.map((attack) => `( ${attack} ) 2>/dev/null && echo "WENT THROUGH: ${attack.replace(/"/g, "")}"`).join("\n");
+    const out = fence(`
+      fence_prepare clearance-alex-open
+      fence_args clearance-alex-open
+      bwrap "\${FENCE_ARGS[@]}" /bin/bash -c 'cd ${dir}
+${script.replace(/'/g, "'\\''")}
+        : >notes.txt && echo NOTES
+        : >.opencode/package.json && echo OPENCODE_OWN
+        : >${dirname(machineSettings)}/sessions-probe && echo CLAUDE_OWN
+        echo DONE
+      '
+    `);
+    expect(out).not.toContain("WENT THROUGH");
+    expect(out).toContain("NOTES");
+    expect(out).toContain("OPENCODE_OWN");
+    expect(out, "Claude keeps its sessions in that folder").toContain("CLAUDE_OWN");
+    expect(readFileSync(settingsFile, "utf8")).toBe("as set up\n");
+    expect(out).toContain("DONE");
+    for (const path of [".claude/settings.json", "bin/clearance-hook", ".mcp.json", "opencode.json", ".opencode/plugins/clearance.ts"]) {
+      expect(readFileSync(join(dir, path), "utf8"), path).toBe("as set up\n");
+    }
+    expect(existsSync(join(dir, ".claude/settings.local.json"))).toBe(false);
+  });
+
   it("hides the home and repo, and lets the machine write its own agent's folder", () => {
     const workspaces = fence("fence_workspaces").trim();
     const out = fence(`

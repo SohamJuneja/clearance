@@ -119,7 +119,7 @@ A call touching several files is checked with `Action.defer_grants`. Core answer
 
 ## Gate HTTP (port 7710, header `Authorization: Bearer <per-agent gate token>`)
 
-Same paths with a prefix: `POST /acme/refunds` maps to Acme `POST /refunds`, `GET /acme/*` passes through, `POST /github/merge` body `{repo, pr}`, `GET /pending/:id` asks core for state.
+Same paths with a prefix: `POST /acme/refunds` maps to Acme `POST /refunds`, `GET /acme/*` passes through for an order, customer, ticket, destination, service, CI run, pull request, file or email template, and nothing else, `POST /github/merge` body `{repo, pr}`, `GET /pending/:id` asks core for state.
 
 ## Identity files (written by `scripts/setup-identities.ts`, never committed)
 

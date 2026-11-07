@@ -3,14 +3,14 @@
   "hooks": {
     "beforeShellExecution": [
       {
-        "command": "node /home/prashant/projects/Clearance/spikes/vendor-hook.mjs cursor",
+        "command": "node /home/you/projects/Clearance/spikes/vendor-hook.mjs cursor",
         "timeout": 5,
         "failClosed": true
       }
     ],
     "beforeMCPExecution": [
       {
-        "command": "node /home/prashant/projects/Clearance/spikes/vendor-hook.mjs cursor",
+        "command": "node /home/you/projects/Clearance/spikes/vendor-hook.mjs cursor",
         "timeout": 5,
         "failClosed": true
       }

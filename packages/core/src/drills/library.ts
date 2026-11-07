@@ -36,7 +36,6 @@ export function loadFlaws(path: string): Flaw[] {
   throw new Error(`${path}: ${issue?.path.join(".")}: ${issue?.message}`);
 }
 
-/** A fraction of requests, decided by a hash, so it needs no randomness and replays the same. */
 /** CLEARANCE_DRILL_RATE, from 0 to 1. Unset or blank means the policy's rate. A value it can't read stops the start. */
 export function drillRateFromEnv(value: string | undefined): number | undefined {
   if (value === undefined || value.trim() === "") return undefined;
@@ -45,11 +44,27 @@ export function drillRateFromEnv(value: string | undefined): number | undefined 
   return rate;
 }
 
-export function rollsDrill(requestId: string, policyHash: string, rate: number): boolean {
+/**
+ * A fraction of requests, decided by a hash, so an install replays the same. `seed` is that install's own and stays in its
+ * database: ids are sequential and the policy's hash is public, so without it anyone could work out which requests roll one.
+ */
+export function rollsDrill(requestId: string, seed: string, rate: number): boolean {
   if (rate <= 0) return false;
   if (rate >= 1) return true;
-  const roll = Number.parseInt(sha256Hex(`${requestId}:${policyHash}`).slice(0, 8), 16) / 2 ** 32;
+  const roll = Number.parseInt(sha256Hex(`${requestId}:${seed}`).slice(0, 8), 16) / 2 ** 32;
   return roll < rate;
+}
+
+const DRILL_WAIT_MIN_MS = 5 * 60_000;
+const DRILL_WAIT_MAX_MS = 45 * 60_000;
+
+/**
+ * How long a natural drill waits after the real card that rolled it, so the two don't reach the same person at the same moment.
+ * From the same seed, so an install replays the same and nobody without the seed can work it out.
+ */
+export function drillWaitMs(requestId: string, seed: string): number {
+  const fraction = Number.parseInt(sha256Hex(`wait:${requestId}:${seed}`).slice(0, 8), 16) / 2 ** 32;
+  return DRILL_WAIT_MIN_MS + Math.floor(fraction * (DRILL_WAIT_MAX_MS - DRILL_WAIT_MIN_MS));
 }
 
 export type DrillRow = {

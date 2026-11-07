@@ -1,0 +1,2 @@
+# Line endings stay LF everywhere: fixtures and golden files compare byte for byte.
+* text=auto eol=lf

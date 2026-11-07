@@ -10,7 +10,7 @@ import json
 import re
 import sys
 
-LOGS = "/home/prashant/projects/Clearance/data/spike-logs/"
+LOGS = "/home/you/projects/Clearance/data/spike-logs/"
 TAKES = [
     ("SC3", "sc3-run7", "The spine. The agent offers ₹4,000, Priya accepts for the new UPI ID, her own answer is refused, Sam denies, and the denial wakes the agent. ₹0 out."),
     ("SC4", "sc4-run11", "A genuine ₹40,000 return. A refused DM to the agent came first, and its room was archived, so one approver was enough. Priya's answer is refused, Sam approves, the gate executes, and the approval wakes the agent."),
@@ -58,7 +58,7 @@ for agent, result in proof.items():
     said = [l for l in push["lines"] if own_words(l, agent)]
     clr = re.search(r"CLR-\d+", card["text"]).group(0) if card else "none"
     inside = sorted({re.sub(r" .host pid [0-9]+.", "", x) for x in result["look"]["inFence"] + push["inFence"]})
-    report = " ".join(re.findall(r"(?:^|\n)(?:hidden|visible) \S+", look[-1]["text"])).replace("/home/prashant", "~").strip() if look else ""
+    report = " ".join(re.findall(r"(?:^|\n)(?:hidden|visible) \S+", look[-1]["text"])).replace("/home/you", "~").strip() if look else ""
     report = report or "declined"
     words = said[-1]["text"].replace("\n", " ")[:90] if said else ""
     print(f"| {agent} | {', '.join(inside) or 'not seen'} | {report} (`{look[-1]['id'] if look else '-'}`) | {clr} | `{card['id'] if card else '-'}` | {words} (`{said[-1]['id'] if said else '-'}`) |")

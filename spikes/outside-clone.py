@@ -1,6 +1,6 @@
 # Which agent sessions touched paths outside their own clone? Commands only, never output. Prints no secrets.
 import glob, json, os, re, sqlite3, time
-OUT = re.compile(r'(/home/prashant/(?!\.switch/agents)|~/(?!\.switch)|\.\./\.\.|/projects/Clearance|\bsecrets\.json\b|gate-tokens|identities\.json|controller.*\.env|vendor/switch)')
+OUT = re.compile(r'(/home/you/(?!\.switch/agents)|~/(?!\.switch)|\.\./\.\.|/projects/Clearance|\bsecrets\.json\b|gate-tokens|identities\.json|controller.*\.env|vendor/switch)')
 SECRET = re.compile(r'(\.env\b|secrets\.json|gate-tokens|identities\.json|controller-\w+\.env|\.clearance|credentials)')
 print('OpenCode sessions')
 HOMES = os.path.expanduser('~/.local/share/clearance-tools/homes/')

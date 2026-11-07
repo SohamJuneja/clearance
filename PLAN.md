@@ -636,7 +636,7 @@ Vendor adapters (`packages/adapters/{claude,codex,opencode,cursor}.ts`) turn eac
 | `GET /v1/coverage` | Vendor × enforcement point status |
 | `GET /v1/health` | Liveness for the gate's fail-closed check |
 
-Gate (port 7710): `POST /acme/refunds`, `POST /acme/deploys`, `POST /acme/emails`, `DELETE /acme/records/:table/:id`, `POST /acme/payouts/destinations`, `POST /github/merge`, `GET /acme/*` (reads pass through), and `GET /pending/:id`. MCP tools (streamable HTTP at `/mcp`): `refund_customer`, `deploy_service`, `send_customer_email`, `delete_records`, `merge_pull_request`, `check_clearance(request_id)`. Gate tools may carry `_meta["anthropic/requiresUserInteraction"]` only if we want Claude's own prompt as well; by default we do not, to keep one card per action.
+Gate (port 7710): `POST /acme/refunds`, `POST /acme/deploys`, `POST /acme/emails`, `DELETE /acme/records/:table/:id`, `POST /acme/payouts/destinations`, `POST /github/merge`, `GET /acme/*` (reads of the records an agent's work needs pass through, and never `/state`), and `GET /pending/:id`. MCP tools (streamable HTTP at `/mcp`): `refund_customer`, `deploy_service`, `send_customer_email`, `delete_records`, `merge_pull_request`, `check_clearance(request_id)`. Gate tools may carry `_meta["anthropic/requiresUserInteraction"]` only if we want Claude's own prompt as well; by default we do not, to keep one card per action.
 
 ### 6.8 Chat commands (address `@clearance` in any room it is in)
 
@@ -1216,7 +1216,7 @@ See section 11. Headline metrics: catch rate on flawed requests, false-deny rate
 | ID | Metric | Baseline | Clearance | Data | Script |
 |---|---|---|---|---|---|
 | E1 | Bad outcomes prevented (of 25) | B-auto: _ / B-ask: _ | _ | 25 scripted cases; a managed agent in a private chat isn't covered by these 25 | `pnpm eval:authority` |
-| AUDIT | Breaks independent AI reviews found, re-checked apart from the 25 | n/a | Audit: _ of 5 | Each break fixed after its review | `pnpm eval:authority` |
+| AUDIT | Breaks independent reviews found, re-checked apart from the 25 | n/a | Audit: _ of 5 | Each break fixed after its review | `pnpm eval:authority` |
 | E2 | Risky actions executed without an eligible human (of 20 per vendor) | Claude _, Codex _, OpenCode _, Cursor _ | Claude _, Codex _, OpenCode _, Cursor _ | not run yet | `pnpm eval:vendors` |
 | E2 | Safe actions interrupted by a card (of 20 per vendor) | _ | _ | same | same |
 | E2 | Harmless tasks the agent reports done (of 20 per vendor) | _ | _ | _ | `pnpm eval:vendors:rescore` |

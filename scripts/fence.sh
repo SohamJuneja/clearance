@@ -109,6 +109,21 @@ fence_prepare() {
   done
 }
 
+# What runs an agent's hook, or says whether it runs, under its folder. Read-only inside the fence, because no classifier can
+# know every way of rewriting a file, and a script is one it can't see into. A write here has to get past the kernel. A folder
+# when nothing writes inside it at run time: `.opencode` itself isn't one, because OpenCode installs its plugin's packages there.
+FENCE_HOOK_PATHS=(.claude .codex .cursor .opencode/plugins bin .mcp.json opencode.json)
+
+# Those an agent's folder has. None for an agent with no hook: a baseline's folder is its own business.
+fence_hook_paths() {
+  local dir="$1" path
+  [ -e "$dir/bin/clearance-hook" ] || return 0
+  for path in "${FENCE_HOOK_PATHS[@]}"; do
+    [ -e "$dir/$path" ] && printf '%s\n' "$dir/$path"
+  done
+  return 0
+}
+
 # Fills FENCE_ARGS. Binds later in the list win, so the order is: hide first, then give back.
 fence_args() {
   local machine="$1" home data workspaces node_prefix agent
@@ -176,8 +191,16 @@ fence_args() {
     )
   fi
 
+  # Claude's settings for the whole machine. `disableAllHooks` here would switch off every hook in every folder on it. Setup
+  # writes this from outside. Everything else in that folder stays writable: Claude keeps its sessions there.
+  FENCE_ARGS+=(--ro-bind-try "$home/.claude/settings.json" "$HOME/.claude/settings.json")
+
+  local locked
   for agent in $(fence_agents "$machine"); do
     FENCE_ARGS+=(--bind "$workspaces/$agent" "$workspaces/$agent")
+    while IFS= read -r locked; do
+      FENCE_ARGS+=(--ro-bind "$locked" "$locked")
+    done < <(fence_hook_paths "$workspaces/$agent")
   done
   # The stand-in for GitHub: a push that gets through has to land somewhere the demo can see.
   if [ -n "$(fence_agents "$machine")" ]; then

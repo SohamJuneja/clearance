@@ -11,7 +11,7 @@ import os
 import re
 import sys
 
-LOGS = "/home/prashant/projects/Clearance/data/spike-logs/"
+LOGS = "/home/you/projects/Clearance/data/spike-logs/"
 SKIP = re.compile(r"added to the channel|joined the channel|^\*\*(Work|Queued)|Starting a session|^(Hello|Hi|Hey)[ !,]|mention @|Tag @|tag @")
 
 

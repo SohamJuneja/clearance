@@ -23,8 +23,8 @@ import { readEnvFile } from './switch-api.mjs';
 const { values } = parseArgs({
   options: {
     port: { type: 'string', default: '7790' },
-    'log-dir': { type: 'string', default: '/home/prashant/projects/Clearance/data/spike-logs' },
-    env: { type: 'string', default: '/home/prashant/projects/Clearance/.env' },
+    'log-dir': { type: 'string', default: '/home/you/projects/Clearance/data/spike-logs' },
+    env: { type: 'string', default: '/home/you/projects/Clearance/.env' },
   },
 });
 

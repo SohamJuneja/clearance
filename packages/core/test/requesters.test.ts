@@ -91,21 +91,21 @@ describe("requester tracking from the message stream", () => {
     expect(requesters("refunds-agent")).toEqual([PARTICIPANTS.guest]);
   });
 
-  it("takes the person a platform message speaks for, not the platform", async () => {
+  it("takes the person a platform message names, and keeps the account it came from: all Switch passes on is a name", async () => {
     await h.core.onMessage(chatMessage("@switch-bridge:localhost", "@refunds-agent one", { onBehalfOf: "Priya" }));
-    expect(requesters("refunds-agent")).toEqual(["priya"]);
+    expect(requesters("refunds-agent")).toEqual(["@switch-bridge:localhost", "priya"]);
   });
 
   it("matches on_behalf_of by person name without regard to case", async () => {
     await h.core.onMessage(chatMessage("@switch-bridge:localhost", "@refunds-agent one", { onBehalfOf: "priya" }));
-    expect(requesters("refunds-agent")).toEqual(["priya"]);
+    expect(requesters("refunds-agent")).toEqual(["@switch-bridge:localhost", "priya"]);
   });
 
   it("keeps an on_behalf_of name that maps to nobody as a requester: it never widens eligibility", async () => {
     await h.core.onMessage(chatMessage("@switch-bridge:localhost", "@refunds-agent one", { onBehalfOf: "Someone New" }));
-    expect(requesters("refunds-agent")).toEqual(["Someone New"]);
+    expect(requesters("refunds-agent")).toEqual(["@switch-bridge:localhost", "Someone New"]);
     await h.core.onMessage(chatMessage(PARTICIPANTS.priya, "@refunds-agent two"));
-    expect(requesters("refunds-agent")).toEqual(["Someone New", "priya"]);
+    expect(requesters("refunds-agent")).toEqual(["@switch-bridge:localhost", "Someone New", "priya"]);
   });
 
   it("never decides who is an agent from sender_kind", async () => {

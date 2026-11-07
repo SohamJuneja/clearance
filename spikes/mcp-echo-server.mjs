@@ -13,7 +13,7 @@ import { parseArgs } from 'node:util';
 const { values } = parseArgs({
   options: {
     http: { type: 'string' },
-    'log-dir': { type: 'string', default: '/home/prashant/projects/Clearance/data/spike-logs' },
+    'log-dir': { type: 'string', default: '/home/you/projects/Clearance/data/spike-logs' },
   },
 });
 mkdirSync(values['log-dir'], { recursive: true });

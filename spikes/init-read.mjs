@@ -1,12 +1,12 @@
 // Spike: what did a real agent's session actually get? Reads the newest init message for a working
 // directory from the log spikes/claude-init-tee writes, when a controller has that on its PATH:
 //
-//   CLEARANCE_EXTRA_PATH=/home/prashant/projects/Clearance/spikes/claude-init-tee \
+//   CLEARANCE_EXTRA_PATH=/home/you/projects/Clearance/spikes/claude-init-tee \
 //     scripts/setup-controller.sh --owner priya --restart
 //   node spikes/init-read.mjs <working-directory>
 import { readFileSync } from 'node:fs';
 
-const LOG = '/home/prashant/projects/Clearance/data/spike-logs/claude-init.jsonl';
+const LOG = '/home/you/projects/Clearance/data/spike-logs/claude-init.jsonl';
 const dir = process.argv[2];
 const inits = readFileSync(LOG, 'utf8')
   .split('\n')

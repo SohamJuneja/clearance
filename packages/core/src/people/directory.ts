@@ -121,7 +121,7 @@ export class Directory {
     return this.personByParticipant(answeredBy);
   }
 
-  /** `on_behalf_of` is a display name, set only on platform messages. */
+  /** `on_behalf_of` is a display name, set only on platform messages. Good enough to bar someone, and for nothing else. */
   personByDisplayName(name: string | null | undefined): Person | null {
     const wanted = name?.trim().toLowerCase();
     if (!wanted) return null;

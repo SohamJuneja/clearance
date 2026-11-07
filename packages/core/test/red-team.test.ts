@@ -311,7 +311,7 @@ describe("B8 a requester who maps to no person still reads as known", () => {
   it("nor Sam on a platform message under a display name that doesn't match the team file", async () => {
     await says("@switch-platform:localhost", "@refunds-agent refund order A-2004 in full", "#support", { onBehalfOf: "Sam Rao" });
     const held = await h.core.check(gateRefund(REFUND_SC4, support));
-    expect(requesters(held.request_id)).toEqual(["Sam Rao"]);
+    expect(requesters(held.request_id)).toEqual(["@switch-platform:localhost", "Sam Rao"]);
     expect(quorum(held.request_id)).toBe(2);
   });
 });

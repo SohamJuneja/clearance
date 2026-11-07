@@ -70,6 +70,7 @@ export type HarnessOptions = {
   rollDrills?: boolean;
   /** CLEARANCE_DRILL_RATE, as main passes it. */
   drillRate?: number;
+  drillSeed?: string;
   runningInbox?: boolean;
 };
 
@@ -91,6 +92,7 @@ export function makeHarness(options: HarnessOptions = {}): Harness {
       drillsPath: DRILLS_PATH,
       rollDrills: options.rollDrills ?? false,
       ...(options.drillRate !== undefined ? { drillRate: options.drillRate } : {}),
+      ...(options.drillSeed !== undefined ? { drillSeed: options.drillSeed } : {}),
       chat,
       gate,
       lookup,

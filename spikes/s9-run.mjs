@@ -22,7 +22,7 @@ import { parseArgs } from 'node:util';
 import { Gateway, Mattermost, sleep } from './switch-api.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const LOGS = '/home/prashant/projects/Clearance/data/spike-logs';
+const LOGS = '/home/you/projects/Clearance/data/spike-logs';
 const HOOK_LOG = join(LOGS, 'hook-calls.jsonl');
 const ECHO = 'http://127.0.0.1:7790';
 const { values, positionals } = parseArgs({

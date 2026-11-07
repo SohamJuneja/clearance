@@ -1,7 +1,7 @@
 <!-- Three #HowISwitch posts for LinkedIn and X. `pnpm numbers:fill` writes docs/social-posts.md from this file. Tag WeMakeDevs, DevTools Academy and Switch by hand on each post, since each site has its own handles. -->
 # #HowISwitch posts
 
-## 1. Teaser, Friday 19:00
+## 1. Teaser
 
 Clip: SC2 then SC3, under 45 seconds, cut from the recorded takes.
 
@@ -17,7 +17,7 @@ Switch runs the room, the agents and the cards. Clearance decides who may answer
 
 #HowISwitch
 
-## 2. Drill, Saturday 10:00
+## 2. Drill
 
 Clip: SC9, under 45 seconds.
 
@@ -33,13 +33,13 @@ Sam is a scripted persona and this drill was triggered for the clip, so read thi
 
 #HowISwitch
 
-## 3. Launch, Saturday 20:00
+## 3. Launch
 
 Clip: the full video.
 
 Clearance is our entry to Flip the Switch: one approval policy across agent vendors, the right other person, the real call in front of them, and a way to tell whether approvers are still reading.
 
-We scored {{E1}} on our own authority suite. Then an independent review found {{AUDIT_BREAKS}} breaks the suite had missed, including a way to approve your own refund. We fixed them. A second review, on code that passed all of that, reproduced {{SECOND_REVIEW_BREAKS}} more, including a denial that could vanish while its card was opening. A third reproduced {{THIRD_REVIEW_BREAKS}} more, one of them caused by fixing an earlier break. A fourth reproduced {{FOURTH_REVIEW_BREAKS}} more, including one refund sent twice at once running twice. A fifth reproduced {{FIFTH_REVIEW_BREAKS}} more, including one word that took a whole message off the record. All are fixed and re-checked on their own line.
+We scored {{E1}} on our own authority suite. Then an independent AI review found {{AUDIT_BREAKS}} breaks the suite had missed, including a way to approve your own refund. We fixed them. A second review, on code that passed all of that, reproduced {{SECOND_REVIEW_BREAKS}} more, including a denial that could vanish while its card was opening. A third reproduced {{THIRD_REVIEW_BREAKS}} more, one of them caused by fixing an earlier break. A fourth reproduced {{FOURTH_REVIEW_BREAKS}} more, including one refund sent twice at once running twice. A fifth reproduced {{FIFTH_REVIEW_BREAKS}} more, including one word that took a whole message off the record. A teammate's review reproduced {{SIXTH_REVIEW_BREAKS}} more, including a display name that let an approver pose as someone else. All are fixed and re-checked on their own line.
 
 Our first autonomy rule gave {{E6_ORIGINAL}} human decisions per 100 agent actions on a synthetic week, against {{E6_BEFORE}} before promotion. We changed the rule after seeing that, and it now gives {{E6_AFTER}}. Both numbers are published.
 

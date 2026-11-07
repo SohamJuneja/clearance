@@ -26,7 +26,7 @@ Enrolled by API, no browser. Everything is in `scripts/setup-controller.sh`, whi
 ### How Switch launches Claude (read from `/proc`)
 
 ```
-/home/prashant/.local/bin/claude --output-format stream-json --verbose --input-format stream-json
+/home/you/.local/bin/claude --output-format stream-json --verbose --input-format stream-json
   --model haiku --agent spike-loop-1 --permission-prompt-tool stdio
   --mcp-config {"mcpServers":{"switch":{"type":"http","url":"http://127.0.0.1:<port>/mcp","headers":{"Authorization":"Bearer ***"}}}}
   --permission-mode auto --include-partial-messages --session-id=<uuid>

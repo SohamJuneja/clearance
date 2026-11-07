@@ -10,8 +10,9 @@
  * bystanders, and that is the safe direction. When even this finds nobody, core asks for two people instead: see
  * `unknown_requester_quorum`.
  *
- * Identity comes only from the event's sender and on_behalf_of. Whether a sender is an agent is looked up in identities
- * and the team file, never read from sender_kind, which Switch leaves null for people and agents alike.
+ * Identity comes only from the event's sender and on_behalf_of, and on_behalf_of is only a name, so it can bar someone and
+ * never vouches for anyone. Whether a sender is an agent is looked up in identities and the team file, never read from
+ * sender_kind, which Switch leaves null for people and agents alike.
  */
 import { jobRoleNamed, ownValue, type ChatMessageEvent, type Clock, type RoomAliases, type RoomRoles } from "@clearance/contracts";
 import type { Db } from "../db/index.js";
@@ -136,7 +137,7 @@ export class RequesterTracker {
     const senderPerson = this.directory.personByParticipant(evt.sender);
     const onBehalfOf = this.identifyDisplayName(evt.onBehalfOf);
     const speaking = !senderAgent && !CARD_ANSWER.test(evt.body);
-    const voices = [...new Set([senderPerson?.id ?? (onBehalfOf ? null : evt.sender), onBehalfOf])].filter((id): id is string => id !== null);
+    const voices = [...new Set([senderPerson?.id ?? evt.sender, onBehalfOf])].filter((id): id is string => id !== null);
     if (speaking && !aliases) {
       for (const name of named.filter((one) => !this.directory.knowsMention(one))) {
         for (const userId of voices) this.recordPossibleAsk(evt, userId, name);
@@ -160,8 +161,11 @@ export class RequesterTracker {
         this.record(agent, evt, senderPerson.id, onBehalfOf, guess);
         if (onBehalfOf) this.record(agent, evt, onBehalfOf, null, guess);
       } else if (onBehalfOf) {
-        // Only platform messages carry on_behalf_of. The platform is a messenger; the person is the one asking.
+        // Only platform messages carry on_behalf_of, and all Switch passes on is a name, not an id: `user_name`, which can be a
+        // template's own text. So the person named can't approve, and that can only ever take someone out. And the account it
+        // really came from stays on record: nobody can tell it apart from an approver, which is what asks for two people.
         this.record(agent, evt, onBehalfOf, null, guess);
+        this.record(agent, evt, evt.sender, null, guess);
       } else {
         // An unlinked human still asked. They can never approve, so this only ever narrows who can.
         this.record(agent, evt, evt.sender, null, guess);

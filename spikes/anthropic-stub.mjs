@@ -8,7 +8,7 @@ import { createServer } from 'node:http';
 import { parseArgs } from 'node:util';
 
 const { values } = parseArgs({ options: { port: { type: 'string', default: '7793' } } });
-const LOG = '/home/prashant/projects/Clearance/data/spike-logs/anthropic-stub.jsonl';
+const LOG = '/home/you/projects/Clearance/data/spike-logs/anthropic-stub.jsonl';
 
 const sse = (res, event, data) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 

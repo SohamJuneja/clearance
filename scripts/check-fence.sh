@@ -87,6 +87,10 @@ hidden() { if [ -e "$1" ] || [ -L "$1" ]; then fail "visible: $1"; else pass "hi
 touches() { { : >"$1/.fence-probe"; } 2>/dev/null; }
 writes() { if touches "$1"; then rm -f "$1/.fence-probe"; pass "writes: $1"; else fail "cannot write: $1"; fi; }
 readonly_path() { if touches "$1"; then rm -f "$1/.fence-probe"; fail "writable: $1"; else pass "read-only: $1"; fi; }
+locked() {
+  if [ -d "$1" ]; then if touches "$1"; then rm -f "$1/.fence-probe"; fail "an agent can rewrite: $1"; else pass "read-only to its agent: $1"; fi
+  elif { : >>"$1"; } 2>/dev/null; then fail "an agent can rewrite: $1"; else pass "read-only to its agent: $1"; fi
+}
 runs() { if "$@" >/dev/null 2>&1; then pass "runs: $*"; else fail "does not run: $*"; fi; }
 refused() { if "$@" >/dev/null 2>&1; then fail "should be refused: $*"; else pass "refused: $*"; fi; }
 answers() {
@@ -101,7 +105,11 @@ PROBE
   for path in /usr /etc /opt "$TOOLS/controller-src"; do printf 'readonly_path %q\n' "$path"; done
   printf 'writes %q\nwrites /tmp\n' "$(fence_data_dir "$machine")"
   printf 'writes "$HOME"\n'
-  for agent in $(fence_agents "$machine"); do printf 'writes %q\n' "$workspaces/$agent"; done
+  printf 'if [ -e "$HOME/.claude/settings.json" ]; then locked "$HOME/.claude/settings.json"; fi\n'
+  for agent in $(fence_agents "$machine"); do
+    printf 'writes %q\n' "$workspaces/$agent"
+    while IFS= read -r path; do printf 'locked %q\n' "$path"; done < <(fence_hook_paths "$workspaces/$agent")
+  done
   printf 'runs node --version\nruns git --version\n'
   fence_has_provider "$machine" claude && printf 'runs claude --version\n'
   fence_has_provider "$machine" opencode && printf 'runs opencode --version\n'

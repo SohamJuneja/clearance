@@ -75,13 +75,21 @@ const E1 = z.object({
     .optional(),
 });
 
-/** What `--live` found. Only the private-chat check reaches the table, in E1's Data cell. */
+/** What `--live` found. The private-chat check and how many of the cases ran reach the table, in E1's Data cell. */
 const E1Live = z.object({
   ...Flags,
   experiment: z.literal("E1-live"),
   results: z.array(
-    z.object({ id: z.union([z.number(), z.string()]), outcome: z.string(), why: z.string() }),
+    z.object({
+      id: z.union([z.number(), z.string()]),
+      outcome: z.string(),
+      why: z.string(),
+      /** It ran, but not quite the scenario the isolated case runs. An older file doesn't say. */
+      adapted: z.boolean().optional(),
+    }),
   ),
+  /** Cases that stayed out, and why. An older file has none. Never counted as having run. */
+  not_run: z.array(z.object({ id: z.number(), why: z.string() })).optional(),
 });
 
 /** From `pnpm eval:vendors:rescore`: what each vendor's runs under a condition came to, counting only runs that finished. */
@@ -443,6 +451,31 @@ function e1Coverage(inputs: Inputs): string {
   return `a managed agent in a private chat isn't covered by these ${inputs.E1?.cases ?? 25}`;
 }
 
+/** Outcomes that mean the case really ran on the stack. `blocked` means it couldn't say, so it isn't one. */
+const RAN_LIVE = new Set(["prevented", "not prevented", "no such control"]);
+
+/** "N of 25 also ran...", counted from what `--live` wrote. Nothing when it has never run. */
+function e1LiveCount(inputs: Inputs): string | undefined {
+  const live = inputs["E1-live"];
+  if (!live) return undefined;
+  const cases = inputs.E1?.cases ?? 25;
+  const isCase = (id: number | string): id is number =>
+    typeof id === "number" && Number.isInteger(id) && id >= 1 && id <= cases;
+  const ran = new Map<number, { outcome: string; adapted: boolean }>();
+  for (const row of live.results) {
+    if (isCase(row.id) && RAN_LIVE.has(row.outcome)) {
+      ran.set(row.id, { outcome: row.outcome, adapted: row.adapted === true });
+    }
+  }
+  const rows = [...ran.values()];
+  const prevented = rows.filter((row) => row.outcome === "prevented").length;
+  const adapted = rows.filter((row) => row.adapted).length;
+  const stated = `${ran.size} of ${cases} also ran on real Switch and Mattermost`;
+  if (ran.size === 0) return stated;
+  const counted = `${stated}, ${prevented} prevented there`;
+  return adapted > 0 ? `${counted}, ${adapted} adapted to what the stack has` : counted;
+}
+
 function auditCell(e1: Inputs["E1"]): string {
   const first = `Audit: ${num(e1?.audit?.passed)} of ${e1?.audit?.total ?? 5}`;
   const second = e1?.second_review ? `; second review: ${num(e1.second_review.passed)} of ${e1.second_review.total}` : "";
@@ -682,7 +715,7 @@ export function renderTable(inputs: Inputs): string {
   const rows = [
     HEADER,
     "|---|---|---|---|---|---|",
-    `| E1 | Bad outcomes prevented (of ${e1?.clearance?.total ?? e1?.b_auto?.total ?? 25}) | B-auto: ${prevented(e1?.b_auto)} / B-ask: ${prevented(e1?.b_ask)} | ${prevented(e1?.clearance)} | ${synthetic(e1, `${e1?.cases ?? 25} scripted cases${onFakeChat(e1?.mode) ? " on a fake chat port" : ""}${e1?.baseline_basis ? "; baselines read from code, not run" : ""}${noSuchControl(e1)}; ${e1Coverage(inputs)}`)} | \`pnpm eval:authority\` |`,
+    `| E1 | Bad outcomes prevented (of ${e1?.clearance?.total ?? e1?.b_auto?.total ?? 25}) | B-auto: ${prevented(e1?.b_auto)} / B-ask: ${prevented(e1?.b_ask)} | ${prevented(e1?.clearance)} | ${synthetic(e1, `${e1?.cases ?? 25} scripted cases${onFakeChat(e1?.mode) ? " on a fake chat port" : ""}${e1?.baseline_basis ? "; baselines read from code, not run" : ""}${noSuchControl(e1)}${e1LiveCount(inputs) ? `; ${e1LiveCount(inputs)}` : ""}; ${e1Coverage(inputs)}`)} | \`pnpm eval:authority\` |`,
     `| AUDIT | Breaks independent reviews found, re-checked apart from the 25 | n/a | ${auditCell(e1)} | Each break fixed after its review | \`pnpm eval:authority\` |`,
     `| E2 | Risky actions executed without an eligible human (of 20 per vendor) | ${vendors(e2?.risky_unapproved?.baseline)} | ${vendors(e2?.risky_unapproved?.clearance)} | ${synthetic(e2, e2 ? `${num(e2.runs ?? 360)} agent runs${e2.claude_model ? `, Claude on ${e2.claude_model}` : ""}${e2.opencode_model ? `, OpenCode on ${e2.opencode_model}` : ""}${e2.priya_answers_once ? "; Priya answers once if the agent asks" : ""}` : "not run yet")} | \`pnpm eval:vendors\` |`,
     `| E2 | Safe actions interrupted by a card (of 20 per vendor) | ${vendorsOrBlank(e2?.safe_interrupted?.baseline)} | ${vendorsOrBlank(e2?.safe_interrupted?.clearance)} | ${e2?.rescored_from_transcripts ? "scored from the saved transcripts of the same runs" : "same"} | ${e2?.rescored_from_transcripts ? "\`pnpm eval:vendors:rescore\`" : "same"} |`,

@@ -41,6 +41,7 @@
     "eval:mutations": "tsx eval/authority-suite/mutations/run.ts",
     "eval:baseline": "tsx eval/baseline/run.ts",
     "eval:behaviour": "tsx eval/behaviour/run.ts",
+    "eval:authority:live": "bash scripts/e1-live.sh",
     "eval:vendors": "tsx eval/cross-vendor/run.ts",
     "eval:vendors:rescore": "tsx eval/cross-vendor/rescore.ts",
     "eval:classifier": "tsx eval/classifier/run.ts",

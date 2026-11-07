@@ -11,6 +11,13 @@ export interface LiveResult {
   why: string;
   /** Something the check left that a person needs to deal with, whatever its outcome. */
   warnings?: string[];
+  title?: string;
+  /** What this live run did differently from the isolated case. */
+  differs?: string;
+  /** Real, but not quite the isolated scenario, so the headline count says so. */
+  adapted?: boolean;
+  evidence?: string[];
+  duration_ms?: number;
 }
 
 /** Thrown when a case can't go on. What it recorded so far still decides the verdict. */

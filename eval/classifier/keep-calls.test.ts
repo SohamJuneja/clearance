@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { callKeeper, keepCalls, readActions } from "./store.ts";
+import { callKeeper, keepCalls, readActions, retireCalls } from "./store.ts";
 
 /** Synthetic rows in core's real table shape. None of this is a result. */
 const CORE_TABLE = `CREATE TABLE actions (
@@ -105,5 +105,40 @@ describe("keeping E2's calls for E3", () => {
       expect(lines.join("\n")).toMatch(/WARNING.*opencode C refund-small #1.*E3/);
       expect(keep.summary()).toMatch(/WARNING: 1 run's calls were not kept/);
     });
+  });
+});
+
+describe("retiring a condition's calls when it's run again", () => {
+  it("keeps every call and its id, and moves them out of the run's name", () => {
+    const dir = mkdtempSync(join(tmpdir(), "clearance-retire-"));
+    try {
+      const path = join(dir, "corpus.sqlite");
+      const db = new DatabaseSync(path);
+      db.exec("CREATE TABLE actions (id TEXT PRIMARY KEY, e2_run TEXT NOT NULL)");
+      const add = db.prepare("INSERT INTO actions VALUES (?, ?)");
+      add.run("a", "claude C refund-large #1");
+      add.run("b", "claude G-shadow refund-large #1");
+      add.run("c", "claude B-auto refund-large #1");
+      add.run("d", "opencode C refund-large #1");
+      db.close();
+
+      expect(retireCalls(path, "claude", ["G-shadow", "C"])).toBe(2);
+
+      const read = new DatabaseSync(path, { readOnly: true });
+      const rows = read.prepare("SELECT id, e2_run FROM actions ORDER BY id").all() as { id: string; e2_run: string }[];
+      read.close();
+      expect(rows.map((row) => row.e2_run)).toEqual([
+        "earlier: claude C refund-large #1",
+        "earlier: claude G-shadow refund-large #1",
+        "claude B-auto refund-large #1",
+        "opencode C refund-large #1",
+      ]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("is nothing to do with no corpus", () => {
+    expect(retireCalls(join(tmpdir(), "clearance-no-such-corpus.sqlite"), "claude", ["C"])).toBe(0);
   });
 });

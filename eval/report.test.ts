@@ -312,6 +312,132 @@ describe("eval:report", () => {
     });
   });
 
+  describe("how many of E1's cases also ran live", () => {
+    const authority = {
+      experiment: "E1",
+      fixture: true,
+      clearance: { prevented: 25, total: 25 },
+      cases: 25,
+    };
+    const liveFile = (results: unknown[], extra: Record<string, unknown> = {}) => ({
+      "authority-live.json": { experiment: "E1-live", fixture: true, results, ...extra },
+    });
+    const row = (id: number | string, outcome: string) => ({ id, outcome, why: "what was seen" });
+    const e1Data = () => selectRow(parseResults(readFileSync(resultsPath, "utf8")), "E1").data;
+
+    it("says nothing about a live run when there's no file", () => {
+      write({ "authority.json": authority });
+      report();
+      expect(e1Data()).not.toMatch(/ran on real Switch/);
+    });
+
+    it("says nothing about a live run with no E1 input at all", () => {
+      expect(selectRow(parseResults(renderTable({})), "E1").data).not.toMatch(/ran on real Switch/);
+    });
+
+    it("reads the old file shape: four numbered cases and the private-chat check count as four", () => {
+      write({
+        "authority.json": authority,
+        ...liveFile([
+          row(1, "prevented"),
+          row(4, "prevented"),
+          row(5, "prevented"),
+          row(22, "prevented"),
+          row("1-private-chat", "prevented"),
+        ]),
+      });
+      report();
+      expect(e1Data()).toContain("4 of 25 also ran on real Switch and Mattermost, 4 prevented there");
+    });
+
+    it("doesn't count a blocked case as having run", () => {
+      write({
+        "authority.json": authority,
+        ...liveFile([row(1, "prevented"), row(5, "blocked"), row(22, "blocked")]),
+      });
+      report();
+      expect(e1Data()).toContain("1 of 25 also ran on real Switch and Mattermost, 1 prevented there");
+    });
+
+    it("counts a case that failed live as run but not prevented, so the gap shows", () => {
+      write({
+        "authority.json": authority,
+        ...liveFile([row(1, "prevented"), row(2, "not prevented"), row(3, "no such control")]),
+      });
+      report();
+      expect(e1Data()).toContain("3 of 25 also ran on real Switch and Mattermost, 1 prevented there");
+    });
+
+    it("says none ran when every row was blocked, rather than claiming any", () => {
+      write({ "authority.json": authority, ...liveFile([row(5, "blocked")]) });
+      report();
+      expect(e1Data()).toContain("0 of 25 also ran on real Switch and Mattermost");
+      expect(e1Data()).not.toContain("prevented there");
+    });
+
+    it("counts a case once, and ignores an id that isn't one of the cases", () => {
+      write({
+        "authority.json": authority,
+        ...liveFile([row(1, "prevented"), row(1, "prevented"), row(26, "prevented"), row(0, "prevented")]),
+      });
+      report();
+      expect(e1Data()).toContain("1 of 25 also ran on real Switch and Mattermost");
+    });
+
+    it("says how many of those had to be adapted, counted from the file", () => {
+      write({
+        "authority.json": authority,
+        ...liveFile([
+          row(1, "prevented"),
+          { ...row(11, "prevented"), adapted: true },
+          { ...row(12, "not prevented"), adapted: true },
+          { ...row(13, "blocked"), adapted: true },
+        ]),
+      });
+      report();
+      expect(e1Data()).toContain(
+        "3 of 25 also ran on real Switch and Mattermost, 2 prevented there, 2 adapted to what the stack has",
+      );
+    });
+
+    it("doesn't mention adapting when nothing was", () => {
+      write({ "authority.json": authority, ...liveFile([row(1, "prevented")]) });
+      report();
+      expect(e1Data()).not.toContain("adapted");
+    });
+
+    it("doesn't count what the file lists as not run", () => {
+      write({
+        "authority.json": authority,
+        ...liveFile([row(1, "prevented")], {
+          not_run: [{ id: 10, why: "the stack links one account to each person" }],
+        }),
+      });
+      report();
+      expect(e1Data()).toContain("1 of 25 also ran on real Switch and Mattermost");
+    });
+
+    it("takes the total from E1's own result, and leaves E1's count alone", () => {
+      write({
+        "authority.json": { ...authority, cases: 3, clearance: { prevented: 3, total: 3 } },
+        ...liveFile([row(1, "prevented")]),
+      });
+      report();
+      expect(e1Data()).toContain("1 of 3 also ran");
+      expect(selectRow(parseResults(readFileSync(resultsPath, "utf8")), "E1").clearance).toBe("3");
+    });
+
+    it("keeps saying what the private-chat check found alongside the count", () => {
+      write({
+        "authority.json": authority,
+        ...liveFile([row(1, "prevented"), row("1-private-chat", "prevented")]),
+      });
+      report();
+      expect(e1Data()).toContain("1 of 25 also ran");
+      expect(e1Data()).toContain("private-chat path checked live");
+    });
+  });
+
   describe("the rows added for the audit, the baseline, behaviour and quiet share", () => {
     const authority = {
       experiment: "E1",

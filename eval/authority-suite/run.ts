@@ -8,8 +8,9 @@
  *   pnpm eval:authority --case 1,F2  just those, printed but not saved
  *   pnpm eval:authority --group fourth-review   that review's checks alone, printed but not saved. Run with the code from
  *                                    before its fixes put back, this is how it shows the checks can fail.
- *   pnpm eval:authority --live       cases 1, 4, 5 and 22 through real Mattermost. Touches the shared stack,
- *                                    so it also needs CLEARANCE_EVAL_LIVE_OK=1.
+ *   pnpm eval:authority --live       every case that can honestly run through real Mattermost and Switch: live-cases.ts
+ *                                    says which, and why the rest can't. Touches the shared stack, so it also needs
+ *                                    CLEARANCE_EVAL_LIVE_OK=1. With --case it's printed but not saved.
  *
  * Exit status: 0 whatever the results, because a failed case is a result. 1 if the suite itself couldn't run.
  */
@@ -74,10 +75,6 @@ function table(results: CaseOutcome[]): string[] {
 
 async function main(): Promise<number> {
   const args = process.argv.slice(2).filter((arg) => arg !== "--");
-  if (args.includes("--live")) {
-    const { runLive } = await import("./live.ts");
-    return runLive(print);
-  }
   const caseArg = args[args.indexOf("--case") + 1];
   const group = args.includes("--group") ? args[args.indexOf("--group") + 1] : undefined;
   if (group !== undefined && group !== "fourth-review") {
@@ -85,6 +82,10 @@ async function main(): Promise<number> {
     return 1;
   }
   const only = group ? new Set(FOURTH_REVIEW_CHECKS.map((one) => one.id)) : args.includes("--case") ? new Set((caseArg ?? "").split(",")) : undefined;
+  if (args.includes("--live")) {
+    const { runLive } = await import("./live.ts");
+    return runLive(print, only ? { only } : {});
+  }
   const chosen = only ? CASES.filter((one) => only.has(String(one.id))) : CASES;
   const chosenAudit = only ? AUDIT_CHECKS.filter((one) => only.has(one.id)) : AUDIT_CHECKS;
   const chosenSecond = only ? SECOND_REVIEW_CHECKS.filter((one) => only.has(one.id)) : SECOND_REVIEW_CHECKS;

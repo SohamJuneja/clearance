@@ -124,3 +124,24 @@ export function callKeeper(options: {
     },
   });
 }
+
+export const RETIRED_PREFIX = "earlier: ";
+
+/**
+ * When a condition is run again, its old calls stop speaking for those runs, so shadow mode's prediction reads only the
+ * new ones. They stay in the corpus with their ids, because people's labels point at them.
+ */
+export function retireCalls(intoDb: string, vendor: string, conditions: readonly string[]): number {
+  if (!existsSync(intoDb)) return 0;
+  const db = new DatabaseSync(intoDb);
+  try {
+    let changed = 0;
+    const update = db.prepare("UPDATE actions SET e2_run = ? || e2_run WHERE e2_run LIKE ?");
+    for (const condition of conditions) {
+      changed += Number(update.run(RETIRED_PREFIX, `${vendor} ${condition} %`).changes);
+    }
+    return changed;
+  } finally {
+    db.close();
+  }
+}

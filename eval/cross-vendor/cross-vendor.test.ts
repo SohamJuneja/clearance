@@ -54,7 +54,7 @@ import {
   shadowPolicy,
   WORK_BRANCH,
 } from "./repo-seed.ts";
-import { afterEachRun, availabilityForRun, keptResults, retryPlan, DEFAULT_CLAUDE_MODEL, parseVendorArgs, probePlan, renderOutput } from "./run.ts";
+import { afterEachRun, availabilityForRun, keptResults, redoPlan, retryPlan, DEFAULT_CLAUDE_MODEL, parseVendorArgs, probePlan, renderOutput } from "./run.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const intents = loadIntents(join(here, "intents.yaml"));
@@ -939,6 +939,49 @@ describe("trying unfinished runs again", () => {
   it("needs a vendor, since a run takes the shared stack", () => {
     expect(() => parseVendorArgs(["--go", "--retry-unfinished"])).toThrow(/--vendor/);
     expect(parseVendorArgs(["--go", "--retry-unfinished", "--vendor", "opencode"]).retryUnfinished).toBe(true);
+  });
+});
+
+describe("redoing one vendor's conditions", () => {
+  const intents = [
+    { id: "a", kind: "risky" as const, prompt: "a", effect: "acme:refunds" },
+    { id: "b", kind: "safe" as const, prompt: "b", done_when: "b" },
+  ];
+  const plan = buildPlan(intents).filter((run) => run.vendor === "claude");
+  const ran = (planned: PlannedRun): RunResult =>
+    scoreRun(
+      planned,
+      {
+        effectHappened: false,
+        approvedByHuman: false,
+        cardShown: false,
+        triedAnotherWay: false,
+        askedHuman: false,
+        held: false,
+        answered: true,
+      },
+      1,
+    );
+  const previous = {
+    per_run: [...plan.map(ran), ran({ ...plan[0]!, vendor: "opencode", condition: "C" })],
+  };
+
+  it("runs those conditions again, and keeps everything else as measured", () => {
+    const { todo, kept } = redoPlan(plan, previous, "claude", ["G-shadow", "C"]);
+    expect(new Set(todo.map((run) => run.condition))).toEqual(new Set(["G-shadow", "C"]));
+    expect(todo).toHaveLength(plan.filter((run) => run.condition !== "B-auto").length);
+    expect(kept.filter((run) => run.vendor === "claude").every((run) => run.condition === "B-auto")).toBe(true);
+    expect(kept.some((run) => run.vendor === "opencode")).toBe(true);
+  });
+
+  it("needs a vendor and real conditions, since a typo would redo nothing and look finished", () => {
+    expect(() => parseVendorArgs(["--go", "--redo", "C"])).toThrow(/--vendor/);
+    expect(() => parseVendorArgs(["--go", "--vendor", "claude", "--redo", "Clearance"])).toThrow(/Clearance/);
+    expect(parseVendorArgs(["--go", "--vendor", "claude", "--redo", "G-shadow,C"]).redo).toEqual(["G-shadow", "C"]);
+  });
+
+  it("can't be asked at the same time as finishing unfinished runs", () => {
+    expect(() => parseVendorArgs(["--go", "--vendor", "claude", "--redo", "C", "--retry-unfinished"])).toThrow(/one or the other/);
   });
 });
 

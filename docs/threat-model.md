@@ -75,6 +75,8 @@ Each protected agent can only be addressed in its own rooms, and Switch enforces
 
 ## Limits
 
+- Clearance's addressing lists chat accounts, not people. A person's second account, even one really linked to the same Switch user, can't answer a card until it's listed, because Switch stops it before core sees it. That fails safe, and it's an extra step for a team with people on two accounts. Once it's listed, core counts the two accounts as one person, so they can't satisfy a quorum. E1's case 10 ran both ways on the real stack, and the fake chat port couldn't have shown it.
+
 **A grant doesn't bind the world around the call.** It binds the call. A `git remote set-url` or a commit in an earlier call still changes where an approved push goes, or what it pushes, and so does anything in a shell profile. A business action doesn't have this problem, because the gate executes it with the arguments that were approved.
 
 **A card shows a preview of a write or an email's body.** That's the first 160 characters, with the total alongside, because a longer card can't be answered at all. Everything past the preview is approved too, so a person seeing "first 160 of 5000 characters" should say no or ask. A long destination, address or command keeps both its ends, and when a card has to shorten its lines they lose their middles, since the part that decides where something goes is often the last part. What's in that middle is approved too.

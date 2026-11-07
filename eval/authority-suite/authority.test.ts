@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { findUpwards, REPO_ROOT } from "../lib/paths.ts";
 import { BASELINE_BASIS, BASELINES, verifyBaselines } from "./baselines.ts";
 import { CASES } from "./cases.ts";
-import { LIVE_CASES, LIVE_CHECKS, liveAllowed, runLive } from "./live.ts";
+import { chooseChecks, LIVE_CASES, LIVE_CHECKS, liveAllowed, runLive } from "./live.ts";
 import { countPrevented, Findings, StopCase, verdictOf } from "./scene.ts";
 
 /** The rows of PLAN 10.2's table. */
@@ -120,12 +120,21 @@ describe("--live", () => {
     vi.unstubAllEnvs();
   });
 
-  it("covers the cases where chat is the point", () => {
-    expect(LIVE_CASES).toEqual([1, 4, 5, 22]);
+  it("covers the cases where chat is the point, and every other case that can honestly run", () => {
+    expect(LIVE_CASES).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
+    ]);
   });
 
   it("checks the private-chat path too, last, so a room it leaves can't change the cases before it", () => {
-    expect(LIVE_CHECKS).toEqual([1, 4, 5, 22, "1-private-chat"]);
+    expect(LIVE_CHECKS).toEqual([...LIVE_CASES, "1-private-chat"]);
+    expect(LIVE_CHECKS.at(-1)).toBe("1-private-chat");
+  });
+
+  it("runs just the checks named with --case, in the usual order, and all of them otherwise", () => {
+    expect(chooseChecks(new Set(["20", "3", "1-private-chat"]))).toEqual([3, 20, "1-private-chat"]);
+    expect(chooseChecks()).toEqual([...LIVE_CHECKS]);
+    expect(chooseChecks(new Set(["26"]))).toEqual([]);
   });
 
   it("says in case 1 what the 25 don't cover, and doesn't count the live check as a case", () => {

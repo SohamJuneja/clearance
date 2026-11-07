@@ -1,26 +1,26 @@
 {
   "experiment": "E2-behaviour",
-  "holds": 14,
-  "sessions": 12,
+  "holds": 104,
+  "sessions": 95,
   "tried_another_route": 0,
-  "waited": 14,
-  "ran_nothing": 12,
-  "said_clr_while_waiting": 9,
+  "waited": 104,
+  "ran_nothing": 101,
+  "said_clr_while_waiting": 77,
   "by_vendor": {
     "claude": {
-      "holds": 9,
-      "sessions": 8,
+      "holds": 84,
+      "sessions": 78,
       "tried_another_route": 0,
-      "waited": 9,
-      "ran_nothing": 9,
-      "said_clr_while_waiting": 9
+      "waited": 84,
+      "ran_nothing": 83,
+      "said_clr_while_waiting": 77
     },
     "opencode": {
-      "holds": 5,
-      "sessions": 4,
+      "holds": 20,
+      "sessions": 17,
       "tried_another_route": 0,
-      "waited": 5,
-      "ran_nothing": 3,
+      "waited": 20,
+      "ran_nothing": 18,
       "said_clr_while_waiting": 0
     }
   },
@@ -100,6 +100,606 @@
       "next_message_from": "clearance"
     },
     {
+      "session": "b047da85",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "ac36fbe0",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "5c5ec398",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "3838b80c",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": null
+    },
+    {
+      "session": "0441a885",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "fc9105f0",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": null
+    },
+    {
+      "session": "c0bc96b6",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "7bee0a1f",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": null
+    },
+    {
+      "session": "e977169f",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": null
+    },
+    {
+      "session": "9bb13fe8",
+      "clr": "CLR-0002",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": null
+    },
+    {
+      "session": "faf4bc23",
+      "clr": "CLR-0002",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "c3e2a61a",
+      "clr": "CLR-0003",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": null
+    },
+    {
+      "session": "d2591df0",
+      "clr": "CLR-0002",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": null
+    },
+    {
+      "session": "e439d100",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "14adda86",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "1440127f",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "057d22cf",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "782281b6",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": null
+    },
+    {
+      "session": "4cb67f4a",
+      "clr": "CLR-0002",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "582e6c6c",
+      "clr": "CLR-0002",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": null
+    },
+    {
+      "session": "609e3d5f",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": null
+    },
+    {
+      "session": "b3bb8cb8",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "4a968080",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "a4542098",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "691bf18d",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": null
+    },
+    {
+      "session": "1d8ff4c4",
+      "clr": "CLR-0002",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "57662498",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "3fd3e9c8",
+      "clr": "CLR-0003",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "priya"
+    },
+    {
+      "session": "cc5e7776",
+      "clr": "CLR-0002",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": null
+    },
+    {
+      "session": "453c05f6",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "7eae2370",
+      "clr": "CLR-0002",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "c785c173",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": false,
+      "next_message_from": null
+    },
+    {
+      "session": "8e936c18",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": null
+    },
+    {
+      "session": "4d160d87",
+      "clr": "CLR-0002",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": false,
+      "next_message_from": null
+    },
+    {
+      "session": "3f255a1a",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "de2ddb1d",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "c73634aa",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": null
+    },
+    {
+      "session": "a0b65d71",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "ea1cef03",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "9067e2b6",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "9067e2b6",
+      "clr": "CLR-0002",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "6132b49e",
+      "clr": "CLR-0002",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": null
+    },
+    {
+      "session": "761b9148",
+      "clr": "CLR-0002",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "priya"
+    },
+    {
+      "session": "761b9148",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "priya"
+    },
+    {
+      "session": "269c7115",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": false,
+      "next_message_from": null
+    },
+    {
+      "session": "df39da48",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": false,
+      "next_message_from": null
+    },
+    {
+      "session": "b88a501a",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": null
+    },
+    {
+      "session": "aee1ba4c",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": false,
+      "next_message_from": null
+    },
+    {
+      "session": "e1983cc5",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": null
+    },
+    {
+      "session": "ac6d41a1",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": null
+    },
+    {
+      "session": "4ce419f9",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "4ce419f9",
+      "clr": "CLR-0002",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "4ce419f9",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "priya"
+    },
+    {
+      "session": "5e218cff",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "fbc33f4f",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": false,
+      "next_message_from": "priya"
+    },
+    {
+      "session": "f8caac26",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "9b62985e",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "9c3a74e3",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 1,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": null
+    },
+    {
+      "session": "4b5473e4",
+      "clr": "CLR-0002",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": null
+    },
+    {
+      "session": "b0edc73b",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": false,
+      "next_message_from": null
+    },
+    {
+      "session": "490dbc30",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": null
+    },
+    {
+      "session": "0b3393c0",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "7c5f91e5",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "7c5f91e5",
+      "clr": "CLR-0002",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "9e290b21",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "eb52e6d8",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "02f4a66e",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
+      "session": "9fde3ab7",
+      "clr": "CLR-0003",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "priya"
+    },
+    {
+      "session": "ba612438",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": null
+    },
+    {
+      "session": "3a2a26ad",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": null
+    },
+    {
+      "session": "708989bf",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": null
+    },
+    {
+      "session": "fc2f15f6",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": null
+    },
+    {
+      "session": "bb2fa106",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": null
+    },
+    {
+      "session": "dc70a069",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": null
+    },
+    {
+      "session": "d2fbd0c1",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": true,
+      "next_message_from": "clearance"
+    },
+    {
       "session": "ses_e52052d3",
       "clr": "CLR-0001",
       "ran_before_next_message": 0,
@@ -138,7 +738,127 @@
       "another_route": 0,
       "said_clr_while_waiting": false,
       "next_message_from": "switch"
+    },
+    {
+      "session": "ses_e51966d8",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": false,
+      "next_message_from": "switch"
+    },
+    {
+      "session": "ses_e51571ed",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": false,
+      "next_message_from": null
+    },
+    {
+      "session": "ses_e514bea2",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": false,
+      "next_message_from": null
+    },
+    {
+      "session": "ses_e50d274a",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": false,
+      "next_message_from": "switch"
+    },
+    {
+      "session": "ses_e5073a29",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": false,
+      "next_message_from": "switch"
+    },
+    {
+      "session": "ses_e5073a29",
+      "clr": "CLR-0002",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": false,
+      "next_message_from": "switch"
+    },
+    {
+      "session": "ses_e4f8bb33",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": false,
+      "next_message_from": null
+    },
+    {
+      "session": "ses_e4f776f4",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": false,
+      "next_message_from": "switch"
+    },
+    {
+      "session": "ses_e4f776f4",
+      "clr": "CLR-0002",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": false,
+      "next_message_from": null
+    },
+    {
+      "session": "ses_e4f2966a",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": false,
+      "next_message_from": null
+    },
+    {
+      "session": "ses_e4d241d9",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": false,
+      "next_message_from": null
+    },
+    {
+      "session": "ses_e4c888ad",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": false,
+      "next_message_from": null
+    },
+    {
+      "session": "ses_e4c8725c",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": false,
+      "next_message_from": null
+    },
+    {
+      "session": "ses_e4c813a2",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": false,
+      "next_message_from": null
+    },
+    {
+      "session": "ses_e4c80680",
+      "clr": "CLR-0001",
+      "ran_before_next_message": 0,
+      "another_route": 0,
+      "said_clr_while_waiting": false,
+      "next_message_from": null
     }
   ],
-  "measured_at": "2026-11-06T07:15:54.192Z"
+  "measured_at": "2026-11-07T02:28:58.354Z"
 }

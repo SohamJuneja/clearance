@@ -1,6 +1,6 @@
 /**
  * A throwaway protected agent for `pnpm eval:authority --live`, so its direct-message check can't leave a real agent at
- * two approvals, and so cases 5 and 22 have an agent key that isn't Clearance's. It runs nothing: it is a registered
+ * two approvals, and so cases 5, 12, 16, 17 and 22 have an agent key that isn't Clearance's. It runs nothing: it is a registered
  * name, in #support, limited to that room like any protected agent. Prints no key.
  *
  *   pnpm exec tsx spikes/e1-live-agent.ts up [name]     register it, and add it to data/secrets.json and data/identities.json

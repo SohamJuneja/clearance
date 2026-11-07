@@ -6,6 +6,7 @@
  *   pnpm eval:vendors --go                       the real runs. Also needs CLEARANCE_EVAL_E2_GO=1.
  *     --vendor opencode                          one vendor's runs: replaces that vendor's in the file and keeps the others'
  *     --retry-unfinished                         with --vendor: only that vendor's runs with an error or no result yet
+ *     --redo G-shadow,C                          with --vendor: those conditions again, on code that has changed. The rest stay
  *     --claude-model haiku                       the model Claude's agents are set to; recorded in the output
  *     --usd-per-run 0.05                         the estimate checked against the cap before each run
  *
@@ -35,13 +36,14 @@ import {
   vendorProblems,
 } from "./driver.ts";
 import { executePlan } from "./execute.ts";
-import { callKeeper } from "../classifier/store.ts";
+import { callKeeper, retireCalls } from "../classifier/store.ts";
 import { prepareRun, restoreWorld } from "./live-reset.ts";
 import {
   type AvailabilityMap,
   buildPlan,
   type PlannedRun,
   checkParallel,
+  type ConditionName,
   CONDITIONS,
   loadIntents,
   type RunResult,
@@ -69,6 +71,8 @@ export interface VendorArgs {
   vendor?: VendorName;
   /** With `vendor`: only the runs that didn't finish, and every finished one stays. */
   retryUnfinished: boolean;
+  /** With `vendor`: these conditions run again, and every other run stays as measured. */
+  redo: ConditionName[];
 }
 
 export function parseVendorArgs(argv: string[]): VendorArgs {
@@ -82,8 +86,17 @@ export function parseVendorArgs(argv: string[]): VendorArgs {
   }
   const retryUnfinished = argv.includes("--retry-unfinished");
   if (retryUnfinished && vendor === undefined) throw new Error("--retry-unfinished needs --vendor");
+  const redo = (value("--redo") ?? "").split(",").filter(Boolean) as ConditionName[];
+  for (const condition of redo) {
+    if (!(CONDITIONS as readonly string[]).includes(condition)) {
+      throw new Error(`--redo takes ${CONDITIONS.join(", ")}, not ${condition}`);
+    }
+  }
+  if (redo.length > 0 && vendor === undefined) throw new Error("--redo needs --vendor");
+  if (redo.length > 0 && retryUnfinished) throw new Error("--redo or --retry-unfinished, one or the other");
   return {
     retryUnfinished,
+    redo,
     ...(vendor ? { vendor: vendor as VendorName } : {}),
     dryRun: argv.includes("--dry-run"),
     go: argv.includes("--go"),
@@ -144,6 +157,20 @@ export function retryPlan(
   return {
     todo: plan.filter((run) => run.vendor === vendor && !done.has(key(run, run.intent.id))),
     kept: [...finished, ...runs.filter((run) => run.vendor !== vendor && run.observation.error)],
+  };
+}
+
+/** One vendor's conditions again, on code that has changed. Everything else stays as measured. */
+export function redoPlan(
+  plan: PlannedRun[],
+  previous: unknown,
+  vendor: VendorName,
+  conditions: ConditionName[],
+): { todo: PlannedRun[]; kept: RunResult[] } {
+  const runs = (previous as { per_run?: RunResult[] } | null)?.per_run ?? [];
+  return {
+    todo: plan.filter((run) => run.vendor === vendor && conditions.includes(run.condition)),
+    kept: runs.filter((run) => run.vendor !== vendor || !conditions.includes(run.condition)),
   };
 }
 
@@ -280,9 +307,19 @@ async function main(): Promise<number> {
   // A probe has its own file, so it can never be read as E2.
   const outFile = join(directory, args.probe && !args.go ? "vendors-probe.json" : "vendors.json");
   const previous = existsSync(outFile) ? (JSON.parse(readFileSync(outFile, "utf8")) as unknown) : null;
-  const retry = args.retryUnfinished && args.vendor ? retryPlan(plan, previous, args.vendor) : null;
+  const retry =
+    args.vendor && args.redo.length > 0
+      ? redoPlan(plan, previous, args.vendor, args.redo)
+      : args.retryUnfinished && args.vendor
+        ? retryPlan(plan, previous, args.vendor)
+        : null;
   const kept = retry ? retry.kept : keptResults(previous, args.vendor);
-  if (retry) print(`Trying ${retry.todo.length} unfinished runs again, keeping ${kept.length}.`);
+  if (retry) print(`Running ${retry.todo.length} again, keeping ${kept.length}.`);
+  // Their calls stay for E3, whose labels point at them. They no longer speak for these runs.
+  if (args.go && args.vendor && args.redo.length > 0) {
+    const set = retireCalls(join(directory, "e3-corpus.sqlite"), args.vendor, args.redo);
+    print(`${set} earlier calls in E3's corpus are marked as from an earlier version of these runs.`);
+  }
   const results: RunResult[] = [...kept];
   const reported = availabilityForRun(availability, args.vendor, kept);
   const save = (extra: Record<string, unknown> = {}): void =>

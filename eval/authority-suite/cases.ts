@@ -2,7 +2,7 @@
  * PLAN 10.2's 25 cases for condition C, run against real Acme, gate and core processes (eval/harness). Each
  * gets a fresh world. Answers reach core through onApprovalOutcome and chat through onMessage, in the shapes
  * the Switch agent delivers, with participant ids from an identities file. Chat itself is a recording fake;
- * `chat` says what that means for each case, and the cases where chat is the point also have a --live mode.
+ * `chat` says what that means for each case. `--live` repeats them through real chat: see live-cases.ts.
  *
  * The calls are scripted, so these prove the controls, not how an agent behaves.
  */

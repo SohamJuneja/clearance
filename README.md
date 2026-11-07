@@ -13,6 +13,15 @@ Team dellfargo's entry to the Flip the Switch hackathon, Track 01: Best Business
 
 *Priya, on the left, asked for this refund and tried to approve it. Clearance refused her in the room and sent the card to Sam in finance, on the right. Real agent, real Mattermost. People's presses are scripted, and the agent's words aren't.*
 
+## At a glance
+
+- **The problem.** On Switch today, an agent's approval card is a good UI but not a policy: the person who asked an agent to move money can press Approve on their own request, and the money goes out.
+- **What Clearance does.** A gate holds the business credentials, so a risky call can't run until Clearance says so. Clearance sends a native Switch card to someone the policy says may decide, refuses the person who asked, and writes every step to a hash-chained ledger.
+- **Why it needs Switch.** Who asked comes from Switch's own events, never from what an agent says. Switch's native cards, direct rooms and room roles carry every decision, across agent vendors.
+- **The proof.** Real agents in real Switch rooms, measured with and without Clearance. Every number below comes from a script in `eval/`, and the chart is drawn from the same results.
+
+![Results: risky actions that ran without the right approver, with and without Clearance, for Claude Code and OpenCode; the requester's yes going ahead; bad outcomes prevented in 25 attack cases; and the honest cost in harmless tasks finished.](docs/media/results.svg)
+
 <!-- measured:start -->
 We gave real agents in real Switch rooms risky requests against a synthetic company. With nobody answering, the agent moved nothing in 20 risky runs, because it stops to ask. So a scripted requester now answers "Yes, go ahead" once if asked, in every condition, as someone in a small team would. With no Clearance, Claude's agent stopped to ask in 10 of 20 runs, the requester said yes, and it went ahead in 5 of them, including a ₹40,000 refund and a deleted customer record. OpenCode's agent went ahead in 13 of 18 runs, 9 of them without asking. On the prompts it finished both ways, that's 7 of 9 against 0 of 9. With Clearance, the same yes moved nothing, and no risky action ran without an eligible person's approval, in 31 finished runs. The table below has the rest, including where Clearance loses.
 <!-- measured:end -->
@@ -23,10 +32,35 @@ We gave real agents in real Switch rooms risky requests against a synthetic comp
 2. The agent runs `bin/acme refund`. The agent has no credentials for that. A small gate holds them and asks Clearance first, so the refund is held and the agent is told to stop.
 3. A native Switch card opens. It leads with the call as parsed from what the agent ran and facts from the systems of record, such as a payment ID added minutes ago. The agent's own sentence comes last, labelled unverified.
 4. Priya presses Approve, and Clearance refuses her in the room, because she asked. Who asked comes from Switch's own events, never from an agent's text.
-5. Sam, the finance approver on duty, gets the card in his direct room. If he approves, the gate runs exactly that call, once. If nobody answers, it escalates on a timer.
+5. Sam, the finance approver on duty, gets the card in Sam's direct room. If he approves, the gate runs exactly that call, once. If nobody answers, it escalates on a timer.
 6. Everything goes on a tamper-evident ledger. Practice requests with a planted flaw check that approvers still read, and agents can earn the right to handle small refunds alone, with two people signing and one incident taking it away.
 
+```mermaid
+flowchart LR
+  P["Priya, in a Switch room"] -->|asks for a refund| A["Agent: Claude Code or OpenCode"]
+  A -->|runs the refund| G["Gate: holds the credentials"]
+  G -->|asks first| C["Clearance core: policy file, no LLM"]
+  C -->|native approval card| S["Switch"]
+  S -->|Priya presses Approve| C
+  C -->|refused: she asked| S
+  S -->|card in Sam's direct room| M["Sam, finance on duty"]
+  M -->|approves| C
+  C -->|that exact call, once| G
+  G --> X["Payments"]
+  C --> L[("Hash-chained ledger")]
+```
+
 The same policy file covers merges, deploys, deletes, customer emails and payout changes. Decisions are deterministic code over that file, with no LLM in the decision path. [docs/why.md](docs/why.md) has the problem and its sources, and [docs/architecture.md](docs/architecture.md) has the flow step by step.
+
+## See it
+
+![The card in Priya's support room, left, and in Sam's direct room, right. It leads with the call as parsed from what the agent ran, the facts from the systems of record and the flag on a destination added minutes ago; the agent's own words come last, labelled unverified. Priya's "A1 yes" is refused because she asked.](site/dist/media/card.webp)
+
+*The card in Priya's room (left) and in Sam's direct room (right). Priya's own "yes" is refused because she asked; the card goes to Sam, with the new destination flagged.*
+
+![The Clearance Desk's ledger: policy loaded, held, routed to Sam, Priya's answer refused as the requester, Sam's deny, each with its time, and the hash chain verified.](site/dist/media/desk-ledger.webp)
+
+*The Desk, read-only: every step of that request on the hash-chained ledger, with the chain verified.*
 
 ## How Clearance uses Switch
 

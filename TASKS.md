@@ -86,7 +86,7 @@ Tick a box only when tests or a run prove it. Acceptance text is copied from PLA
 - [x] **F21** Switch Trust endpoint that flags pressure messages (switchboard). Live: flagged in the room, no card or decision changed, about 10 ms per agent send. Off by default.
 - [x] **F22** Daily digest and audit export (brain)
 - [ ] **F23** The report: `@clearance roi`, the daily `clearance-roi` document and the Desk tile (brain, world-ui). Tests pass. Open until `pnpm demo:run SCRO` runs on Mattermost and the document's notice is seen in `#approvals`.
-- [x] **F24** Send refused work to the job with Switch room roles, which decide nothing (lead). Tests pass. Live on the merged code as SCHO 3 of 3 and SCHW 2 of 2, for the `merges` role only. The other three roles are declared and mapped, and haven't been taken live.
+- [x] **F24** Send refused work to the job with Switch room roles, which decide nothing (lead). Tests pass. Live on the code with the fifth review's fixes as SCHO 3 of 3 and SCHW 1 of 1, for the `merges` role only. Two earlier takes after those fixes failed and led to changes: one agent rightly refused a PR that removes a session check, and one named the role before being refused. The other three roles are declared and mapped, and haven't been taken live.
 
 ## Scenarios (PLAN 8.7): each must run on Mattermost via `pnpm demo:run SCn`
 

@@ -277,6 +277,9 @@ function anHourFromNow(): string {
 
 type LiveRun = (stage: LiveStage, findings: Findings) => Promise<void>;
 
+/** Ways of addressing refunds-agent that Switch delivers and a plain `@name` reader misses. See the fifth review. */
+export const ASKING_FORMS = ["@*refunds-agent*", "@**refunds-agent**", "see@refunds-agent", "@constructor @refunds-agent"] as const;
+
 const RUNS: Record<number, LiveRun> = {
   async 1(stage, findings) {
     await stage.fresh();
@@ -302,6 +305,17 @@ const RUNS: Record<number, LiveRun> = {
     await requesterRefused(stage, findings, "sam", SUPPORT, second);
     findings.bad("the refund executed on Sam's own approval", (await refundCount(stage)) > 0);
     await approves(stage, findings, second, "neha");
+
+    // The fifth review's forms. Switch addresses all of these, so each has to reach core through real Mattermost as asking.
+    for (const form of ASKING_FORMS) {
+      await stage.fresh();
+      findings.note(`variant: the same finance approver asks by writing "${form}"`);
+      await ask(stage, "sam", SUPPORT, `${form} refund order A-2004 in full`);
+      const id = await hold(stage, findings);
+      findings.control(`core has Sam as having asked, written "${form}"`, (await stage.request(id)).requester_ids.includes("sam"));
+      await requesterRefused(stage, findings, "sam", SUPPORT, id);
+      findings.bad(`the refund executed on Sam's own approval, written "${form}"`, (await refundCount(stage)) > 0);
+    }
   },
 
   async 2(stage, findings) {
@@ -912,7 +926,7 @@ export const LIVE_CASE_IDS: readonly number[] = Object.keys(RUNS).map(Number);
 
 /** What else differs from the isolated case, beyond what the file's header says. Goes into each result. */
 export const LIVE_NOTES: Record<number, string> = {
-  1: "Priya, and in a variant Sam as a finance approver. The isolated variants using a role, an alias and a direct room aren't repeated, since those need refunds-agent's own voice, a room alias or a hidden room; the private-chat check is what covers the hidden-room path live",
+  1: "Priya, and in variants Sam as a finance approver, asking plainly and in each form the fifth review found Switch delivers and a plain reader misses. The isolated variants using a role, an alias and a direct room aren't repeated, since those need refunds-agent's own voice, a room alias or a hidden room; the private-chat check is what covers the hidden-room path live",
   2: "The isolated main path has a team file where Sam owns refunds-agent, and the shared team has none. So this runs the isolated variant on the demo's team, plus a high-tier merge on coder, where Alex is both owner and otherwise eligible",
   3: "Alex presses the #support copy from outside the room, which a public channel allows",
   4: "A card takes one answer, so the guest gets a hold of their own. The isolated run shows core's refusal; here whichever layer stops it first is noted",

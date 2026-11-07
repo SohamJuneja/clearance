@@ -14,7 +14,8 @@
  * Each case starts from `pnpm demo:reset`, so this touches the shared stack and clears core's real database. It refuses
  * to run unless CLEARANCE_EVAL_LIVE_OK=1 says someone has checked the stack is quiet. Naming a running agent in a room would
  * start a real session, and a leftover session could move money mid-case, so any agent that's running stops for the run and
- * goes back after it. A message that would still wake one is never sent, and its case comes back blocked. Cases 5, 12, 16,
+ * stays stopped: Switch queues a message to a stopped agent and delivers it when the agent next starts, so putting one back
+ * would set it to work on this run's asks. A message that would still wake one is never sent, and its case comes back blocked. Cases 5, 12, 16,
  * 17 and 22 need a key for an agent other than Clearance, from `spikes/e1-live-agent.ts up`, and case 10 needs Sam's second
  * account, from `spikes/e1-live-second-account.ts up`. Without those they come back blocked.
  * Results go to eval/out/authority-live.json, separate from the isolated run, so one can't be mistaken for the other.
@@ -34,7 +35,7 @@ export const LIVE_CHECKS = [...LIVE_CASES, PRIVATE_CHAT_CHECK] as const;
 
 /** What every live row has in common, and stays in the file so a row can't be read without it. */
 export const LIVE_DISCLOSURE =
-  "People's posts and presses are real, on real Mattermost and real Switch, and core, gate and Acme are the real services on their usual ports. The agent's own call is scripted, with that agent's real token, and no agent session runs: any agent left running is stopped for the run and put back after it. Each case starts from a reset. Scripted calls prove the controls, not how an agent behaves.";
+  "People's posts and presses are real, on real Mattermost and real Switch, and core, gate and Acme are the real services on their usual ports. The agent's own call is scripted, with that agent's real token, and no agent session runs: any agent left running is stopped for the run and stays stopped. Each case starts from a reset. Scripted calls prove the controls, not how an agent behaves.";
 
 export function liveAllowed(env: NodeJS.ProcessEnv = process.env): boolean {
   return env.CLEARANCE_EVAL_LIVE_OK === "1";
@@ -123,7 +124,7 @@ export async function runLive(
   const control = stage.agentControl();
   const wereRunning = await control.running();
   if (wereRunning.length > 0) {
-    print(`stopped for this run, and put back after it: ${wereRunning.join(", ")}`);
+    print(`stopped for this run, and left stopped: ${wereRunning.join(", ")}`);
   }
   const results = await withAgentsStopped(control, async () => {
     const rows = await runChecks(stage, chooseChecks(options.only), print);

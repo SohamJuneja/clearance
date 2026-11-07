@@ -75,7 +75,6 @@ export interface AgentControl {
   /** Who is running right now, and so would act, or wake if named. */
   running(): Promise<string[]>;
   stop(names: string[]): Promise<void>;
-  restore(names: string[]): Promise<void>;
 }
 
 /**
@@ -85,12 +84,8 @@ export interface AgentControl {
  */
 export async function withAgentsStopped<T>(control: AgentControl, work: () => Promise<T>): Promise<T> {
   const running = await control.running();
-  try {
-    if (running.length > 0) await control.stop(running);
-    return await work();
-  } finally {
-    if (running.length > 0) await control.restore(running);
-  }
+  if (running.length > 0) await control.stop(running);
+  return work();
 }
 
 /**
@@ -248,7 +243,6 @@ export class RealStage implements LiveStage {
           throw new Error(`${sessions} agent sessions were still going ${SESSIONS_END_MS / 1000} s after stopping ${names.join(", ")}`);
         }
       },
-      restore: (names) => this.setDesiredState(names, "running"),
     };
   }
 

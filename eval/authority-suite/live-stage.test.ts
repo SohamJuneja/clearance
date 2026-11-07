@@ -49,29 +49,28 @@ describe("agents left running by someone else's run", () => {
       control: {
         running: async () => running,
         stop: async (names: string[]) => void calls.push(`stop ${names.join(",")}`),
-        restore: async (names: string[]) => void calls.push(`restore ${names.join(",")}`),
       },
     };
   }
 
-  it("stops them for the run, and puts back exactly those", async () => {
+  it("stops them for the run and leaves them stopped, or they'd start on the run's queued asks", async () => {
     const { calls, control: agents } = control(["coder", "ops-agent"]);
     const result = await withAgentsStopped(agents, async () => {
       calls.push("work");
       return 7;
     });
     expect(result).toBe(7);
-    expect(calls).toEqual(["stop coder,ops-agent", "work", "restore coder,ops-agent"]);
+    expect(calls).toEqual(["stop coder,ops-agent", "work"]);
   });
 
-  it("puts them back even when the run fails", async () => {
+  it("passes on a run that fails, and they stay stopped", async () => {
     const { calls, control: agents } = control(["coder"]);
     await expect(
       withAgentsStopped(agents, async () => {
         throw new Error("the run fell over");
       }),
     ).rejects.toThrow("the run fell over");
-    expect(calls).toEqual(["stop coder", "restore coder"]);
+    expect(calls).toEqual(["stop coder"]);
   });
 
   it("starts nothing when nothing was running", async () => {
@@ -80,7 +79,7 @@ describe("agents left running by someone else's run", () => {
     expect(calls).toEqual(["work"]);
   });
 
-  it("puts back any it did stop if stopping another one fails", async () => {
+  it("doesn't start the run if stopping them fails, since a running agent could wake and move money", async () => {
     const { calls, control: agents } = control(["coder", "ops-agent"]);
     agents.stop = async () => {
       calls.push("stop failed");
@@ -89,7 +88,7 @@ describe("agents left running by someone else's run", () => {
     await expect(withAgentsStopped(agents, async () => void calls.push("work"))).rejects.toThrow(
       "Switch said no",
     );
-    expect(calls).toEqual(["stop failed", "restore coder,ops-agent"]);
+    expect(calls).toEqual(["stop failed"]);
   });
 });
 

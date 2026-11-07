@@ -101,7 +101,7 @@ describe("the scenarios", () => {
 
   it("SCHO goes through the role: Priya asks the wrong agent, in the room the role lives in, and never speaks to the holder", () => {
     const scho = findScenario("SCHO");
-    expect(scho?.prompt).toMatchObject({ by: "priya", room: "eng", text: "@refunds-agent please merge PR 412 in acme/acme-mini-app" });
+    expect(scho?.prompt).toMatchObject({ by: "priya", room: "eng", text: "@refunds-agent please merge PR 418 in acme/acme-mini-app" });
     const steps = scho?.stepNames.join("\n") ?? "";
     for (const expected of [/roster/, /gate refuses/, /hands the work to @merges/, /is held/, /reaches Dev/, /refuses Priya, as the requester/, /merged nothing/]) {
       expect(steps).toMatch(expected);

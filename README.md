@@ -7,6 +7,9 @@ A refund-approval workflow for teams of people and AI agents, built on [Switch](
 Team dellfargo's entry to the Flip the Switch hackathon: Track 01, Best Business Workflow, and Track 02, Best Personal or Creative Workflow.
 
 <!-- video:start -->
+[![Watch the 3:57 demo film on YouTube](site/dist/media/poster.webp)](https://youtu.be/wTnfxIONb2Y)
+
+**[Watch the demo film on YouTube (3:57)](https://youtu.be/wTnfxIONb2Y)**
 <!-- video:end -->
 
 ![Priya asked for the refund and answers her own card. Clearance refuses her in the room, and the card goes to Sam in finance, with the new payment ID flagged.](docs/media/refusal.png)

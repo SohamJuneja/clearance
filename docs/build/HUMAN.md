@@ -9,7 +9,7 @@ The deadline is Sat Nov 7, 23:59 IST. NOW is in the order I'd do it.
 
 - [x] **Recorded your voice and face.** It's in the film: `~/Videos/clearance/clearance-final.mp4` (and `-720p`), 3:57.
 
-- [ ] **Upload the film to YouTube (unlisted or public), then send me the link.** The file is `~/Videos/clearance/clearance-<latest>.mp4` (1080p, -14 LUFS). Title, description, chapters and sources are in `video/YOUTUBE.md`; the thumbnail is `~/Videos/clearance/thumbnail.png`. Captions are burned in, so don't upload the .srt. With the link I add it to the README, the site and the submission text.
+- [x] **Upload the film to YouTube (unlisted or public), then send me the link.** The file is `~/Videos/clearance/clearance-<latest>.mp4` (1080p, -14 LUFS). Title, description, chapters and sources are in `video/YOUTUBE.md`; the thumbnail is `~/Videos/clearance/thumbnail.png`. Captions are burned in, so don't upload the .srt. With the link I add it to the README, the site and the submission text.
 
 - [ ] **Submission form.** Text is in `docs/build/submission-draft.md`. `pnpm numbers:fill` turns it into `SUBMISSION.md` with numbers and links filled in; I rerun it once the video link is in. You add the team members, video link, blog link and Wispr screenshots. Deadline: 23:59 IST tonight.
 

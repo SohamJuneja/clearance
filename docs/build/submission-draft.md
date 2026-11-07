@@ -55,7 +55,7 @@ The scenario we planned didn't happen: the agent attempted the ₹40,000 refund 
 
 Repo: {{REPO_URL}}
 
-Video: VIDEO_URL
+Video: https://youtu.be/wTnfxIONb2Y
 
 Site: https://clearance-site-brown.vercel.app
 

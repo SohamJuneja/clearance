@@ -12,10 +12,12 @@ TAKES=narration/takes
 NARR=narration.json
 [ "${VOICE:-narrator}" = owner ] && TAKES=narration/owner && NARR=narration/owner/narration.json
 
+[ -f "$OUT/audio/intro-sfx-cut.wav" ] && [ -f film/public/footage/intro-cut.mp4 ] || bash intro_cut.sh
 python3 facts.py --fill
 python3 build_film.py
-# His voice says his own words where they differ from the narrator's (owner_caption), so the captions must say them too
-[ "${VOICE:-narrator}" = owner ] && python3 -c "import json; L=json.load(open('narration.json', encoding='utf8')); [l.update(caption=l['owner_caption']) for l in L if l.get('owner_caption')]; json.dump(L, open('$NARR', 'w', encoding='utf8'), indent=1, ensure_ascii=False)"
+# His voice says his own words where they differ from the narrator's (owner_caption), so the captions must say them too.
+# A line marked owner_skip isn't in his voice at all (its take misstates a figure); its scene keeps the sourced card on screen
+[ "${VOICE:-narrator}" = owner ] && python3 -c "import json; L=[l for l in json.load(open('narration.json', encoding='utf8')) if not l.get('owner_skip')]; [l.update(caption=l['owner_caption']) for l in L if l.get('owner_caption')]; json.dump(L, open('$NARR', 'w', encoding='utf8'), indent=1, ensure_ascii=False)"
 python3 "$TOOLS/vo_timeline.py" "$NARR" "$TAKES" --film film/film.json --write --out narration | tail -1
 [ "${VOICE:-narrator}" = owner ] && python3 faces.py
 "$PY" "$TOOLS/captions.py" narration/vo_full.wav narration/script.txt --out film/public/captions | tail -1

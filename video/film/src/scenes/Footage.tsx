@@ -72,7 +72,7 @@ export const Footage: React.FC<FootageProps> = (p) => {
         return (
           <div style={{ position: "absolute", left: T.safeX, bottom: T.safeY + bars + 40, opacity: envelope(f, a, Math.min(d, a + fps * 5)) }}>
             <div style={{ width: 90 * w, height: 4, background: T.accent, marginBottom: 14 }} />
-            <div style={{ fontFamily: T.font, fontWeight: 650, fontSize: 46, color: T.fg, textShadow: "0 3px 14px rgba(0,0,0,.7)", clipPath: `inset(0 ${(1 - w) * 100}% 0 0)` }}>{p.person.name}</div>
+            <div style={{ fontFamily: T.font, fontWeight: 650, fontSize: 46, color: "#FFFFFF", textShadow: "0 3px 14px rgba(0,0,0,.7)", clipPath: `inset(0 ${(1 - w) * 100}% 0 0)` }}>{p.person.name}</div>
             <div style={{ fontFamily: T.font, fontSize: 30, color: "#e9e9e9", marginTop: 4, opacity: ramp(f, a + 8, 10), textShadow: "0 3px 14px rgba(0,0,0,.7)" }}>{p.person.role}</div>
           </div>
         );

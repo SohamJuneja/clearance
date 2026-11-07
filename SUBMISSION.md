@@ -1,6 +1,6 @@
 # Submission
 
-Check this against the real form on Saturday, since the form may ask for fields PLAN didn't list.
+Text for the submission form.
 
 ## Project name
 
@@ -8,11 +8,11 @@ Clearance
 
 ## Team
 
-dellfargo. Members: TEAM_MEMBERS, as they appear on the team page.
+dellfargo: Prashant (Prashant-thakur77) and Soham (SohamJuneja).
 
 ## Tracks
 
-Track 01: Best Business Workflow. Code with Wispr. Best Blog. Track 04: Best Integration or Extension, only if the organisers confirm it's a real prize. Track 03 goes in separately as a pull request to Switch, if we open one.
+Track 01: Best Business Workflow. Code with Wispr. Best Blog. We didn't enter Track 03: the Canva connection for Switch we wrote for it stays in the repo, in `spikes/track03/`, because it was never tested against a real Canva app.
 
 ## One line
 
@@ -26,6 +26,10 @@ Clearance is a Switch agent plus a small gate in front of business APIs. The gat
 
 Approval gates decay, so Clearance also measures attention. Practice requests with planted flaws work like phishing tests, a fast approval earns a typed confirmation on the next high-risk card, and an agent can earn autonomy for small refunds from a record that two people sign. One incident takes it away.
 
+Approvers and operators can ask Clearance questions from an MCP client such as Claude Code, Claude Desktop or Cursor (the tests drive it over stdio with the MCP SDK's client; the Desktop and Cursor setups are documented, not tried). `packages/mcp-connector` is a read-only MCP server with six tools: what's pending and who can decide it, what's waiting on you, why a request was held, the recent ledger, whether its hash chain verifies, and a dry run that records nothing. Its routes sit behind Clearance's internal token, which no agent holds, and `@clearance policy test` answers only people on the team, so an agent can't use either to look for a way round a hold. There's no route to approve anything: an answer counts only from Switch's own approval event.
+
+The project page has a "Try it" form that runs Clearance's own classifier and policy engine in the browser, on the demo's policy file: type a command and see whether it's held and who could approve it.
+
 No LLM sits in the decision path. Identity comes from Switch's events, never from an agent's text. If anything needed for a decision is missing, the answer is hold.
 
 ## How it uses Switch
@@ -38,7 +42,7 @@ Every number comes from a script in `eval/`, and `RESULTS.md` has all of them, i
 
 We gave real agents in real Switch rooms risky requests against a synthetic company. With nobody answering, the agent moved nothing in 20 risky runs, because it stops to ask. So a scripted requester now answers "Yes, go ahead" once if asked, in every condition, as someone in a small team would. With no Clearance, Claude's agent stopped to ask in 10 of 20 runs, the requester said yes, and it went ahead in 5 of them, including a ₹40,000 refund and a deleted customer record. OpenCode's agent went ahead in 13 of 18 runs, 9 of them without asking. On the prompts it finished both ways, that's 7 of 9 against 0 of 9. With Clearance, the same yes moved nothing, and no risky action ran without an eligible person's approval, in 31 finished runs. The table below has the rest, including where Clearance loses.
 
-We scored 25 of 25 on our authority suite: scripted cases on real core, gate and Acme, with a fake chat. Then we ran the same cases on the real stack: 25 of 25 also ran on real Switch and Mattermost, 25 prevented there, 5 adapted to what the stack has. An independent AI review then found 5 breaks the suite had missed, a second reproduced 28 more on code that passed all of that, a third reproduced 19 more in what had been written since, a fourth reproduced 25 more, including one refund sent twice at once running twice, and a fifth reproduced 21 more, including one word that took a whole message off the record, and a teammate's break-it review reproduced 12 more, including a display name that let an approver pose as someone else. They're fixed and re-checked on their own line.
+We scored 25 of 25 on our authority suite: scripted cases on real core, gate and Acme, with a fake chat. Then we ran the same cases on the real stack: 25 of 25 also ran on real Switch and Mattermost, 25 prevented there, 5 adapted to what the stack has. A separate AI review then found 5 breaks the suite had missed, a second reproduced 28 more on code that passed all of that, a third reproduced 19 more in what had been written since, a fourth reproduced 25 more, including one refund sent twice at once running twice, and a fifth reproduced 21 more, including one word that took a whole message off the record, and a teammate's break-it review reproduced 12 more, including a display name that let an approver pose as someone else. They're fixed and re-checked on their own line.
 
 On a synthetic week, an agent that earned autonomy needed 25.8 human decisions per 100 actions, against 100 before promotion. The anomaly rule was changed after we saw the first result, which was 79.2, and both are published.
 
@@ -52,13 +56,15 @@ Repo: https://github.com/SohamJuneja/clearance
 
 Video: VIDEO_URL
 
+Site: SITE_URL
+
 Blog: BLOG_URL
 
-Wispr Insights screenshots: attach the ones taken at 19:00 on Saturday.
+Wispr Insights: Soham's screenshots, attached, and in the film (`docs/media/wispr-highlights.jpg`).
 
 ## AI tools used
 
-The code was written with Claude Code, working as a set of agents under the rules in `CLAUDE.md`, with decisions logged in `DECISIONS.md`. The owner dictated with Wispr Flow, described in `docs/built-by-voice.md`. Clearance itself uses no LLM to decide anything. The demo's agents run on Claude Code and OpenCode, and on any other vendor only if the coverage table in `docs/running-it.md` says it was tested.
+The code was written with Claude Code, working as a set of agents under the rules in `CLAUDE.md`, with decisions logged in `DECISIONS.md`. We dictated prompts and review notes with Wispr Flow, described in `docs/built-by-voice.md`. Clearance itself uses no LLM to decide anything. The demo's agents run on Claude Code and OpenCode, and on any other vendor only if the coverage table in `docs/running-it.md` says it was tested.
 
 ## Licence and Switch's terms
 

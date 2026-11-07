@@ -1,15 +1,15 @@
 {
- "duration": 241.3,
+ "duration": 237.3,
  "vo": "narration/vo_full.wav",
  "music": [
   {
-   "file": "/home/prashant/Downloads/intro-sfx.wav",
+   "file": "/home/prashant/Videos/clearance/audio/intro-sfx-cut.wav",
    "start": 0,
    "in": 0,
    "gain_db": -4.5,
    "fade_in": 0,
    "fade_out": 0.7,
-   "end": 31.0
+   "end": 18.2
   },
   {
    "file": "/home/prashant/Videos/clearance/audio/score.wav",
@@ -18,7 +18,7 @@
    "gain_db": -5,
    "fade_in": 1.4,
    "fade_out": 3.5,
-   "end": 241.3
+   "end": 237.3
   }
  ],
  "sfx": [

@@ -4,7 +4,7 @@ Rechecked with read-only `gh` on 2026-11-06, against `sandbox-quantum/switch` `m
 
 ## Who has it
 
-**Soham has taken Track 03**, under his own name, as of Nov 7. Where this doc says "Owner" below, read Soham: the Canva app, the probe, the hand QA, the video, the comment, the fork, the PR and the CLA are all his.
+**Nobody: Track 03 isn't entered.** On Nov 7 the owner kept it in our repo only, with no pull request upstream, and Soham isn't doing it. `spikes/track03/README.md` says what's there. The rest of this doc is the plan as it stood, kept for the record. Before that, Soham had taken it, under his own name, as of Nov 7. Where this doc says "Owner" below, read Soham: the Canva app, the probe, the hand QA, the video, the comment, the fork, the PR and the CLA are all his.
 
 The code is `spikes/track03/canva-connection.patch`, the same one commit as the local branch described below, made against upstream `13f6a2c8`. In a fork of `sandbox-quantum/switch`:
 

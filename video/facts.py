@@ -57,11 +57,11 @@ def pick(text, pattern, what):
 
 
 def tests_passed() -> int:
-    log = os.path.join(REPO, ".tmp/test-full.log")
-    total = sum(int(n) for n in re.findall(r"Tests\s+(\d+) passed", open(log, encoding="utf8", errors="replace").read()))
-    if "failed" in open(log, encoding="utf8", errors="replace").read().split("tests exit=")[-1]:
-        raise SystemExit("the last full test log has failures; don't quote it")
-    return total
+    """From eval/results/tests.json, which `pnpm eval:tests` writes from a full run; a run with any failure isn't quoted."""
+    res = json.load(open(os.path.join(REPO, "eval/results/tests.json"), encoding="utf8"))
+    if res["failed"] or res["exit"] != 0 or not res["runs"]:
+        raise SystemExit("the last full test run has failures; don't quote it")
+    return int(res["passed"])
 
 
 def facts() -> dict:

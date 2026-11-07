@@ -51,6 +51,7 @@
     "eval:soak": "tsx eval/latency-soak/soak.ts",
     "eval:study": "tsx eval/study/run.ts",
     "eval:autonomy": "tsx eval/autonomy/run.ts",
+    "eval:tests": "tsx eval/tests/count.ts",
     "eval:report": "tsx eval/report.ts",
     "eval:publish": "tsx eval/publish.ts",
     "eval:all": "tsx eval/all.ts",

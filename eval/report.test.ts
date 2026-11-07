@@ -472,7 +472,7 @@ describe("eval:report", () => {
       report();
       const text = readFileSync(resultsPath, "utf8");
       expect(selectRow(parseResults(text), "AUDIT").clearance).toBe("Audit: 5 of 5; second review: 28 of 28; third review: 19 of 19; fourth review: 23 of 23");
-      expect(text).toContain("A fourth independent AI review reproduced 23 more");
+      expect(text).toContain("A fourth separate AI review reproduced 23 more");
     });
 
     it("adds a fifth review the same way", () => {
@@ -489,7 +489,7 @@ describe("eval:report", () => {
       report();
       const text = readFileSync(resultsPath, "utf8");
       expect(selectRow(parseResults(text), "AUDIT").clearance).toBe("Audit: 5 of 5; second review: 28 of 28; third review: 19 of 19; fourth review: 25 of 25; fifth review: 24 of 25 (21 breaks, 4 guards on the fixes)");
-      expect(text, "a check that guards a fix isn't a break anyone found").toContain("A fifth independent AI review reproduced 21 more");
+      expect(text, "a check that guards a fix isn't a break anyone found").toContain("A fifth separate AI review reproduced 21 more");
     });
 
     it("adds a third review the same way", () => {
@@ -514,7 +514,7 @@ describe("eval:report", () => {
       expect(selectRow(rows, "E1").clearance).toBe("3");
       expect(selectRow(rows, "E1").metric).toContain("of 25");
       expect(selectRow(rows, "AUDIT").clearance).toBe("Audit: 4 of 5");
-      expect(selectRow(rows, "AUDIT").metric).toContain("independent review");
+      expect(selectRow(rows, "AUDIT").metric).toContain("separate review");
     });
 
     it("shows the quiet share as a percentage for both sides", () => {
@@ -633,7 +633,7 @@ describe("eval:report", () => {
         expect(text("autonomy-rule")).toContain("gave 70 human decisions");
         expect(text("autonomy-rule")).toContain("against 90");
         expect(text("autonomy-rule")).toContain("gives 20");
-        expect(text("audit")).toContain("independent AI review found 5 real breaks");
+        expect(text("audit")).toContain("separate AI review found 5 real breaks");
         expect(text("audit")).toContain("not that the list is complete");
       });
 

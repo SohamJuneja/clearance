@@ -1,7 +1,7 @@
 <!-- Text for the submission form. `pnpm numbers:fill` writes SUBMISSION.md from this file. Anything in capitals below is for the owner to paste in on the day. -->
 # Submission
 
-Check this against the real form on Saturday, since the form may ask for fields PLAN didn't list.
+Text for the submission form.
 
 ## Project name
 
@@ -9,11 +9,11 @@ Clearance
 
 ## Team
 
-dellfargo. Members: TEAM_MEMBERS, as they appear on the team page.
+dellfargo: Prashant (Prashant-thakur77) and Soham (SohamJuneja).
 
 ## Tracks
 
-Track 01: Best Business Workflow. Code with Wispr. Best Blog. Track 04: Best Integration or Extension, only if the organisers confirm it's a real prize. Track 03 goes in separately as a pull request to Switch, if we open one.
+Track 01: Best Business Workflow. Code with Wispr. Best Blog. We didn't enter Track 03: the Canva connection for Switch we wrote for it stays in the repo, in `spikes/track03/`, because it was never tested against a real Canva app.
 
 ## One line
 
@@ -27,7 +27,7 @@ Clearance is a Switch agent plus a small gate in front of business APIs. The gat
 
 Approval gates decay, so Clearance also measures attention. Practice requests with planted flaws work like phishing tests, a fast approval earns a typed confirmation on the next high-risk card, and an agent can earn autonomy for small refunds from a record that two people sign. One incident takes it away.
 
-Approvers and operators can ask Clearance questions from Claude Code, Claude Desktop or Cursor. `packages/mcp-connector` is a read-only MCP server with six tools: what's pending and who can decide it, what's waiting on you, why a request was held, the recent ledger, whether its hash chain verifies, and a dry run that records nothing. Its routes sit behind Clearance's internal token, which no agent holds, and `@clearance policy test` answers only people on the team, so an agent can't use either to look for a way round a hold. There's no route to approve anything: an answer counts only from Switch's own approval event.
+Approvers and operators can ask Clearance questions from an MCP client such as Claude Code, Claude Desktop or Cursor (the tests drive it over stdio with the MCP SDK's client; the Desktop and Cursor setups are documented, not tried). `packages/mcp-connector` is a read-only MCP server with six tools: what's pending and who can decide it, what's waiting on you, why a request was held, the recent ledger, whether its hash chain verifies, and a dry run that records nothing. Its routes sit behind Clearance's internal token, which no agent holds, and `@clearance policy test` answers only people on the team, so an agent can't use either to look for a way round a hold. There's no route to approve anything: an answer counts only from Switch's own approval event.
 
 The project page has a "Try it" form that runs Clearance's own classifier and policy engine in the browser, on the demo's policy file: type a command and see whether it's held and who could approve it.
 
@@ -43,7 +43,7 @@ Every number comes from a script in `eval/`, and `RESULTS.md` has all of them, i
 
 {{E2_MEASURED}}
 
-We scored {{E1}} on our authority suite: scripted cases on real core, gate and Acme, with a fake chat. Then we ran the same cases on the real stack: {{E1_LIVE}}. An independent AI review then found {{AUDIT_BREAKS}} breaks the suite had missed, a second reproduced {{SECOND_REVIEW_BREAKS}} more on code that passed all of that, a third reproduced {{THIRD_REVIEW_BREAKS}} more in what had been written since, a fourth reproduced {{FOURTH_REVIEW_BREAKS}} more, including one refund sent twice at once running twice, and a fifth reproduced {{FIFTH_REVIEW_BREAKS}} more, including one word that took a whole message off the record, and a teammate's break-it review reproduced {{SIXTH_REVIEW_BREAKS}} more, including a display name that let an approver pose as someone else. They're fixed and re-checked on their own line.
+We scored {{E1}} on our authority suite: scripted cases on real core, gate and Acme, with a fake chat. Then we ran the same cases on the real stack: {{E1_LIVE}}. A separate AI review then found {{AUDIT_BREAKS}} breaks the suite had missed, a second reproduced {{SECOND_REVIEW_BREAKS}} more on code that passed all of that, a third reproduced {{THIRD_REVIEW_BREAKS}} more in what had been written since, a fourth reproduced {{FOURTH_REVIEW_BREAKS}} more, including one refund sent twice at once running twice, and a fifth reproduced {{FIFTH_REVIEW_BREAKS}} more, including one word that took a whole message off the record, and a teammate's break-it review reproduced {{SIXTH_REVIEW_BREAKS}} more, including a display name that let an approver pose as someone else. They're fixed and re-checked on their own line.
 
 On a synthetic week, an agent that earned autonomy needed {{E6_AFTER}} human decisions per 100 actions, against {{E6_BEFORE}} before promotion. The anomaly rule was changed after we saw the first result, which was {{E6_ORIGINAL}}, and both are published.
 
@@ -61,11 +61,11 @@ Site: SITE_URL
 
 Blog: BLOG_URL
 
-Wispr Insights screenshots: attach the ones taken at 19:00 on Saturday.
+Wispr Insights: Soham's screenshots, attached, and in the film (`docs/media/wispr-highlights.jpg`).
 
 ## AI tools used
 
-The code was written with Claude Code, working as a set of agents under the rules in `CLAUDE.md`, with decisions logged in `DECISIONS.md`. The owner dictated with Wispr Flow, described in `docs/built-by-voice.md`. Clearance itself uses no LLM to decide anything. The demo's agents run on Claude Code and OpenCode, and on any other vendor only if the coverage table in `docs/running-it.md` says it was tested.
+The code was written with Claude Code, working as a set of agents under the rules in `CLAUDE.md`, with decisions logged in `DECISIONS.md`. We dictated prompts and review notes with Wispr Flow, described in `docs/built-by-voice.md`. Clearance itself uses no LLM to decide anything. The demo's agents run on Claude Code and OpenCode, and on any other vendor only if the coverage table in `docs/running-it.md` says it was tested.
 
 ## Licence and Switch's terms
 

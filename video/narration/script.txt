@@ -1,7 +1,6 @@
-This is Clearance, built on Switch by team dellfargo.
+Hi, I'm Prashant, from team dellfargo. We built Clearance, on Switch.
 AI agents are arriving fast. Gartner says 71% of companies plan to deploy them within a year, and only 21% can govern them.
-In one survey, 80% said their agents had already done things nobody intended.
-Here's a team on Switch today. Priya asks an agent for a ₹40,000 refund, and a native approval card opens.
+Here's our team on Switch today. Priya asked an agent for a ₹40,000 refund, and a native approval card opens.
 Priya asked, so Priya approves. And the money goes out.
 We ran this with real agents. That refund still went out in 6 of 8 runs.
 Finance fixed this long ago: whoever asks for a payment can't approve it.

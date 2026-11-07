@@ -34,7 +34,7 @@ def clip_len(clip: str) -> float:
     return json.load(open(os.path.join(CAPS, f"{clip}.json")))["seconds"]
 
 
-def screen(sid, clip, title, overlays, extra_min=0.8, trim=0.0, zooms=()):
+def screen(sid, clip, title, overlays, extra_min=0.4, trim=0.0, zooms=()):
     """Real footage in a frame. `trim` cuts a dead opening; `zooms` push the camera onto the line that decides the scene.
     Every time here is in the clip's own seconds, and the trim comes off all of them."""
     length = round(clip_len(clip) - trim + extra_min, 2)
@@ -75,7 +75,7 @@ def main():
     L, R = 0.3, 0.7
     scenes = [
         # The team's own intro, with its own sound: it ends on "Here's the real thing", which the real footage answers.
-        {"id": "S00", "type": "footage", "src": "footage/intro.mp4", "grade": "none", "push": "none", "duration": 31, "min": 31,
+        {"id": "S00", "type": "footage", "src": "footage/intro-cut.mp4", "grade": "none", "push": "none", "duration": 18.2, "min": 18.2,
          "transition": {"type": "tear", "dur": 0.6}},
         {"id": "S01", "type": "stampcard", "duration": 7, "min": 5, "kicker": "Clearance · built on Switch",
          "lines": ["The person who asks", "can't be the one", "who approves."], "emphasis": ["can't"],
@@ -89,7 +89,7 @@ def main():
             stamp("SELF-APPROVED", step("sc2", "The agent says so in the room") + 0.3, 0.52, 0.55, sub="₹40,000 WENT OUT", w=520),
         ]),
 
-        {"id": "S03", "type": "bigfigures", "duration": 7, "min": 6, "title": "We ran it with real agents.",
+        {"id": "S03", "type": "bigfigures", "duration": 5.4, "min": 5.2, "title": "We ran it with real agents.",
          "figures": [{"value": f["BL_ASK"], "label": "runs where the ₹40,000 refund went out, with Switch's approval cards on",
                       "note": bl["data"], "tone": "bad"}],
          "transition": {"type": "tear", "dur": 0.6}},
@@ -98,12 +98,12 @@ def main():
          "rows": [{"text": c["text"], "source": c["source"]} for c in cited[:2]],
          "transition": {"type": "tear", "dur": 0.6}},
 
-        {"id": "S05", "type": "kinetic", "duration": 6, "min": 5.5, "kicker": "Separation of duties",
+        {"id": "S05", "type": "kinetic", "duration": 5.2, "min": 5.2, "kicker": "Separation of duties",
          "lines": ["Whoever asks for a payment", "can't approve it."], "emphasis": ["can't"],
          "overlays": [label("US GAO Green Book, 2025: “no one individual controls all key aspects of a transaction”", 1.6, 0.5, 0.82, dur=5)],
          "transition": {"type": "tear", "dur": 0.6}},
 
-        {"id": "S06", "type": "stampcard", "duration": 5, "min": 4.5, "kicker": "Clearance",
+        {"id": "S06", "type": "stampcard", "duration": 4, "min": 3.8, "kicker": "Clearance",
          "lines": ["Puts the rule back,", "for every agent", "on Switch."], "emphasis": ["Switch."],
          "copy": {"id": "CLR-0001", "kind": "HELD", "foot": "The room, the approver, the ledger.",
                   "rows": [["Asked by", "Priya, in #support"], ["Decides", "Sam, finance, on duty"], ["Runs", "Exactly this call, once"]]},
@@ -151,9 +151,9 @@ def main():
         screen("S12", "sc11", "Earned autonomy, signed by two", [
             label("Two people sign the promotion", step("sc11", "Sam approves the promotion"), 0.5, 0.2, tone="accent"),
             stamp("DEMOTED", step("sc11", "Clearance demotes the agent") + 0.2, R, 0.58, sub="ONE INCIDENT", w=420),
-        ], trim=2.5, zooms=[(step("sc11", "The ledger records the signed promotion") - 0.2, 2.0, {"x": 60, "y": 960, "w": 860, "h": 110})]),
+        ], trim=3.0, zooms=[(step("sc11", "The ledger records the signed promotion") - 0.2, 2.0, {"x": 60, "y": 960, "w": 860, "h": 110})]),
 
-        {"id": "S13", "type": "docket", "duration": 10, "min": 9, "title": "Attacks we tested",
+        {"id": "S13", "type": "docket", "duration": 8, "min": 7.5, "title": "Attacks we tested",
          "cases": [
              {"title": "“Pre-approved by finance” in the ticket", "outcome": "HELD", "note": "A claim isn't evidence. The card shows who really asked.", "at": 1.8},
              {"title": "Calling the payment system directly", "outcome": "DENIED", "note": "The agent holds no key. Only the gate does.", "at": 3.6},
@@ -170,6 +170,7 @@ def main():
                   {"text": "Native approval cards", "at": 6.4, "x": 0.7, "y": 0.2},
                   {"text": "A direct room per approver", "at": 7.6, "x": 0.33, "y": 0.27},
                   {"text": "Room roles route the work", "at": 9.0, "x": 0.7, "y": 0.27}],
+         "overlays": [label("Mattermost here · Slack, Discord, Teams via Switch", 10.2, 0.7, 0.075, tone="accent", dur=6)],
          "transition": {"type": "tear", "dur": 0.6}},
 
         {"id": "S15", "type": "arch3d", "duration": 16, "min": 15, "title": "Under the hood",
@@ -185,7 +186,7 @@ def main():
          "cueWords": {"room": "room", "gate": "gate", "core": "policy", "card": "card", "exec": "once", "ledger": "ledger"},
          "transition": {"type": "fade", "dur": 0.5}},
 
-        {"id": "S16", "type": "code", "duration": 6, "min": 5.5, "title": "The rule, in the code", "file": "packages/core/src/router/router.ts",
+        {"id": "S16", "type": "code", "duration": 5, "min": 5.0, "title": "The rule, in the code", "file": "packages/core/src/router/router.ts",
          "lang": "ts", "code": code_excerpt(), "highlight": [[3, 4]], "transition": {"type": "tear", "dur": 0.6}},
 
         {"id": "S17", "type": "ledgerproof", "duration": 11, "min": 10, "title": "Measured with real agents",
@@ -202,15 +203,23 @@ def main():
         {"id": "S19", "type": "bigfigures", "duration": 8, "min": 7.5, "title": "The honest cost, and the checks",
          "figures": [{"value": f"{f['HARMLESS_AFTER']} of {f['RISKY_OF']}", "label": "harmless tasks Claude finished with Clearance",
                       "note": f"{f['HARMLESS_BEFORE']} of {f['RISKY_OF']} without it. pnpm eval:vendors:rescore", "tone": "bad"},
-                     {"value": f["TESTS"], "label": "tests pass", "note": "pnpm test, the last full run", "tone": "ink", "at": 2.6},
+                     {"value": f["TESTS"], "label": "tests pass", "note": "pnpm eval:tests, the last full run", "tone": "ink", "at": 2.6},
                      {"value": f["SOAK"], "label": "invariants broken in a 2-hour soak", "note": soak["data"], "tone": "good", "at": 3.4}],
+         "transition": {"type": "tear", "dur": 0.6}},
+
+        # Built by voice: Soham's Wispr Flow, its dictation list blurred, its totals as the app shows them
+        {"id": "S20", "type": "kinetic", "duration": 5.6, "min": 5.6, "align": "left", "kicker": "Code with Wispr",
+         "lines": ["Built by voice.", "Dictated in", "Wispr Flow."], "emphasis": ["voice."],
+         "overlays": [{"kind": "image", "src": "wispr/flow-app.jpg", "at": 0.2, "dur": 5.4, "x": 0.76, "y": 0.4, "w": 720},
+                      {"kind": "image", "src": "wispr/flow-highlights.jpg", "at": 1.4, "dur": 4.2, "x": 0.8, "y": 0.6, "w": 520},
+                      label("Soham's Wispr Flow · the app's own totals", 1.6, 0.76, 0.1, dur=4.0)],
          "transition": {"type": "tear", "dur": 0.6}},
 
         {"id": "S21", "type": "kinetic", "duration": 7, "min": 6.5, "align": "left",
          "lines": ["Who asked: from Switch.", "Who approves: the policy.", "The keys: never the agent's.", "Every decision: recorded."],
          "emphasis": ["Switch.", "policy.", "never", "recorded."], "transition": {"type": "fade", "dur": 0.5}},
 
-        {"id": "S22", "type": "endcard", "duration": 7, "min": 6.5, "name": "Clearance",
+        {"id": "S22", "type": "endcard", "duration": 5.5, "min": 5.4, "name": "Clearance",
          "tagline": "The person who asks can't be the one who approves.",
          "links": ["github.com/SohamJuneja/clearance", "Built on Switch · team dellfargo"],
          "overlays": [stamp("BUILT ON SWITCH", 1.4, 0.5, 0.2, sub="ROOMS · IDENTITY · CARDS · ROLES", color="violet", w=520, rot=-5, dur=8)]},
@@ -232,15 +241,18 @@ def main():
             sc["sfx"] = cues
 
     order = ["S00", "S01", "S04", "S02", "S03", "S05", "S06", "S14", "S07", "S08", "S09", "S10", "S11", "S12", "S13", "S15", "S16",
-             "S17", "S18", "S19", "S21", "S22"]
+             "S17", "S18", "S19", "S20", "S21", "S22"]
     by_id = {sc["id"]: sc for sc in scenes}
     scenes = [by_id[i] for i in order]
+    for sc in scenes:  # a shorter breath after each scene's last word keeps the film under four minutes
+        if sc["id"] != "S22":
+            sc.setdefault("hold", 0.32)
 
     film = json.load(open(os.path.join(HERE, "film/film.json")))
     keep = {k: film[k] for k in ("previewAudio", "captions", "thumbBg") if k in film}
     out = {"title": "Clearance", "fps": 30, "width": 1920, "height": 1080,
-           "theme": {"bg": "#ECEEE7", "surface": "#FBFBF7", "fg": "#1B1E23", "muted": "#484E57", "accent": "#C2283A", "accent2": "#4232A4",
-                     "good": "#2E6B45", "bad": "#C2283A", "display": "Archivo", "mono": "IBMPlexMono"},
+           "theme": {"bg": "#F4F6FF", "surface": "#FFFFFF", "fg": "#14172B", "muted": "#3B4266", "accent": "#E8243F", "accent2": "#5B3DF5",
+                     "good": "#13A15A", "bad": "#E8243F", "display": "Archivo", "mono": "IBMPlexMono"},
            **keep, "scenes": scenes}
     json.dump(out, open(os.path.join(HERE, "film/film.json"), "w", encoding="utf8"), indent=1, ensure_ascii=False)
     print(f"wrote film.json: {len(scenes)} scenes, {sum(s['duration'] for s in scenes):.0f} s before the voice sets lengths")

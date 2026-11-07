@@ -20,6 +20,7 @@
   "scene": "S04",
   "id": "l03",
   "caption": "In one survey, 80% said their agents had already done things nobody intended.",
+  "owner_skip": "his take says eighty-seven percent and the source says 80%, so his voice leaves the line out and the sourced card stays on screen",
   "spoken": "In one survey, eighty percent said their agents had already done things nobody intended.",
   "exaggeration": 0.6,
   "cfg": 0.35
@@ -28,6 +29,7 @@
   "scene": "S02",
   "id": "l04",
   "caption": "Here's a team on Switch today. Priya asks an agent for a ₹40,000 refund, and a native approval card opens.",
+  "owner_caption": "Here's our team on Switch today. Priya asked an agent for a ₹40,000 refund, and a native approval card opens.",
   "spoken": "Here's a team on Switch today. Priya asks an agent for a forty thousand rupee refund, and a native approval card opens.",
   "exaggeration": 0.55,
   "cfg": 0.35

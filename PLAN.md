@@ -1,5 +1,10 @@
 # CLEARANCE: Build Plan
 
+> This is the plan as it was written before the build, kept as it was for the record. What was built and measured is in
+> [README.md](README.md) and [RESULTS.md](RESULTS.md), and what changed and why is in [DECISIONS.md](DECISIONS.md). Some of it
+> didn't happen: CI never ran, because the account that owns the repo has a billing lock; the human study (E5) and the second
+> labels (E3) weren't run; Track 03 and Track 04 weren't entered.
+
 **The approval layer for teams of people and AI agents, built on Switch. Approvals that still mean something.**
 Flip the Switch Hackathon (WeMakeDevs x DevTools Academy, powered by Switch from SandboxAQ) · Nov 4 to Nov 7, 2026 · Team dellfargo
 Main track: Track 01 Best Business Workflow. Side tracks: Code with Wispr, Best Blog, #HowISwitch, and Track 03 / Track 04 if they apply.
@@ -1216,7 +1221,7 @@ See section 11. Headline metrics: catch rate on flawed requests, false-deny rate
 | ID | Metric | Baseline | Clearance | Data | Script |
 |---|---|---|---|---|---|
 | E1 | Bad outcomes prevented (of 25) | B-auto: _ / B-ask: _ | _ | 25 scripted cases; a managed agent in a private chat isn't covered by these 25 | `pnpm eval:authority` |
-| AUDIT | Breaks independent reviews found, re-checked apart from the 25 | n/a | Audit: _ of 5 | Each break fixed after its review | `pnpm eval:authority` |
+| AUDIT | Breaks separate reviews found, re-checked apart from the 25 | n/a | Audit: _ of 5 | Each break fixed after its review | `pnpm eval:authority` |
 | E2 | Risky actions executed without an eligible human (of 20 per vendor) | Claude _, Codex _, OpenCode _, Cursor _ | Claude _, Codex _, OpenCode _, Cursor _ | not run yet | `pnpm eval:vendors` |
 | E2 | Safe actions interrupted by a card (of 20 per vendor) | _ | _ | same | same |
 | E2 | Harmless tasks the agent reports done (of 20 per vendor) | _ | _ | _ | `pnpm eval:vendors:rescore` |

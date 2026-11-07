@@ -608,7 +608,7 @@ footer .links a:hover { text-decoration-color: var(--ink); }
         <p class="lede">Clearance is an approval layer <strong>built on Switch</strong>. When an agent in a Switch room tries a refund, a merge, a deploy or a customer email, Clearance holds the call and sends a native Switch card to the right person. Whoever asked for it can't approve it.</p>
         <div class="actions">
           <a class="btn btn--ink" href="#try">Try it in your browser</a>
-          <a class="btn" href="#demo"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 1l11 6-11 6z" fill="currentColor"/></svg>Watch the 3-minute demo</a>
+          <a class="btn" href="#demo"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 1l11 6-11 6z" fill="currentColor"/></svg>Watch the demo</a>
           <a class="btn" href="https://github.com/SohamJuneja/clearance" target="_blank" rel="noopener">Read the code</a>
         </div>
         <p class="small-print">Real agents in real Switch rooms on Mattermost, with a synthetic company. Every number on this page is filled in from the repo's results by a script.</p>
@@ -957,7 +957,7 @@ footer .links a:hover { text-decoration-color: var(--ink); }
             <thead><tr><th scope="col">ID</th><th scope="col">Measure</th><th scope="col">Without</th><th scope="col">With Clearance</th><th scope="col">How</th></tr></thead>
             <tbody>
               <tr><td class="id" data-label="ID">E1</td><td class="metric" data-label="Measure">Bad outcomes prevented (of 25)</td><td data-label="Without">B-auto: 0 / B-ask: 9</td><td class="num" data-label="With Clearance">25</td><td class="data" data-label="How">25 scripted cases on a fake chat port; 25 of 25 also ran on real Switch and Mattermost, 25 prevented there, 5 adapted to what the stack has; more in RESULTS.md. <code>pnpm eval:authority</code></td></tr>
-              <tr><td class="id" data-label="ID">AUDIT</td><td class="metric" data-label="Measure">Breaks independent reviews found, re-checked apart from the 25</td><td data-label="Without">n/a</td><td class="num" data-label="With Clearance">Audit: 5 of 5; second review: 28 of 28; third review: 19 of 19; fourth review: 25 of 25; fifth review: 25 of 25 (21 breaks, 4 guards on the fixes); sixth review, by a teammate: 16 of 16 (12 breaks, 4 guards on the fixes)</td><td class="data" data-label="How">Each break fixed after its review. <code>pnpm eval:authority</code></td></tr>
+              <tr><td class="id" data-label="ID">AUDIT</td><td class="metric" data-label="Measure">Breaks separate reviews found, re-checked apart from the 25</td><td data-label="Without">n/a</td><td class="num" data-label="With Clearance">Audit: 5 of 5; second review: 28 of 28; third review: 19 of 19; fourth review: 25 of 25; fifth review: 25 of 25 (21 breaks, 4 guards on the fixes); sixth review, by a teammate: 16 of 16 (12 breaks, 4 guards on the fixes)</td><td class="data" data-label="How">Each break fixed after its review. <code>pnpm eval:authority</code></td></tr>
               <tr><td class="id" data-label="ID">E2</td><td class="metric" data-label="Measure">Risky actions executed without an eligible human (of 20 per vendor)</td><td data-label="Without">Claude 5, OpenCode 13 of 18</td><td class="num" data-label="With Clearance">Claude 0, OpenCode 0 of 11</td><td class="data" data-label="How">200 agent runs, 167 finished, Claude on haiku, OpenCode on opencode/beam-free; Priya answers once if the agent asks. <code>pnpm eval:vendors</code></td></tr>
               <tr><td class="id" data-label="ID">E2</td><td class="metric" data-label="Measure">Safe actions interrupted by a card (of 20 per vendor)</td><td data-label="Without">Claude 0, OpenCode 0 of 18</td><td class="num" data-label="With Clearance">Claude 0, OpenCode not run</td><td class="data" data-label="How">scored from the saved transcripts of the same runs. <code>pnpm eval:vendors:rescore</code></td></tr>
               <tr><td class="id" data-label="ID">E2</td><td class="metric" data-label="Measure">Harmless tasks the agent reports done (of 20 per vendor)</td><td data-label="Without">Claude 18, OpenCode 18 of 18</td><td class="num" data-label="With Clearance">Claude 16, OpenCode not run</td><td class="data" data-label="How">a fact only the system could give, in the agent's words. <code>pnpm eval:vendors:rescore</code></td></tr>
@@ -990,7 +990,7 @@ footer .links a:hover { text-decoration-color: var(--ink); }
       <div class="section-head">
         <div class="folder"><p class="tab">§ 7 · Run it</p><p class="tab-note">from the README, as it is</p></div>
         <h2 id="run-title">Run it on your machine.</h2>
-        <p>It needs Linux (WSL2 counts), Docker, Node 22, pnpm, <code>just</code> and a few GB of free memory, and <code>just demo --check</code> says what's missing. Windows itself isn't supported, for the tests either: they use POSIX paths, file modes and shell commands.</p>
+        <p>It needs Linux (WSL2 counts), Docker, Node 22, pnpm, <code>just</code> and a few GB of free memory. Windows itself isn't supported, for the tests either: they use POSIX paths, file modes and shell commands.</p>
       </div>
       <p class="visually-hidden" id="copy-status" aria-live="polite"></p>
       <div class="run-grid">

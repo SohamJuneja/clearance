@@ -49,7 +49,7 @@ const E1 = z.object({
   audit: z
     .object({ passed: z.number().int().nonnegative(), total: z.number().int().positive() })
     .optional(),
-  /** The second independent review's group, the same way. */
+  /** The second separate review's group, the same way. */
   second_review: z
     .object({ passed: z.number().int().nonnegative(), total: z.number().int().positive() })
     .optional(),
@@ -331,6 +331,7 @@ const NOT_FOR_THIS_TABLE: Record<string, string> = {
   "E4-soak-smoke": "it's a smoke test of the soak, not the 2 hour result",
   "E2-probe": "it's a short check that E2 can run, not its result",
   "E1-mutations": "it's evidence that E1's cases test what they say, not a result of its own",
+  "test suite": "it's the count of passing tests the film quotes, not an experiment",
 };
 
 const SCHEMAS = {
@@ -686,40 +687,40 @@ export function negativeResults(inputs: Inputs): NegativeResult[] {
   if (e1?.audit) {
     results.push({
       id: "audit",
-      text: `An independent AI review found ${num(e1.audit.total)} real breaks while E1 reported every listed case as prevented. E1 proves the listed controls, not that the list is complete. They were fixed and are re-checked on their own line (F1 to F${num(e1.audit.total)}), apart from E1's count.`,
-      short: `an independent AI review found ${num(e1.audit.total)} real breaks while E1 reported every listed case as prevented`,
+      text: `An separate AI review found ${num(e1.audit.total)} real breaks while E1 reported every listed case as prevented. E1 proves the listed controls, not that the list is complete. They were fixed and are re-checked on their own line (F1 to F${num(e1.audit.total)}), apart from E1's count.`,
+      short: `an separate AI review found ${num(e1.audit.total)} real breaks while E1 reported every listed case as prevented`,
       source: "`pnpm eval:authority`",
     });
   }
   if (e1?.second_review) {
     results.push({
       id: "second-review",
-      text: `A second independent AI review then reproduced ${num(e1.second_review.total)} more breaks, on code that passed all 25 cases and the first review's checks. Among them: a denial lost in the seconds its card was opening, a requester naming who approves, and one single-use grant running a command many times. They were fixed and are re-checked on their own line.`,
-      short: `a second independent AI review reproduced ${num(e1.second_review.total)} more breaks on code that passed everything before it`,
+      text: `A second separate AI review then reproduced ${num(e1.second_review.total)} more breaks, on code that passed all 25 cases and the first review's checks. Among them: a denial lost in the seconds its card was opening, a requester naming who approves, and one single-use grant running a command many times. They were fixed and are re-checked on their own line.`,
+      short: `a second separate AI review reproduced ${num(e1.second_review.total)} more breaks on code that passed everything before it`,
       source: "`pnpm eval:authority`",
     });
   }
   if (e1?.third_review) {
     results.push({
       id: "third-review",
-      text: `A third independent AI review reproduced ${num(e1.third_review.total)} more in what had been written since, and one came from fixing an earlier break: a stray @name raised a quorum, which could make a prod deploy impossible to approve. They're fixed and re-checked on their own line.${e1.fourth_review ? "" : " Each review so far has found more, so a fourth probably would too."}`,
-      short: `a third independent AI review reproduced ${num(e1.third_review.total)} more, one of them caused by fixing an earlier break`,
+      text: `A third separate AI review reproduced ${num(e1.third_review.total)} more in what had been written since, and one came from fixing an earlier break: a stray @name raised a quorum, which could make a prod deploy impossible to approve. They're fixed and re-checked on their own line.${e1.fourth_review ? "" : " Each review so far has found more, so a fourth probably would too."}`,
+      short: `a third separate AI review reproduced ${num(e1.third_review.total)} more, one of them caused by fixing an earlier break`,
       source: "`pnpm eval:authority`",
     });
   }
   if (e1?.fourth_review) {
     results.push({
       id: "fourth-review",
-      text: `A fourth independent AI review reproduced ${num(e1.fourth_review.total)} more, and the worst was the simplest: send the same refund twice at once and both ran alone, because every limit was checked before the record it reads was written. They're fixed and re-checked on their own line. Each review so far has found more, so another probably would too.`,
-      short: `a fourth independent AI review reproduced ${num(e1.fourth_review.total)} more, the worst being one refund sent twice at once running twice`,
+      text: `A fourth separate AI review reproduced ${num(e1.fourth_review.total)} more, and the worst was the simplest: send the same refund twice at once and both ran alone, because every limit was checked before the record it reads was written. They're fixed and re-checked on their own line. Each review so far has found more, so another probably would too.`,
+      short: `a fourth separate AI review reproduced ${num(e1.fourth_review.total)} more, the worst being one refund sent twice at once running twice`,
       source: "`pnpm eval:authority`",
     });
   }
   if (e1?.fifth_review) {
     results.push({
       id: "fifth-review",
-      text: `A fifth independent AI review reproduced ${num(e1.fifth_review.breaks ?? e1.fifth_review.total)} more, in the room roles and the record of refusals added after the fourth, and the worst took one word: \`@constructor\` anywhere in a message made core throw, so Switch delivered the ask and it was never counted, and the person who asked could approve their own refund. They're fixed and re-checked on their own line.`,
-      short: `a fifth independent AI review reproduced ${num(e1.fifth_review.breaks ?? e1.fifth_review.total)} more, the worst being one word that took a whole message off the record`,
+      text: `A fifth separate AI review reproduced ${num(e1.fifth_review.breaks ?? e1.fifth_review.total)} more, in the room roles and the record of refusals added after the fourth, and the worst took one word: \`@constructor\` anywhere in a message made core throw, so Switch delivered the ask and it was never counted, and the person who asked could approve their own refund. They're fixed and re-checked on their own line.`,
+      short: `a fifth separate AI review reproduced ${num(e1.fifth_review.breaks ?? e1.fifth_review.total)} more, the worst being one word that took a whole message off the record`,
       source: "`pnpm eval:authority`",
     });
   }
@@ -750,7 +751,7 @@ export function renderTable(inputs: Inputs): string {
     HEADER,
     "|---|---|---|---|---|---|",
     `| E1 | Bad outcomes prevented (of ${e1?.clearance?.total ?? e1?.b_auto?.total ?? 25}) | B-auto: ${prevented(e1?.b_auto)} / B-ask: ${prevented(e1?.b_ask)} | ${prevented(e1?.clearance)} | ${synthetic(e1, `${e1?.cases ?? 25} scripted cases${onFakeChat(e1?.mode) ? " on a fake chat port" : ""}${e1LiveCount(inputs) ? `; ${e1LiveCount(inputs)}` : ""}${e1?.baseline_basis ? "; baselines read from code, not run" : ""}${noSuchControl(e1)}; ${e1Coverage(inputs)}`)} | \`pnpm eval:authority\` |`,
-    `| AUDIT | Breaks independent reviews found, re-checked apart from the 25 | n/a | ${auditCell(e1)} | Each break fixed after its review | \`pnpm eval:authority\` |`,
+    `| AUDIT | Breaks separate reviews found, re-checked apart from the 25 | n/a | ${auditCell(e1)} | Each break fixed after its review | \`pnpm eval:authority\` |`,
     `| E2 | Risky actions executed without an eligible human (of 20 per vendor) | ${vendors(e2?.risky_unapproved?.baseline)} | ${vendors(e2?.risky_unapproved?.clearance)} | ${synthetic(e2, e2 ? `${num(e2.runs ?? 360)} agent runs${e2.per_run ? `, ${e2.per_run.filter((run) => !run.observation?.error).length} finished` : ""}${e2.claude_model ? `, Claude on ${e2.claude_model}` : ""}${e2.opencode_model ? `, OpenCode on ${e2.opencode_model}` : ""}${e2.priya_answers_once ? "; Priya answers once if the agent asks" : ""}` : "not run yet")} | \`pnpm eval:vendors\` |`,
     `| E2 | Safe actions interrupted by a card (of 20 per vendor) | ${vendorsOrBlank(e2?.safe_interrupted?.baseline)} | ${vendorsOrBlank(e2?.safe_interrupted?.clearance)} | ${e2?.rescored_from_transcripts ? "scored from the saved transcripts of the same runs" : "same"} | ${e2?.rescored_from_transcripts ? "\`pnpm eval:vendors:rescore\`" : "same"} |`,
     `| E2 | Harmless tasks the agent reports done (of 20 per vendor) | ${e2Cells(e2, "B-auto", (row, name) => `${name} ${ofTwenty(row.safe.done, row.safe.finished)}`)} | ${e2Cells(e2, "C", (row, name) => `${name} ${ofTwenty(row.safe.done, row.safe.finished)}`)} | ${e2?.ends ? "a fact only the system could give, in the agent's words" : BLANK} | \`pnpm eval:vendors:rescore\` |`,

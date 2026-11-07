@@ -79,10 +79,10 @@ export const Arch3D: React.FC<Arch3DProps> = (p) => {
           <div key={l.id} style={{ position: "absolute", left: W - T.safeX - 470, top: ly, translate: `0 calc(-50% + ${(1 - ramp(f, riseAt[i] + 8, 10)) * 12}px)`,
             width: 460, opacity: o, fontFamily: T.font, color: T.fg }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
-              <span style={{ fontFamily: T.monoFont, fontSize: 26, color: "#4232A4" }}>{String(i + 1).padStart(2, "0")}</span>
+              <span style={{ fontFamily: T.monoFont, fontSize: 26, color: "#5B3DF5" }}>{String(i + 1).padStart(2, "0")}</span>
               <span style={{ fontSize: 38, fontWeight: 800 }}>{l.label}</span>
             </div>
-            {l.sub && <div style={{ fontFamily: T.monoFont, fontSize: 22, color: "#484E57", marginTop: 6, marginLeft: 46 }}>{l.sub}</div>}
+            {l.sub && <div style={{ fontFamily: T.monoFont, fontSize: 22, color: "#3B4266", marginTop: 6, marginLeft: 46 }}>{l.sub}</div>}
           </div>
         );
       })}
@@ -119,7 +119,7 @@ const Stack: React.FC<StackProps> = (p) => {
   const c = camAt(f, p.dur);
   camera.position.copy(c.pos); camera.lookAt(c.look); camera.updateMatrixWorld();
   // Stamp violet lights the active slab; Switch's room, the floor everything stands on, is tinted violet throughout.
-  const accent = useMemo(() => new THREE.Color("#4232A4"), []);
+  const accent = useMemo(() => new THREE.Color("#5B3DF5"), []);
   const n = p.layers.length;
   const step = Math.round(fps * 0.45); // time per layer for a packet (move + pause)
   const packetY = (start: number, stopAt = n) => {

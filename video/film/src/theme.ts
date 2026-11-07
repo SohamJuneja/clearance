@@ -14,8 +14,8 @@ export const T = {
   h1: 112, h2: 76, h3: 52, body: 40, small: 30, label: 26,
   safeX: 96, safeY: 84,
   // the paperwork world: ledger stock, carbon copies, stamp inks
-  paper: "#ECEEE7", paperDeep: "#E1E5DC", rule: "#B9C8D6", margin: "#D79292",
-  white: "#FBFBF7", canary: "#F6E58F", pink: "#F3C8D2",
-  ink: "#1B1E23", inkSoft: "#484E57", inkFaint: "#6E747C",
-  red: "#C2283A", violet: "#4232A4", green: "#2E6B45",
+  paper: "#F4F6FF", paperDeep: "#E6ECFF", rule: "#A9BEF2", margin: "#FF8FA3",
+  white: "#FFFFFF", canary: "#FFDD55", pink: "#FFB0C8",
+  ink: "#14172B", inkSoft: "#3B4266", inkFaint: "#666E95",
+  red: "#E8243F", violet: "#5B3DF5", green: "#13A15A",
 };

@@ -4,14 +4,14 @@
   "width": 1920,
   "height": 1080,
   "theme": {
-    "bg": "#ECEEE7",
-    "surface": "#FBFBF7",
-    "fg": "#1B1E23",
-    "muted": "#484E57",
-    "accent": "#C2283A",
-    "accent2": "#4232A4",
-    "good": "#2E6B45",
-    "bad": "#C2283A",
+    "bg": "#F4F6FF",
+    "surface": "#FFFFFF",
+    "fg": "#14172B",
+    "muted": "#3B4266",
+    "accent": "#E8243F",
+    "accent2": "#5B3DF5",
+    "good": "#13A15A",
+    "bad": "#E8243F",
     "display": "Archivo",
     "mono": "IBMPlexMono"
   },
@@ -20,74 +20,39 @@
     {
       "id": "S00",
       "type": "footage",
-      "src": "footage/intro.mp4",
+      "src": "footage/intro-cut.mp4",
       "grade": "none",
       "push": "none",
-      "duration": 31.0,
-      "min": 31,
+      "duration": 18.2,
+      "min": 18.2,
       "transition": {
         "type": "tear",
         "dur": 0.6
-      }
+      },
+      "hold": 0.32
     },
     {
       "id": "S01",
-      "type": "stampcard",
-      "duration": 5.0,
-      "min": 5,
-      "kicker": "Clearance · built on Switch",
-      "lines": [
-        "The person who asks",
-        "can't be the one",
-        "who approves."
-      ],
-      "emphasis": [
-        "can't"
-      ],
-      "copy": {
-        "id": "CLR-0001",
-        "kind": "REFUND ₹4,000",
-        "foot": "Drawn from a real card in the demo.",
-        "rows": [
-          [
-            "The call",
-            "Refund ₹4,000 to Meera K."
-          ],
-          [
-            "Flags",
-            "Payment ID added today"
-          ],
-          [
-            "Asked by",
-            "Priya"
-          ],
-          [
-            "Approve",
-            "Priya pressed ✓"
-          ]
-        ]
-      },
-      "stamp": {
-        "text": "REQUESTER",
-        "sub": "CAN'T APPROVE · CLR-0001",
-        "at": 2.4
-      },
+      "type": "footage",
+      "src": "face/l01.mp4",
+      "trimBefore": 0.167,
+      "grade": "story",
+      "push": "in",
+      "duration": 6.0,
       "transition": {
         "type": "tear",
         "dur": 0.6
       },
-      "sfx": [
-        {
-          "at": 2.6,
-          "sfx": "stamp",
-          "db": -6
-        }
-      ]
+      "person": {
+        "name": "Prashant",
+        "role": "Team dellfargo · built Clearance on Switch",
+        "at": 0.5
+      }
     },
     {
       "id": "S04",
       "type": "facts",
-      "duration": 13.633,
+      "duration": 10.533,
       "min": 9,
       "kicker": "How big this is",
       "rows": [
@@ -103,7 +68,20 @@
       "transition": {
         "type": "tear",
         "dur": 0.6
-      }
+      },
+      "hold": 0.32,
+      "overlays": [
+        {
+          "kind": "face",
+          "src": "face/l02.mp4",
+          "at": 0.3,
+          "trimBefore": 0.935,
+          "dur": 10.036,
+          "x": 0.095,
+          "y": 0.7,
+          "w": 260
+        }
+      ]
     },
     {
       "id": "S02",
@@ -112,8 +90,8 @@
       "meta": "captures/sc2.json",
       "title": "Switch today, without Clearance",
       "note": "Real agents in real Switch rooms on Mattermost. People's presses are scripted. The company is synthetic.",
-      "duration": 12.133,
-      "min": 12.12,
+      "duration": 11.933,
+      "min": 11.72,
       "overlays": [
         {
           "kind": "label",
@@ -135,6 +113,26 @@
           "rot": -8,
           "color": "red",
           "sub": "₹40,000 WENT OUT"
+        },
+        {
+          "kind": "face",
+          "src": "face/l04.mp4",
+          "at": 0.3,
+          "trimBefore": 0.935,
+          "dur": 7.414,
+          "x": 0.095,
+          "y": 0.7,
+          "w": 260
+        },
+        {
+          "kind": "face",
+          "src": "face/l05.mp4",
+          "at": 8.011,
+          "trimBefore": 0.935,
+          "dur": 3.676,
+          "x": 0.095,
+          "y": 0.7,
+          "w": 260
         }
       ],
       "transition": {
@@ -147,13 +145,14 @@
           "sfx": "stamp",
           "db": -7
         }
-      ]
+      ],
+      "hold": 0.32
     },
     {
       "id": "S03",
       "type": "bigfigures",
-      "duration": 6.0,
-      "min": 6,
+      "duration": 5.6,
+      "min": 5.2,
       "title": "We ran it with real agents.",
       "figures": [
         {
@@ -166,13 +165,26 @@
       "transition": {
         "type": "tear",
         "dur": 0.6
-      }
+      },
+      "hold": 0.32,
+      "overlays": [
+        {
+          "kind": "face",
+          "src": "face/l06.mp4",
+          "at": 0.3,
+          "trimBefore": 0.935,
+          "dur": 5.131,
+          "x": 0.095,
+          "y": 0.7,
+          "w": 260
+        }
+      ]
     },
     {
       "id": "S05",
       "type": "kinetic",
-      "duration": 5.5,
-      "min": 5.5,
+      "duration": 5.367,
+      "min": 5.2,
       "kicker": "Separation of duties",
       "lines": [
         "Whoever asks for a payment",
@@ -190,18 +202,29 @@
           "x": 0.5,
           "y": 0.82,
           "tone": "plain"
+        },
+        {
+          "kind": "face",
+          "src": "face/l07a.mp4",
+          "at": 0.3,
+          "trimBefore": 0.935,
+          "dur": 4.985,
+          "x": 0.095,
+          "y": 0.7,
+          "w": 260
         }
       ],
       "transition": {
         "type": "tear",
         "dur": 0.6
-      }
+      },
+      "hold": 0.32
     },
     {
       "id": "S06",
       "type": "stampcard",
-      "duration": 4.5,
-      "min": 4.5,
+      "duration": 3.8,
+      "min": 3.8,
       "kicker": "Clearance",
       "lines": [
         "Puts the rule back,",
@@ -246,12 +269,25 @@
           "sfx": "stamp",
           "db": -6
         }
+      ],
+      "hold": 0.32,
+      "overlays": [
+        {
+          "kind": "face",
+          "src": "face/l07b.mp4",
+          "at": 0.3,
+          "trimBefore": 0.935,
+          "dur": 3.184,
+          "x": 0.095,
+          "y": 0.7,
+          "w": 260
+        }
       ]
     },
     {
       "id": "S14",
       "type": "room",
-      "duration": 14.167,
+      "duration": 16.133,
       "min": 11,
       "title": "Switch is the room",
       "room": "#support · a Switch room",
@@ -327,10 +363,42 @@
           "y": 0.27
         }
       ],
+      "overlays": [
+        {
+          "kind": "label",
+          "text": "Mattermost here · Slack, Discord, Teams via Switch",
+          "at": 10.2,
+          "dur": 6,
+          "x": 0.7,
+          "y": 0.075,
+          "tone": "accent"
+        },
+        {
+          "kind": "face",
+          "src": "face/l17.mp4",
+          "at": 0.3,
+          "trimBefore": 0.935,
+          "dur": 9.291,
+          "x": 0.095,
+          "y": 0.7,
+          "w": 260
+        },
+        {
+          "kind": "face",
+          "src": "face/l18.mp4",
+          "at": 9.906,
+          "trimBefore": 0.935,
+          "dur": 5.975,
+          "x": 0.095,
+          "y": 0.7,
+          "w": 260
+        }
+      ],
       "transition": {
         "type": "tear",
         "dur": 0.6
-      }
+      },
+      "hold": 0.32
     },
     {
       "id": "S07",
@@ -339,8 +407,8 @@
       "meta": "captures/sc3.json",
       "title": "Refunds: whoever asks can't approve",
       "note": "Real agents in real Switch rooms on Mattermost. People's presses are scripted. The company is synthetic.",
-      "duration": 17.6,
-      "min": 17.59,
+      "duration": 20.733,
+      "min": 17.19,
       "overlays": [
         {
           "kind": "label",
@@ -410,6 +478,26 @@
           "rot": -6,
           "color": "red",
           "sub": "BY SAM · FINANCE"
+        },
+        {
+          "kind": "face",
+          "src": "face/l08.mp4",
+          "at": 0.3,
+          "trimBefore": 0.935,
+          "dur": 8.327,
+          "x": 0.095,
+          "y": 0.7,
+          "w": 260
+        },
+        {
+          "kind": "face",
+          "src": "face/l09.mp4",
+          "at": 8.989,
+          "trimBefore": 0.935,
+          "dur": 11.631,
+          "x": 0.095,
+          "y": 0.7,
+          "w": 260
         }
       ],
       "transition": {
@@ -450,7 +538,8 @@
           "sfx": "stamp",
           "db": -7
         }
-      ]
+      ],
+      "hold": 0.32
     },
     {
       "id": "S08",
@@ -459,8 +548,8 @@
       "meta": "captures/scho.json",
       "title": "Code: room roles route the work",
       "note": "Real agents in real Switch rooms on Mattermost. People's presses are scripted. The company is synthetic.",
-      "duration": 18.0,
-      "min": 18.01,
+      "duration": 17.6,
+      "min": 17.61,
       "overlays": [
         {
           "kind": "label",
@@ -512,6 +601,26 @@
           "rot": -6,
           "color": "red",
           "sub": "BY DEV"
+        },
+        {
+          "kind": "face",
+          "src": "face/l10.mp4",
+          "at": 0.3,
+          "trimBefore": 0.935,
+          "dur": 9.638,
+          "x": 0.095,
+          "y": 0.7,
+          "w": 260
+        },
+        {
+          "kind": "face",
+          "src": "face/l11.mp4",
+          "at": 10.347,
+          "trimBefore": 0.935,
+          "dur": 5.27,
+          "x": 0.095,
+          "y": 0.7,
+          "w": 260
         }
       ],
       "transition": {
@@ -541,7 +650,8 @@
           "sfx": "stamp",
           "db": -7
         }
-      ]
+      ],
+      "hold": 0.32
     },
     {
       "id": "S09",
@@ -550,8 +660,8 @@
       "meta": "captures/sc6.json",
       "title": "Deploys: the owner decides",
       "note": "Real agents in real Switch rooms on Mattermost. People's presses are scripted. The company is synthetic.",
-      "duration": 12.667,
-      "min": 12.68,
+      "duration": 12.267,
+      "min": 12.28,
       "overlays": [
         {
           "kind": "label",
@@ -573,6 +683,16 @@
           "rot": -8,
           "color": "red",
           "sub": "BY ALEX · SERVICE OWNER"
+        },
+        {
+          "kind": "face",
+          "src": "face/l12.mp4",
+          "at": 0.3,
+          "trimBefore": 0.935,
+          "dur": 7.497,
+          "x": 0.095,
+          "y": 0.7,
+          "w": 260
         }
       ],
       "transition": {
@@ -586,7 +706,8 @@
           "sfx": "stamp",
           "db": -7
         }
-      ]
+      ],
+      "hold": 0.32
     },
     {
       "id": "S10",
@@ -595,8 +716,8 @@
       "meta": "captures/sc8.json",
       "title": "Nobody answers: it escalates",
       "note": "Real agents in real Switch rooms on Mattermost. People's presses are scripted. The company is synthetic.",
-      "duration": 8.1,
-      "min": 8.1,
+      "duration": 7.7,
+      "min": 7.7,
       "overlays": [
         {
           "kind": "label",
@@ -618,6 +739,16 @@
           "rot": -8,
           "color": "green",
           "sub": "WHILE NOBODY ANSWERED"
+        },
+        {
+          "kind": "face",
+          "src": "face/l13.mp4",
+          "at": 0.3,
+          "trimBefore": 0.935,
+          "dur": 5.113,
+          "x": 0.095,
+          "y": 0.7,
+          "w": 260
         }
       ],
       "transition": {
@@ -631,7 +762,8 @@
           "sfx": "stamp",
           "db": -7
         }
-      ]
+      ],
+      "hold": 0.32
     },
     {
       "id": "S11",
@@ -640,8 +772,8 @@
       "meta": "captures/sc9.json",
       "title": "Drills and type-to-confirm",
       "note": "Real agents in real Switch rooms on Mattermost. People's presses are scripted. The company is synthetic.",
-      "duration": 14.267,
-      "min": 14.25,
+      "duration": 13.867,
+      "min": 13.85,
       "overlays": [
         {
           "kind": "stamp",
@@ -672,6 +804,16 @@
           "x": 0.5,
           "y": 0.2,
           "tone": "bad"
+        },
+        {
+          "kind": "face",
+          "src": "face/l14.mp4",
+          "at": 0.3,
+          "trimBefore": 0.935,
+          "dur": 9.73,
+          "x": 0.095,
+          "y": 0.7,
+          "w": 260
         }
       ],
       "transition": {
@@ -685,7 +827,8 @@
           "sfx": "stamp",
           "db": -7
         }
-      ]
+      ],
+      "hold": 0.32
     },
     {
       "id": "S12",
@@ -694,13 +837,13 @@
       "meta": "captures/sc11.json",
       "title": "Earned autonomy, signed by two",
       "note": "Real agents in real Switch rooms on Mattermost. People's presses are scripted. The company is synthetic.",
-      "duration": 9.8,
-      "min": 9.79,
+      "duration": 8.9,
+      "min": 8.89,
       "overlays": [
         {
           "kind": "label",
           "text": "Two people sign the promotion",
-          "at": 1.5,
+          "at": 1.0,
           "dur": 3.2,
           "x": 0.5,
           "y": 0.2,
@@ -709,7 +852,7 @@
         {
           "kind": "stamp",
           "text": "DEMOTED",
-          "at": 6.49,
+          "at": 5.99,
           "dur": 60,
           "x": 0.7,
           "y": 0.58,
@@ -717,16 +860,26 @@
           "rot": -8,
           "color": "red",
           "sub": "ONE INCIDENT"
+        },
+        {
+          "kind": "face",
+          "src": "face/l15.mp4",
+          "at": 0.3,
+          "trimBefore": 0.935,
+          "dur": 6.025,
+          "x": 0.095,
+          "y": 0.7,
+          "w": 260
         }
       ],
       "transition": {
         "type": "tear",
         "dur": 0.6
       },
-      "trimBefore": 2.5,
+      "trimBefore": 3.0,
       "zooms": [
         {
-          "at": 2.16,
+          "at": 1.66,
           "dur": 2.0,
           "box": {
             "x": 60,
@@ -738,17 +891,18 @@
       ],
       "sfx": [
         {
-          "at": 6.69,
+          "at": 6.19,
           "sfx": "stamp",
           "db": -7
         }
-      ]
+      ],
+      "hold": 0.32
     },
     {
       "id": "S13",
       "type": "docket",
-      "duration": 9.0,
-      "min": 9,
+      "duration": 7.5,
+      "min": 7.5,
       "title": "Attacks we tested",
       "cases": [
         {
@@ -791,12 +945,25 @@
           "sfx": "stamp",
           "db": -7
         }
+      ],
+      "hold": 0.32,
+      "overlays": [
+        {
+          "kind": "face",
+          "src": "face/l16.mp4",
+          "at": 0.3,
+          "trimBefore": 0.935,
+          "dur": 6.857,
+          "x": 0.095,
+          "y": 0.7,
+          "w": 260
+        }
       ]
     },
     {
       "id": "S15",
       "type": "arch3d",
-      "duration": 15.0,
+      "duration": 16.4,
       "min": 15,
       "title": "Under the hood",
       "layers": [
@@ -849,19 +1016,42 @@
         "type": "fade",
         "dur": 0.5
       },
+      "hold": 0.32,
+      "overlays": [
+        {
+          "kind": "face",
+          "src": "face/l19.mp4",
+          "at": 0.3,
+          "trimBefore": 0.935,
+          "dur": 8.578,
+          "x": 0.095,
+          "y": 0.7,
+          "w": 260
+        },
+        {
+          "kind": "face",
+          "src": "face/l20.mp4",
+          "at": 9.153,
+          "trimBefore": 0.935,
+          "dur": 7.036,
+          "x": 0.095,
+          "y": 0.7,
+          "w": 260
+        }
+      ],
       "cues": {
-        "gate": 2.07,
-        "core": 4.09,
-        "card": 8.59,
-        "exec": 10.81,
-        "ledger": 13.43
+        "gate": 2.53,
+        "core": 5.11,
+        "card": 9.31,
+        "exec": 12.85,
+        "ledger": 15.37
       }
     },
     {
       "id": "S16",
       "type": "code",
-      "duration": 5.5,
-      "min": 5.5,
+      "duration": 5.067,
+      "min": 5.0,
       "title": "The rule, in the code",
       "file": "packages/core/src/router/router.ts",
       "lang": "ts",
@@ -875,12 +1065,25 @@
       "transition": {
         "type": "tear",
         "dur": 0.6
-      }
+      },
+      "hold": 0.32,
+      "overlays": [
+        {
+          "kind": "face",
+          "src": "face/l21.mp4",
+          "at": 0.3,
+          "trimBefore": 0.935,
+          "dur": 4.619,
+          "x": 0.095,
+          "y": 0.7,
+          "w": 260
+        }
+      ]
     },
     {
       "id": "S17",
       "type": "ledgerproof",
-      "duration": 10.167,
+      "duration": 11.633,
       "min": 10,
       "title": "Measured with real agents",
       "metric": "Risky actions done without an eligible person",
@@ -918,12 +1121,25 @@
           "sfx": "stamp",
           "db": -8
         }
+      ],
+      "hold": 0.32,
+      "overlays": [
+        {
+          "kind": "face",
+          "src": "face/l22.mp4",
+          "at": 0.3,
+          "trimBefore": 0.935,
+          "dur": 11.067,
+          "x": 0.095,
+          "y": 0.7,
+          "w": 260
+        }
       ]
     },
     {
       "id": "S18",
       "type": "bigfigures",
-      "duration": 8.533,
+      "duration": 8.733,
       "min": 7,
       "title": "Attacked, and re-checked",
       "figures": [
@@ -943,12 +1159,25 @@
       "transition": {
         "type": "tear",
         "dur": 0.6
-      }
+      },
+      "hold": 0.32,
+      "overlays": [
+        {
+          "kind": "face",
+          "src": "face/l23.mp4",
+          "at": 0.3,
+          "trimBefore": 0.935,
+          "dur": 8.241,
+          "x": 0.095,
+          "y": 0.7,
+          "w": 260
+        }
+      ]
     },
     {
       "id": "S19",
       "type": "bigfigures",
-      "duration": 7.5,
+      "duration": 8.9,
       "min": 7.5,
       "title": "The honest cost, and the checks",
       "figures": [
@@ -959,9 +1188,9 @@
           "tone": "bad"
         },
         {
-          "value": "6,604",
+          "value": "7,312",
           "label": "tests pass",
-          "note": "pnpm test, the last full run",
+          "note": "pnpm eval:tests, the last full run",
           "tone": "ink",
           "at": 2.6
         },
@@ -976,36 +1205,127 @@
       "transition": {
         "type": "tear",
         "dur": 0.6
-      }
+      },
+      "hold": 0.32,
+      "overlays": [
+        {
+          "kind": "face",
+          "src": "face/l24.mp4",
+          "at": 0.3,
+          "trimBefore": 0.935,
+          "dur": 8.482,
+          "x": 0.095,
+          "y": 0.7,
+          "w": 260
+        }
+      ]
+    },
+    {
+      "id": "S20",
+      "type": "kinetic",
+      "duration": 5.6,
+      "min": 5.6,
+      "align": "left",
+      "kicker": "Code with Wispr",
+      "lines": [
+        "Built by voice.",
+        "Dictated in",
+        "Wispr Flow."
+      ],
+      "emphasis": [
+        "voice."
+      ],
+      "overlays": [
+        {
+          "kind": "image",
+          "src": "wispr/flow-app.jpg",
+          "at": 0.2,
+          "dur": 5.4,
+          "x": 0.76,
+          "y": 0.4,
+          "w": 720
+        },
+        {
+          "kind": "image",
+          "src": "wispr/flow-highlights.jpg",
+          "at": 1.4,
+          "dur": 4.2,
+          "x": 0.8,
+          "y": 0.6,
+          "w": 520
+        },
+        {
+          "kind": "label",
+          "text": "Soham's Wispr Flow · the app's own totals",
+          "at": 1.6,
+          "dur": 4.0,
+          "x": 0.76,
+          "y": 0.1,
+          "tone": "plain"
+        }
+      ],
+      "transition": {
+        "type": "tear",
+        "dur": 0.6
+      },
+      "hold": 0.32
     },
     {
       "id": "S21",
-      "type": "kinetic",
-      "duration": 6.733,
-      "min": 6.5,
-      "align": "left",
-      "lines": [
-        "Who asked: from Switch.",
-        "Who approves: the policy.",
-        "The keys: never the agent's.",
-        "Every decision: recorded."
-      ],
-      "emphasis": [
-        "Switch.",
-        "policy.",
-        "never",
-        "recorded."
-      ],
+      "type": "footage",
+      "src": "face/l25.mp4",
+      "trimBefore": 0.635,
+      "grade": "story",
+      "push": "in",
+      "duration": 9.433,
       "transition": {
         "type": "fade",
         "dur": 0.5
-      }
+      },
+      "overlays": [
+        {
+          "kind": "label",
+          "text": "Who asked: from Switch.",
+          "at": 0.25,
+          "dur": 9.43,
+          "x": 0.76,
+          "y": 0.3,
+          "tone": "accent"
+        },
+        {
+          "kind": "label",
+          "text": "Who approves: the policy.",
+          "at": 2.21,
+          "dur": 9.43,
+          "x": 0.76,
+          "y": 0.42,
+          "tone": "plain"
+        },
+        {
+          "kind": "label",
+          "text": "The keys: never the agent's.",
+          "at": 4.17,
+          "dur": 9.43,
+          "x": 0.76,
+          "y": 0.54,
+          "tone": "plain"
+        },
+        {
+          "kind": "label",
+          "text": "Every decision: recorded.",
+          "at": 6.12,
+          "dur": 9.43,
+          "x": 0.76,
+          "y": 0.66,
+          "tone": "plain"
+        }
+      ]
     },
     {
       "id": "S22",
       "type": "endcard",
-      "duration": 6.5,
-      "min": 6.5,
+      "duration": 5.4,
+      "min": 5.4,
       "name": "Clearance",
       "tagline": "The person who asks can't be the one who approves.",
       "links": [
@@ -1024,6 +1344,16 @@
           "rot": -5,
           "color": "violet",
           "sub": "ROOMS · IDENTITY · CARDS · ROLES"
+        },
+        {
+          "kind": "face",
+          "src": "face/l26.mp4",
+          "at": 0.3,
+          "trimBefore": 0.935,
+          "dur": 4.058,
+          "x": 0.095,
+          "y": 0.7,
+          "w": 260
         }
       ],
       "sfx": [

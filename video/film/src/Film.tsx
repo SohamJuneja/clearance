@@ -47,7 +47,7 @@ const Tear: React.FC<TransitionPresentationComponentProps<Record<string, never>>
       boxShadow: "0 40px 80px rgba(27,30,35,.4)" }}>
       {children}
       <div style={{ position: "absolute", left: 0, right: 0, bottom: -6, height: 12,
-        background: "radial-gradient(circle, #ECEEE7 5px, transparent 6px) 0 0 / 22px 12px repeat-x" }} />
+        background: "radial-gradient(circle, #F4F6FF 5px, transparent 6px) 0 0 / 22px 12px repeat-x" }} />
     </AbsoluteFill>
   );
 };

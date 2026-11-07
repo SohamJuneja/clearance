@@ -14,7 +14,8 @@ CHAPTERS = [("S00", "Intro"), ("S01", "Clearance, built on Switch"), ("S04", "Ho
             ("S09", "Deploys: another vendor, same policy"), ("S10", "Nobody answers: it escalates"),
             ("S11", "Rubber-stamping: drills and type-to-confirm"), ("S12", "Earned autonomy, signed by two people"),
             ("S13", "Attacks we tested"), ("S15", "Under the hood"), ("S16", "The rule in the code"),
-            ("S17", "Results, measured with real agents"), ("S21", "Recap")]
+            ("S17", "Results, measured with real agents"), ("S20", "Built by voice, with Wispr Flow"),
+            ("S21", "Recap")]
 MIN_CHAPTER = 10.5  # YouTube ignores chapters under 10 s; the half second covers rounding down to whole seconds
 
 
@@ -56,7 +57,8 @@ def main() -> None:
         "deploy or email customer data, the call is held at a gate that holds the credentials, a native Switch card goes to the right",
         "person, and whoever asked for it can't approve it. Who asked comes from Switch's own events, never from what an agent says.",
         "",
-        "Real agents in real Switch rooms on Mattermost. People's presses in the demo are scripted, and the company is synthetic.",
+        "Real agents in real Switch rooms on Mattermost; Switch also bridges Slack, Discord and Teams. People's presses in the demo",
+        "are scripted, and the company is synthetic.",
         "Every number comes from the repo's evaluation scripts; see RESULTS.md.",
         "",
         "Code: https://github.com/SohamJuneja/clearance",

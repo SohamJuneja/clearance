@@ -1,7 +1,9 @@
 # Built by voice
 
-The owner dictated prompts, instructions and review notes to the coding agents with Wispr Flow during the hackathon. The numbers below come from the Wispr Flow Insights screen, and aren't typed from memory.
+We dictated prompts, instructions and review notes to the coding agents with Wispr Flow during the hackathon. The screenshots below come from the Wispr Flow app itself; no number on this page is typed from memory.
 
-Insights numbers: to be filled in from the screenshot taken at submission.
+Soham's Wispr Flow Insights on Nov 7, as the app shows them: [docs/media/wispr-highlights.jpg](media/wispr-highlights.jpg), and the app
+itself with its dictation list blurred, since that holds messages that aren't about this project: [docs/media/wispr-app.jpg](media/wispr-app.jpg).
+They're the account's totals, not a count of words spent on Clearance alone.
 
-Which parts were dictated, with before and after examples: to be filled in by the owner, because only he knows which messages were dictated.
+Which messages were dictated isn't marked in the history, so this page doesn't point at any particular one.

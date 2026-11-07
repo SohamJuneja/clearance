@@ -111,6 +111,14 @@ describe("in core", () => {
       expect(lastPost()).toContain("would be denied");
     });
 
+    it("won't run for an agent, which could try variants until one isn't held", async () => {
+      await say(PARTICIPANTS.refundsAgent, "@clearance policy test git push --force origin main", { senderName: "refunds-agent" });
+      expect(lastPost()).toContain("Only a person on the team");
+      expect(lastPost()).not.toContain("would be");
+      await say("@switch-user-stranger:localhost", "@clearance policy test cat .env");
+      expect(lastPost()).toContain("Only a person on the team");
+    });
+
     it("asks for something to test", async () => {
       await say(PARTICIPANTS.alex, "@clearance policy test");
       expect(lastPost()).toContain("policy test");

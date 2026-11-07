@@ -11,6 +11,7 @@ import { z } from "zod";
 import type { Clearance } from "../core.js";
 import { PolicyLoadError } from "../policy/load.js";
 import type { LedgerMirror } from "../ledger/mirror.js";
+import { DryRunBodySchema } from "../connector/dry-run.js";
 
 export type ServerOptions = {
   /** CLEARANCE_INTERNAL_TOKEN. Gate and Desk send it as `Authorization: Bearer ...`. */
@@ -62,6 +63,10 @@ const RunFailedBody = z.object({ never_ran: z.boolean(), error: z.string().min(1
 
 /** `approver` is what the demo client sends; `person` is the documented name. */
 const DrillBody = z.object({ person: z.string().optional(), approver: z.string().optional(), flaw: z.string().optional() });
+
+/** The read-only connector's views. A person is a team id, as in /v1/inbox. */
+const PendingQuery = z.object({ person: z.string().min(1).max(128).optional() }).strict();
+const TeamLedgerQuery = z.object({ limit: z.coerce.number().int().min(1).max(200).default(20) }).strict();
 
 const LedgerQuery = z.object({
   request_id: z.string().optional(),
@@ -248,6 +253,34 @@ export function buildServer(core: Clearance, options: ServerOptions): FastifyIns
     });
 
     scope.get("/v1/coverage", async () => core.coverage());
+
+    // For the read-only connector (packages/mcp-connector, docs/mcp-connector.md). Behind this token like everything here, which
+    // agents never hold, so no agent can list, explain or probe the classifier with a dry run. Each reads only; the dry run
+    // records nothing. There is no route here to approve: an answer counts only from Switch's own approval_outcome event.
+    scope.get("/v1/pending", async (request, reply) => {
+      const query = PendingQuery.safeParse(request.query);
+      if (!query.success) return badRequest(reply, "expected ?person=<team id> or nothing");
+      const requests = core.pendingView(query.data.person);
+      return requests ? { requests } : reply.code(404).send({ error: `no person ${query.data.person}` });
+    });
+
+    scope.get<{ Params: { id: string } }>("/v1/requests/:id/explain", async (request, reply) => {
+      const found = core.explainRequest(request.params.id);
+      return found ?? reply.code(404).send({ error: `no request ${request.params.id}` });
+    });
+
+    scope.get("/v1/ledger/team", async (request, reply) => {
+      const query = TeamLedgerQuery.safeParse(request.query);
+      if (!query.success) return badRequest(reply, "limit is from 1 to 200");
+      return { entries: core.teamLedger(query.data.limit) };
+    });
+
+    scope.post("/v1/dry-run", async (request, reply) => {
+      const body = DryRunBodySchema.safeParse(request.body);
+      if (!body.success) return badRequest(reply, "expected {shell, agent?} or {operation, args, agent?}");
+      const result = await core.dryRun(body.data);
+      return result.ok ? result.answer : reply.code(result.status).send({ error: result.error });
+    });
   });
 
   return app;

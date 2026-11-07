@@ -43,6 +43,7 @@ import { ProposalStore, type Proposal } from "./autonomy/proposals.js";
 import { AutonomyStore, capLevel, type Level } from "./autonomy/store.js";
 import { describeCall, describeResult, type CallDescription } from "./cards/describe.js";
 import { describedAction, parseAway, parseCommand, type Command } from "./commands/parse.js";
+import { dryRunAction, type DryRunBody } from "./connector/dry-run.js";
 import { clipToBudget, renderCard, renderCounterTitle, renderPrompt, renderReviewCard, TITLE_MAX } from "./cards/render.js";
 import { buildCardView, type Audience } from "./cards/view.js";
 import {
@@ -62,7 +63,8 @@ import { TimerStore, type TimerRow } from "./escalation/timers.js";
 import { formatMoney, joinNames, oneLine, toNumber } from "./format.js";
 import { GrantStore } from "./grants/grants.js";
 import { inboxMessage, inboxText, listInbox, type InboxItem } from "./inbox/inbox.js";
-import { Ledger, verifyLedger, type LedgerVerification } from "./ledger/ledger.js";
+import { Ledger, verifyLedger, type LedgerEntry, type LedgerVerification } from "./ledger/ledger.js";
+import { teamEntries } from "./ledger/team.js";
 import { detectMismatch } from "./mismatch/detect.js";
 import { Directory, loadIdentities, type Person } from "./people/directory.js";
 import { PeopleStore } from "./people/store.js";
@@ -656,6 +658,146 @@ export class Clearance implements ClearanceCore {
       .listInState([...states])
       .filter((request) => !request.isDrill)
       .map((request) => this.describeRequest(request.id) as Record<string, unknown>);
+  }
+
+  // ── Read-only views for the MCP connector (packages/mcp-connector) ─────────
+  // Each reads only. None can approve, deny or cancel: an answer counts only from Switch's own approval_outcome event.
+
+  /**
+   * GET /v1/pending: what is open, each with who could decide it now. Drills stay out as in every list, except the person's
+   * own: their inbox holds those looking like anything else, so leaving them out here would point at them. Null for a person
+   * nobody knows.
+   */
+  pendingView(personId?: string): Record<string, unknown>[] | null {
+    if (personId !== undefined && !this.people.directory.person(personId)) return null;
+    const mine = new Set(personId === undefined ? [] : this.inboxItems(personId).map((item) => item.request_id));
+    return this.stores.requests
+      .listInState([...OPEN_STATES])
+      .filter((request) => !request.isDrill || mine.has(request.id))
+      .map((request) => ({ ...this.connectorSummary(request), ...(personId === undefined ? {} : { waiting_on_you: mine.has(request.id) }) }));
+  }
+
+  /**
+   * GET /v1/requests/:id/explain: the `@clearance why` answer as nobody in particular asked it, with who asked, who could
+   * decide it now and why the others can't. A drill tells the same story while it is open, as `describeRequest` does.
+   */
+  explainRequest(id: string): Record<string, unknown> | null {
+    const request = this.stores.requests.get(id.toUpperCase());
+    if (!request) return null;
+    const evidence = this.evidenceOf(request);
+    const open = OPEN_STATES.includes(request.state);
+    const trace = route(this.routeContext(request), 0);
+    return {
+      ...this.connectorSummary(request),
+      why: this.whyReply(request.id, null, ""),
+      hold_summary: evidence.holdSummary ?? null,
+      flags: request.flags,
+      call: evidence.description?.call ?? [],
+      context: evidence.description?.context ?? [],
+      cannot_decide: open ? trace.excluded.map((entry) => ({ name: entry.name, why: exclusionWords(entry.reasons, trace.label) })) : [],
+      ...(open ? {} : { is_drill: request.isDrill }),
+    };
+  }
+
+  /** GET /v1/ledger/team: the newest entries as the team may read them (ledger/team.ts). */
+  teamLedger(limit: number): LedgerEntry[] {
+    const drills = this.stores.db.prepare(`SELECT id, state FROM requests WHERE is_drill = 1`).all() as { id: string; state: RequestState }[];
+    const open = new Set(drills.filter((row) => OPEN_STATES.includes(row.state)).map((row) => row.id));
+    const entries = teamEntries(this.stores.ledger.list(), new Set(drills.map((row) => row.id)), open);
+    return entries.slice(Math.max(0, entries.length - Math.max(1, limit)));
+  }
+
+  /**
+   * POST /v1/dry-run: what `check` would say to this call now and, if it would be held, who would be asked and who could
+   * decide. The same reads as `simulate`, then the router over a request that is never made: no action, request, card, grant,
+   * timer or ledger entry is written. An approval already granted for this exact call isn't looked at.
+   */
+  async dryRun(body: DryRunBody): Promise<{ ok: true; answer: Record<string, unknown> } | { ok: false; status: 400 | 404; error: string }> {
+    const { directory } = this.people;
+    const agent = body.agent ?? Object.keys(this.team.agents)[0];
+    if (agent === undefined || !directory.isTeamAgent(agent)) {
+      return { ok: false, status: 404, error: `${agent ?? "nobody"} is not one of the team's agents: ${Object.keys(this.team.agents).join(", ")}` };
+    }
+    const built = await dryRunAction(body, { agent, vendor: directory.agentVendor(agent) ?? "claude", nowMs: this.deps.clock.nowMs(), lookup: this.deps.lookup });
+    if (!built.ok) return { ok: false, status: 400, error: built.error };
+    const { action } = built;
+    const evaluation = await evaluateAction(action, {
+      policy: this.currentPolicy,
+      lookup: this.deps.lookup,
+      clock: this.deps.clock,
+      aggregates: this.stores.aggregates,
+      autonomy: this.stores.autonomy,
+      lastRun: this.lastRunOf,
+    });
+    const answer: Record<string, unknown> = {
+      ...this.responseFor(evaluation),
+      step: evaluation.step,
+      hold_summary: evaluation.holdSummary ?? null,
+      agent,
+      policy_mode: this.currentPolicy.file.mode,
+      recorded: false,
+    };
+    if (evaluation.decision !== "hold") return { ok: true, answer };
+
+    const now = this.deps.clock.nowMs();
+    const input = this.newHold(action, evaluation, now, await this.reach.of(agent));
+    const preview: RequestRecord = { ...input, id: "CLR-DRY-RUN", state: "HELD", isDrill: false, createdAtMs: now, decidedAtMs: null, execAttempts: 0 };
+    const evidence = this.evidenceOf(preview);
+    const ctx = this.routeContext(preview);
+    const trace = route(ctx, preview.quorumRequired);
+    // Who the policy names and nothing bars, and the fallback group when it would come to that.
+    const canDecide = new Set(directory.all().filter((person) => assessAnswer(ctx, person.id).eligible).map((person) => person.id));
+    for (const id of trace.fallback?.eligible ?? []) canDecide.add(id);
+    const name = (id: string) => directory.person(id)?.name ?? id;
+    return {
+      ok: true,
+      answer: {
+        ...answer,
+        flags: preview.flags,
+        what: evidence.description.headline,
+        already_open: this.stores.requests.findOpen(evaluation.callHash, agent)?.id ?? null,
+        quorum_required: preview.quorumRequired,
+        requested_by: preview.requesterIds.map(name),
+        would_ask: trace.chosen.map(name),
+        can_decide: [...canDecide].map(name),
+        cannot_decide: trace.excluded.map((entry) => ({ name: entry.name, why: exclusionWords(entry.reasons, trace.label) })),
+        fallback: trace.fallback ? { group: trace.fallback.group, room: trace.fallback.room, reason: trace.fallback.reason } : null,
+        why: explainTrace(trace, {
+          handle: "This call",
+          tier: preview.tier,
+          className: preview.cls,
+          fired: evidence.fired,
+          extracted: evidence.extracted,
+          currency: this.currentPolicy.currency,
+          tz: this.currentPolicy.defaults.business_hours.tz,
+          escalation: this.escalationPlan(preview, trace),
+          expiresAtMs: preview.expiresAtMs,
+        }),
+      },
+    };
+  }
+
+  /** One request for the connector: what it is, who asked, and who could decide it now by the rule answers are held to. */
+  private connectorSummary(request: RequestRecord): Record<string, unknown> {
+    const { directory } = this.people;
+    const name = (id: string) => directory.person(id)?.name ?? id;
+    const ctx = this.routeContext(request);
+    const open = OPEN_STATES.includes(request.state);
+    return {
+      id: request.id,
+      state: request.state,
+      class: request.cls,
+      tier: request.tier,
+      what: this.evidenceOf(request).description?.headline ?? null,
+      agent: request.agent,
+      requested_by: request.requesterIds.map(name),
+      quorum_required: request.quorumRequired,
+      approved_by: ctx.counted.map(name),
+      can_decide: open ? directory.all().filter((person) => assessAnswer(ctx, person.id).eligible).map((person) => person.name) : [],
+      created_at: new Date(request.createdAtMs).toISOString(),
+      expires_at: new Date(request.expiresAtMs).toISOString(),
+      decided_at: request.decidedAtMs === null ? null : new Date(request.decidedAtMs).toISOString(),
+    };
   }
 
   /** GET /v1/people. Who there is and who is away. What each person's record looks like is /v1/people/:id/stats. */
@@ -3388,7 +3530,11 @@ export class Clearance implements ClearanceCore {
       case "roi":
         return askerId ? this.roiReport().text : null;
       case "policy":
-        return first?.toLowerCase() === "test" ? this.policyTestReply(after) : this.policyReply();
+        if (first?.toLowerCase() !== "test") return this.policyReply();
+        // People only: an agent that could ask what would be held could try variants until one isn't.
+        return askerId && this.people.directory.person(askerId)
+          ? this.policyTestReply(after)
+          : "Only a person on the team can run a policy test, so an agent can't use it to look for a way round a hold.";
       case "incident":
         return askerId ? this.incidentReply(first, after, askerId, evt.roomId) : null;
       case "away":

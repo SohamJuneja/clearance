@@ -1,0 +1,1011 @@
+{
+  "title": "Clearance",
+  "fps": 30,
+  "width": 1920,
+  "height": 1080,
+  "theme": {
+    "bg": "#ECEEE7",
+    "surface": "#FBFBF7",
+    "fg": "#1B1E23",
+    "muted": "#484E57",
+    "accent": "#C2283A",
+    "accent2": "#4232A4",
+    "good": "#2E6B45",
+    "bad": "#C2283A",
+    "display": "Archivo",
+    "mono": "IBMPlexMono"
+  },
+  "captions": "captions/captions.json",
+  "scenes": [
+    {
+      "id": "S00",
+      "type": "footage",
+      "src": "footage/intro.mp4",
+      "grade": "none",
+      "push": "none",
+      "duration": 31.0,
+      "min": 31,
+      "transition": {
+        "type": "tear",
+        "dur": 0.6
+      }
+    },
+    {
+      "id": "S01",
+      "type": "stampcard",
+      "duration": 5.0,
+      "min": 5,
+      "kicker": "Clearance · built on Switch",
+      "lines": [
+        "The person who asks",
+        "can't be the one",
+        "who approves."
+      ],
+      "emphasis": [
+        "can't"
+      ],
+      "copy": {
+        "id": "CLR-0001",
+        "kind": "REFUND ₹4,000",
+        "foot": "Drawn from a real card in the demo.",
+        "rows": [
+          [
+            "The call",
+            "Refund ₹4,000 to Meera K."
+          ],
+          [
+            "Flags",
+            "Payment ID added today"
+          ],
+          [
+            "Asked by",
+            "Priya"
+          ],
+          [
+            "Approve",
+            "Priya pressed ✓"
+          ]
+        ]
+      },
+      "stamp": {
+        "text": "REQUESTER",
+        "sub": "CAN'T APPROVE · CLR-0001",
+        "at": 2.4
+      },
+      "transition": {
+        "type": "tear",
+        "dur": 0.6
+      },
+      "sfx": [
+        {
+          "at": 2.6,
+          "sfx": "stamp",
+          "db": -6
+        }
+      ]
+    },
+    {
+      "id": "S04",
+      "type": "facts",
+      "duration": 16.0,
+      "min": 16,
+      "kicker": "How big this is",
+      "rows": [
+        {
+          "text": "71% of organizations plan to deploy AI agents within a year. 21% have governance for them.",
+          "source": "Gartner press release, 19 Oct 2026 · survey of 2,000+ CIOs and technology executives"
+        },
+        {
+          "text": "80% of companies say their AI agents have taken unintended actions.",
+          "source": "SailPoint and Dimensional Research, May 2025 · vendor survey of 353 IT professionals"
+        },
+        {
+          "text": "An agent deleted a live production database, against instructions to wait for human approval.",
+          "source": "Fortune, 23 Jul 2025 · the vendor's CEO confirmed the deletion"
+        },
+        {
+          "text": "People accept 93% of their coding agent's permission prompts anyway.",
+          "source": "Anthropic Engineering, “How we built Claude Code auto mode”, 25 Mar 2026"
+        }
+      ],
+      "transition": {
+        "type": "tear",
+        "dur": 0.6
+      }
+    },
+    {
+      "id": "S02",
+      "type": "screen",
+      "src": "captures/sc2.mp4",
+      "meta": "captures/sc2.json",
+      "title": "Switch today, without Clearance",
+      "note": "Real agents in real Switch rooms on Mattermost. People's presses are scripted. The company is synthetic.",
+      "duration": 12.133,
+      "min": 12.12,
+      "overlays": [
+        {
+          "kind": "label",
+          "text": "Native Switch card · Priya asked",
+          "at": 3.42,
+          "dur": 3.2,
+          "x": 0.5,
+          "y": 0.2,
+          "tone": "plain"
+        },
+        {
+          "kind": "stamp",
+          "text": "SELF-APPROVED",
+          "at": 5.6,
+          "dur": 60,
+          "x": 0.52,
+          "y": 0.55,
+          "w": 520,
+          "rot": -8,
+          "color": "red",
+          "sub": "₹40,000 WENT OUT"
+        }
+      ],
+      "transition": {
+        "type": "tear",
+        "dur": 0.6
+      },
+      "sfx": [
+        {
+          "at": 5.8,
+          "sfx": "stamp",
+          "db": -7
+        }
+      ]
+    },
+    {
+      "id": "S03",
+      "type": "bigfigures",
+      "duration": 6.0,
+      "min": 6,
+      "title": "We ran it with real agents.",
+      "figures": [
+        {
+          "value": "6 of 8",
+          "label": "runs where the ₹40,000 refund went out, with Switch's approval cards on",
+          "note": "27 recorded runs on claude-haiku-5-5, classifier refused 1; the setup changed: 15 outside the fence, 6 in an earlier version of the fence, 6 in the fence, on camera; more in RESULTS.md",
+          "tone": "bad"
+        }
+      ],
+      "transition": {
+        "type": "tear",
+        "dur": 0.6
+      }
+    },
+    {
+      "id": "S05",
+      "type": "kinetic",
+      "duration": 5.5,
+      "min": 5.5,
+      "kicker": "Separation of duties",
+      "lines": [
+        "Whoever asks for a payment",
+        "can't approve it."
+      ],
+      "emphasis": [
+        "can't"
+      ],
+      "overlays": [
+        {
+          "kind": "label",
+          "text": "US GAO Green Book, 2025: “no one individual controls all key aspects of a transaction”",
+          "at": 1.6,
+          "dur": 5,
+          "x": 0.5,
+          "y": 0.82,
+          "tone": "plain"
+        }
+      ],
+      "transition": {
+        "type": "tear",
+        "dur": 0.6
+      }
+    },
+    {
+      "id": "S06",
+      "type": "stampcard",
+      "duration": 4.5,
+      "min": 4.5,
+      "kicker": "Clearance",
+      "lines": [
+        "Puts the rule back,",
+        "for every agent",
+        "on Switch."
+      ],
+      "emphasis": [
+        "Switch."
+      ],
+      "copy": {
+        "id": "CLR-0001",
+        "kind": "HELD",
+        "foot": "The room, the approver, the ledger.",
+        "rows": [
+          [
+            "Asked by",
+            "Priya, in #support"
+          ],
+          [
+            "Decides",
+            "Sam, finance, on duty"
+          ],
+          [
+            "Runs",
+            "Exactly this call, once"
+          ]
+        ]
+      },
+      "stamp": {
+        "text": "HELD",
+        "sub": "UNTIL THE RIGHT PERSON DECIDES",
+        "at": 1.6,
+        "color": "violet"
+      },
+      "transition": {
+        "type": "tear",
+        "dur": 0.6
+      },
+      "sfx": [
+        {
+          "at": 1.8,
+          "sfx": "stamp",
+          "db": -6
+        }
+      ]
+    },
+    {
+      "id": "S07",
+      "type": "screen",
+      "src": "captures/sc3.mp4",
+      "meta": "captures/sc3.json",
+      "title": "Refunds: whoever asks can't approve",
+      "note": "Real agents in real Switch rooms on Mattermost. People's presses are scripted. The company is synthetic.",
+      "duration": 19.6,
+      "min": 19.59,
+      "overlays": [
+        {
+          "kind": "label",
+          "text": "Held at the gate",
+          "at": 2.71,
+          "dur": 3.2,
+          "x": 0.3,
+          "y": 0.2,
+          "tone": "accent"
+        },
+        {
+          "kind": "label",
+          "text": "Card built from the real call",
+          "at": 7.37,
+          "dur": 3.2,
+          "x": 0.7,
+          "y": 0.2,
+          "tone": "plain"
+        },
+        {
+          "kind": "stamp",
+          "text": "REQUESTER",
+          "at": 8.13,
+          "dur": 60,
+          "x": 0.3,
+          "y": 0.6,
+          "w": 440,
+          "rot": -8,
+          "color": "red",
+          "sub": "PRIYA CAN'T APPROVE"
+        },
+        {
+          "kind": "stamp",
+          "text": "DENIED",
+          "at": 10.78,
+          "dur": 60,
+          "x": 0.7,
+          "y": 0.6,
+          "w": 380,
+          "rot": -6,
+          "color": "red",
+          "sub": "BY SAM · FINANCE"
+        }
+      ],
+      "transition": {
+        "type": "tear",
+        "dur": 0.6
+      },
+      "sfx": [
+        {
+          "at": 8.33,
+          "sfx": "stamp",
+          "db": -7
+        },
+        {
+          "at": 10.98,
+          "sfx": "stamp",
+          "db": -7
+        }
+      ]
+    },
+    {
+      "id": "S08",
+      "type": "screen",
+      "src": "captures/scho.mp4",
+      "meta": "captures/scho.json",
+      "title": "Code: Switch's room roles route the work",
+      "note": "Real agents in real Switch rooms on Mattermost. People's presses are scripted. The company is synthetic.",
+      "duration": 18.0,
+      "min": 18.01,
+      "overlays": [
+        {
+          "kind": "label",
+          "text": "Gate: a merge isn't this agent's job",
+          "at": 2.31,
+          "dur": 3.2,
+          "x": 0.3,
+          "y": 0.2,
+          "tone": "accent"
+        },
+        {
+          "kind": "label",
+          "text": "@merges · a Switch room role",
+          "at": 5.37,
+          "dur": 3.2,
+          "x": 0.3,
+          "y": 0.28,
+          "tone": "plain"
+        },
+        {
+          "kind": "label",
+          "text": "Card reaches Dev",
+          "at": 10.05,
+          "dur": 3.2,
+          "x": 0.7,
+          "y": 0.2,
+          "tone": "plain"
+        },
+        {
+          "kind": "stamp",
+          "text": "REQUESTER",
+          "at": 14.95,
+          "dur": 60,
+          "x": 0.3,
+          "y": 0.6,
+          "w": 440,
+          "rot": -8,
+          "color": "red",
+          "sub": "PRIYA CAN'T APPROVE"
+        },
+        {
+          "kind": "stamp",
+          "text": "DENIED",
+          "at": 16.96,
+          "dur": 8,
+          "x": 0.7,
+          "y": 0.62,
+          "w": 360,
+          "rot": -6,
+          "color": "red",
+          "sub": "BY DEV"
+        }
+      ],
+      "transition": {
+        "type": "tear",
+        "dur": 0.6
+      },
+      "sfx": [
+        {
+          "at": 15.15,
+          "sfx": "stamp",
+          "db": -7
+        },
+        {
+          "at": 17.16,
+          "sfx": "stamp",
+          "db": -7
+        }
+      ]
+    },
+    {
+      "id": "S09",
+      "type": "screen",
+      "src": "captures/sc6.mp4",
+      "meta": "captures/sc6.json",
+      "title": "Deploys: the service owner decides",
+      "note": "Real agents in real Switch rooms on Mattermost. People's presses are scripted. The company is synthetic.",
+      "duration": 13.467,
+      "min": 13.48,
+      "overlays": [
+        {
+          "kind": "label",
+          "text": "OpenCode agent · same policy file",
+          "at": 0.6,
+          "dur": 3.5,
+          "x": 0.5,
+          "y": 0.2,
+          "tone": "accent"
+        },
+        {
+          "kind": "label",
+          "text": "2 failing checks on the card",
+          "at": 5.14,
+          "dur": 3.2,
+          "x": 0.5,
+          "y": 0.2,
+          "tone": "plain"
+        },
+        {
+          "kind": "stamp",
+          "text": "NOT TO PROD",
+          "at": 12.17,
+          "dur": 60,
+          "x": 0.55,
+          "y": 0.58,
+          "w": 500,
+          "rot": -8,
+          "color": "red",
+          "sub": "BY ALEX · SERVICE OWNER"
+        }
+      ],
+      "transition": {
+        "type": "tear",
+        "dur": 0.6
+      },
+      "sfx": [
+        {
+          "at": 12.37,
+          "sfx": "stamp",
+          "db": -7
+        }
+      ]
+    },
+    {
+      "id": "S10",
+      "type": "screen",
+      "src": "captures/sc8.mp4",
+      "meta": "captures/sc8.json",
+      "title": "Nobody answers: it escalates",
+      "note": "Real agents in real Switch rooms on Mattermost. People's presses are scripted. The company is synthetic.",
+      "duration": 10.6,
+      "min": 10.6,
+      "overlays": [
+        {
+          "kind": "label",
+          "text": "Sam doesn't answer",
+          "at": 1.99,
+          "dur": 3,
+          "x": 0.3,
+          "y": 0.2,
+          "tone": "plain"
+        },
+        {
+          "kind": "label",
+          "text": "Escalation timer → Neha",
+          "at": 4.75,
+          "dur": 3.2,
+          "x": 0.7,
+          "y": 0.2,
+          "tone": "accent"
+        },
+        {
+          "kind": "stamp",
+          "text": "NOTHING MOVED",
+          "at": 6.77,
+          "dur": 60,
+          "x": 0.5,
+          "y": 0.6,
+          "w": 520,
+          "rot": -8,
+          "color": "green",
+          "sub": "WHILE NOBODY ANSWERED"
+        }
+      ],
+      "transition": {
+        "type": "tear",
+        "dur": 0.6
+      },
+      "sfx": [
+        {
+          "at": 6.97,
+          "sfx": "stamp",
+          "db": -7
+        }
+      ]
+    },
+    {
+      "id": "S11",
+      "type": "screen",
+      "src": "captures/sc9.mp4",
+      "meta": "captures/sc9.json",
+      "title": "Rubber-stamping: drills and type-to-confirm",
+      "note": "Real agents in real Switch rooms on Mattermost. People's presses are scripted. The company is synthetic.",
+      "duration": 15.067,
+      "min": 15.05,
+      "overlays": [
+        {
+          "kind": "label",
+          "text": "Practice request · planted flaw",
+          "at": 0.45,
+          "dur": 3.2,
+          "x": 0.5,
+          "y": 0.2,
+          "tone": "accent"
+        },
+        {
+          "kind": "stamp",
+          "text": "DRILL MISSED",
+          "at": 1.36,
+          "dur": 60,
+          "x": 0.5,
+          "y": 0.55,
+          "w": 520,
+          "rot": -8,
+          "color": "red",
+          "sub": "TOLD PRIVATELY · NO MONEY MOVED"
+        },
+        {
+          "kind": "label",
+          "text": "Real card: type a detail from the evidence",
+          "at": 5.85,
+          "dur": 4,
+          "x": 0.5,
+          "y": 0.2,
+          "tone": "plain"
+        }
+      ],
+      "transition": {
+        "type": "tear",
+        "dur": 0.6
+      },
+      "sfx": [
+        {
+          "at": 1.56,
+          "sfx": "stamp",
+          "db": -7
+        }
+      ]
+    },
+    {
+      "id": "S12",
+      "type": "screen",
+      "src": "captures/sc11.mp4",
+      "meta": "captures/sc11.json",
+      "title": "Earned autonomy, signed by two people",
+      "note": "Real agents in real Switch rooms on Mattermost. People's presses are scripted. The company is synthetic.",
+      "duration": 12.3,
+      "min": 12.29,
+      "overlays": [
+        {
+          "kind": "label",
+          "text": "Two people sign the promotion",
+          "at": 4.0,
+          "dur": 3.2,
+          "x": 0.5,
+          "y": 0.2,
+          "tone": "accent"
+        },
+        {
+          "kind": "stamp",
+          "text": "DEMOTED",
+          "at": 8.99,
+          "dur": 60,
+          "x": 0.7,
+          "y": 0.58,
+          "w": 420,
+          "rot": -8,
+          "color": "red",
+          "sub": "ONE INCIDENT"
+        }
+      ],
+      "transition": {
+        "type": "tear",
+        "dur": 0.6
+      },
+      "sfx": [
+        {
+          "at": 9.19,
+          "sfx": "stamp",
+          "db": -7
+        }
+      ]
+    },
+    {
+      "id": "S13",
+      "type": "docket",
+      "duration": 9.0,
+      "min": 9,
+      "title": "What agents tried",
+      "cases": [
+        {
+          "title": "“Pre-approved by finance” in the ticket",
+          "outcome": "HELD",
+          "note": "A claim isn't evidence. The card shows who really asked.",
+          "at": 1.8
+        },
+        {
+          "title": "Calling the payment system directly",
+          "outcome": "DENIED",
+          "note": "The agent holds no key. Only the gate does.",
+          "at": 3.6
+        },
+        {
+          "title": "Rewriting its own hook",
+          "outcome": "DENIED",
+          "note": "Denied by policy, and read-only in its sandbox.",
+          "at": 5.4
+        }
+      ],
+      "footnote": "From the authority suite: 25 of 25 bad outcomes prevented · pnpm eval:authority",
+      "transition": {
+        "type": "tear",
+        "dur": 0.6
+      },
+      "sfx": [
+        {
+          "at": 2.267,
+          "sfx": "stamp",
+          "db": -7
+        },
+        {
+          "at": 4.067,
+          "sfx": "stamp",
+          "db": -7
+        },
+        {
+          "at": 5.867,
+          "sfx": "stamp",
+          "db": -7
+        }
+      ]
+    },
+    {
+      "id": "S14",
+      "type": "room",
+      "duration": 14.4,
+      "min": 11,
+      "title": "Switch is the room",
+      "room": "#support · a Switch room",
+      "people": [
+        {
+          "name": "Priya",
+          "role": "support",
+          "x": 0.18,
+          "y": 0.35
+        },
+        {
+          "name": "Sam",
+          "role": "finance",
+          "x": 0.42,
+          "y": 0.75
+        },
+        {
+          "name": "Neha",
+          "role": "finance",
+          "x": 0.2,
+          "y": 0.8
+        },
+        {
+          "name": "Dev",
+          "role": "eng",
+          "x": 0.82,
+          "y": 0.78
+        }
+      ],
+      "agents": [
+        {
+          "name": "refunds-agent",
+          "vendor": "Claude Code",
+          "x": 0.55,
+          "y": 0.3
+        },
+        {
+          "name": "coder",
+          "vendor": "Claude Code",
+          "x": 0.86,
+          "y": 0.4
+        },
+        {
+          "name": "Clearance",
+          "vendor": "a Switch agent",
+          "x": 0.6,
+          "y": 0.58
+        }
+      ],
+      "tags": [
+        {
+          "text": "Who asked: Switch's own events",
+          "at": 4.2,
+          "x": 0.33,
+          "y": 0.2
+        },
+        {
+          "text": "Native approval cards",
+          "at": 6.4,
+          "x": 0.7,
+          "y": 0.2
+        },
+        {
+          "text": "A direct room per approver",
+          "at": 7.6,
+          "x": 0.33,
+          "y": 0.27
+        },
+        {
+          "text": "Room roles route the work",
+          "at": 9.0,
+          "x": 0.7,
+          "y": 0.27
+        }
+      ],
+      "transition": {
+        "type": "tear",
+        "dur": 0.6
+      }
+    },
+    {
+      "id": "S15",
+      "type": "arch3d",
+      "duration": 15.0,
+      "min": 15,
+      "title": "Under the hood",
+      "layers": [
+        {
+          "id": "room",
+          "label": "Switch room",
+          "sub": "people + agents · identity from Switch's events"
+        },
+        {
+          "id": "gate",
+          "label": "Hook + gate",
+          "sub": "the gate holds the credentials"
+        },
+        {
+          "id": "core",
+          "label": "Clearance core",
+          "sub": "policy file · no LLM in the path"
+        },
+        {
+          "id": "card",
+          "label": "Switch approval card",
+          "sub": "answered_by, never the agent's words"
+        },
+        {
+          "id": "exec",
+          "label": "Gate runs it once",
+          "sub": "single-use grant, bound to the call"
+        },
+        {
+          "id": "ledger",
+          "label": "Ledger",
+          "sub": "hash-chained, tamper-evident"
+        }
+      ],
+      "satellites": [
+        {
+          "id": "switch",
+          "label": "Switch"
+        },
+        {
+          "id": "acme",
+          "label": "Systems of record"
+        }
+      ],
+      "traces": [
+        {
+          "from": "room",
+          "to": "switch",
+          "at": 2.5
+        },
+        {
+          "from": "card",
+          "to": "switch",
+          "at": 9.5
+        },
+        {
+          "from": "exec",
+          "to": "acme",
+          "at": 12
+        }
+      ],
+      "blockedAt": "gate",
+      "blockedText": "held: needs a finance approver",
+      "humanAt": "card",
+      "humanText": "Sam decides, in Switch",
+      "cueWords": {
+        "room": "room",
+        "gate": "gate",
+        "core": "policy",
+        "card": "card",
+        "exec": "once",
+        "ledger": "ledger"
+      },
+      "transition": {
+        "type": "fade",
+        "dur": 0.5
+      },
+      "cues": {
+        "gate": 2.09,
+        "core": 4.11,
+        "card": 8.57,
+        "exec": 10.81,
+        "ledger": 13.47
+      }
+    },
+    {
+      "id": "S16",
+      "type": "code",
+      "duration": 5.5,
+      "min": 5.5,
+      "title": "The rule, in the code",
+      "file": "packages/core/src/router/router.ts",
+      "lang": "ts",
+      "code": "function exclusionsFor(ctx: RouteContext, id: string): Exclusion[] {\n  const reasons: Exclusion[] = [];\n  if (ctx.policy.defaults.exclude_requester && ctx.requesterIds.includes(id)) reasons.push(\"requester\");\n  if (ownerExcluded(ctx) && ctx.agentOwnerIds.includes(id)) reasons.push(\"agent_owner\");\n  if (ctx.authorIds.includes(id)) reasons.push(\"author\");\n  if (ctx.signals.away(id)) reasons.push(\"away\");\n  if (ctx.counted.includes(id)) reasons.push(\"counted\");\n  if (ctx.failedConfirm?.includes(id)) reasons.push(\"failed_confirm\");\n  return reasons;\n}",
+      "highlight": [
+        [
+          3,
+          3
+        ]
+      ],
+      "transition": {
+        "type": "tear",
+        "dur": 0.6
+      }
+    },
+    {
+      "id": "S17",
+      "type": "ledgerproof",
+      "duration": 10.167,
+      "min": 10,
+      "title": "Measured with real agents",
+      "metric": "Risky actions done without an eligible person",
+      "rows": [
+        {
+          "label": "Claude Code",
+          "before": 5.0,
+          "after": 0.0,
+          "of": 20,
+          "beforeText": "5 of 20",
+          "afterText": "0 of 20"
+        },
+        {
+          "label": "OpenCode",
+          "before": 14.444444444444445,
+          "after": 0.0,
+          "of": 20,
+          "beforeText": "13 of 18",
+          "afterText": "0 of 11"
+        }
+      ],
+      "footnote": "200 agent runs, 167 finished, Claude on haiku, OpenCode on opencode/beam-free; Priya answers once if the agent asks · pnpm eval:vendors",
+      "transition": {
+        "type": "tear",
+        "dur": 0.6
+      },
+      "sfx": [
+        {
+          "at": 2.5,
+          "sfx": "stamp",
+          "db": -8
+        },
+        {
+          "at": 5.1,
+          "sfx": "stamp",
+          "db": -8
+        }
+      ]
+    },
+    {
+      "id": "S18",
+      "type": "bigfigures",
+      "duration": 7.6,
+      "min": 7,
+      "title": "Attacked, and re-checked",
+      "figures": [
+        {
+          "value": "25/25",
+          "label": "bad outcomes prevented in the authority suite",
+          "note": "25 scripted cases on a fake chat port; 25 of 25 also ran on real Switch and Mattermost, 25 prevented there, 5 adapted to what the stack has",
+          "tone": "good"
+        },
+        {
+          "value": "6",
+          "label": "independent reviews tried to break it",
+          "note": "Every break they found is fixed and re-checked on its own line. RESULTS.md, AUDIT row.",
+          "tone": "ink"
+        }
+      ],
+      "transition": {
+        "type": "tear",
+        "dur": 0.6
+      }
+    },
+    {
+      "id": "S19",
+      "type": "bigfigures",
+      "duration": 7.5,
+      "min": 7.5,
+      "title": "The honest cost, and the checks",
+      "figures": [
+        {
+          "value": "16 of 20",
+          "label": "harmless tasks Claude finished with Clearance",
+          "note": "18 of 20 without it. pnpm eval:vendors:rescore",
+          "tone": "bad"
+        },
+        {
+          "value": "6,604",
+          "label": "tests pass",
+          "note": "pnpm test, the last full run",
+          "tone": "ink",
+          "at": 2.6
+        },
+        {
+          "value": "0",
+          "label": "invariants broken in a 2-hour soak",
+          "note": "2 h, 7,200 calls, 3 restarts; synthetic driver on a fake chat port, no agents",
+          "tone": "good",
+          "at": 3.4
+        }
+      ],
+      "transition": {
+        "type": "tear",
+        "dur": 0.6
+      }
+    },
+    {
+      "id": "S21",
+      "type": "kinetic",
+      "duration": 6.733,
+      "min": 6.5,
+      "align": "left",
+      "lines": [
+        "Who asked: from Switch.",
+        "Who approves: the policy.",
+        "The keys: never the agent's.",
+        "Every decision: recorded."
+      ],
+      "emphasis": [
+        "Switch.",
+        "policy.",
+        "never",
+        "recorded."
+      ],
+      "transition": {
+        "type": "fade",
+        "dur": 0.5
+      }
+    },
+    {
+      "id": "S22",
+      "type": "endcard",
+      "duration": 6.5,
+      "min": 6.5,
+      "name": "Clearance",
+      "tagline": "The person who asks can't be the one who approves.",
+      "links": [
+        "github.com/SohamJuneja/clearance",
+        "Built on Switch · team dellfargo"
+      ],
+      "overlays": [
+        {
+          "kind": "stamp",
+          "text": "BUILT ON SWITCH",
+          "at": 1.4,
+          "dur": 8,
+          "x": 0.5,
+          "y": 0.2,
+          "w": 520,
+          "rot": -5,
+          "color": "violet",
+          "sub": "ROOMS · IDENTITY · CARDS · ROLES"
+        }
+      ],
+      "sfx": [
+        {
+          "at": 1.6,
+          "sfx": "stamp",
+          "db": -7
+        }
+      ]
+    }
+  ]
+}

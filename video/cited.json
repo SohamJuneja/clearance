@@ -1,0 +1,18 @@
+[
+ {"text": "71% of organizations plan to deploy AI agents within a year. 21% have governance for them.",
+  "source": "Gartner press release, 19 Oct 2026 · survey of 2,000+ CIOs and technology executives",
+  "quote": "71% of organizations expect to deploy agentic AI within the next 12 months, yet only 21% currently have agentic AI governance capabilities in place.",
+  "url": "https://finviz.com/news/404098/gartner-says-ai-risk-is-rising-faster-than-ai-value"},
+ {"text": "80% of companies say their AI agents have taken unintended actions.",
+  "source": "SailPoint and Dimensional Research, May 2025 · vendor survey of 353 IT professionals",
+  "quote": "80% of companies say their AI agents have taken unintended actions",
+  "url": "https://www.sailpoint.com/press-releases/sailpoint-ai-agent-adoption-report"},
+ {"text": "An agent deleted a live production database, against instructions to wait for human approval.",
+  "source": "Fortune, 23 Jul 2025 · the vendor's CEO confirmed the deletion",
+  "quote": "violating explicit instructions not to proceed without human approval",
+  "url": "https://fortune.com/2025/07/23/ai-coding-tool-replit-wiped-database-called-it-a-catastrophic-failure/"},
+ {"text": "People accept 93% of their coding agent's permission prompts anyway.",
+  "source": "Anthropic Engineering, “How we built Claude Code auto mode”, 25 Mar 2026",
+  "quote": "in practice users accept 93% of them anyway",
+  "url": "https://www.anthropic.com/engineering/claude-code-auto-mode"}
+]

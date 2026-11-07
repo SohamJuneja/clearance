@@ -1,0 +1,93 @@
+{
+  "take": "SCHO/2",
+  "people": [
+    "priya",
+    "dev"
+  ],
+  "seconds": 17.207,
+  "held_after": 3,
+  "segments": [
+    {
+      "from": 0.0,
+      "to": 2.112,
+      "speed": 1.2,
+      "take_from": 15.334,
+      "take_to": 17.868
+    },
+    {
+      "from": 2.112,
+      "to": 5.169,
+      "speed": 2.0,
+      "take_from": 17.868,
+      "take_to": 23.983
+    },
+    {
+      "from": 5.169,
+      "to": 6.962,
+      "speed": 6.0,
+      "take_from": 23.983,
+      "take_to": 34.739
+    },
+    {
+      "from": 6.962,
+      "to": 17.207,
+      "speed": 1.2,
+      "take_from": 34.739,
+      "take_to": 47.033
+    }
+  ],
+  "steps": [
+    {
+      "label": "Priya asks refunds-agent, the wrong agent, to merge PR 418",
+      "at": 0.0
+    },
+    {
+      "label": "The gate refuses refunds-agent, because a merge is outside its job",
+      "at": 2.112
+    },
+    {
+      "label": "refunds-agent hands the work to @merges in the room",
+      "at": 5.17
+    },
+    {
+      "label": "The hand-off says who asked",
+      "at": 6.962
+    },
+    {
+      "label": "coder picks it up from the role, and its merge is held",
+      "at": 6.962
+    },
+    {
+      "label": "The hold is the holder's merge, and nobody told Clearance who asked",
+      "at": 9.925
+    },
+    {
+      "label": "The card reaches Dev, who can decide it",
+      "at": 9.949
+    },
+    {
+      "label": "Priya tries to approve the merge she asked for",
+      "at": 14.227
+    },
+    {
+      "label": "Clearance refuses Priya, as the requester",
+      "at": 14.948
+    },
+    {
+      "label": "Acme: Priya's approval merged nothing",
+      "at": 16.657
+    },
+    {
+      "label": "Dev denies it on his card",
+      "at": 16.66
+    },
+    {
+      "label": "The room hears it was denied by Dev",
+      "at": 16.73
+    },
+    {
+      "label": "The ledger records the refusal, the hold, Priya's refused answer and the denial",
+      "at": 17.199
+    }
+  ]
+}

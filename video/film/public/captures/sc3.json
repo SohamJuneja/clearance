@@ -1,0 +1,78 @@
+{
+  "take": "SC3/6",
+  "people": [
+    "priya",
+    "sam"
+  ],
+  "seconds": 18.79,
+  "held_after": 3,
+  "segments": [
+    {
+      "from": 0.0,
+      "to": 2.507,
+      "speed": 1.0,
+      "take_from": 0.0,
+      "take_to": 2.507
+    },
+    {
+      "from": 2.507,
+      "to": 5.09,
+      "speed": 12.0,
+      "take_from": 2.507,
+      "take_to": 33.5
+    },
+    {
+      "from": 5.09,
+      "to": 18.79,
+      "speed": 1.0,
+      "take_from": 33.5,
+      "take_to": 47.2
+    }
+  ],
+  "steps": [
+    {
+      "label": "Acme: note what has already gone out",
+      "at": 0.098
+    },
+    {
+      "label": "Priya asks refunds-agent to handle ticket T-77 in #support",
+      "at": 0.102
+    },
+    {
+      "label": "The refund is held, and the room hears a CLR id (if the agent asks first, Priya accepts once)",
+      "at": 2.507
+    },
+    {
+      "label": "The card reaches Sam's DMs",
+      "at": 7.266
+    },
+    {
+      "label": "The held call is the amount the order supports: the agent caught the wrong one",
+      "at": 7.339
+    },
+    {
+      "label": "The card flags the new destination",
+      "at": 7.34
+    },
+    {
+      "label": "Priya tries to approve Priya's own request",
+      "at": 7.34
+    },
+    {
+      "label": "Clearance refuses Priya, says why, and says Sam has it",
+      "at": 8.134
+    },
+    {
+      "label": "Acme: Priya's approval moved no money",
+      "at": 10.178
+    },
+    {
+      "label": "Sam denies",
+      "at": 10.182
+    },
+    {
+      "label": "The room hears it was denied by Sam",
+      "at": 18.285
+    }
+  ]
+}

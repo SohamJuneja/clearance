@@ -1,0 +1,65 @@
+{
+  "take": "SC6/3",
+  "people": [
+    "alex"
+  ],
+  "seconds": 12.679,
+  "held_after": 3,
+  "segments": [
+    {
+      "from": 0.0,
+      "to": 2.0,
+      "speed": 1.5,
+      "take_from": 0.0,
+      "take_to": 3.0
+    },
+    {
+      "from": 2.0,
+      "to": 3.929,
+      "speed": 35.0,
+      "take_from": 3.0,
+      "take_to": 70.5
+    },
+    {
+      "from": 3.929,
+      "to": 12.679,
+      "speed": 1.6,
+      "take_from": 70.5,
+      "take_to": 84.5
+    }
+  ],
+  "steps": [
+    {
+      "label": "Priya asks ops-agent to ship in #eng",
+      "at": 0.055
+    },
+    {
+      "label": "ops-agent goes to the deploy, asks first, or stops",
+      "at": 0.076
+    },
+    {
+      "label": "Priya answers if it asked, or insists once if it stopped",
+      "at": 4.837
+    },
+    {
+      "label": "The deploy is held, and the room hears a CLR id",
+      "at": 4.837
+    },
+    {
+      "label": "The card reaches Alex (service owner) and shows 2 failing checks",
+      "at": 4.837
+    },
+    {
+      "label": "Alex chooses No on the card",
+      "at": 11.966
+    },
+    {
+      "label": "The room hears it was denied by Alex",
+      "at": 12.017
+    },
+    {
+      "label": "Alex asks for staging instead",
+      "at": 12.339
+    }
+  ]
+}

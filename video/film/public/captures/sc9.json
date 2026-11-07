@@ -1,0 +1,85 @@
+{
+  "take": "SC9/5",
+  "people": [
+    "sam"
+  ],
+  "seconds": 14.248,
+  "held_after": 3,
+  "segments": [
+    {
+      "from": 0.0,
+      "to": 4.585,
+      "speed": 1.6,
+      "take_from": 0.0,
+      "take_to": 7.336
+    },
+    {
+      "from": 4.585,
+      "to": 5.646,
+      "speed": 12.0,
+      "take_from": 7.336,
+      "take_to": 20.067
+    },
+    {
+      "from": 5.646,
+      "to": 14.248,
+      "speed": 2.6,
+      "take_from": 20.067,
+      "take_to": 42.433
+    }
+  ],
+  "steps": [
+    {
+      "label": "Acme: note what has already gone out",
+      "at": 0.083
+    },
+    {
+      "label": "Clearance sends Sam a drill refund",
+      "at": 0.083
+    },
+    {
+      "label": "A card that looks like any other reaches Sam's DMs",
+      "at": 0.248
+    },
+    {
+      "label": "The drill card flags the amount against the order total",
+      "at": 0.861
+    },
+    {
+      "label": "Sam approves straight away",
+      "at": 0.861
+    },
+    {
+      "label": "Sam gets the private practice-request note",
+      "at": 1.404
+    },
+    {
+      "label": "Acme: the drill moved no money",
+      "at": 4.583
+    },
+    {
+      "label": "A real high-risk request arrives",
+      "at": 4.585
+    },
+    {
+      "label": "Sam's next card asks for a typed detail",
+      "at": 5.646
+    },
+    {
+      "label": "Sam types the wrong value, and Clearance asks once more",
+      "at": 9.516
+    },
+    {
+      "label": "Sam types the right value, and the gate executes it",
+      "at": 11.824
+    },
+    {
+      "label": "The room hears it was approved by Sam and ran",
+      "at": 12.196
+    },
+    {
+      "label": "Acme: one refund went out, the real one",
+      "at": 14.183
+    }
+  ]
+}

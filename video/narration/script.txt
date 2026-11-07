@@ -1,0 +1,27 @@
+This is Clearance, built on Switch by team dellfargo.
+AI agents are arriving fast. Gartner says 71% of companies plan to deploy them within a year, and only 21% can govern them.
+In one survey, 80% said their agents had already done things nobody intended.
+Here's a team on Switch today. Priya asks an agent for a ₹40,000 refund, and a native approval card opens.
+Priya asked, so Priya approves. And the money goes out.
+We ran this with real agents. That refund still went out in 6 of 8 runs.
+Finance fixed this long ago: whoever asks for a payment can't approve it.
+Clearance brings that rule to every agent on Switch.
+Same refund, with Clearance. The refund is held at the gate, which holds the keys, and a Switch card opens, built from what the agent really ran.
+Priya presses the Approve button. Clearance refuses her, right in the room, because she asked. Sam in finance sees a payment ID added minutes ago, and says no.
+Code works the same way. Priya asks the wrong agent to merge a pull request. The gate refuses it, and the agent hands the job to the merges role in Switch.
+The coding agent's merge is held, the card goes to Dev, and Priya is refused again.
+An OpenCode agent tries to deploy with two failing checks. Same policy, different vendor. The service owner says no.
+If nobody answers, the card escalates to a backup approver, and nothing moves.
+People stop reading. So Clearance sends practice requests with a planted flaw, and risky cards make you type a detail from the evidence.
+Agents can earn small refunds on their own, once two people sign off. One incident takes that away.
+And when an agent tries a trick, like a fake pre-approval, or switching off its own hook, it's held or refused.
+None of this works without Switch. Switch is the room where people and agents meet, and it knows who asked from its own events, never from an agent's words.
+It gives every decision a native card, every approver a direct room, and every job a role.
+Under the hood, the agent's hook and the gate send every risky call to Clearance. A policy file decides, with no AI in the decision.
+Switch delivers the card. The gate runs exactly that call, once. And everything lands on a hash-chained ledger.
+Here's the rule in our code: whoever asked is taken out before anyone is chosen.
+We measured it with real agents. Risky actions without the right approver: Claude, 5 of 20 without Clearance, 0 with it. OpenCode, 13 of 18, down to 0.
+All 25 attack cases were stopped, on real Switch too. Six independent reviews tried to break it, and every break is fixed.
+It also holds some harmless work. That's the cost, and we publish it, along with more than 6,500 passing tests.
+Who asked comes from Switch. Who approves comes from the policy. The agent never holds the keys.
+Clearance. The person who asks can't be the one who approves.

@@ -1,0 +1,263 @@
+{
+ "duration": 251.567,
+ "dir": "/home/prashant/Videos/clearance/audio/sfx",
+ "cues": [
+  {
+   "t": 31.3,
+   "sfx": "tear",
+   "db": -14
+  },
+  {
+   "t": 33.6,
+   "sfx": "stamp",
+   "db": -6,
+   "align": "peak"
+  },
+  {
+   "t": 36.3,
+   "sfx": "tear",
+   "db": -14
+  },
+  {
+   "t": 52.3,
+   "sfx": "tear",
+   "db": -14
+  },
+  {
+   "t": 57.8,
+   "sfx": "stamp",
+   "db": -7,
+   "align": "peak"
+  },
+  {
+   "t": 64.433,
+   "sfx": "tear",
+   "db": -14
+  },
+  {
+   "t": 70.433,
+   "sfx": "tear",
+   "db": -14
+  },
+  {
+   "t": 75.933,
+   "sfx": "tear",
+   "db": -14
+  },
+  {
+   "t": 77.433,
+   "sfx": "stamp",
+   "db": -6,
+   "align": "peak"
+  },
+  {
+   "t": 80.433,
+   "sfx": "tear",
+   "db": -14
+  },
+  {
+   "t": 88.463,
+   "sfx": "stamp",
+   "db": -7,
+   "align": "peak"
+  },
+  {
+   "t": 91.113,
+   "sfx": "stamp",
+   "db": -7,
+   "align": "peak"
+  },
+  {
+   "t": 100.033,
+   "sfx": "tear",
+   "db": -14
+  },
+  {
+   "t": 114.883,
+   "sfx": "stamp",
+   "db": -7,
+   "align": "peak"
+  },
+  {
+   "t": 116.893,
+   "sfx": "stamp",
+   "db": -7,
+   "align": "peak"
+  },
+  {
+   "t": 118.033,
+   "sfx": "tear",
+   "db": -14
+  },
+  {
+   "t": 130.103,
+   "sfx": "stamp",
+   "db": -7,
+   "align": "peak"
+  },
+  {
+   "t": 131.5,
+   "sfx": "tear",
+   "db": -14
+  },
+  {
+   "t": 138.17,
+   "sfx": "stamp",
+   "db": -7,
+   "align": "peak"
+  },
+  {
+   "t": 142.1,
+   "sfx": "tear",
+   "db": -14
+  },
+  {
+   "t": 143.36,
+   "sfx": "stamp",
+   "db": -7,
+   "align": "peak"
+  },
+  {
+   "t": 157.167,
+   "sfx": "tear",
+   "db": -14
+  },
+  {
+   "t": 166.057,
+   "sfx": "stamp",
+   "db": -7,
+   "align": "peak"
+  },
+  {
+   "t": 169.467,
+   "sfx": "tear",
+   "db": -14
+  },
+  {
+   "t": 171.434,
+   "sfx": "stamp",
+   "db": -7,
+   "align": "peak"
+  },
+  {
+   "t": 173.234,
+   "sfx": "stamp",
+   "db": -7,
+   "align": "peak"
+  },
+  {
+   "t": 175.034,
+   "sfx": "stamp",
+   "db": -7,
+   "align": "peak"
+  },
+  {
+   "t": 178.467,
+   "sfx": "tear",
+   "db": -14
+  },
+  {
+   "t": 192.867,
+   "sfx": "tear",
+   "db": -14
+  },
+  {
+   "t": 193.067,
+   "sfx": "tick",
+   "db": -20
+  },
+  {
+   "t": 194.667,
+   "sfx": "tick",
+   "db": -20
+  },
+  {
+   "t": 196.667,
+   "sfx": "tick",
+   "db": -20
+  },
+  {
+   "t": 201.133,
+   "sfx": "tick",
+   "db": -20
+  },
+  {
+   "t": 203.367,
+   "sfx": "tick",
+   "db": -20
+  },
+  {
+   "t": 206.033,
+   "sfx": "tick",
+   "db": -20
+  },
+  {
+   "t": 207.817,
+   "sfx": "whoosh",
+   "db": -14
+  },
+  {
+   "t": 208.5,
+   "sfx": "chime",
+   "db": -16
+  },
+  {
+   "t": 208.767,
+   "sfx": "tick",
+   "db": -14
+  },
+  {
+   "t": 208.847,
+   "sfx": "hit",
+   "db": -12
+  },
+  {
+   "t": 213.367,
+   "sfx": "tear",
+   "db": -14
+  },
+  {
+   "t": 215.567,
+   "sfx": "stamp",
+   "db": -8,
+   "align": "peak"
+  },
+  {
+   "t": 218.167,
+   "sfx": "stamp",
+   "db": -8,
+   "align": "peak"
+  },
+  {
+   "t": 223.534,
+   "sfx": "tear",
+   "db": -14
+  },
+  {
+   "t": 231.134,
+   "sfx": "tear",
+   "db": -14
+  },
+  {
+   "t": 238.634,
+   "sfx": "tear",
+   "db": -14
+  },
+  {
+   "t": 245.317,
+   "sfx": "whoosh",
+   "db": -14
+  },
+  {
+   "t": 245.45,
+   "sfx": "hit",
+   "db": -12
+  },
+  {
+   "t": 246.667,
+   "sfx": "stamp",
+   "db": -7,
+   "align": "peak"
+  }
+ ]
+}

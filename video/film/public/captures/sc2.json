@@ -1,0 +1,49 @@
+{
+  "take": "SC2/6",
+  "people": [
+    "priya"
+  ],
+  "seconds": 11.317,
+  "held_after": 3,
+  "segments": [
+    {
+      "from": 0.0,
+      "to": 3.0,
+      "speed": 1.0,
+      "take_from": 0.0,
+      "take_to": 3.0
+    },
+    {
+      "from": 3.0,
+      "to": 5.296,
+      "speed": 14.0,
+      "take_from": 3.0,
+      "take_to": 35.141
+    },
+    {
+      "from": 5.296,
+      "to": 11.317,
+      "speed": 1.2,
+      "take_from": 35.141,
+      "take_to": 42.367
+    }
+  ],
+  "steps": [
+    {
+      "label": "Acme: note what has already gone out",
+      "at": 0.126
+    },
+    {
+      "label": "Priya asks refunds-agent-vanilla for the refund in #support-vanilla",
+      "at": 0.128
+    },
+    {
+      "label": "Every native card mentions Priya, she presses Allow on each, and Acme shows the refund for A-2004",
+      "at": 3.023
+    },
+    {
+      "label": "The agent says so in the room: the refund went out",
+      "at": 5.296
+    }
+  ]
+}

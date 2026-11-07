@@ -27,3 +27,17 @@ docs/media/social/
 site/dist/.vercel/
 site/dist/artifact.html
 site/dist/media/*.mp4
+
+# The film: dependencies and renders stay local.
+video/film/node_modules/
+video/film/out/
+video/narration/takes/
+video/audio/cache/
+video/film/public/captures/*.mp4
+video/film/public/audio/
+video/narration/*.wav
+video/master.wav
+video/*.mp4
+video/premaster.wav
+video/qa/
+video/__pycache__/

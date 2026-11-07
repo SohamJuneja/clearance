@@ -1,0 +1,38 @@
+{
+ "duration": 251.567,
+ "vo": "narration/vo_full.wav",
+ "music": [
+  {
+   "file": "/home/prashant/Downloads/intro-sfx.wav",
+   "start": 0,
+   "in": 0,
+   "gain_db": -4.5,
+   "fade_in": 0,
+   "fade_out": 0.7,
+   "end": 31.0
+  },
+  {
+   "file": "/home/prashant/Videos/clearance/audio/score.wav",
+   "start": 30.5,
+   "in": 30.5,
+   "gain_db": -5,
+   "fade_in": 1.4,
+   "fade_out": 3.5,
+   "end": 251.567
+  }
+ ],
+ "sfx": [
+  {
+   "file": "/home/prashant/Videos/clearance/audio/sfx_track.wav",
+   "at": 0,
+   "gain_db": 0
+  }
+ ],
+ "duck": {
+  "threshold": 0.03,
+  "ratio": 8,
+  "attack": 20,
+  "release": 400
+ },
+ "target_lufs": -14.3
+}

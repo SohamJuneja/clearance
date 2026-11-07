@@ -1,0 +1,66 @@
+{
+  "take": "SC8/6",
+  "people": [
+    "sam",
+    "neha"
+  ],
+  "seconds": 9.8,
+  "held_after": 3,
+  "segments": [
+    {
+      "from": 0.0,
+      "to": 4.546,
+      "speed": 1.5,
+      "take_from": 0.0,
+      "take_to": 6.819
+    },
+    {
+      "from": 4.546,
+      "to": 6.109,
+      "speed": 12.0,
+      "take_from": 6.819,
+      "take_to": 25.57
+    },
+    {
+      "from": 6.109,
+      "to": 9.8,
+      "speed": 1.2,
+      "take_from": 25.57,
+      "take_to": 30.0
+    }
+  ],
+  "steps": [
+    {
+      "label": "Acme: note what has already gone out",
+      "at": 0.062
+    },
+    {
+      "label": "Priya asks refunds-agent to refund A-2004 in #support",
+      "at": 0.063
+    },
+    {
+      "label": "The refund is held, and the room hears a CLR id",
+      "at": 0.083
+    },
+    {
+      "label": "The card reaches Sam, and Sam doesn't answer",
+      "at": 4.489
+    },
+    {
+      "label": "After the escalation timer, Neha gets the card",
+      "at": 4.546
+    },
+    {
+      "label": "Sam's DMs show Needs your response",
+      "at": 6.109
+    },
+    {
+      "label": "Neha's DMs show Needs your response",
+      "at": 6.128
+    },
+    {
+      "label": "Acme: nothing has moved while nobody answered",
+      "at": 6.573
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "take": "SC11/11",
+  "people": [
+    "sam",
+    "alex"
+  ],
+  "seconds": 11.495,
+  "held_after": 3,
+  "segments": [
+    {
+      "from": 0.0,
+      "to": 4.865,
+      "speed": 2.0,
+      "take_from": 0.0,
+      "take_to": 9.731
+    },
+    {
+      "from": 4.865,
+      "to": 7.131,
+      "speed": 14.0,
+      "take_from": 9.731,
+      "take_to": 41.455
+    },
+    {
+      "from": 7.131,
+      "to": 11.495,
+      "speed": 1.5,
+      "take_from": 41.455,
+      "take_to": 48.0
+    }
+  ],
+  "steps": [
+    {
+      "label": "Sam asks Clearance about refunds-agent's autonomy, which prompts the proposal",
+      "at": 0.06
+    },
+    {
+      "label": "The promotion card with replay stats reaches Sam",
+      "at": 0.929
+    },
+    {
+      "label": "The promotion card with replay stats reaches Alex",
+      "at": 0.974
+    },
+    {
+      "label": "Sam approves the promotion",
+      "at": 3.999
+    },
+    {
+      "label": "Alex approves the promotion",
+      "at": 4.431
+    },
+    {
+      "label": "The ledger records the signed promotion",
+      "at": 4.862
+    },
+    {
+      "label": "Priya asks for a small refund, and it runs without a person",
+      "at": 4.865
+    },
+    {
+      "label": "The agent reports the refund in the room",
+      "at": 5.959
+    },
+    {
+      "label": "A review card follows it",
+      "at": 6.831
+    },
+    {
+      "label": "Sam reports an incident",
+      "at": 7.131
+    },
+    {
+      "label": "Clearance demotes the agent straight away",
+      "at": 8.794
+    },
+    {
+      "label": "The next small refund is held again",
+      "at": 10.831
+    }
+  ]
+}

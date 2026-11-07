@@ -14,6 +14,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
+import { GATE_GRANTS } from "../../scripts/demo-env.mjs";
 import { REPO_ROOT } from "../lib/paths.ts";
 import {
   type Agreement,
@@ -57,7 +58,7 @@ export function runClassifier(options: ClassifierOptions): ClassifierRun {
     };
   }
   const { final, agreement } = resolveLabels(labels);
-  const metrics = computeMetrics(rows, final, options.freezeAt);
+  const metrics = computeMetrics(rows, final, options.freezeAt, GATE_GRANTS);
   if (metrics.labelled_calls === 0) {
     return {
       status: "no held-out labels",

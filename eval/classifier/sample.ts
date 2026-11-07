@@ -12,7 +12,8 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { REPO_ROOT } from "../lib/paths.ts";
-import { blindRow, stratifiedSample } from "./metrics.ts";
+import { GATE_GRANTS } from "../../scripts/demo-env.mjs";
+import { blindRow, oneRowPerAction, stratifiedSample } from "./metrics.ts";
 import { readActions } from "./store.ts";
 
 function flag(argv: string[], name: string): string | undefined {
@@ -31,7 +32,8 @@ function main(): number {
   }
   const size = Number(flag(argv, "--n") ?? 300);
   const out = resolve(flag(argv, "--out") ?? join(REPO_ROOT, "eval/out/to-label.jsonl"));
-  const rows = readActions(resolve(db));
+  // One action is one thing to label, and the command is what a person can judge. See oneRowPerAction.
+  const rows = oneRowPerAction(readActions(resolve(db)), GATE_GRANTS);
   const sample = stratifiedSample(rows, size);
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(

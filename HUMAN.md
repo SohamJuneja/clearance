@@ -24,6 +24,12 @@ Everything else is being done without you. Tick a box when done (or just tell me
   ```
   Open any link on your phone and go at least as far as a practice card. A whole run now passes at phone size in Chromium and in WebKit, which is close to Safari but isn't iOS. Only a real phone can show these, so look for them: does the keyboard cover Send on a typed card, does autocorrect leave a value like `kfin` alone, does the back button come back to the right card, and is a quick deliberate tap ever ignored? There's a 600 ms guard after each card appears, because a double tap was scoring a card nobody had read. For the real sessions, stop terminal 1, run plain `pnpm study:start`, and send Soham the links from `study:links`, one per person. Keep both terminals open until 13:00. If the tunnel restarts, its address changes, so rerun `study:links` with the new one and send those instead.
 
+- [ ] **E3 labels, you and Soham, separately (about 30 minutes each).** The file is `eval/out/to-label.jsonl`, 200 real calls from E2, which is all the final code has produced so far, against PLAN's 300. I've sent it to you. Send Soham the same file, then each of you runs this and presses one key per call. The guide is `eval/classifier/LABELLING.md`.
+  ```bash
+  pnpm eval:classifier:label --name prashant --file eval/out/to-label.jsonl
+  ```
+  Label by hand, with no AI help and no looking at each other's answers. When you've both finished, send me the two `*.labels.jsonl` files. Soham needs the labelling tool, which is on GitHub only after the next push. Why: E3's recall and quiet-share numbers need two people's labels, and nothing else can produce them. Deadline: Sat 13:00.
+
 - [ ] **Listen to the video once, 3 minutes.** `docs/media/raw/clearance-demo.mp4`, the 2:44 cut I sent you. I can read every frame but I can't hear anything, so the offline voice is unchecked by anyone. Tell me if a word is mispronounced, or if it sounds too robotic to use. The agents' words are real, so tell me about anything that reads wrong too, and I'll fix it or say why not.
 
 - [ ] **Clear our leftover test folders from `/tmp` (1 minute, please do this before anything else).** Our tests left over 13,000 folders there, about 6 GB in RAM-backed storage, which is why the machine ran out of memory at 14:31. The leak is fixed, but my permission check refused the cleanup because `/tmp` is shared. This only removes folders named `clearance-*` that you own and that are over 5 minutes old:
@@ -82,7 +88,6 @@ Everything else is being done without you. Tick a box when done (or just tell me
 ## LATER (I'll mark these NOW when their time comes)
 
 - [ ] **The repo must be public when you submit.** Soham's already is. Only if he flips it private for now does this need doing again, and only he can do it, as admin.
-- [ ] **E3 labels, you and Soham, separately.** Once E2 has finished I'll make the 300-call sample and send it to you for both of you. The guide is `eval/classifier/LABELLING.md`, and it's one key per call: `pnpm eval:classifier:label --name prashant --file <the file>`. Do it by hand, with no AI help and no peeking at each other's answers. It's roughly 30 to 50 minutes each, by my guess. Deadline: Sat 13:00.
 - [ ] **Track 03 is with Soham now.** Nothing for you to do unless he hands it back. `docs/track03.md` has the code, the 15-minute Canva probe that decides go or drop, and the steps. Deadline: PR open by Sat 23:59 IST.
 - [ ] **Voice-over (optional, 15 minutes).** Your voice is better than the offline one if you have time: drop files at `scripts/video/voice/<scene>.wav` and they win over it. The script is in `scripts/video/scenes.yaml`, one `voiceover` per scene.
 - [ ] **Optional, stronger anti-evasion:** needs sudo for `/etc/claude-code/managed-settings.json`, which agents can't edit. Not tested yet. I'd only use it if you want it for the demo host.

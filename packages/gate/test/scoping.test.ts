@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import {
   ALL_ENDPOINTS,
+  INTERNAL_TOKEN,
   TOK_ALL,
   TOK_READER,
   TOK_REFUNDS,
@@ -36,9 +37,59 @@ afterEach(async () => {
   db.cleanup();
 });
 
+describe("a refusal outside the agent's role goes on the record", () => {
+  const deploy = ALL_ENDPOINTS.find((ep) => ep.cls === "deploy")!;
+  const refuse = () =>
+    gate.inject({ method: deploy.method, url: deploy.url, payload: deploy.payload, headers: bearer(TOK_REFUNDS) });
+
+  it("tells core who tried what, with the identity from the token and the core token", async () => {
+    const res = await refuse();
+    expect(res.statusCode).toBe(403);
+    expect(core.refusals).toHaveLength(1);
+    const { body, authorization } = core.refusals[0]!;
+    expect(authorization).toBe(`Bearer ${INTERNAL_TOKEN}`);
+    expect(body.action.agent.name).toBe("refunds-agent");
+    expect(body.action.source).toBe("gate");
+    expect(body.action.business?.endpoint).toContain(deploy.method);
+    expect(body.class).toBe("deploy");
+    expect(body.reason).toContain("not allowed to call deploy");
+  });
+
+  it("doesn't take the agent's word for who it is", async () => {
+    await gate.inject({
+      method: deploy.method,
+      url: deploy.url,
+      payload: { ...(deploy.payload as object), agent: "ops-agent", on_behalf_of: "ops-agent" },
+      headers: bearer(TOK_REFUNDS),
+    });
+    expect(core.refusals[0]!.body.action.agent.name).toBe("refunds-agent");
+  });
+
+  it("still refuses when core can't be told, because a record can't turn a no into a yes", async () => {
+    await core.close();
+    const res = await refuse();
+    expect(res.statusCode).toBe(403);
+    expect(res.json()).toMatchObject({ status: "denied" });
+    expect(acme.calls).toHaveLength(0);
+  });
+
+  it("records a call whose body wouldn't even parse, since trying it is the fact worth keeping", async () => {
+    const res = await gate.inject({ method: deploy.method, url: deploy.url, payload: { nonsense: true }, headers: bearer(TOK_REFUNDS) });
+    expect(res.statusCode).toBe(403);
+    expect(core.refusals).toHaveLength(1);
+    expect(core.refusals[0]!.body.class).toBe("deploy");
+  });
+
+  it("isn't sent for a call inside the agent's role", async () => {
+    const ep = ALL_ENDPOINTS.find((e) => e.cls === "refund")!;
+    await gate.inject({ method: ep.method, url: ep.url, payload: ep.payload, headers: bearer(TOK_REFUNDS) });
+    expect(core.refusals).toHaveLength(0);
+  });
+});
+
 describe("token scoping", () => {
   it.each(ALL_ENDPOINTS.filter((ep) => ep.cls !== "refund"))(
-    "a refund-only token gets 403 on $name without reaching core or Acme",
+    "a refund-only token gets 403 on $name without asking core or reaching Acme",
     async (ep) => {
       const res = await gate.inject({
         method: ep.method,

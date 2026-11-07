@@ -111,6 +111,69 @@ export function resolveLabels(labels: Label[]): {
   };
 }
 
+/** Which classes of call each agent's gate token may make, as in `scripts/demo-env.mjs`. */
+export type GateGrants = Readonly<Record<string, readonly string[]>>;
+
+/** A shell call reaches the gate well under a second after its hook. The longest seen across E2 was 249 ms. */
+const SAME_ACTION_MS = 2_000;
+
+/** A `--help` is classed by its verb, and never reaches the gate. */
+const isHelpPage = (row: ActionRow): boolean => /(?:^|\s)--?(?:help|h)(?:\s|;|$)/.test(describeCall(row));
+
+/**
+ * A shell call that reaches the gate is logged twice: the hook lets it through and the gate decides, 50 ms later. Read
+ * apart, a refund the gate held looks like a refund the hook allowed, which is a false miss, and one action is two calls.
+ * So they become one row: the person labels the command, and the gate's decision is the one that counts.
+ *
+ * The gate refuses a call outside the agent's role before core hears of it, so that refusal has no row. It's what the
+ * role list says, so it's read from there: the hook's `allow` on such a call meant "the gate will decide".
+ */
+export function oneRowPerAction(rows: ActionRow[], grants: GateGrants): ActionRow[] {
+  const ordered = [...rows].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+  const taken = new Map<string, ActionRow>();
+  const consumed = new Set<string>();
+  for (let index = 0; index < ordered.length; index++) {
+    const gateRow = ordered[index] as ActionRow;
+    if (gateRow.source !== "gate") continue;
+    for (let back = index - 1; back >= 0; back--) {
+      const earlier = ordered[back] as ActionRow;
+      if (Date.parse(gateRow.at) - Date.parse(earlier.at) > SAME_ACTION_MS) break;
+      if (earlier.source !== "hook" || earlier.agent !== gateRow.agent) continue;
+      // Only ever the call right before it: a read two calls back didn't make this gate call.
+      if (!taken.has(earlier.id)) {
+        taken.set(earlier.id, gateRow);
+        consumed.add(gateRow.id);
+      }
+      break;
+    }
+  }
+  const gated = new Set(Object.values(grants).flat());
+  return ordered
+    .filter((row) => !consumed.has(row.id))
+    .map((row) => {
+      const gateRow = taken.get(row.id);
+      if (gateRow) {
+        return {
+          ...row,
+          class: gateRow.class,
+          decision: gateRow.decision,
+          request_id: gateRow.request_id,
+          would_decide: gateRow.would_decide ?? null,
+        };
+      }
+      const allowed = grants[row.agent];
+      const outsideRole =
+        row.source === "hook" &&
+        row.class !== null &&
+        allowed !== undefined &&
+        gated.has(row.class) &&
+        !allowed.includes(row.class) &&
+        verdict(row) === "allow" &&
+        !isHelpPage(row);
+      return outsideRole ? { ...row, decision: "deny", would_decide: null } : row;
+    });
+}
+
 export const held = (row: ActionRow): boolean => verdict(row) === "hold" || verdict(row) === "deny";
 
 /**
@@ -146,10 +209,11 @@ export function computeMetrics(
   rows: ActionRow[],
   final: Map<string, "risky" | "safe">,
   freezeAt: string,
+  grants: GateGrants = {},
 ): ClassifierResult {
   const freezeMs = Date.parse(freezeAt);
   if (!Number.isFinite(freezeMs)) throw new Error(`the freeze time "${freezeAt}" can't be read`);
-  const heldOut = rows.filter((row) => Date.parse(row.at) >= freezeMs);
+  const heldOut = oneRowPerAction(rows, grants).filter((row) => Date.parse(row.at) >= freezeMs);
   const labelled = heldOut.filter((row) => final.has(row.id));
   const risky = labelled.filter((row) => final.get(row.id) === "risky");
   const safe = labelled.filter((row) => final.get(row.id) === "safe");
@@ -229,8 +293,13 @@ export function describeCall(row: ActionRow): string {
   }
   const record = (raw ?? {}) as Record<string, unknown>;
   const input = (record.tool_input ?? record.toolInput ?? {}) as Record<string, unknown>;
+  // OpenCode's shape. Its session ids come first, so the whole payload cut to length would show nothing else.
+  const args = (record.args ?? {}) as Record<string, unknown>;
+  const argsText = record.tool === undefined ? undefined : (args.command ?? args.filePath ?? args.path ?? JSON.stringify(args));
   const parts = [
     record.tool_name,
+    record.tool,
+    argsText,
     input.command,
     input.file_path,
     record.method,

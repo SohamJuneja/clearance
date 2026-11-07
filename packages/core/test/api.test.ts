@@ -28,6 +28,7 @@ const get = (url: string) => app.inject({ method: "GET", url, headers: auth });
 describe("bearer auth", () => {
   const routes: { method: "GET" | "POST"; url: string }[] = [
     { method: "POST", url: "/v1/check" },
+    { method: "POST", url: "/v1/refused" },
     { method: "GET", url: "/v1/health" },
     { method: "GET", url: "/v1/requests/CLR-0001" },
     { method: "POST", url: "/v1/requests/CLR-0001/cancel" },
@@ -79,6 +80,51 @@ describe("bearer auth", () => {
     const response = await other.inject({ method: "POST", url: "/v1/hooks/claude", payload: {} });
     expect(response.statusCode).toBe(200);
     await other.close();
+  });
+});
+
+describe("POST /v1/refused: the gate refused a call outside the agent's role", () => {
+  const refused = (payload: object) => app.inject({ method: "POST", url: "/v1/refused", headers: auth, payload });
+  const action = () => ({ ...gateRefund(REFUND_SC4), agent: { name: "ops-agent" } });
+  const body = () => ({ action: action(), class: "refund", reason: "ops-agent is not allowed to call refund actions." });
+
+  it("puts it on the ledger and in the action log as a denial", async () => {
+    const response = await refused(body());
+    expect(response.statusCode).toBe(200);
+    const row = h.core.stores.db
+      .prepare("SELECT agent, class, decision, step, request_id FROM actions ORDER BY rowid DESC LIMIT 1")
+      .get() as Record<string, unknown>;
+    expect(row).toMatchObject({ agent: "ops-agent", class: "refund", decision: "deny", step: "outside_role", request_id: null });
+    const entries = h.core.stores.ledger.list().filter((entry) => entry.type === "denied");
+    expect(entries).toHaveLength(1);
+    expect(entries[0]!.payload).toMatchObject({
+      agent: "ops-agent",
+      class: "refund",
+      reason: "ops-agent is not allowed to call refund actions.",
+    });
+  });
+
+  it("opens no request and shows no card, because there's nothing for a person to decide", async () => {
+    await refused(body());
+    expect(h.core.listRequests()).toEqual([]);
+  });
+
+  it("needs the internal token", async () => {
+    const response = await app.inject({ method: "POST", url: "/v1/refused", payload: body() });
+    expect(response.statusCode).toBe(401);
+  });
+
+  it("answers 400 to a body it can't read", async () => {
+    expect((await refused({ class: "refund" })).statusCode).toBe(400);
+    expect((await refused({ ...body(), reason: "" })).statusCode).toBe(400);
+  });
+
+  it("records one refusal once, however often the same action is sent", async () => {
+    const payload = body();
+    await refused(payload);
+    await refused(payload);
+    const { n } = h.core.stores.db.prepare("SELECT COUNT(*) AS n FROM actions").get() as { n: number };
+    expect(n).toBe(1);
   });
 });
 

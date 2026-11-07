@@ -58,7 +58,9 @@ It shows one call at a time. Press `r` for risky, `s` for safe, `u` to take back
 
 Your answers go in `<file>.<your name>.labels.jsonl`, next to the file you were sent. When you've finished, send that file back privately, and don't commit it. The sample's calls come from synthetic Acme data and the sampler strips anything shaped like a secret, but tool calls can carry anything, so the sample doesn't go in the repo either.
 
-There are 300 calls. Expect very roughly 30 to 50 minutes, which is a guess, since nobody has done it yet.
+The tool shows how many calls there are. Expect very roughly 10 seconds a call, which is a guess, since nobody has done it yet. Many lines repeat, so it speeds up.
+
+A call shown here is one action. Where a command reached the gate, you only see the command, and you only label it once.
 
 ## Putting the answers together
 

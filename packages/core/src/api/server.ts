@@ -5,7 +5,7 @@
  * Anything unexpected is a non-200, which the gate treats as fail closed.
  */
 import { createHash, timingSafeEqual } from "node:crypto";
-import { ActionSchema, CheckRequestSchema, RequestStateSchema } from "@clearance/contracts";
+import { ActionSchema, CheckRequestSchema, RefusedRequestSchema, RequestStateSchema } from "@clearance/contracts";
 import Fastify, { type FastifyInstance, type FastifyReply } from "fastify";
 import { z } from "zod";
 import type { Clearance } from "../core.js";
@@ -95,6 +95,13 @@ export function buildServer(core: Clearance, options: ServerOptions): FastifyIns
       const parsed = CheckRequestSchema.safeParse(request.body);
       if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? "not a CheckRequest");
       return core.check(parsed.data.action);
+    });
+
+    scope.post("/v1/refused", async (request, reply) => {
+      const parsed = RefusedRequestSchema.safeParse(request.body);
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? "not a RefusedRequest");
+      core.recordRefusal(parsed.data.action, parsed.data.class, parsed.data.reason);
+      return { recorded: true };
     });
 
     scope.get("/v1/health", async () => core.health());

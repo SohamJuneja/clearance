@@ -91,6 +91,7 @@ export type Step =
   | "autonomy"
   | "class_hold"
   | "outside_read"
+  | "outside_role"
   | "unknown_protected"
   | "unmatched";
 

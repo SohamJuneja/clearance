@@ -136,6 +136,21 @@ export class CoreClient {
   }
 
   /** What ran alone didn't go through. If core can't be told the agent still knows, from the gate's answer, so nothing waits on this. */
+  /** Best effort: the refusal has already been decided, and core being down can't change it. */
+  async reportRefused(action: Action, cls: string, reason: string): Promise<void> {
+    try {
+      await fetch(`${this.base}/v1/refused`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${this.token}`, "content-type": "application/json" },
+        body: JSON.stringify({ action, class: cls, reason }),
+        redirect: "error",
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+    } catch (error) {
+      console.error(`could not tell core about a refused ${cls} call: ${(error as Error).message}`);
+    }
+  }
+
   async reportRunFailed(id: string, report: { never_ran: boolean; error: string }): Promise<void> {
     try {
       await fetch(`${this.base}/v1/requests/${encodeURIComponent(id)}/run-failed`, {

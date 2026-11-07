@@ -11,6 +11,7 @@ import {
   cohensKappa,
   computeMetrics,
   describeCall,
+  oneRowPerAction,
   parseLabels,
   redact,
   resolveLabels,
@@ -40,6 +41,134 @@ function row(id: string, overrides: Partial<ActionRow> = {}): ActionRow {
     ...overrides,
   };
 }
+
+describe("what a labeller reads", () => {
+  it("is the command an OpenCode call ran, not its session ids, or there'd be nothing to judge", () => {
+    const raw = JSON.stringify({
+      tool: "bash",
+      sessionID: "ses_abc",
+      callID: "call-123",
+      cwd: "/home/x",
+      args: { command: "bin/acme deploy checkout v2.14.0 --env prod" },
+    });
+    expect(describeCall(row("x", { raw }))).toBe("bash bin/acme deploy checkout v2.14.0 --env prod");
+  });
+
+  it("is the tool and its arguments when an OpenCode call isn't a command", () => {
+    const raw = JSON.stringify({
+      tool: "clearance_gate_refund_customer",
+      sessionID: "ses_abc",
+      callID: "call-123",
+      args: { amount: 40000, order_id: "A-2004" },
+    });
+    expect(describeCall(row("x", { raw }))).toBe('clearance_gate_refund_customer {"amount":40000,"order_id":"A-2004"}');
+  });
+
+  it("takes secrets out of an OpenCode command too", () => {
+    const raw = JSON.stringify({ tool: "bash", args: { command: "curl -H 'Authorization: Bearer abc123' x" } });
+    expect(describeCall(row("x", { raw }))).not.toContain("abc123");
+  });
+});
+
+describe("one action, one row", () => {
+  const at = (ms: number): string => new Date(Date.parse(AFTER) + ms).toISOString();
+  const grants = { "refunds-agent": ["refund", "payout_change"], "ops-agent": ["deploy", "merge"] };
+  const hook = (id: string, ms: number, over: Partial<ActionRow> = {}): ActionRow =>
+    row(id, { at: at(ms), agent: "refunds-agent", kind: "shell", class: "refund", ...over });
+  const gate = (id: string, ms: number, over: Partial<ActionRow> = {}): ActionRow =>
+    row(id, {
+      at: at(ms),
+      source: "gate",
+      vendor: "gate",
+      agent: "refunds-agent",
+      kind: "business",
+      class: "refund",
+      decision: "hold",
+      request_id: "CLR-0001",
+      ...over,
+    });
+
+  it("reads a shell call and the gate call it made as one action, with the gate's decision", () => {
+    const out = oneRowPerAction([hook("h", 0), gate("g", 60)], grants);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ id: "h", decision: "hold", request_id: "CLR-0001", kind: "shell" });
+  });
+
+  it("takes the gate's class, since the hook may not have known what the command was", () => {
+    const out = oneRowPerAction([hook("h", 0, { class: "unknown_protected" }), gate("g", 60, { class: "payout_change" })], grants);
+    expect(out[0]).toMatchObject({ id: "h", class: "payout_change", decision: "hold" });
+  });
+
+  it("carries what shadow mode would have done, so a shadow call still counts as one it would have held", () => {
+    const out = oneRowPerAction([hook("h", 0), gate("g", 60, { decision: "allow", request_id: null, would_decide: "hold" })], grants);
+    expect(out[0]).toMatchObject({ id: "h", decision: "allow", would_decide: "hold" });
+  });
+
+  it("doesn't pair across agents", () => {
+    const out = oneRowPerAction([hook("h", 0, { agent: "ops-agent", class: "deploy" }), gate("g", 60)], grants);
+    expect(out).toHaveLength(2);
+  });
+
+  it("doesn't pair a gate call with a shell call from long before it", () => {
+    expect(oneRowPerAction([hook("h", 0), gate("g", 5_000)], grants)).toHaveLength(2);
+  });
+
+  it("pairs a gate call with the nearest shell call only, and each shell call once", () => {
+    const out = oneRowPerAction([hook("a", 0), hook("b", 50), gate("g1", 60), gate("g2", 70)], grants);
+    expect(out.map((one) => one.id)).toEqual(["a", "b", "g2"]);
+    expect(out[0]!.decision).toBe("allow");
+    expect(out[1]!.decision).toBe("hold");
+  });
+
+  it("keeps a gate call with no shell call before it, as an MCP call has none", () => {
+    expect(oneRowPerAction([gate("g", 0)], grants).map((one) => one.id)).toEqual(["g"]);
+  });
+
+  it("counts a call the gate's role list refused as refused, since that refusal left no row of its own", () => {
+    const out = oneRowPerAction([hook("h", 0, { class: "deploy" })], grants);
+    expect(out[0]!.decision).toBe("deny");
+  });
+
+  it("leaves a call the agent is allowed to make alone, when no gate row followed", () => {
+    expect(oneRowPerAction([hook("h", 0)], grants)[0]!.decision).toBe("allow");
+  });
+
+  it("leaves a class the gate doesn't handle, and an agent it doesn't know, alone", () => {
+    expect(oneRowPerAction([hook("h", 0, { class: "safe" })], grants)[0]!.decision).toBe("allow");
+    expect(oneRowPerAction([hook("h", 0, { class: "unknown_protected" })], grants)[0]!.decision).toBe("allow");
+    expect(oneRowPerAction([hook("h", 0, { agent: "stranger", class: "deploy" })], grants)[0]!.decision).toBe("allow");
+  });
+
+  it("doesn't count a help page as a refused call, since it never reached the gate", () => {
+    const raw = JSON.stringify({ tool_name: "Bash", tool_input: { command: "bin/acme deploy --help" } });
+    expect(oneRowPerAction([hook("h", 0, { class: "deploy", raw })], grants)[0]!.decision).toBe("allow");
+  });
+
+  it("makes a risky refund the gate held a catch, not a miss", () => {
+    const rows = [hook("h", 0), gate("g", 60)];
+    const result = computeMetrics(rows, new Map([["h", "risky"]]), FREEZE);
+    expect(result.recall.clearance).toBe(1);
+    expect(result.misses).toEqual([]);
+    expect(result.held_out_calls).toBe(1);
+  });
+
+  it("makes approval-required mode ask once for one action, not twice", () => {
+    const result = computeMetrics([hook("h", 0), gate("g", 60)], new Map([["h", "risky"]]), FREEZE);
+    expect(result.cards_per_100.approval_required).toBe(100);
+  });
+
+  it("still calls a real miss a miss", () => {
+    const result = computeMetrics([hook("h", 0)], new Map([["h", "risky"]]), FREEZE);
+    expect(result.recall.clearance).toBe(0);
+    expect(result.misses).toHaveLength(1);
+  });
+
+  it("doesn't change what it's given", () => {
+    const rows = [hook("h", 0), gate("g", 60)];
+    oneRowPerAction(rows, grants);
+    expect(rows[0]!.decision).toBe("allow");
+  });
+});
 
 describe("Cohen's kappa", () => {
   it("matches the textbook example", () => {

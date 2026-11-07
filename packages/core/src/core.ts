@@ -1256,6 +1256,28 @@ export class Clearance implements ClearanceCore {
     return this.responseFor(evaluation);
   }
 
+  /**
+   * The gate turned down a call outside the agent's role before asking anyone. Nothing here decides anything: the answer
+   * has already gone back. It goes on the record so an audit can see the agent tried, the same way as any other denial.
+   */
+  recordRefusal(action: Action, cls: string, reason: string): void {
+    const already = this.stores.db.prepare("SELECT 1 FROM actions WHERE id = ?").get(action.id);
+    if (already) return;
+    this.deny(action, {
+      decision: "deny",
+      step: "outside_role",
+      cls,
+      call: { class: cls, target: action.business?.endpoint ?? "", args: {} },
+      callHash: "",
+      flags: [],
+      reason,
+      extracted: {},
+      lookups: {},
+      fired: [],
+      aggregates: [],
+    });
+  }
+
   private denyUnknownAgent(action: Action): CheckResponse {
     const reason = `DENIED: ${action.agent.name} is not an agent on this team.`;
     const evaluation: Evaluation = {

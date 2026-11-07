@@ -153,6 +153,7 @@ export type FakeCore = {
   decide: (decider: Decider) => void;
   requests: Map<string, { status: number; body: string }>;
   runFailures: { id: string; body: unknown; authorization: string | undefined }[];
+  refusals: { body: { action: Action; class: string; reason: string }; authorization: string | undefined }[];
   requestAuth: () => string | undefined;
   close: () => Promise<void>;
 };
@@ -179,6 +180,11 @@ export async function startFakeCore(): Promise<FakeCore> {
     }
     return reply.status(200).send(out);
   });
+  const refusals: FakeCore["refusals"] = [];
+  app.post("/v1/refused", async (req) => {
+    refusals.push({ body: req.body as FakeCore["refusals"][number]["body"], authorization: req.headers.authorization });
+    return { ok: true };
+  });
   const runFailures: FakeCore["runFailures"] = [];
   app.post("/v1/requests/:id/run-failed", async (req) => {
     runFailures.push({ id: (req.params as { id: string }).id, body: req.body, authorization: req.headers.authorization });
@@ -198,6 +204,7 @@ export async function startFakeCore(): Promise<FakeCore> {
       decider = d;
     },
     requests,
+    refusals,
     runFailures,
     requestAuth: () => lastRequestAuth,
     close: () => app.close(),

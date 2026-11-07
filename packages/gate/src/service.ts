@@ -86,13 +86,9 @@ export class GateService {
     hints: Hints = {},
   ): Promise<GateReply> {
     if (!principal.classes.includes(op.cls)) {
-      return {
-        status: 403,
-        body: {
-          status: "denied",
-          message: `${principal.agent} is not allowed to call ${op.cls} actions.`,
-        },
-      };
+      const message = `${principal.agent} is not allowed to call ${op.cls} actions.`;
+      await this.core.reportRefused(this.refusedAction(principal, op, input, hints), op.cls, message);
+      return { status: 403, body: { status: "denied", message } };
     }
     const parsed = op.schema.safeParse(input);
     if (!parsed.success) {
@@ -172,6 +168,19 @@ export class GateService {
     }
   }
 
+  /** What a refused call asked for, as far as it can be read. A body that doesn't parse is still a call that was tried. */
+  private refusedAction(principal: Principal, op: Operation, input: unknown, hints: Hints): Action {
+    const parsed = op.schema.safeParse(input);
+    const args = (parsed.success ? parsed.data : {}) as Record<string, unknown>;
+    let path: string = op.name;
+    try {
+      path = op.gatePath(args);
+    } catch {
+      // A path built from arguments it doesn't have. The operation's name says enough.
+    }
+    return this.buildAction(principal, op, `${op.method} ${path}`, args, hints);
+  }
+
   private buildAction(
     principal: Principal,
     op: Operation,
@@ -191,7 +200,7 @@ export class GateService {
       agent: { name: principal.agent },
       ...(Object.keys(session).length > 0 ? { session } : {}),
       kind: "business",
-      raw: { method: op.method, path: op.gatePath(args), body: op.hasBody ? args : undefined },
+      raw: { method: op.method, path: endpoint.slice(op.method.length + 1), body: op.hasBody ? args : undefined },
       business: { endpoint, args },
     };
   }

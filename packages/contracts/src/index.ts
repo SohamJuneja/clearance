@@ -67,6 +67,14 @@ export type Flag = z.infer<typeof FlagSchema>;
 export const CheckRequestSchema = z.object({ action: ActionSchema });
 export type CheckRequest = z.infer<typeof CheckRequestSchema>;
 
+/** The gate refused a call outside the agent's role without asking. Core records it: trying that is a fact worth keeping. */
+export const RefusedRequestSchema = z.object({
+  action: ActionSchema,
+  class: z.string().min(1),
+  reason: z.string().min(1),
+});
+export type RefusedRequest = z.infer<typeof RefusedRequestSchema>;
+
 export const CheckResponseSchema = z.object({
   decision: DecisionSchema,
   /** Human and agent readable. For a hold this is the Appendix D "HELD CLR-0042: ..." text. */

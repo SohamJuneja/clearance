@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { secretValuesIn } from "./lib/secrets.ts";
 import { filesToPublish, publishResults, secretIn } from "./publish.ts";
@@ -66,6 +67,32 @@ describe("publishing", () => {
     expect(outcome.refused).toEqual(["b.json"]);
     expect(outcome.copied).toEqual([]);
     expect(existsSync(join(to, "a.json"))).toBe(false);
+  });
+
+  describe("the corpus of calls", () => {
+    const corpusWith = (raw: string): void => {
+      const db = new DatabaseSync(join(from, "e3-corpus.sqlite"));
+      db.exec(
+        "CREATE TABLE actions (id TEXT, at TEXT, source TEXT, vendor TEXT, agent TEXT, kind TEXT, class TEXT, decision TEXT, request_id TEXT, raw TEXT, would_decide TEXT, e2_run TEXT)",
+      );
+      db.prepare("INSERT INTO actions VALUES ('c1','2026-11-07T00:00:00Z','hook','claude','refunds-agent','shell','safe','allow',NULL,?,NULL,'claude C a #1')").run(raw);
+      db.close();
+    };
+
+    it("goes out as text a clone can read, keeping the ids people's labels point at", () => {
+      corpusWith('{"tool_input":{"command":"ls"}}');
+      expect(publishResults(from, to, []).copied).toContain("e3-calls.jsonl");
+      const row = JSON.parse(readFileSync(join(to, "e3-calls.jsonl"), "utf8").trim()) as { id: string; e2_run: string };
+      expect(row).toMatchObject({ id: "c1", e2_run: "claude C a #1" });
+    });
+
+    it("stops everything if a call holds a secret", () => {
+      corpusWith('{"tool_input":{"command":"curl -H made-up-value"}}');
+      writeFileSync(join(from, "a.json"), "{}");
+      const outcome = publishResults(from, to, ["made-up-value"]);
+      expect(outcome.refused).toEqual(["e3-corpus.sqlite"]);
+      expect(existsSync(join(to, "a.json"))).toBe(false);
+    });
   });
 
   it("does nothing with no results to publish", () => {

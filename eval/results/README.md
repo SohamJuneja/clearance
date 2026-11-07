@@ -12,6 +12,7 @@ The customers, orders and money in all of these are Acme's seed data, and nothin
 | `vendors.json` | E2: every run's result, scored from its transcript. |
 | `e2-transcripts.jsonl` | The chat in every E2 room, one run per line: who said what, when, and which buttons each post offered. `pnpm eval:vendors:rescore` works E2's chat-based scores out again from this file, with no agent, stack or Mattermost. A condition that was run again keeps its earlier rooms here too, and `vendors.json` says which room each current run used. |
 | `vendors-as-run.json` | E2's results exactly as the runs left them, before the rescore. Compare it with `vendors.json` to see what the rescore changed: cards, safe tasks and how a run ended, and runs given up because the agent was still working. It never changes what was measured in Acme, git or the ledger. |
+| `e3-calls.jsonl` | Every tool call Clearance logged during E2, one per line, with what it decided and which run it came from. A run named `earlier:` was run again later. `pnpm eval:vendors:rescore` reads it to say which runs a control refused, and E3's labels point at its ids. |
 | `e2-first-attempt.json` | The E2 attempt where nobody answered the agent, kept because of what it showed. |
 | `baseline.json`, `baseline-extra.jsonl`, `baseline-left-out.jsonl` | Real runs with no Clearance. |
 | `behaviour.json` | What agents did after a hold. |

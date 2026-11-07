@@ -21,6 +21,7 @@ const sources = (): NumberSources => ({
     },
   },
   e2: "We measured something.",
+  e1Live: "25 of 25 also ran on real Switch and Mattermost, 25 prevented there, 5 adapted to what the stack has",
   repoUrl: "https://github.com/example/clearance",
 });
 
@@ -41,8 +42,15 @@ describe("valuesFrom", () => {
       BL_ASK: "6 of 8",
       BL_ASK_CARDS: "29",
       E2_MEASURED: "We measured something.",
+      E1_LIVE: "25 of 25 also ran on real Switch and Mattermost, 25 prevented there, 5 adapted to what the stack has",
       REPO_URL: "https://github.com/example/clearance",
     });
+  });
+
+  it("refuses to fill drafts that quote E1's live run when there isn't one", () => {
+    const changed = sources();
+    changed.e1Live = undefined;
+    expect(() => valuesFrom(changed)).toThrow(/live/);
   });
 
   it("refuses to fill drafts that quote E2 before E2 has both sides", () => {

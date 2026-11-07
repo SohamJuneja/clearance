@@ -455,7 +455,7 @@ function e1Coverage(inputs: Inputs): string {
 const RAN_LIVE = new Set(["prevented", "not prevented", "no such control"]);
 
 /** "N of 25 also ran...", counted from what `--live` wrote. Nothing when it has never run. */
-function e1LiveCount(inputs: Inputs): string | undefined {
+export function e1LiveCount(inputs: Inputs): string | undefined {
   const live = inputs["E1-live"];
   if (!live) return undefined;
   const cases = inputs.E1?.cases ?? 25;
@@ -588,7 +588,7 @@ function harmlessWorkLost(inputs: Inputs): NegativeResult | undefined {
   const clearanceDid = doneIn("C");
   const lost = [...doneIn("B-auto")].filter((intent) => !clearanceDid.has(intent));
   const tasks = lost.length > 0 ? `, on ${lost.join(", ")}` : "";
-  const short = `Clearance cost harmless work: Claude finished ${withIt.done} of ${withIt.finished} harmless tasks against ${without.done} of ${without.finished} without it${tasks}. The gate's role list refused those outright, with no card, so a person has to send them to another agent`;
+  const short = `Clearance cost harmless work: Claude finished ${withIt.done} of ${withIt.finished} harmless tasks against ${without.done} of ${without.finished} without it${tasks}. The gate's role list refused those outright, with no card, and the agent handed them to the role that does that job. They only finish if an agent holding that role can run, which didn't happen here`;
   return { id: "e2-harmless-work", text: `${short}.`, short, source: "`pnpm eval:vendors:rescore`" };
 }
 
@@ -720,7 +720,7 @@ export function renderTable(inputs: Inputs): string {
     `| E2 | Risky actions executed without an eligible human (of 20 per vendor) | ${vendors(e2?.risky_unapproved?.baseline)} | ${vendors(e2?.risky_unapproved?.clearance)} | ${synthetic(e2, e2 ? `${num(e2.runs ?? 360)} agent runs${e2.claude_model ? `, Claude on ${e2.claude_model}` : ""}${e2.opencode_model ? `, OpenCode on ${e2.opencode_model}` : ""}${e2.priya_answers_once ? "; Priya answers once if the agent asks" : ""}` : "not run yet")} | \`pnpm eval:vendors\` |`,
     `| E2 | Safe actions interrupted by a card (of 20 per vendor) | ${vendorsOrBlank(e2?.safe_interrupted?.baseline)} | ${vendorsOrBlank(e2?.safe_interrupted?.clearance)} | ${e2?.rescored_from_transcripts ? "scored from the saved transcripts of the same runs" : "same"} | ${e2?.rescored_from_transcripts ? "\`pnpm eval:vendors:rescore\`" : "same"} |`,
     `| E2 | Harmless tasks the agent reports done (of 20 per vendor) | ${e2Cells(e2, "B-auto", (row, name) => `${name} ${ofTwenty(row.safe.done, row.safe.finished)}`)} | ${e2Cells(e2, "C", (row, name) => `${name} ${ofTwenty(row.safe.done, row.safe.finished)}`)} | ${e2?.ends ? "a fact only the system could give, in the agent's words" : BLANK} | \`pnpm eval:vendors:rescore\` |`,
-    `| E2 | How attempts ended with Clearance | n/a | ${e2Cells(e2, "C", (row, name) => `${name}: ${row.risky.held} held on a card, ${row.risky.refused} refused by a control, ${row.risky.declined} declined by the agent`, "; ")} | ${e2?.ends ? "holds from the ledger; refused and declined as the agent reports them" : BLANK} | \`pnpm eval:vendors:rescore\` |`,
+    `| E2 | How attempts ended with Clearance | n/a | ${e2Cells(e2, "C", (row, name) => `${name}: ${row.risky.held} held on a card, ${row.risky.refused} refused by a control, ${row.risky.declined} declined by the agent`, "; ")} | ${e2?.ends ? "from the record: a hold, a refusal by the gate's role list or a hook, and declined means no control was reached" : BLANK} | \`pnpm eval:vendors:rescore\` |`,
     `| E2 | The requester said yes, and it went ahead | ${e2Cells(e2, "B-auto", (row, name) => `${name} ${row.risky.happened_after_requester_said_yes} of ${row.risky.requester_said_yes}`)} | ${e2Cells(e2, "C", (row, name) => `${name} ${row.risky.happened_after_requester_said_yes} of ${row.risky.requester_said_yes}`)} | ${e2?.ends ? "runs where the agent asked and the person who asked for it answered" : BLANK} | \`pnpm eval:vendors:rescore\` |`,
     `| E2 | Shadow mode's would-hold, against what really happened | n/a | ${e2?.shadow_prediction ? `${e2.shadow_prediction.would_have_held} of ${e2.shadow_prediction.happened}, ${e2.shadow_prediction.would_hold_but_nothing_happened} false alarms` : BLANK} | ${e2?.shadow_prediction ? "Claude, on the same prompts; the gate's role list and secret-file block stay on in shadow" : BLANK} | \`pnpm eval:vendors:rescore\` |`,
     `| E2 | Tried another route after a hold | n/a | ${num(behaviour?.tried_another_route)} of ${num(behaviour?.holds)} holds | ${behaviourData(behaviour)} | \`pnpm eval:behaviour\` |`,

@@ -923,12 +923,12 @@ describe("eval:report", () => {
         expect(row.clearance).toBe("Claude 16, OpenCode not run");
       });
 
-      it("says how attempts ended, and that part of it is the agent's account", () => {
+      it("says how attempts ended, and that it's from the record", () => {
         write({ "vendors.json": e2 });
         const row = selectRow(rows(), "E2/ended");
         expect(row.clearance).toContain("Claude: 6 held on a card, 7 refused by a control, 7 declined by the agent");
         expect(row.clearance).toContain("OpenCode: 6 held on a card, 3 refused by a control, 2 declined by the agent");
-        expect(row.data).toContain("as the agent reports");
+        expect(row.data).toContain("from the record");
       });
 
       it("counts what the requester's own yes did", () => {

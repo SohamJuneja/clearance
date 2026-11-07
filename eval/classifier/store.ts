@@ -1,5 +1,5 @@
 /** Reads core's `actions` table, read-only, with Node's own SQLite, and keeps E2's calls for E3. */
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { ActionRow } from "./metrics.ts";
@@ -144,4 +144,28 @@ export function retireCalls(intoDb: string, vendor: string, conditions: readonly
   } finally {
     db.close();
   }
+}
+
+/** The tracked copy of the corpus: every call as one JSON line, with no sqlite to read. Its raw payloads are checked for secrets on the way in. */
+export const CALLS_FILE = "e3-calls.jsonl";
+
+/** Every call with the run it came from, from the corpus, or from its tracked copy on a clone. Null if there's neither. */
+export function readRunCalls(corpus: string, tracked: string): (ActionRow & { e2_run: string })[] | null {
+  if (existsSync(corpus)) {
+    const db = new DatabaseSync(corpus, { readOnly: true });
+    try {
+      return db
+        .prepare(
+          "SELECT id, at, source, vendor, agent, kind, class, decision, request_id, raw, would_decide, e2_run FROM actions ORDER BY at, id",
+        )
+        .all() as unknown as (ActionRow & { e2_run: string })[];
+    } finally {
+      db.close();
+    }
+  }
+  if (!existsSync(tracked)) return null;
+  return readFileSync(tracked, "utf8")
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as ActionRow & { e2_run: string });
 }

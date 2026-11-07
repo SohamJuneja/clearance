@@ -5,9 +5,10 @@
  * Tool calls and chat can carry anything, so it stops without writing if a file holds a known secret value or anything
  * shaped like a real key. It names the file and never the value.
  */
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { CALLS_FILE, readRunCalls } from "./classifier/store.ts";
 import { redact } from "./cross-vendor/transcripts.ts";
 import { knownSecrets } from "./lib/secrets.ts";
 import { REPO_ROOT } from "./lib/paths.ts";
@@ -29,8 +30,16 @@ export interface PublishOutcome {
   refused: string[];
 }
 
+/** The corpus as text, so a clone can read every call and a secret scan can read it too. The sample's labels point at these ids. */
+export function callsAsText(calls: object[]): string {
+  return calls.map((call) => JSON.stringify(call)).join("\n") + (calls.length > 0 ? "\n" : "");
+}
+
 export function publishResults(from: string, to: string, known: string[]): PublishOutcome {
   if (!existsSync(from)) return { copied: [], refused: [] };
+  const corpus = join(from, "e3-corpus.sqlite");
+  const calls = existsSync(corpus) ? callsAsText(readRunCalls(corpus, "") ?? []) : null;
+  if (calls !== null && secretIn(calls, known)) return { copied: [], refused: ["e3-corpus.sqlite"] };
   const names = filesToPublish(
     readdirSync(from, { withFileTypes: true })
       .filter((entry) => entry.isFile())
@@ -40,7 +49,8 @@ export function publishResults(from: string, to: string, known: string[]): Publi
   if (refused.length > 0) return { copied: [], refused };
   mkdirSync(to, { recursive: true });
   for (const name of names) copyFileSync(join(from, name), join(to, name));
-  return { copied: names, refused: [] };
+  if (calls !== null) writeFileSync(join(to, CALLS_FILE), calls);
+  return { copied: calls !== null ? [...names, CALLS_FILE] : names, refused: [] };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

@@ -1727,6 +1727,486 @@
       "experiment": "F24",
       "usd": 0.02,
       "note": "estimate: probe, a role grants nothing, one refunds-agent turn"
+    },
+    {
+      "at": "2026-11-07T02:50:06.485Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow refund-large"
+    },
+    {
+      "at": "2026-11-07T02:50:58.799Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow refund-large"
+    },
+    {
+      "at": "2026-11-07T02:52:25.192Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow refund-new-destination"
+    },
+    {
+      "at": "2026-11-07T02:53:23.239Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow refund-new-destination"
+    },
+    {
+      "at": "2026-11-07T02:54:11.783Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow deploy-failing-checks"
+    },
+    {
+      "at": "2026-11-07T02:55:03.901Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow deploy-failing-checks"
+    },
+    {
+      "at": "2026-11-07T02:56:05.959Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow merge-to-main"
+    },
+    {
+      "at": "2026-11-07T02:56:56.075Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow merge-to-main"
+    },
+    {
+      "at": "2026-11-07T02:57:36.091Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow force-push"
+    },
+    {
+      "at": "2026-11-07T02:58:16.368Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow force-push"
+    },
+    {
+      "at": "2026-11-07T02:59:30.390Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow delete-records"
+    },
+    {
+      "at": "2026-11-07T03:00:36.632Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow delete-records"
+    },
+    {
+      "at": "2026-11-07T03:01:16.927Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow bulk-email-external"
+    },
+    {
+      "at": "2026-11-07T03:01:57.118Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow bulk-email-external"
+    },
+    {
+      "at": "2026-11-07T03:02:49.398Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow change-payout"
+    },
+    {
+      "at": "2026-11-07T03:03:47.525Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow change-payout"
+    },
+    {
+      "at": "2026-11-07T03:04:57.707Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow read-env"
+    },
+    {
+      "at": "2026-11-07T03:05:37.759Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow read-env"
+    },
+    {
+      "at": "2026-11-07T03:06:25.991Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow curl-acme"
+    },
+    {
+      "at": "2026-11-07T03:07:14.182Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow curl-acme"
+    },
+    {
+      "at": "2026-11-07T03:07:56.208Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow read-order"
+    },
+    {
+      "at": "2026-11-07T03:09:12.252Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow read-order"
+    },
+    {
+      "at": "2026-11-07T03:09:52.375Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow run-tests"
+    },
+    {
+      "at": "2026-11-07T03:10:32.378Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow run-tests"
+    },
+    {
+      "at": "2026-11-07T03:11:12.588Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow git-status"
+    },
+    {
+      "at": "2026-11-07T03:11:52.734Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow git-status"
+    },
+    {
+      "at": "2026-11-07T03:12:42.768Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow reply-to-customer"
+    },
+    {
+      "at": "2026-11-07T03:13:34.951Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow reply-to-customer"
+    },
+    {
+      "at": "2026-11-07T03:14:57.189Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow staging-deploy"
+    },
+    {
+      "at": "2026-11-07T03:15:43.416Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow staging-deploy"
+    },
+    {
+      "at": "2026-11-07T03:16:25.846Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow list-services"
+    },
+    {
+      "at": "2026-11-07T03:17:07.952Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow list-services"
+    },
+    {
+      "at": "2026-11-07T03:17:50.039Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow read-ticket"
+    },
+    {
+      "at": "2026-11-07T03:18:32.091Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow read-ticket"
+    },
+    {
+      "at": "2026-11-07T03:19:14.201Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow find-customer"
+    },
+    {
+      "at": "2026-11-07T03:19:58.326Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow find-customer"
+    },
+    {
+      "at": "2026-11-07T03:20:40.508Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow ci-status"
+    },
+    {
+      "at": "2026-11-07T03:21:22.635Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow ci-status"
+    },
+    {
+      "at": "2026-11-07T03:22:02.885Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow list-files"
+    },
+    {
+      "at": "2026-11-07T03:22:42.999Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude G-shadow list-files"
+    },
+    {
+      "at": "2026-11-07T03:23:29.347Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C refund-large"
+    },
+    {
+      "at": "2026-11-07T03:24:21.589Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C refund-large"
+    },
+    {
+      "at": "2026-11-07T03:25:51.770Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C refund-new-destination"
+    },
+    {
+      "at": "2026-11-07T03:26:37.896Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C refund-new-destination"
+    },
+    {
+      "at": "2026-11-07T03:27:26.228Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C deploy-failing-checks"
+    },
+    {
+      "at": "2026-11-07T03:28:20.388Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C deploy-failing-checks"
+    },
+    {
+      "at": "2026-11-07T03:29:16.655Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C merge-to-main"
+    },
+    {
+      "at": "2026-11-07T03:30:20.767Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C merge-to-main"
+    },
+    {
+      "at": "2026-11-07T03:31:03.062Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C force-push"
+    },
+    {
+      "at": "2026-11-07T03:31:43.130Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C force-push"
+    },
+    {
+      "at": "2026-11-07T03:32:55.420Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C delete-records"
+    },
+    {
+      "at": "2026-11-07T03:33:45.314Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C delete-records"
+    },
+    {
+      "at": "2026-11-07T03:34:55.374Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C bulk-email-external"
+    },
+    {
+      "at": "2026-11-07T03:35:35.555Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C bulk-email-external"
+    },
+    {
+      "at": "2026-11-07T03:36:27.742Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C change-payout"
+    },
+    {
+      "at": "2026-11-07T03:37:25.876Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C change-payout"
+    },
+    {
+      "at": "2026-11-07T03:38:36.041Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C read-env"
+    },
+    {
+      "at": "2026-11-07T03:39:20.195Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C read-env"
+    },
+    {
+      "at": "2026-11-07T03:40:06.352Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C curl-acme"
+    },
+    {
+      "at": "2026-11-07T03:40:52.503Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C curl-acme"
+    },
+    {
+      "at": "2026-11-07T03:41:34.725Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C read-order"
+    },
+    {
+      "at": "2026-11-07T03:42:14.812Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C read-order"
+    },
+    {
+      "at": "2026-11-07T03:42:57.232Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C run-tests"
+    },
+    {
+      "at": "2026-11-07T03:43:37.497Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C run-tests"
+    },
+    {
+      "at": "2026-11-07T03:44:17.739Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C git-status"
+    },
+    {
+      "at": "2026-11-07T03:44:55.781Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C git-status"
+    },
+    {
+      "at": "2026-11-07T03:45:53.891Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C reply-to-customer"
+    },
+    {
+      "at": "2026-11-07T03:46:49.856Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C reply-to-customer"
+    },
+    {
+      "at": "2026-11-07T03:47:33.994Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C staging-deploy"
+    },
+    {
+      "at": "2026-11-07T03:48:22.159Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C staging-deploy"
+    },
+    {
+      "at": "2026-11-07T03:49:04.129Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C list-services"
+    },
+    {
+      "at": "2026-11-07T03:49:46.095Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C list-services"
+    },
+    {
+      "at": "2026-11-07T03:50:25.921Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C read-ticket"
+    },
+    {
+      "at": "2026-11-07T03:51:06.005Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C read-ticket"
+    },
+    {
+      "at": "2026-11-07T03:51:47.918Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C find-customer"
+    },
+    {
+      "at": "2026-11-07T03:52:29.969Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C find-customer"
+    },
+    {
+      "at": "2026-11-07T03:53:12.188Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C ci-status"
+    },
+    {
+      "at": "2026-11-07T03:53:54.070Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C ci-status"
+    },
+    {
+      "at": "2026-11-07T03:54:36.025Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C list-files"
+    },
+    {
+      "at": "2026-11-07T03:55:18.313Z",
+      "experiment": "E2",
+      "usd": 0.05,
+      "note": "estimate: claude C list-files"
     }
   ]
 }

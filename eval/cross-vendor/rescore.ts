@@ -11,8 +11,9 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
+import { GATE_GRANTS } from "../../scripts/demo-env.mjs";
+import { CALLS_FILE, readRunCalls } from "../classifier/store.ts";
 import { REPO_ROOT } from "../lib/paths.ts";
 import { knownSecrets } from "../lib/secrets.ts";
 import {
@@ -26,6 +27,7 @@ import {
   parseTranscripts,
   redact,
   rescoreAll,
+  runsRefused,
   serialiseTranscripts,
   shadowPrediction,
   summariseEnds,
@@ -155,19 +157,6 @@ function exportRooms(runs: RunResult[], sinceMs: number | undefined, intents: Re
   return all;
 }
 
-function readCalls(): { e2_run: string; would_decide: string | null }[] | null {
-  if (!existsSync(CORPUS)) return null;
-  const db = new DatabaseSync(CORPUS, { readOnly: true });
-  try {
-    return db.prepare("SELECT e2_run, would_decide FROM actions").all() as unknown as {
-      e2_run: string;
-      would_decide: string | null;
-    }[];
-  } finally {
-    db.close();
-  }
-}
-
 function main(): number {
   const argv = process.argv.slice(2).filter((arg) => arg !== "--");
   const value = (flag: string): string | undefined => {
@@ -188,8 +177,8 @@ function main(): number {
   const rooms = argv.includes("--export")
     ? exportRooms(file.per_run, since ? Number(since) : undefined, intents)
     : readKept();
-  const per_run = rescoreAll(file.per_run, rooms, intents);
-  const calls = readCalls();
+  const calls = readRunCalls(CORPUS, join(RESULTS_DIR, CALLS_FILE));
+  const per_run = rescoreAll(file.per_run, rooms, intents, calls ? runsRefused(calls, GATE_GRANTS) : undefined);
   const out = {
     ...file,
     ...summarise(per_run, file.availability, 20),

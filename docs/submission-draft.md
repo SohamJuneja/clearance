@@ -37,7 +37,7 @@ Clearance is a Switch agent on the agent protocol. Every card is a native Switch
 
 Every number comes from a script in `eval/`, and `RESULTS.md` has all of them, including the blanks. Data is synthetic and labelled.
 
-We scored {{E1}} on our authority suite: scripted cases on real core, gate and Acme, with a fake chat. An independent review then found {{AUDIT_BREAKS}} breaks the suite had missed, a second reproduced {{SECOND_REVIEW_BREAKS}} more on code that passed all of that, a third reproduced {{THIRD_REVIEW_BREAKS}} more in what had been written since, and a fourth reproduced {{FOURTH_REVIEW_BREAKS}} more, including one refund sent twice at once running twice. They're fixed and re-checked on their own line.
+We scored {{E1}} on our authority suite: scripted cases on real core, gate and Acme, with a fake chat. Then we ran the same cases on the real stack: {{E1_LIVE}}. An independent review then found {{AUDIT_BREAKS}} breaks the suite had missed, a second reproduced {{SECOND_REVIEW_BREAKS}} more on code that passed all of that, a third reproduced {{THIRD_REVIEW_BREAKS}} more in what had been written since, and a fourth reproduced {{FOURTH_REVIEW_BREAKS}} more, including one refund sent twice at once running twice. They're fixed and re-checked on their own line.
 
 On a synthetic week, an agent that earned autonomy needed {{E6_AFTER}} human decisions per 100 actions, against {{E6_BEFORE}} before promotion. The anomaly rule was changed after we saw the first result, which was {{E6_ORIGINAL}}, and both are published.
 

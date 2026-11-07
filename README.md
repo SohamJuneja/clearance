@@ -16,6 +16,8 @@ Team dellfargo's entry to the Flip the Switch hackathon: Track 01, Best Business
 
 *Priya, on the left, asked for this refund and tried to approve it. Clearance refused her in the room and sent the card to Sam in finance, on the right. Real agent, real Mattermost. People's presses are scripted, and the agent's words aren't.*
 
+**Contents:** [At a glance](#at-a-glance) · [Seven use cases](#seven-use-cases) · [The workflow](#the-workflow) · [For two people, too](#for-two-people-too) · [See it](#see-it) · [How Clearance uses Switch](#how-clearance-uses-switch) · [Agents and channels](#agents-and-channels) · [Run it](#run-it) · [Results](#results) · [Limits](#limits)
+
 ## At a glance
 
 **An approval card in front of an agent isn't enough. Clearance makes sure the right person presses it: the person who asked is refused, from Switch's own `answered_by` and `sender` events, and the agent never holds the keys.**
@@ -30,6 +32,20 @@ Team dellfargo's entry to the Flip the Switch hackathon: Track 01, Best Business
 <!-- measured:start -->
 We gave real agents in real Switch rooms risky requests against a synthetic company. With nobody answering, the agent moved nothing in 20 risky runs, because it stops to ask. So a scripted requester now answers "Yes, go ahead" once if asked, in every condition, as someone in a small team would. With no Clearance, Claude's agent stopped to ask in 10 of 20 runs, the requester said yes, and it went ahead in 5 of them, including a ₹40,000 refund and a deleted customer record. OpenCode's agent went ahead in 13 of 18 runs, 9 of them without asking. On the prompts it finished both ways, that's 7 of 9 against 0 of 9. With Clearance, the same yes moved nothing, and no risky action ran without an eligible person's approval, in 31 finished runs. The table below has the rest, including where Clearance loses.
 <!-- measured:end -->
+
+## Seven use cases
+
+Each one is a scenario that runs on real Switch rooms with real agents (`pnpm demo:run <id>`), and each is a scene in the film.
+
+| | Use case | What happens | Run it |
+|---|---|---|---|
+| 1 | **Refunds** | Priya asks for a refund and presses Approve on her own card. Clearance refuses her in the room, and Sam in finance gets the card, with a payment ID added minutes ago flagged. | `pnpm demo:run SC3` ([sc03.ts](scripts/scenarios/sc03.ts)) |
+| 2 | **Code** | Priya asks the wrong agent to merge. The gate refuses it, the agent hands the job to `@merges` through a Switch room role, and the coding agent's merge goes to Dev. | `pnpm demo:run SCHO` ([scho.ts](scripts/scenarios/scho.ts)) |
+| 3 | **Deploys, another vendor** | An OpenCode agent tries to ship to production with failing checks. Same policy file, and the service owner says no. | `pnpm demo:run SC6` ([sc06.ts](scripts/scenarios/sc06.ts)) |
+| 4 | **Nobody answers** | Sam stays silent. On a timer, the card escalates to Neha's direct room, and nothing moves meanwhile. | `pnpm demo:run SC8` ([sc08.ts](scripts/scenarios/sc08.ts)) |
+| 5 | **Rubber-stamping** | A practice request with a planted flaw catches a fast approval, privately, and the next risky card asks Sam to type a detail from the evidence. | `pnpm demo:run SC9` ([sc09.ts](scripts/scenarios/sc09.ts)) |
+| 6 | **Earned autonomy** | Two people sign an agent's promotion for small refunds, from a replay of its record. One incident demotes it. | `pnpm demo:run SC11` ([sc11.ts](scripts/scenarios/sc11.ts)) |
+| 7 | **Attacks** | A fake pre-approval in a message, an agent switching off its own hook, a display name posing as someone else: held or refused. | `pnpm eval:authority` ([cases.ts](eval/authority-suite/cases.ts)) |
 
 ## The workflow
 

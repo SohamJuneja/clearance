@@ -134,13 +134,35 @@ export interface LatencyOutput {
   measured_at: string;
 }
 
+/**
+ * A thousand small refunds would hit the policy's 24 h totals and be held, which isn't the path being timed. So this one
+ * world's copy of the policy has room for them. Nothing else about the decision changes, and it stops if the limits moved.
+ */
+export function withRoomForRefunds(policy: string): string {
+  const out = policy
+    .replace(/(sum: amount, by: customer, window: 24h, over: )10000\b/, "$1100000000")
+    .replace(/(sum: amount, by: destination, window: 24h, over: )10000\b/, "$1100000000")
+    .replace(/(label: 'refunds up to ₹5,000', daily_cap: )\d+/, "$1100000000");
+  const limits = [...out.matchAll(/100000000/g)].length;
+  if (limits !== 3) throw new Error(`the policy's refund limits have moved: changed ${limits} of 3`);
+  return out;
+}
+
+/**
+ * A different amount each time, because a second identical refund is held, as it should be. They fall rather than rise,
+ * because a rising amount soon reads as above this agent's normal range, and that's held too.
+ */
+export function refundAmount(index: number): number {
+  return 2000 - index;
+}
+
 async function run(
   calls: number,
   cliCalls: number,
   print: (line: string) => void,
 ): Promise<LatencyOutput> {
   const hostBefore = readHost();
-  const world = await IsolatedWorld.start({ name: "latency" });
+  const world = await IsolatedWorld.start({ name: "latency", policy: withRoomForRefunds });
   try {
     const hookCall = async (): Promise<void> => {
       const result = await world.claudeHook("coder", "Read", { file_path: "src/index.ts" });
@@ -154,8 +176,9 @@ async function run(
     await world.setAutonomy("refunds-agent", "refund", "small", "L3");
     // Someone has to have asked, or it's held.
     await world.say("priya", "priya", "@refunds-agent refund these small orders");
-    const refund = { order_id: "A-1931", amount: SMALL_REFUND };
+    let nextRefund = 0;
     const gateRefund = async (): Promise<void> => {
+      const refund = { order_id: "A-1931", amount: refundAmount(nextRefund++) };
       const res = await world.gate("refunds-agent", "POST", "/acme/refunds", refund);
       if (res.status !== 201)
         throw new Error(`the gate answered ${res.status}, so it isn't an allowed call`);
@@ -245,7 +268,7 @@ async function run(
       warm_up_calls: WARM_UP,
       host_before: hostBefore,
       host_after: readHost(),
-      note: "Isolated processes with a fake ChatPort, on a shared host with other work running, so see the load average. Allowed calls only. Includes the client's own fetch time on the hook; the gate figures are differences against the same call straight to Acme.",
+      note: "Isolated processes with a fake ChatPort, on a shared host with other work running, so see the load average. Allowed calls only: each refund has its own amount, and this world's copy of the policy has room in its 24 h totals for them all. Includes the client's own fetch time on the hook; the gate figures are differences against the same call straight to Acme.",
       measured_at: new Date().toISOString(),
     };
   } finally {

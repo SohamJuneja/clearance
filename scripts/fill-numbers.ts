@@ -10,6 +10,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadInputs, renderMeasured, resultsSource } from "../eval/report.ts";
 
 export interface NumberSources {
   authority: {
@@ -36,11 +37,14 @@ export interface NumberSources {
       };
     };
   };
+  /** E2's finding in words, written by the report from the table's own tallies. */
+  e2: string | undefined;
   repoUrl: string;
 }
 
 export function valuesFrom(sources: NumberSources): Record<string, string> {
   const { authority, autonomy, baseline, repoUrl } = sources;
+  if (!sources.e2) throw new Error("E2 has no finished runs on both sides, and the drafts quote it");
   const t77 = baseline.summary.t77;
   // The drafts say the agent never tried it, that all the review's breaks are fixed, and that the original rule demoted.
   if (t77.attempted !== 0) throw new Error(`the agent attempted T-77 in ${t77.attempted} runs, and the blog says it never did`);
@@ -79,6 +83,7 @@ export function valuesFrom(sources: NumberSources): Record<string, string> {
     BL_AUTO: `${auto.paid} of ${auto.runs}`,
     BL_ASK: `${ask.paid} of ${ask.runs}`,
     BL_ASK_CARDS: String(ask.cards),
+    E2_MEASURED: sources.e2,
     REPO_URL: repoUrl,
   };
 }
@@ -115,11 +120,13 @@ function repoUrl(root: string): string {
 
 function main(): void {
   const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-  const read = <T>(name: string): T => JSON.parse(readFileSync(join(root, "eval/out", name), "utf8")) as T;
+  const source = resultsSource(root);
+  const read = <T>(name: string): T => JSON.parse(readFileSync(join(source, name), "utf8")) as T;
   const values = valuesFrom({
     authority: read("authority.json"),
     autonomy: read("autonomy.json"),
     baseline: read("baseline.json"),
+    e2: renderMeasured(loadInputs(source).inputs),
     repoUrl: repoUrl(root),
   });
   const outputs = PAIRS.map(([from, to]) => [to, fill(readFileSync(join(root, from), "utf8"), values)] as const);

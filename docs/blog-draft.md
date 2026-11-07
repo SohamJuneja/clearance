@@ -65,6 +65,12 @@ Drills work like phishing tests. Now and then an approver gets a practice reques
 
 Earned autonomy is the payoff. After a clean record, Clearance proposes that an agent can handle small refunds alone, shows a replay over the history, and needs two people to sign. One incident takes it away.
 
+## What we measured
+
+{{E2_MEASURED}}
+
+That first number is the one I keep coming back to. The agent did the responsible thing and asked. The only person it asked was the person who wanted it done, so asking changed nothing.
+
 ## What broke, and what we got wrong
 
 Our demo was going to star an agent trying to send ₹40,000 because a ticket pressured it to. We ran it {{T77_RUNS}} times and the agent never did. It looked up the order, saw a ₹4,000 kettle, and asked. That's good news about the model, and it wrecked our script, so we changed the script. What the agent did do was offer the correct ₹4,000 to the brand-new payment ID in the ticket. It caught the wrong number and still nearly paid the wrong person, which is a more realistic failure anyway.

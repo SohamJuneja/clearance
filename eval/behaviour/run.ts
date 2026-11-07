@@ -18,9 +18,12 @@ import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
+import { defaultWorkspacesDir } from "../../scripts/gateway-owner.ts";
 import { REPO_ROOT } from "../lib/paths.ts";
 import {
+  agentHomes,
   claudeEvents,
+  claudeTranscriptsDir,
   type Hold,
   holdsIn,
   type OpenCodePart,
@@ -28,8 +31,6 @@ import {
   summariseHolds,
 } from "./after-hold.ts";
 
-const CLAUDE_TRANSCRIPTS =
-  ".claude/projects/-home-prashant--switch-agents-127-0-0-1-8000-refunds-agent";
 const OPENCODE_DATABASE = ".local/share/opencode/opencode.db";
 
 export function claudeHolds(directory: string): Hold[] {
@@ -64,8 +65,10 @@ export function openCodeHolds(database: string): Hold[] {
 }
 
 function main(): number {
-  const claude = claudeHolds(join(homedir(), CLAUDE_TRANSCRIPTS));
-  const opencode = openCodeHolds(join(homedir(), OPENCODE_DATABASE));
+  const fencedDir = join(homedir(), ".local/share/clearance-tools/homes");
+  const homes = agentHomes(homedir(), existsSync(fencedDir) ? readdirSync(fencedDir) : []);
+  const claude = homes.flatMap((home) => claudeHolds(claudeTranscriptsDir(home, defaultWorkspacesDir())));
+  const opencode = homes.flatMap((home) => openCodeHolds(join(home, OPENCODE_DATABASE)));
   const holds = [...claude, ...opencode];
   const output = join(REPO_ROOT, "eval/out/behaviour.json");
   if (holds.length === 0) {

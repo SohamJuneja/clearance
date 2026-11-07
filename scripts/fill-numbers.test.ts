@@ -20,6 +20,7 @@ const sources = (): NumberSources => ({
       },
     },
   },
+  e2: "We measured something.",
   repoUrl: "https://github.com/example/clearance",
 });
 
@@ -39,8 +40,15 @@ describe("valuesFrom", () => {
       BL_AUTO: "6 of 8",
       BL_ASK: "6 of 8",
       BL_ASK_CARDS: "29",
+      E2_MEASURED: "We measured something.",
       REPO_URL: "https://github.com/example/clearance",
     });
+  });
+
+  it("refuses to fill drafts that quote E2 before E2 has both sides", () => {
+    const changed = sources();
+    changed.e2 = undefined;
+    expect(() => valuesFrom(changed)).toThrow(/E2/);
   });
 
   it("refuses to say the agent never attempted it once it has", () => {

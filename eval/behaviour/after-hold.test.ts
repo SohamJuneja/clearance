@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   ANOTHER_ROUTE,
   claudeEvents,
+  claudeTranscriptsDir,
+  agentHomes,
   type HoldEvent,
   holdsIn,
   openCodeEvents,
@@ -152,5 +154,23 @@ describe("reading OpenCode's parts", () => {
       { kind: "ran", command: "bin/acme deploy" },
       { kind: "held", clr: "CLR-0001" },
     ]);
+  });
+});
+
+describe("whose sessions count", () => {
+  it("is the machine's own home and every fenced agent home, since a fenced agent keeps its sessions there", () => {
+    expect(agentHomes("/home/sam", ["clearance-priya", "clearance-alex"])).toEqual([
+      "/home/sam",
+      "/home/sam/.local/share/clearance-tools/homes/clearance-priya",
+      "/home/sam/.local/share/clearance-tools/homes/clearance-alex",
+    ]);
+  });
+});
+
+describe("where a machine's Claude transcripts are", () => {
+  it("follows the workspace, so another machine doesn't quietly find nothing and report zero", () => {
+    expect(claudeTranscriptsDir("/home/sam", "/home/sam/.switch/agents/127.0.0.1-8000")).toBe(
+      "/home/sam/.claude/projects/-home-sam--switch-agents-127-0-0-1-8000-refunds-agent",
+    );
   });
 });

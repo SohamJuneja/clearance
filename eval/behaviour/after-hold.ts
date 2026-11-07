@@ -153,3 +153,13 @@ export function summariseHolds(holds: Hold[]): VendorSummary {
     said_clr_while_waiting: holds.filter((hold) => hold.said_clr_while_waiting).length,
   };
 }
+
+/** Claude Code keeps a folder's transcripts under its path, with every slash and dot as a dash. */
+export function claudeTranscriptsDir(home: string, workspacesDir: string, agent = "refunds-agent"): string {
+  return `${home}/.claude/projects/${`${workspacesDir}/${agent}`.replace(/[/.]/g, "-")}`;
+}
+
+/** Agents in the fence keep their sessions in a home of their own, not the machine's. See scripts/fence.sh. */
+export function agentHomes(home: string, fenced: string[]): string[] {
+  return [home, ...fenced.map((name) => `${home}/.local/share/clearance-tools/homes/${name}`)];
+}

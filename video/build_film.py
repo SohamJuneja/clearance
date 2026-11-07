@@ -197,7 +197,7 @@ def main():
 
         {"id": "S18", "type": "bigfigures", "duration": 8, "min": 7, "title": "Attacked, and re-checked",
          "figures": [{"value": f"{f['E1_PREVENTED']}/{f['E1_OF']}", "label": "bad outcomes prevented in the authority suite", "note": e1["data"].replace("; more in RESULTS.md", ""), "tone": "good"},
-                     {"value": "6", "label": "break-it reviews: five independent AI reviews and one by a teammate", "note": "Every break they found is fixed and re-checked on its own line. RESULTS.md, AUDIT row.", "tone": "ink"}],
+                     {"value": "6", "label": "break-it reviews: five separate AI reviews and one by a teammate", "note": "Every break they found is fixed and re-checked on its own line. RESULTS.md, AUDIT row.", "tone": "ink"}],
          "transition": {"type": "tear", "dur": 0.6}},
 
         {"id": "S19", "type": "bigfigures", "duration": 8, "min": 7.5, "title": "The honest cost, and the checks",

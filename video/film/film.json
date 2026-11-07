@@ -38,7 +38,7 @@
       "trimBefore": 0.167,
       "grade": "story",
       "push": "in",
-      "duration": 6.0,
+      "duration": 6.133,
       "transition": {
         "type": "tear",
         "dur": 0.6
@@ -119,7 +119,7 @@
           "src": "face/l04.mp4",
           "at": 0.3,
           "trimBefore": 0.935,
-          "dur": 7.414,
+          "dur": 7.413,
           "x": 0.095,
           "y": 0.7,
           "w": 260
@@ -127,9 +127,9 @@
         {
           "kind": "face",
           "src": "face/l05.mp4",
-          "at": 8.011,
+          "at": 8.01,
           "trimBefore": 0.935,
-          "dur": 3.676,
+          "dur": 3.677,
           "x": 0.095,
           "y": 0.7,
           "w": 260
@@ -277,7 +277,7 @@
           "src": "face/l07b.mp4",
           "at": 0.3,
           "trimBefore": 0.935,
-          "dur": 3.184,
+          "dur": 3.183,
           "x": 0.095,
           "y": 0.7,
           "w": 260
@@ -378,7 +378,7 @@
           "src": "face/l17.mp4",
           "at": 0.3,
           "trimBefore": 0.935,
-          "dur": 9.291,
+          "dur": 9.29,
           "x": 0.095,
           "y": 0.7,
           "w": 260
@@ -492,9 +492,9 @@
         {
           "kind": "face",
           "src": "face/l09.mp4",
-          "at": 8.989,
+          "at": 8.99,
           "trimBefore": 0.935,
-          "dur": 11.631,
+          "dur": 11.63,
           "x": 0.095,
           "y": 0.7,
           "w": 260
@@ -615,9 +615,9 @@
         {
           "kind": "face",
           "src": "face/l11.mp4",
-          "at": 10.347,
+          "at": 10.348,
           "trimBefore": 0.935,
-          "dur": 5.27,
+          "dur": 5.269,
           "x": 0.095,
           "y": 0.7,
           "w": 260
@@ -689,7 +689,7 @@
           "src": "face/l12.mp4",
           "at": 0.3,
           "trimBefore": 0.935,
-          "dur": 7.497,
+          "dur": 7.498,
           "x": 0.095,
           "y": 0.7,
           "w": 260
@@ -745,7 +745,7 @@
           "src": "face/l13.mp4",
           "at": 0.3,
           "trimBefore": 0.935,
-          "dur": 5.113,
+          "dur": 5.114,
           "x": 0.095,
           "y": 0.7,
           "w": 260
@@ -866,7 +866,7 @@
           "src": "face/l15.mp4",
           "at": 0.3,
           "trimBefore": 0.935,
-          "dur": 6.025,
+          "dur": 6.024,
           "x": 0.095,
           "y": 0.7,
           "w": 260
@@ -953,7 +953,7 @@
           "src": "face/l16.mp4",
           "at": 0.3,
           "trimBefore": 0.935,
-          "dur": 6.857,
+          "dur": 6.856,
           "x": 0.095,
           "y": 0.7,
           "w": 260
@@ -1031,7 +1031,7 @@
         {
           "kind": "face",
           "src": "face/l20.mp4",
-          "at": 9.153,
+          "at": 9.152,
           "trimBefore": 0.935,
           "dur": 7.036,
           "x": 0.095,
@@ -1042,7 +1042,7 @@
       "cues": {
         "gate": 2.53,
         "core": 5.11,
-        "card": 9.31,
+        "card": 9.85,
         "exec": 12.85,
         "ledger": 15.37
       }
@@ -1073,7 +1073,7 @@
           "src": "face/l21.mp4",
           "at": 0.3,
           "trimBefore": 0.935,
-          "dur": 4.619,
+          "dur": 4.618,
           "x": 0.095,
           "y": 0.7,
           "w": 260
@@ -1129,7 +1129,7 @@
           "src": "face/l22.mp4",
           "at": 0.3,
           "trimBefore": 0.935,
-          "dur": 11.067,
+          "dur": 11.068,
           "x": 0.095,
           "y": 0.7,
           "w": 260
@@ -1151,7 +1151,7 @@
         },
         {
           "value": "6",
-          "label": "break-it reviews: five independent AI reviews and one by a teammate",
+          "label": "break-it reviews: five separate AI reviews and one by a teammate",
           "note": "Every break they found is fixed and re-checked on its own line. RESULTS.md, AUDIT row.",
           "tone": "ink"
         }
@@ -1213,7 +1213,7 @@
           "src": "face/l24.mp4",
           "at": 0.3,
           "trimBefore": 0.935,
-          "dur": 8.482,
+          "dur": 8.483,
           "x": 0.095,
           "y": 0.7,
           "w": 260
@@ -1277,49 +1277,12 @@
       "trimBefore": 0.635,
       "grade": "story",
       "push": "in",
-      "duration": 9.433,
+      "duration": 9.5,
       "transition": {
         "type": "fade",
         "dur": 0.5
       },
-      "overlays": [
-        {
-          "kind": "label",
-          "text": "Who asked: from Switch.",
-          "at": 0.25,
-          "dur": 9.43,
-          "x": 0.76,
-          "y": 0.3,
-          "tone": "accent"
-        },
-        {
-          "kind": "label",
-          "text": "Who approves: the policy.",
-          "at": 2.21,
-          "dur": 9.43,
-          "x": 0.76,
-          "y": 0.42,
-          "tone": "plain"
-        },
-        {
-          "kind": "label",
-          "text": "The keys: never the agent's.",
-          "at": 4.17,
-          "dur": 9.43,
-          "x": 0.76,
-          "y": 0.54,
-          "tone": "plain"
-        },
-        {
-          "kind": "label",
-          "text": "Every decision: recorded.",
-          "at": 6.12,
-          "dur": 9.43,
-          "x": 0.76,
-          "y": 0.66,
-          "tone": "plain"
-        }
-      ]
+      "overlays": []
     },
     {
       "id": "S22",
@@ -1350,7 +1313,7 @@
           "src": "face/l26.mp4",
           "at": 0.3,
           "trimBefore": 0.935,
-          "dur": 4.058,
+          "dur": 4.057,
           "x": 0.095,
           "y": 0.7,
           "w": 260

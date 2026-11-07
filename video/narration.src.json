@@ -32,6 +32,7 @@
  {"scene": "S18", "id": "l23", "caption": "All {{E1_PREVENTED}} attack cases were stopped, on real Switch too. Six reviews tried to break it, one by a teammate, and every break is fixed.", "exaggeration": 0.6, "cfg": 0.35},
  {"scene": "S19", "id": "l24", "caption": "It also holds some harmless work. That's the cost, and we publish it, along with more than {{TESTS_FLOOR}} passing tests.", "spoken": "It also holds some harmless work. That's the cost, and we publish it, along with more than six and a half thousand passing tests.", "exaggeration": 0.55, "cfg": 0.4},
 
+ {"scene": "S20", "id": "l20w", "caption": "We built all of this by voice, with Wispr Flow.", "exaggeration": 0.6, "cfg": 0.35},
  {"scene": "S21", "id": "l25", "caption": "Who asked comes from Switch. Who approves comes from the policy. The agent never holds the keys.", "exaggeration": 0.65, "cfg": 0.35},
  {"scene": "S22", "id": "l26", "caption": "Clearance. The person who asks can't be the one who approves.", "exaggeration": 0.7, "cfg": 0.3}
 ]

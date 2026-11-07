@@ -203,6 +203,14 @@
   "cfg": 0.4
  },
  {
+  "scene": "S20",
+  "id": "l20w",
+  "caption": "We built all of this by voice, with Wispr Flow.",
+  "exaggeration": 0.6,
+  "cfg": 0.35,
+  "spoken": "We built all of this by voice, with Wispr Flow."
+ },
+ {
   "scene": "S21",
   "id": "l25",
   "caption": "Who asked comes from Switch. Who approves comes from the policy. The agent never holds the keys.",

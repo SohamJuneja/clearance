@@ -1,5 +1,5 @@
 {
- "duration": 237.3,
+ "duration": 237.5,
  "scenes": [
   {
    "id": "S00",
@@ -10,132 +10,132 @@
   {
    "id": "S01",
    "start": 18.2,
-   "duration": 6.0,
+   "duration": 6.133,
    "voice": true
   },
   {
    "id": "S04",
-   "start": 24.2,
+   "start": 24.333,
    "duration": 10.533,
    "voice": true
   },
   {
    "id": "S02",
-   "start": 34.733,
+   "start": 34.867,
    "duration": 11.933,
    "voice": true
   },
   {
    "id": "S03",
-   "start": 46.667,
+   "start": 46.8,
    "duration": 5.6,
    "voice": true
   },
   {
    "id": "S05",
-   "start": 52.267,
+   "start": 52.4,
    "duration": 5.367,
    "voice": true
   },
   {
    "id": "S06",
-   "start": 57.633,
+   "start": 57.767,
    "duration": 3.8,
    "voice": true
   },
   {
    "id": "S14",
-   "start": 61.433,
+   "start": 61.567,
    "duration": 16.133,
    "voice": true
   },
   {
    "id": "S07",
-   "start": 77.567,
+   "start": 77.7,
    "duration": 20.733,
    "voice": true
   },
   {
    "id": "S08",
-   "start": 98.3,
+   "start": 98.433,
    "duration": 17.6,
    "voice": true
   },
   {
    "id": "S09",
-   "start": 115.9,
+   "start": 116.033,
    "duration": 12.267,
    "voice": true
   },
   {
    "id": "S10",
-   "start": 128.167,
+   "start": 128.3,
    "duration": 7.7,
    "voice": true
   },
   {
    "id": "S11",
-   "start": 135.867,
+   "start": 136.0,
    "duration": 13.867,
    "voice": true
   },
   {
    "id": "S12",
-   "start": 149.733,
+   "start": 149.867,
    "duration": 8.9,
    "voice": true
   },
   {
    "id": "S13",
-   "start": 158.633,
+   "start": 158.767,
    "duration": 7.5,
    "voice": true
   },
   {
    "id": "S15",
-   "start": 166.133,
+   "start": 166.267,
    "duration": 16.4,
    "voice": true
   },
   {
    "id": "S16",
-   "start": 182.533,
+   "start": 182.667,
    "duration": 5.067,
    "voice": true
   },
   {
    "id": "S17",
-   "start": 187.6,
+   "start": 187.733,
    "duration": 11.633,
    "voice": true
   },
   {
    "id": "S18",
-   "start": 199.233,
+   "start": 199.367,
    "duration": 8.733,
    "voice": true
   },
   {
    "id": "S19",
-   "start": 207.967,
+   "start": 208.1,
    "duration": 8.9,
    "voice": true
   },
   {
    "id": "S20",
-   "start": 216.867,
+   "start": 217.0,
    "duration": 5.6,
-   "voice": false
+   "voice": true
   },
   {
    "id": "S21",
-   "start": 222.467,
-   "duration": 9.433,
+   "start": 222.6,
+   "duration": 9.5,
    "voice": true
   },
   {
    "id": "S22",
-   "start": 231.9,
+   "start": 232.1,
    "duration": 5.4,
    "voice": true
   }
@@ -151,176 +151,183 @@
   {
    "id": "l02",
    "scene": "S04",
-   "start": 24.5,
-   "end": 34.236,
+   "start": 24.633,
+   "end": 34.369,
    "caption": "AI agents are arriving fast. Gartner says 71% of companies plan to deploy them within a year, and only 21% can govern them."
   },
   {
    "id": "l04",
    "scene": "S02",
-   "start": 35.033,
-   "end": 42.147,
+   "start": 35.167,
+   "end": 42.28,
    "caption": "Here's our team on Switch today. Priya asked an agent for a \u20b940,000 refund, and a native approval card opens."
   },
   {
    "id": "l05",
    "scene": "S02",
-   "start": 42.744,
-   "end": 46.12,
+   "start": 42.877,
+   "end": 46.254,
    "caption": "Priya asked, so Priya approves. And the money goes out."
   },
   {
    "id": "l06",
    "scene": "S03",
-   "start": 46.967,
-   "end": 51.798,
+   "start": 47.1,
+   "end": 51.931,
    "caption": "We ran this with real agents. That refund still went out in 6 of 8 runs."
   },
   {
    "id": "l07a",
    "scene": "S05",
-   "start": 52.567,
-   "end": 57.252,
+   "start": 52.7,
+   "end": 57.385,
    "caption": "Finance fixed this long ago: whoever asks for a payment can't approve it."
   },
   {
    "id": "l07b",
    "scene": "S06",
-   "start": 57.933,
-   "end": 60.817,
+   "start": 58.067,
+   "end": 60.95,
    "caption": "Clearance brings that rule to every agent on Switch."
   },
   {
    "id": "l17",
    "scene": "S14",
-   "start": 61.733,
-   "end": 70.724,
+   "start": 61.867,
+   "end": 70.857,
    "caption": "Clearance is built on Switch. Switch is the room where people and agents meet, and it knows who asked from its own events, never from an agent's words."
   },
   {
    "id": "l18",
    "scene": "S14",
-   "start": 71.339,
-   "end": 77.014,
+   "start": 71.473,
+   "end": 77.148,
    "caption": "It gives every decision a native card, every approver a direct room, and every job a role."
   },
   {
    "id": "l08",
    "scene": "S07",
-   "start": 77.867,
-   "end": 85.894,
+   "start": 78.0,
+   "end": 86.027,
    "caption": "Now a refund with Clearance. It's held at the gate, which holds the keys, and a Switch card opens, built from what the agent really ran."
   },
   {
    "id": "l09",
    "scene": "S07",
-   "start": 86.556,
-   "end": 97.887,
+   "start": 86.69,
+   "end": 98.02,
    "caption": "Priya presses the Approve button. Clearance refuses her, right in the room, because she asked. Sam in finance sees a payment ID added minutes ago, and says no."
   },
   {
    "id": "l10",
    "scene": "S08",
-   "start": 98.6,
-   "end": 107.938,
+   "start": 98.733,
+   "end": 108.071,
    "caption": "Code works the same way. Priya asks the wrong agent to merge a pull request. The gate refuses it, and the agent hands the job to the merges role in Switch."
   },
   {
    "id": "l11",
    "scene": "S08",
-   "start": 108.647,
-   "end": 113.617,
+   "start": 108.781,
+   "end": 113.75,
    "caption": "The coding agent's merge is held, the card goes to Dev, and Priya is refused again."
   },
   {
    "id": "l12",
    "scene": "S09",
-   "start": 116.2,
-   "end": 123.397,
+   "start": 116.333,
+   "end": 123.531,
    "caption": "An OpenCode agent tries to deploy with two failing checks. Same policy, different vendor. The service owner says no."
   },
   {
    "id": "l13",
    "scene": "S10",
-   "start": 128.467,
-   "end": 133.28,
+   "start": 128.6,
+   "end": 133.414,
    "caption": "If nobody answers, the card escalates to a backup approver, and nothing moves."
   },
   {
    "id": "l14",
    "scene": "S11",
-   "start": 136.167,
-   "end": 145.597,
+   "start": 136.3,
+   "end": 145.73,
    "caption": "People stop reading. So Clearance sends practice requests with a planted flaw, and risky cards make you type a detail from the evidence."
   },
   {
    "id": "l15",
    "scene": "S12",
-   "start": 150.033,
-   "end": 155.758,
+   "start": 150.167,
+   "end": 155.891,
    "caption": "Agents can earn small refunds on their own, once two people sign off. One incident takes that away."
   },
   {
    "id": "l16",
    "scene": "S13",
-   "start": 158.933,
-   "end": 165.49,
+   "start": 159.067,
+   "end": 165.623,
    "caption": "And when an agent tries a trick, like a fake pre-approval, or switching off its own hook, it's held or refused."
   },
   {
    "id": "l19",
    "scene": "S15",
-   "start": 166.433,
-   "end": 174.711,
+   "start": 166.567,
+   "end": 174.845,
    "caption": "Under the hood, the agent's hook and the gate send every risky call to Clearance. A policy file decides, with no AI in the decision."
   },
   {
    "id": "l20",
    "scene": "S15",
-   "start": 175.286,
-   "end": 182.022,
+   "start": 175.419,
+   "end": 182.155,
    "caption": "Switch delivers the card. The gate runs exactly that call, once. And everything lands on a hash-chained ledger."
   },
   {
    "id": "l21",
    "scene": "S16",
-   "start": 182.833,
-   "end": 187.152,
+   "start": 182.967,
+   "end": 187.285,
    "caption": "Here's the rule in our code: whoever asked is taken out before anyone is chosen."
   },
   {
    "id": "l22",
    "scene": "S17",
-   "start": 187.9,
-   "end": 198.667,
+   "start": 188.033,
+   "end": 198.801,
    "caption": "We measured it with real agents. Risky actions without the right approver: Claude, 5 of 20 without Clearance, 0 with it. OpenCode, 13 of 18, down to 0."
   },
   {
    "id": "l23",
    "scene": "S18",
-   "start": 199.533,
-   "end": 207.474,
+   "start": 199.667,
+   "end": 207.608,
    "caption": "All 25 attack cases were stopped, on real Switch too. Six reviews tried to break it, one by a teammate, and every break is fixed."
   },
   {
    "id": "l24",
    "scene": "S19",
-   "start": 208.267,
-   "end": 216.449,
+   "start": 208.4,
+   "end": 216.583,
    "caption": "It also holds some harmless work. That's the cost, and we publish it, along with more than 6,500 passing tests."
+  },
+  {
+   "id": "l20w",
+   "scene": "S20",
+   "start": 217.3,
+   "end": 219.94,
+   "caption": "We built all of this by voice, with Wispr Flow."
   },
   {
    "id": "l25",
    "scene": "S21",
-   "start": 222.767,
-   "end": 231.371,
+   "start": 222.9,
+   "end": 231.504,
    "caption": "Who asked comes from Switch. Who approves comes from the policy. The agent never holds the keys."
   },
   {
    "id": "l26",
    "scene": "S22",
-   "start": 232.2,
-   "end": 235.958,
+   "start": 232.4,
+   "end": 236.157,
    "caption": "Clearance. The person who asks can't be the one who approves."
   }
  ]

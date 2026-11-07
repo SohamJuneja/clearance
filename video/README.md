@@ -33,6 +33,9 @@ seconds out of both, so his lips stay on his voice and the film stays under four
 left out (`owner_skip` in `narration.src.json`, with why): his line 3 said eighty-seven percent where the source says 80%, so
 the sourced card carries that beat on its own. His takes and face clips stay out of git.
 
+The Wispr Flow beat has one line in the narrator's synthetic voice, "We built all of this by voice, with Wispr Flow",
+at the owner's choice: he asked for a line there after recording, and `owner_extra.py` takes his own clip instead if he records one.
+
 The team's intro is tightened by `intro_cut.sh` (the middle part previewed what the film then shows for real) and graded
 brighter; its own sound is cut at the same points. The Wispr Flow beat shows Soham's Wispr Flow app with its dictation list
 blurred, since it holds messages that aren't about this project, and the app's own totals.

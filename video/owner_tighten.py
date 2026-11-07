@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Tightens the owner's takes so the film fits under four minutes, keeping his lips on his voice.
 
-    python3 video/owner_tighten.py ~/Downloads/clearance-vo.mov       (after owner_takes.py; safe to run again)
+    python3 video/owner_tighten.py ~/Downloads/clearance-vo.mov [line ids]   (after owner_takes.py; safe to run again)
+
+A take with its own `src` in the report (a line recorded on its own, owner_extra.py) is cut from that file.
 
 Cuts each line again from the recording, at the times owner_takes.py found (narration/owner/report.json). A pause inside a
 line longer than KEEP_PAUSE is cut down to KEEP_PAUSE, and a span the report marks as `cut` (a repeated phrase) comes out
@@ -70,13 +72,15 @@ def render(src: str, lo: float, segs: list[tuple[float, float]], stream: str, ta
 def main() -> None:
     if len(sys.argv) < 2:
         sys.exit(__doc__)
-    src = os.path.expanduser(sys.argv[1])
+    main_src = os.path.expanduser(sys.argv[1])
+    only = set(sys.argv[2:])
     path = os.path.join(OUT, "report.json")
     report = json.load(open(path))
     before = after = 0.0
     for lid, take in report.items():
-        if not take.get("found"):
+        if not take.get("found") or (only and lid not in only):
             continue
+        src = take.get("src", main_src)
         a, b = take["start"] - PAD_IN, take["end"] + PAD_OUT
         gone = removed_spans(src, take)
         voice = keep(a, b, gone)

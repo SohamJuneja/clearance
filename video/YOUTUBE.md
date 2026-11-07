@@ -22,12 +22,12 @@ Chapters:
 0:52 The rule finance already has · Why Switch matters
 1:17 Refunds: whoever asks can't approve
 1:38 Code: Switch's room roles route the work
-1:55 Deploys: another vendor, same policy
+1:56 Deploys: another vendor, same policy
 2:08 Nobody answers: it escalates · Rubber-stamping: drills and type-to-confirm
 2:29 Earned autonomy, signed by two people · Attacks we tested
 2:46 Under the hood
 3:02 The rule in the code · Results, measured with real agents
-3:36 Built by voice, with Wispr Flow · Recap
+3:37 Built by voice, with Wispr Flow · Recap
 
 Sources for the figures on screen:
 - Gartner press release, 19 Oct 2026 · survey of 2,000+ CIOs and technology executives: https://finviz.com/news/404098/gartner-says-ai-risk-is-rising-faster-than-ai-value

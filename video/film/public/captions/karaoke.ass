@@ -9,111 +9,113 @@ Style: Cap,Inter,64,&H00D4EA5E,&H00FFFFFF,&H66000000,&H80000000,-1,0,0,0,100,100
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-Dialogue: 0,0:00:18.52,0:00:19.35,Cap,,0,0,0,,{\k68}Hi,
-Dialogue: 0,0:00:19.52,0:00:20.31,Cap,,0,0,0,,{\k28}I'm {\k36}Prashant,
-Dialogue: 0,0:00:20.16,0:00:22.01,Cap,,0,0,0,,{\k28}from {\k26}team {\k116}dellfargo.
+Dialogue: 0,0:00:18.54,0:00:19.35,Cap,,0,0,0,,{\k66}Hi,
+Dialogue: 0,0:00:19.52,0:00:20.29,Cap,,0,0,0,,{\k28}I'm {\k34}Prashant,
+Dialogue: 0,0:00:20.14,0:00:22.01,Cap,,0,0,0,,{\k30}from {\k26}team {\k116}dellfargo.
 Dialogue: 0,0:00:21.86,0:00:23.03,Cap,,0,0,0,,{\k24}We {\k30}built {\k48}Clearance,
 Dialogue: 0,0:00:22.88,0:00:23.85,Cap,,0,0,0,,{\k58}on {\k24}Switch.
-Dialogue: 0,0:00:23.70,0:00:26.39,Cap,,0,0,0,,{\k112}AI {\k40}agents {\k24}are {\k40}arriving {\k38}fast.
-Dialogue: 0,0:00:26.78,0:00:30.17,Cap,,0,0,0,,{\k34}Gartner {\k26}says {\k108}71% {\k18}of {\k42}companies {\k96}plan
-Dialogue: 0,0:00:30.02,0:00:31.69,Cap,,0,0,0,,{\k22}to {\k32}deploy {\k30}them {\k24}within {\k16}a {\k28}year,
-Dialogue: 0,0:00:32.00,0:00:34.55,Cap,,0,0,0,,{\k12}and {\k18}only {\k104}21% {\k18}can {\k30}govern {\k58}them.
-Dialogue: 0,0:00:35.24,0:00:36.97,Cap,,0,0,0,,{\k56}Here's {\k10}our {\k16}team {\k16}on {\k20}Switch {\k40}today.
-Dialogue: 0,0:00:37.42,0:00:38.87,Cap,,0,0,0,,{\k12}Priya {\k28}asked {\k24}an {\k24}agent {\k30}for {\k12}a
-Dialogue: 0,0:00:38.72,0:00:40.15,Cap,,0,0,0,,{\k96}₹40,000 {\k32}refund,
-Dialogue: 0,0:00:40.00,0:00:42.13,Cap,,0,0,0,,{\k62}and {\k12}a {\k22}native {\k36}approval {\k32}card {\k34}opens.
-Dialogue: 0,0:00:43.04,0:00:43.69,Cap,,0,0,0,,{\k12}Priya {\k38}asked,
-Dialogue: 0,0:00:43.72,0:00:44.73,Cap,,0,0,0,,{\k24}so {\k30}Priya {\k32}approves.
-Dialogue: 0,0:00:44.58,0:00:46.23,Cap,,0,0,0,,{\k54}And {\k14}the {\k10}money {\k30}goes {\k42}out.
-Dialogue: 0,0:00:47.04,0:00:48.73,Cap,,0,0,0,,{\k30}We {\k20}ran {\k22}this {\k16}with {\k28}real {\k38}agents.
-Dialogue: 0,0:00:48.58,0:00:50.67,Cap,,0,0,0,,{\k52}That {\k30}refund {\k38}still {\k24}went {\k28}out {\k22}in
-Dialogue: 0,0:00:50.52,0:00:51.81,Cap,,0,0,0,,{\k26}6 {\k32}of {\k16}8 {\k24}runs.
-Dialogue: 0,0:00:52.38,0:00:54.43,Cap,,0,0,0,,{\k56}Finance {\k42}fixed {\k28}this {\k28}long {\k36}ago:
-Dialogue: 0,0:00:54.74,0:00:56.49,Cap,,0,0,0,,{\k18}whoever {\k42}asks {\k18}for {\k12}a {\k26}payment {\k44}can't
-Dialogue: 0,0:00:56.34,0:00:57.01,Cap,,0,0,0,,{\k24}approve {\k28}it.
-Dialogue: 0,0:00:58.22,0:01:00.11,Cap,,0,0,0,,{\k24}Clearance {\k26}brings {\k24}that {\k24}rule {\k40}to {\k36}every
-Dialogue: 0,0:00:59.96,0:01:00.83,Cap,,0,0,0,,{\k30}agent {\k20}on {\k22}Switch.
-Dialogue: 0,0:01:02.10,0:01:03.27,Cap,,0,0,0,,{\k22}Clearance {\k14}is {\k22}built {\k22}on {\k22}Switch.
-Dialogue: 0,0:01:03.54,0:01:05.19,Cap,,0,0,0,,{\k8}Switch {\k26}is {\k18}the {\k26}room {\k40}where {\k32}people
-Dialogue: 0,0:01:05.04,0:01:06.05,Cap,,0,0,0,,{\k26}and {\k32}agents {\k28}meet,
-Dialogue: 0,0:01:06.44,0:01:08.41,Cap,,0,0,0,,{\k16}and {\k14}it {\k28}knows {\k52}who {\k38}asked {\k34}from
-Dialogue: 0,0:01:08.26,0:01:09.25,Cap,,0,0,0,,{\k18}its {\k20}own {\k46}events,
-Dialogue: 0,0:01:09.10,0:01:10.69,Cap,,0,0,0,,{\k44}never {\k34}from {\k16}an {\k44}agent's {\k6}words.
-Dialogue: 0,0:01:11.38,0:01:13.55,Cap,,0,0,0,,{\k16}It {\k32}gives {\k42}every {\k38}decision {\k24}a {\k20}native {\k30}card,
-Dialogue: 0,0:01:13.76,0:01:15.55,Cap,,0,0,0,,{\k20}every {\k48}approver {\k16}a {\k26}direct {\k34}room,
-Dialogue: 0,0:01:15.78,0:01:16.99,Cap,,0,0,0,,{\k10}and {\k24}every {\k28}job {\k28}a {\k16}role.
-Dialogue: 0,0:01:17.66,0:01:19.43,Cap,,0,0,0,,{\k56}Now {\k5}a {\k36}refund {\k30}with {\k40}Clearance.
-Dialogue: 0,0:01:19.74,0:01:20.93,Cap,,0,0,0,,{\k14}It's {\k24}held {\k24}at {\k18}the {\k24}gate,
-Dialogue: 0,0:01:20.78,0:01:22.19,Cap,,0,0,0,,{\k42}which {\k38}holds {\k24}the {\k22}keys,
-Dialogue: 0,0:01:22.04,0:01:23.65,Cap,,0,0,0,,{\k26}and {\k10}a {\k24}Switch {\k36}card {\k50}opens,
-Dialogue: 0,0:01:23.84,0:01:25.87,Cap,,0,0,0,,{\k24}built {\k28}from {\k24}what {\k26}the {\k28}agent {\k30}really {\k28}ran.
-Dialogue: 0,0:01:26.86,0:01:28.91,Cap,,0,0,0,,{\k16}Priya {\k86}presses {\k26}the {\k24}Approve {\k38}button.
-Dialogue: 0,0:01:29.08,0:01:30.31,Cap,,0,0,0,,{\k38}Clearance {\k44}refuses {\k26}her,
-Dialogue: 0,0:01:30.16,0:01:31.37,Cap,,0,0,0,,{\k48}right {\k24}in {\k12}the {\k22}room,
-Dialogue: 0,0:01:31.22,0:01:32.77,Cap,,0,0,0,,{\k58}because {\k34}she {\k48}asked.
-Dialogue: 0,0:01:33.08,0:01:35.35,Cap,,0,0,0,,{\k1}Sam {\k36}in {\k66}finance {\k12}sees {\k18}a {\k22}payment
-Dialogue: 0,0:01:35.20,0:01:36.97,Cap,,0,0,0,,{\k32}ID {\k2}added {\k30}minutes {\k28}ago,
-Dialogue: 0,0:01:37.06,0:01:37.93,Cap,,0,0,0,,{\k14}and {\k24}says {\k34}no.
-Dialogue: 0,0:01:38.70,0:01:40.15,Cap,,0,0,0,,{\k26}Code {\k38}works {\k18}the {\k20}same {\k28}way.
-Dialogue: 0,0:01:40.38,0:01:42.09,Cap,,0,0,0,,{\k18}Priya {\k30}asks {\k18}the {\k18}wrong {\k36}agent {\k36}to
-Dialogue: 0,0:01:41.94,0:01:43.35,Cap,,0,0,0,,{\k54}merge {\k18}a {\k14}pull {\k40}request.
-Dialogue: 0,0:01:43.20,0:01:44.85,Cap,,0,0,0,,{\k52}The {\k22}gate {\k44}refuses {\k32}it,
-Dialogue: 0,0:01:45.00,0:01:46.41,Cap,,0,0,0,,{\k6}and {\k14}the {\k28}agent {\k44}hands {\k26}the {\k8}job
-Dialogue: 0,0:01:46.26,0:01:47.97,Cap,,0,0,0,,{\k24}to {\k18}the {\k44}merges {\k22}role {\k24}in {\k24}Switch.
-Dialogue: 0,0:01:48.64,0:01:50.49,Cap,,0,0,0,,{\k26}The {\k30}coding {\k52}agent's {\k18}merge {\k20}is {\k24}held,
-Dialogue: 0,0:01:50.66,0:01:51.85,Cap,,0,0,0,,{\k12}the {\k22}card {\k26}goes {\k26}to {\k18}Dev,
-Dialogue: 0,0:01:52.00,0:01:53.55,Cap,,0,0,0,,{\k16}and {\k32}Priya {\k14}is {\k34}refused {\k44}again.
-Dialogue: 0,0:01:56.20,0:01:58.49,Cap,,0,0,0,,{\k34}An {\k54}OpenCode {\k34}agent {\k40}tries {\k22}to {\k30}deploy
-Dialogue: 0,0:01:58.34,0:01:59.45,Cap,,0,0,0,,{\k18}with {\k20}two {\k32}failing {\k26}checks.
-Dialogue: 0,0:01:59.68,0:02:00.45,Cap,,0,0,0,,{\k18}Same {\k44}policy,
-Dialogue: 0,0:02:00.66,0:02:01.37,Cap,,0,0,0,,{\k24}different {\k32}vendor.
-Dialogue: 0,0:02:01.72,0:02:03.47,Cap,,0,0,0,,{\k18}The {\k38}service {\k24}owner {\k42}says {\k38}no.
-Dialogue: 0,0:02:08.04,0:02:09.73,Cap,,0,0,0,,{\k74}If {\k40}nobody {\k40}answers,
-Dialogue: 0,0:02:09.90,0:02:11.93,Cap,,0,0,0,,{\k10}the {\k20}card {\k50}escalates {\k18}to {\k10}a {\k26}backup {\k54}approver,
-Dialogue: 0,0:02:12.16,0:02:13.35,Cap,,0,0,0,,{\k28}and {\k34}nothing {\k42}moves.
-Dialogue: 0,0:02:16.18,0:02:17.59,Cap,,0,0,0,,{\k40}People {\k42}stop {\k44}reading.
-Dialogue: 0,0:02:17.80,0:02:20.75,Cap,,0,0,0,,{\k30}So {\k104}Clearance {\k58}sends {\k50}practice {\k38}requests
-Dialogue: 0,0:02:20.60,0:02:21.93,Cap,,0,0,0,,{\k44}with {\k10}a {\k32}planted {\k32}flaw,
-Dialogue: 0,0:02:22.28,0:02:24.21,Cap,,0,0,0,,{\k24}and {\k30}risky {\k38}cards {\k46}make {\k18}you {\k22}type
-Dialogue: 0,0:02:24.06,0:02:25.67,Cap,,0,0,0,,{\k24}a {\k36}detail {\k32}from {\k16}the {\k38}evidence.
-Dialogue: 0,0:02:29.84,0:02:32.05,Cap,,0,0,0,,{\k56}Agents {\k30}can {\k20}earn {\k30}small {\k40}refunds {\k30}on
-Dialogue: 0,0:02:31.90,0:02:32.59,Cap,,0,0,0,,{\k16}their {\k38}own,
-Dialogue: 0,0:02:32.70,0:02:34.05,Cap,,0,0,0,,{\k20}once {\k20}two {\k26}people {\k28}sign {\k26}off.
-Dialogue: 0,0:02:34.26,0:02:35.87,Cap,,0,0,0,,{\k16}One {\k28}incident {\k34}takes {\k34}that {\k34}away.
-Dialogue: 0,0:02:39.02,0:02:40.47,Cap,,0,0,0,,{\k18}And {\k18}when {\k14}an {\k20}agent {\k26}tries {\k18}a {\k16}trick,
-Dialogue: 0,0:02:40.60,0:02:42.65,Cap,,0,0,0,,{\k16}like {\k18}a {\k50}fake {\k106}pre-approval,
-Dialogue: 0,0:02:42.50,0:02:44.01,Cap,,0,0,0,,{\k22}or {\k30}switching {\k20}off {\k18}its {\k22}own {\k24}hook,
-Dialogue: 0,0:02:44.06,0:02:45.41,Cap,,0,0,0,,{\k22}it's {\k26}held {\k30}or {\k42}refused.
-Dialogue: 0,0:02:46.54,0:02:47.35,Cap,,0,0,0,,{\k32}Under {\k16}the {\k18}hood,
-Dialogue: 0,0:02:47.60,0:02:49.05,Cap,,0,0,0,,{\k2}the {\k48}agent's {\k10}hook {\k34}and {\k12}the {\k24}gate
-Dialogue: 0,0:02:48.90,0:02:50.95,Cap,,0,0,0,,{\k30}send {\k42}every {\k34}risky {\k30}call {\k20}to {\k34}Clearance.
-Dialogue: 0,0:02:51.18,0:02:52.91,Cap,,0,0,0,,{\k6}A {\k42}policy {\k64}file {\k46}decides,
-Dialogue: 0,0:02:52.76,0:02:54.73,Cap,,0,0,0,,{\k62}with {\k34}no {\k22}AI {\k16}in {\k10}the {\k38}decision.
-Dialogue: 0,0:02:55.26,0:02:55.65,Cap,,0,0,0,,{\k6}Switch {\k6}delivers {\k6}the {\k6}card.
-Dialogue: 0,0:02:56.62,0:02:59.55,Cap,,0,0,0,,{\k60}The {\k46}gate {\k34}runs {\k50}exactly {\k24}that {\k22}call, {\k42}once.
-Dialogue: 0,0:02:59.70,0:03:02.05,Cap,,0,0,0,,{\k16}And {\k36}everything {\k36}lands {\k26}on {\k18}a {\k48}hash-chained {\k40}ledger.
-Dialogue: 0,0:03:02.96,0:03:04.23,Cap,,0,0,0,,{\k30}Here's {\k10}the {\k12}rule {\k16}in {\k16}our {\k28}code:
-Dialogue: 0,0:03:04.36,0:03:06.39,Cap,,0,0,0,,{\k20}whoever {\k58}asked {\k20}is {\k26}taken {\k32}out {\k32}before
-Dialogue: 0,0:03:06.24,0:03:07.21,Cap,,0,0,0,,{\k26}anyone {\k24}is {\k32}chosen.
-Dialogue: 0,0:03:07.94,0:03:09.81,Cap,,0,0,0,,{\k24}We {\k42}measured {\k22}it {\k28}with {\k18}real {\k38}agents.
-Dialogue: 0,0:03:10.10,0:03:12.69,Cap,,0,0,0,,{\k28}Risky {\k32}actions {\k38}without {\k22}the {\k18}right {\k50}approver: {\k38}Claude,
-Dialogue: 0,0:03:12.54,0:03:14.49,Cap,,0,0,0,,{\k56}5 {\k22}of {\k34}20 {\k24}without {\k44}Clearance,
-Dialogue: 0,0:03:14.78,0:03:15.57,Cap,,0,0,0,,{\k26}0 {\k18}with {\k20}it.
-Dialogue: 0,0:03:15.64,0:03:16.39,Cap,,0,0,0,,{\k60}OpenCode,
-Dialogue: 0,0:03:16.58,0:03:17.71,Cap,,0,0,0,,{\k42}13 {\k20}of {\k36}18,
-Dialogue: 0,0:03:17.98,0:03:18.75,Cap,,0,0,0,,{\k6}down {\k26}to {\k30}0.
-Dialogue: 0,0:03:19.56,0:03:21.91,Cap,,0,0,0,,{\k50}All {\k46}25 {\k34}attack {\k30}cases {\k24}were {\k36}stopped,
-Dialogue: 0,0:03:21.76,0:03:23.21,Cap,,0,0,0,,{\k36}on {\k28}real {\k18}Switch {\k48}too.
-Dialogue: 0,0:03:23.06,0:03:25.13,Cap,,0,0,0,,{\k56}Six {\k34}reviews {\k38}tried {\k18}to {\k22}break {\k24}it,
-Dialogue: 0,0:03:25.26,0:03:26.03,Cap,,0,0,0,,{\k8}one {\k20}by {\k10}a {\k24}teammate,
-Dialogue: 0,0:03:26.10,0:03:27.47,Cap,,0,0,0,,{\k8}and {\k32}every {\k22}break {\k24}is {\k36}fixed.
-Dialogue: 0,0:03:28.52,0:03:30.63,Cap,,0,0,0,,{\k18}It {\k22}also {\k50}holds {\k30}some {\k42}harmless {\k34}work.
-Dialogue: 0,0:03:30.64,0:03:31.57,Cap,,0,0,0,,{\k34}That's {\k18}the {\k26}cost,
-Dialogue: 0,0:03:31.72,0:03:32.85,Cap,,0,0,0,,{\k12}and {\k20}we {\k28}publish {\k38}it,
-Dialogue: 0,0:03:32.70,0:03:36.45,Cap,,0,0,0,,{\k38}along {\k26}with {\k60}more {\k26}than {\k84}6,500 {\k88}passing {\k38}tests.
-Dialogue: 0,0:03:44.56,0:03:47.11,Cap,,0,0,0,,{\k10}Who {\k132}asked {\k34}comes {\k34}from {\k30}Switch.
-Dialogue: 0,0:03:47.32,0:03:49.19,Cap,,0,0,0,,{\k12}Who {\k46}approves {\k34}comes {\k44}from {\k10}the {\k26}policy.
-Dialogue: 0,0:03:49.04,0:03:51.47,Cap,,0,0,0,,{\k54}The {\k38}agent {\k34}never {\k44}holds {\k22}the {\k36}keys.
-Dialogue: 0,0:03:52.62,0:03:53.13,Cap,,0,0,0,,{\k36}Clearance.
-Dialogue: 0,0:03:53.34,0:03:55.11,Cap,,0,0,0,,{\k1}The {\k24}person {\k26}who {\k36}asks {\k60}can't {\k16}be
-Dialogue: 0,0:03:54.96,0:03:55.93,Cap,,0,0,0,,{\k14}the {\k18}one {\k24}who {\k26}approves.
+Dialogue: 0,0:00:24.40,0:00:26.51,Cap,,0,0,0,,{\k56}AI {\k40}agents {\k22}are {\k42}arriving {\k36}fast.
+Dialogue: 0,0:00:26.90,0:00:30.27,Cap,,0,0,0,,{\k34}Gartner {\k28}says {\k108}71% {\k18}of {\k40}companies {\k94}plan
+Dialogue: 0,0:00:30.12,0:00:31.81,Cap,,0,0,0,,{\k24}to {\k36}deploy {\k26}them {\k26}within {\k16}a {\k26}year,
+Dialogue: 0,0:00:32.12,0:00:34.67,Cap,,0,0,0,,{\k14}and {\k16}only {\k104}21% {\k18}can {\k32}govern {\k56}them.
+Dialogue: 0,0:00:35.36,0:00:37.07,Cap,,0,0,0,,{\k56}Here's {\k10}our {\k20}team {\k14}on {\k18}Switch {\k38}today.
+Dialogue: 0,0:00:37.54,0:00:39.01,Cap,,0,0,0,,{\k12}Priya {\k30}asked {\k22}an {\k24}agent {\k30}for {\k14}a
+Dialogue: 0,0:00:38.86,0:00:40.29,Cap,,0,0,0,,{\k96}₹40,000 {\k32}refund,
+Dialogue: 0,0:00:40.14,0:00:42.25,Cap,,0,0,0,,{\k60}and {\k12}a {\k24}native {\k36}approval {\k32}card {\k32}opens.
+Dialogue: 0,0:00:43.18,0:00:43.83,Cap,,0,0,0,,{\k12}Priya {\k38}asked,
+Dialogue: 0,0:00:43.88,0:00:44.87,Cap,,0,0,0,,{\k22}so {\k28}Priya {\k34}approves.
+Dialogue: 0,0:00:44.72,0:00:46.37,Cap,,0,0,0,,{\k54}And {\k12}the {\k12}money {\k28}goes {\k44}out.
+Dialogue: 0,0:00:47.20,0:00:48.85,Cap,,0,0,0,,{\k26}We {\k22}ran {\k22}this {\k16}with {\k28}real {\k36}agents.
+Dialogue: 0,0:00:49.18,0:00:50.79,Cap,,0,0,0,,{\k6}That {\k30}refund {\k38}still {\k24}went {\k26}out {\k22}in
+Dialogue: 0,0:00:50.64,0:00:51.95,Cap,,0,0,0,,{\k28}6 {\k32}of {\k18}8 {\k24}runs.
+Dialogue: 0,0:00:52.50,0:00:54.57,Cap,,0,0,0,,{\k56}Finance {\k42}fixed {\k30}this {\k28}long {\k36}ago:
+Dialogue: 0,0:00:54.88,0:00:56.61,Cap,,0,0,0,,{\k18}whoever {\k42}asks {\k18}for {\k10}a {\k28}payment {\k42}can't
+Dialogue: 0,0:00:56.46,0:00:57.13,Cap,,0,0,0,,{\k24}approve {\k28}it.
+Dialogue: 0,0:00:58.36,0:01:00.25,Cap,,0,0,0,,{\k24}Clearance {\k26}brings {\k24}that {\k22}rule {\k42}to {\k36}every
+Dialogue: 0,0:01:00.10,0:01:00.97,Cap,,0,0,0,,{\k30}agent {\k18}on {\k24}Switch.
+Dialogue: 0,0:01:02.22,0:01:03.39,Cap,,0,0,0,,{\k24}Clearance {\k12}is {\k22}built {\k24}on {\k20}Switch.
+Dialogue: 0,0:01:03.68,0:01:05.33,Cap,,0,0,0,,{\k8}Switch {\k24}is {\k20}the {\k26}room {\k40}where {\k32}people
+Dialogue: 0,0:01:05.18,0:01:06.17,Cap,,0,0,0,,{\k24}and {\k32}agents {\k28}meet,
+Dialogue: 0,0:01:06.64,0:01:08.53,Cap,,0,0,0,,{\k10}and {\k14}it {\k28}knows {\k52}who {\k36}asked {\k34}from
+Dialogue: 0,0:01:08.38,0:01:09.39,Cap,,0,0,0,,{\k20}its {\k20}own {\k46}events,
+Dialogue: 0,0:01:09.48,0:01:10.83,Cap,,0,0,0,,{\k20}never {\k34}from {\k14}an {\k44}agent's {\k8}words.
+Dialogue: 0,0:01:11.50,0:01:13.69,Cap,,0,0,0,,{\k18}It {\k30}gives {\k44}every {\k36}decision {\k24}a {\k22}native {\k30}card,
+Dialogue: 0,0:01:13.90,0:01:15.67,Cap,,0,0,0,,{\k20}every {\k46}approver {\k16}a {\k28}direct {\k30}room,
+Dialogue: 0,0:01:15.52,0:01:17.13,Cap,,0,0,0,,{\k48}and {\k26}every {\k28}job {\k28}a {\k16}role.
+Dialogue: 0,0:01:17.78,0:01:19.55,Cap,,0,0,0,,{\k56}Now {\k18}a {\k24}refund {\k26}with {\k38}Clearance.
+Dialogue: 0,0:01:19.86,0:01:21.07,Cap,,0,0,0,,{\k14}It's {\k28}held {\k22}at {\k16}the {\k26}gate,
+Dialogue: 0,0:01:20.92,0:01:22.31,Cap,,0,0,0,,{\k40}which {\k38}holds {\k28}the {\k18}keys,
+Dialogue: 0,0:01:22.16,0:01:23.77,Cap,,0,0,0,,{\k28}and {\k10}a {\k24}Switch {\k36}card {\k48}opens,
+Dialogue: 0,0:01:23.96,0:01:26.33,Cap,,0,0,0,,{\k26}built {\k26}from {\k24}what {\k28}the {\k26}agent {\k32}really {\k60}ran.
+Dialogue: 0,0:01:27.00,0:01:29.05,Cap,,0,0,0,,{\k14}Priya {\k86}presses {\k28}the {\k24}Approve {\k38}button.
+Dialogue: 0,0:01:29.20,0:01:30.45,Cap,,0,0,0,,{\k40}Clearance {\k44}refuses {\k26}her,
+Dialogue: 0,0:01:30.30,0:01:31.51,Cap,,0,0,0,,{\k48}right {\k24}in {\k10}the {\k24}room,
+Dialogue: 0,0:01:31.36,0:01:32.89,Cap,,0,0,0,,{\k58}because {\k34}she {\k46}asked.
+Dialogue: 0,0:01:33.22,0:01:35.49,Cap,,0,0,0,,{\k1}Sam {\k40}in {\k64}finance {\k16}sees {\k16}a {\k24}payment
+Dialogue: 0,0:01:35.34,0:01:37.11,Cap,,0,0,0,,{\k32}ID {\k1}added {\k30}minutes {\k30}ago,
+Dialogue: 0,0:01:36.96,0:01:38.07,Cap,,0,0,0,,{\k36}and {\k24}says {\k36}no.
+Dialogue: 0,0:01:39.06,0:01:40.29,Cap,,0,0,0,,{\k2}Code {\k40}works {\k20}the {\k18}same {\k28}way.
+Dialogue: 0,0:01:40.52,0:01:42.23,Cap,,0,0,0,,{\k16}Priya {\k30}asks {\k20}the {\k18}wrong {\k36}agent {\k36}to
+Dialogue: 0,0:01:42.08,0:01:43.47,Cap,,0,0,0,,{\k54}merge {\k18}a {\k14}pull {\k38}request.
+Dialogue: 0,0:01:43.32,0:01:44.97,Cap,,0,0,0,,{\k54}The {\k20}gate {\k46}refuses {\k30}it,
+Dialogue: 0,0:01:44.82,0:01:46.55,Cap,,0,0,0,,{\k36}and {\k16}the {\k26}agent {\k46}hands {\k20}the {\k14}job
+Dialogue: 0,0:01:46.40,0:01:48.09,Cap,,0,0,0,,{\k24}to {\k16}the {\k46}merges {\k22}role {\k24}in {\k22}Switch.
+Dialogue: 0,0:01:48.80,0:01:50.63,Cap,,0,0,0,,{\k22}The {\k32}coding {\k54}agent's {\k16}merge {\k18}is {\k26}held,
+Dialogue: 0,0:01:50.82,0:01:51.97,Cap,,0,0,0,,{\k8}the {\k24}card {\k26}goes {\k26}to {\k16}Dev,
+Dialogue: 0,0:01:51.82,0:01:53.67,Cap,,0,0,0,,{\k46}and {\k34}Priya {\k12}is {\k36}refused {\k42}again.
+Dialogue: 0,0:01:56.36,0:01:58.63,Cap,,0,0,0,,{\k30}An {\k54}OpenCode {\k34}agent {\k40}tries {\k24}to {\k30}deploy
+Dialogue: 0,0:01:58.48,0:01:59.59,Cap,,0,0,0,,{\k18}with {\k22}two {\k30}failing {\k26}checks.
+Dialogue: 0,0:01:59.78,0:02:00.59,Cap,,0,0,0,,{\k22}Same {\k44}policy,
+Dialogue: 0,0:02:00.78,0:02:01.51,Cap,,0,0,0,,{\k24}different {\k34}vendor.
+Dialogue: 0,0:02:01.86,0:02:03.61,Cap,,0,0,0,,{\k16}The {\k40}service {\k24}owner {\k40}says {\k40}no.
+Dialogue: 0,0:02:08.16,0:02:09.87,Cap,,0,0,0,,{\k76}If {\k40}nobody {\k40}answers,
+Dialogue: 0,0:02:10.04,0:02:12.05,Cap,,0,0,0,,{\k10}the {\k20}card {\k50}escalates {\k20}to {\k6}a {\k28}backup {\k52}approver,
+Dialogue: 0,0:02:11.90,0:02:13.51,Cap,,0,0,0,,{\k66}and {\k36}nothing {\k44}moves.
+Dialogue: 0,0:02:16.34,0:02:17.73,Cap,,0,0,0,,{\k38}People {\k42}stop {\k44}reading.
+Dialogue: 0,0:02:18.12,0:02:20.89,Cap,,0,0,0,,{\k10}So {\k106}Clearance {\k58}sends {\k50}practice {\k38}requests
+Dialogue: 0,0:02:20.74,0:02:22.07,Cap,,0,0,0,,{\k42}with {\k12}a {\k32}planted {\k32}flaw,
+Dialogue: 0,0:02:21.92,0:02:24.37,Cap,,0,0,0,,{\k72}and {\k30}risky {\k42}cards {\k42}make {\k18}you {\k26}type
+Dialogue: 0,0:02:24.22,0:02:25.81,Cap,,0,0,0,,{\k22}a {\k36}detail {\k32}from {\k16}the {\k38}evidence.
+Dialogue: 0,0:02:29.96,0:02:32.19,Cap,,0,0,0,,{\k56}Agents {\k30}can {\k20}earn {\k30}small {\k42}refunds {\k30}on
+Dialogue: 0,0:02:32.04,0:02:32.77,Cap,,0,0,0,,{\k16}their {\k42}own,
+Dialogue: 0,0:02:32.82,0:02:34.19,Cap,,0,0,0,,{\k22}once {\k20}two {\k24}people {\k28}sign {\k28}off.
+Dialogue: 0,0:02:34.38,0:02:36.29,Cap,,0,0,0,,{\k18}One {\k26}incident {\k36}takes {\k34}that {\k62}away.
+Dialogue: 0,0:02:39.16,0:02:40.61,Cap,,0,0,0,,{\k16}And {\k18}when {\k14}an {\k22}agent {\k26}tries {\k16}a {\k18}trick,
+Dialogue: 0,0:02:40.76,0:02:42.79,Cap,,0,0,0,,{\k14}like {\k18}a {\k50}fake {\k106}pre-approval,
+Dialogue: 0,0:02:42.64,0:02:44.17,Cap,,0,0,0,,{\k22}or {\k30}switching {\k20}off {\k18}its {\k22}own {\k26}hook,
+Dialogue: 0,0:02:44.18,0:02:45.55,Cap,,0,0,0,,{\k24}it's {\k24}held {\k32}or {\k42}refused.
+Dialogue: 0,0:02:46.70,0:02:47.49,Cap,,0,0,0,,{\k30}Under {\k16}the {\k18}hood,
+Dialogue: 0,0:02:47.72,0:02:49.17,Cap,,0,0,0,,{\k4}the {\k46}agent's {\k12}hook {\k34}and {\k12}the {\k22}gate
+Dialogue: 0,0:02:49.02,0:02:51.09,Cap,,0,0,0,,{\k32}send {\k42}every {\k34}risky {\k30}call {\k20}to {\k34}Clearance.
+Dialogue: 0,0:02:51.32,0:02:53.05,Cap,,0,0,0,,{\k6}A {\k40}policy {\k64}file {\k48}decides,
+Dialogue: 0,0:02:52.90,0:02:54.85,Cap,,0,0,0,,{\k62}with {\k32}no {\k22}AI {\k16}in {\k12}the {\k36}decision.
+Dialogue: 0,0:02:55.40,0:02:56.93,Cap,,0,0,0,,{\k12}Switch {\k12}delivers {\k48}the {\k66}card.
+Dialogue: 0,0:02:57.38,0:02:59.63,Cap,,0,0,0,,{\k20}The {\k26}gate {\k32}runs {\k50}exactly {\k22}that {\k24}call, {\k36}once.
+Dialogue: 0,0:02:59.48,0:03:02.17,Cap,,0,0,0,,{\k52}And {\k36}everything {\k36}lands {\k26}on {\k18}a {\k48}hash-chained {\k38}ledger.
+Dialogue: 0,0:03:03.00,0:03:04.37,Cap,,0,0,0,,{\k40}Here's {\k10}the {\k12}rule {\k16}in {\k16}our {\k28}code:
+Dialogue: 0,0:03:04.48,0:03:06.53,Cap,,0,0,0,,{\k24}whoever {\k56}asked {\k20}is {\k26}taken {\k28}out {\k36}before
+Dialogue: 0,0:03:06.38,0:03:07.35,Cap,,0,0,0,,{\k26}anyone {\k24}is {\k32}chosen.
+Dialogue: 0,0:03:08.04,0:03:09.95,Cap,,0,0,0,,{\k28}We {\k42}measured {\k22}it {\k28}with {\k20}real {\k36}agents.
+Dialogue: 0,0:03:10.18,0:03:12.85,Cap,,0,0,0,,{\k22}Risky {\k42}actions {\k38}without {\k24}the {\k18}right {\k50}approver: {\k34}Claude,
+Dialogue: 0,0:03:12.70,0:03:14.59,Cap,,0,0,0,,{\k54}5 {\k22}of {\k34}20 {\k24}without {\k40}Clearance,
+Dialogue: 0,0:03:14.44,0:03:15.71,Cap,,0,0,0,,{\k74}0 {\k18}with {\k20}it.
+Dialogue: 0,0:03:15.80,0:03:16.53,Cap,,0,0,0,,{\k58}OpenCode,
+Dialogue: 0,0:03:16.74,0:03:17.83,Cap,,0,0,0,,{\k40}13 {\k20}of {\k34}18,
+Dialogue: 0,0:03:17.96,0:03:18.87,Cap,,0,0,0,,{\k22}down {\k24}to {\k30}0.
+Dialogue: 0,0:03:19.86,0:03:22.03,Cap,,0,0,0,,{\k34}All {\k44}25 {\k34}attack {\k32}cases {\k22}were {\k36}stopped,
+Dialogue: 0,0:03:21.88,0:03:23.21,Cap,,0,0,0,,{\k36}on {\k28}real {\k20}Switch {\k34}too.
+Dialogue: 0,0:03:23.56,0:03:25.23,Cap,,0,0,0,,{\k18}Six {\k36}reviews {\k36}tried {\k20}to {\k22}break {\k20}it,
+Dialogue: 0,0:03:25.08,0:03:26.15,Cap,,0,0,0,,{\k38}one {\k20}by {\k14}a {\k20}teammate,
+Dialogue: 0,0:03:26.00,0:03:27.67,Cap,,0,0,0,,{\k32}and {\k30}every {\k24}break {\k24}is {\k42}fixed.
+Dialogue: 0,0:03:28.66,0:03:30.77,Cap,,0,0,0,,{\k18}It {\k22}also {\k50}holds {\k32}some {\k40}harmless {\k34}work.
+Dialogue: 0,0:03:30.62,0:03:31.75,Cap,,0,0,0,,{\k50}That's {\k16}the {\k32}cost,
+Dialogue: 0,0:03:31.60,0:03:32.99,Cap,,0,0,0,,{\k38}and {\k18}we {\k30}publish {\k38}it,
+Dialogue: 0,0:03:32.84,0:03:36.67,Cap,,0,0,0,,{\k36}along {\k28}with {\k60}more {\k28}than {\k92}6,500 {\k78}passing {\k46}tests.
+Dialogue: 0,0:03:37.36,0:03:38.93,Cap,,0,0,0,,{\k30}We {\k20}built {\k22}all {\k14}of {\k10}this {\k18}by {\k28}voice,
+Dialogue: 0,0:03:38.78,0:03:44.51,Cap,,0,0,0,,{\k38}with {\k260}Wispr {\k260}Flow.
+Dialogue: 0,0:03:44.36,0:03:47.23,Cap,,0,0,0,,{\k44}Who {\k138}asked {\k30}comes {\k32}from {\k28}Switch.
+Dialogue: 0,0:03:47.54,0:03:49.37,Cap,,0,0,0,,{\k4}Who {\k42}approves {\k40}comes {\k42}from {\k10}the {\k30}policy.
+Dialogue: 0,0:03:49.70,0:03:51.57,Cap,,0,0,0,,{\k4}The {\k32}agent {\k36}never {\k46}holds {\k20}the {\k34}keys.
+Dialogue: 0,0:03:52.66,0:03:53.33,Cap,,0,0,0,,{\k52}Clearance.
+Dialogue: 0,0:03:53.50,0:03:55.31,Cap,,0,0,0,,{\k4}The {\k24}person {\k26}who {\k38}asks {\k60}can't {\k14}be
+Dialogue: 0,0:03:55.16,0:03:56.13,Cap,,0,0,0,,{\k14}the {\k20}one {\k22}who {\k26}approves.

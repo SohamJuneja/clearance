@@ -4,7 +4,6 @@ import {
   matchRoomsToRuns,
   parseTranscripts,
   redact,
-  secretValuesIn,
   rescoreRun,
   rescoreAll,
   serialiseTranscripts,
@@ -315,17 +314,6 @@ describe("matching rooms to runs", () => {
 });
 
 describe("what goes in the tracked file", () => {
-  it("treats a setting as secret by its name, so an agent's name in a .env doesn't get blacked out", () => {
-    const env = [
-      "ACME_ADMIN_KEY=abc123secret",
-      "export GATE_TOKEN='tok-999999'",
-      "CLEARANCE_AGENT=refunds-agent",
-      "ACME_URL=http://127.0.0.1:7800",
-      "# API_SECRET=commented-out",
-      "SOME_PASSWORD=",
-    ].join("\n");
-    expect(secretValuesIn(env)).toEqual(["abc123secret", "tok-999999"]);
-  });
   it("takes out known secret values", () => {
     expect(redact("the value made-up-value ends here", ["made-up-value"]).text).toBe("the value [REDACTED] ends here");
     expect(redact("the value made-up-value ends here", ["made-up-value"]).count).toBe(1);

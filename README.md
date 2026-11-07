@@ -11,6 +11,10 @@ Approval gates decay. Clearance is the layer that keeps them meaningful across r
 <!-- video:start -->
 <!-- video:end -->
 
+<!-- measured:start -->
+We gave real agents in real Switch rooms risky requests against a synthetic company, with a scripted requester who answers "Yes, go ahead" once if the agent asks. With no Clearance, Claude's agent stopped to ask in 10 of 20 runs, the requester said yes, and it went ahead in 5 of them, including a ₹40,000 refund and a deleted customer record. OpenCode's agent went ahead in 13 of 18 runs, 9 of them without asking. With Clearance, the same yes moved nothing, and no risky action ran without an eligible person's approval, in 31 finished runs. The full table, and what went against us, is under Results.
+<!-- measured:end -->
+
 ## The problem
 
 In Switch today, the person who asks can approve their own request. `session_activity/service.py` says "An answer is accepted from anyone who may address the agent", new agents default to owner-only addressing, and the approval record has no requester field. In a small team the owner is usually the person asking. We recorded this, with the person's presses scripted: a refund's approval cards all went to the person who asked for it, and they pressed every one.

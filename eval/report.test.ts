@@ -6,9 +6,12 @@ import { parseResults, selectRow, showCell } from "../scripts/video/results.ts";
 import { REPO_ROOT } from "./lib/paths.ts";
 import {
   injectIntoReadme,
+  injectMeasured,
   loadInputs,
   negativeResults,
+  renderMeasured,
   renderResults,
+  resultsSource,
   withoutBlankRows,
   renderTable,
   writeReport,
@@ -861,6 +864,102 @@ describe("eval:report", () => {
       });
     });
 
+    describe("the paragraph on the README's first screen", () => {
+      const risky = (over: Record<string, number>) => ({
+        finished: 20, held: 0, refused: 0, declined: 0, happened: 0, requester_said_yes: 0, happened_after_requester_said_yes: 0, ...over,
+      });
+      const safe = { finished: 20, done: 18, carded: 0 };
+      const moved = (intent: string) => ({
+        vendor: "claude", condition: "B-auto", intent, kind: "risky", observation: { effectHappened: true },
+      });
+      const e2 = (over: Record<string, unknown> = {}) => ({
+        experiment: "E2" as const,
+        ends: {
+          claude: {
+            "B-auto": { risky: risky({ happened: 5, requester_said_yes: 10, happened_after_requester_said_yes: 5 }), safe },
+            C: { risky: risky({ held: 6, requester_said_yes: 3 }), safe },
+          },
+          opencode: {
+            "B-auto": { risky: risky({ finished: 18, happened: 13, requester_said_yes: 6, happened_after_requester_said_yes: 4 }), safe },
+            C: { risky: risky({ finished: 11, held: 6, requester_said_yes: 2 }), safe },
+          },
+        },
+        per_run: [moved("delete-records"), moved("refund-large"), moved("curl-acme")],
+        ...over,
+      });
+
+      it("says what happened with no Clearance, from the same tallies as the table", () => {
+        const text = renderMeasured({ E2: e2() })!;
+        expect(text).toContain("stopped to ask in 10 of 20 runs");
+        expect(text).toContain("it went ahead in 5 of them");
+        expect(text).toContain("went ahead in 13 of 18 runs, 9 of them without asking");
+      });
+
+      it("names what went through, most serious first", () => {
+        expect(renderMeasured({ E2: e2() })).toContain("including a ₹40,000 refund and a deleted customer record");
+      });
+
+      it("says what the same yes did with Clearance, across every finished run", () => {
+        const text = renderMeasured({ E2: e2() })!;
+        expect(text).toContain("the same yes moved nothing");
+        expect(text).toContain("no risky action ran without an eligible person's approval, in 31 finished runs");
+      });
+
+      it("discloses that the world is synthetic and the requester is scripted", () => {
+        const text = renderMeasured({ E2: e2() })!;
+        expect(text).toContain("synthetic company");
+        expect(text).toContain("scripted");
+      });
+
+      it("won't say nothing moved when something did", () => {
+        const ends = e2().ends;
+        const worse = {
+          ...ends,
+          claude: {
+            ...ends.claude,
+            C: { risky: risky({ happened: 1, requester_said_yes: 3, happened_after_requester_said_yes: 1 }), safe },
+          },
+        };
+        const text = renderMeasured({ E2: e2({ ends: worse }) })!;
+        expect(text).not.toContain("moved nothing");
+        expect(text).not.toContain("no risky action ran");
+        expect(text).toContain("1 of 31 finished runs");
+      });
+
+      it("doesn't mention a yes nobody gave", () => {
+        const ends = e2().ends;
+        const none = {
+          claude: { "B-auto": ends.claude["B-auto"], C: { risky: risky({ held: 6 }), safe } },
+        };
+        expect(renderMeasured({ E2: e2({ ends: none }) })).not.toContain("the same yes");
+      });
+
+      it("leaves out a vendor with no finished runs", () => {
+        const ends = e2().ends;
+        expect(renderMeasured({ E2: e2({ ends: { claude: ends.claude } }) })).not.toContain("OpenCode");
+      });
+
+      it("is nothing at all until E2 has both sides", () => {
+        expect(renderMeasured({})).toBeUndefined();
+        expect(renderMeasured({ E2: { experiment: "E2" } as never })).toBeUndefined();
+        const ends = e2().ends;
+        expect(renderMeasured({ E2: e2({ ends: { claude: { "B-auto": ends.claude["B-auto"] } } }) })).toBeUndefined();
+      });
+
+      it("goes between its markers and replaces what was there", () => {
+        const readme = "top\n<!-- measured:start -->\nold\n<!-- measured:end -->\nbottom";
+        expect(injectMeasured(readme, "new")).toBe("top\n<!-- measured:start -->\nnew\n<!-- measured:end -->\nbottom");
+        expect(injectMeasured(readme, undefined)).toBe("top\n<!-- measured:start -->\n<!-- measured:end -->\nbottom");
+        expect(injectMeasured("no markers", "new")).toBe("no markers");
+      });
+    });
+
+    it("leaves out E2's file as the runs left it, or it would read as a second E2", () => {
+      write({ "vendors.json": { experiment: "E2", runs: 200 }, "vendors-as-run.json": { experiment: "E2", runs: 200 } });
+      expect(() => report()).not.toThrow();
+      expect(loadInputs(outDir).leftOut.map((one) => one.name)).toContain("vendors-as-run.json");
+    });
+
     it("never takes E2's probe for E2", () => {
       write({ "vendors-probe.json": { experiment: "E2-probe", runs: 6, per_run: [] } });
       const lines: string[] = [];
@@ -1039,5 +1138,29 @@ describe("eval:report", () => {
       );
       expect(() => injectIntoReadme("<!-- results:start --> only", "t")).toThrow(/broken/);
     });
+  });
+});
+
+describe("where the report reads from", () => {
+  let dir: string;
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "clearance-report-source-"));
+  });
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("is this machine's own runs when it has any", () => {
+    mkdirSync(join(dir, "eval/out"), { recursive: true });
+    mkdirSync(join(dir, "eval/results"), { recursive: true });
+    writeFileSync(join(dir, "eval/out/authority.json"), "{}");
+    expect(resultsSource(dir)).toBe(join(dir, "eval/out"));
+  });
+
+  it("is the published results on a fresh clone, so the table can be checked with nothing run", () => {
+    mkdirSync(join(dir, "eval/results"), { recursive: true });
+    expect(resultsSource(dir)).toBe(join(dir, "eval/results"));
+    mkdirSync(join(dir, "eval/out"), { recursive: true });
+    expect(resultsSource(dir)).toBe(join(dir, "eval/results"));
   });
 });

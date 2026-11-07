@@ -1,0 +1,59 @@
+{
+  "experiment": "E6",
+  "synthetic": true,
+  "seed": 20261107,
+  "rule": "An amount above the bucket's 95th percentile holds that one call for a person and does not demote.",
+  "rule_change": "The anomaly rule was changed after seeing the first result on this synthetic data: the original rule fires on about 5% of normal traffic by definition. Both are published, from the same fixed seed, and nothing else was tuned against this week.",
+  "human_decisions_per_100": {
+    "before": 100,
+    "after": 25.8
+  },
+  "proposals_from_seeded_history": 1,
+  "level_after_signing": "L2",
+  "replay": {
+    "requests": 107,
+    "counted": 101,
+    "fast_approvals_excluded": 6,
+    "approvers": 2,
+    "denied": 0,
+    "would_auto_approve": 100,
+    "would_auto_approve_people_approved": 100,
+    "wrong_auto_approvals": 0
+  },
+  "second_week": {
+    "actions": 120,
+    "human_decisions": 31,
+    "ran_alone": 89,
+    "denied": 7,
+    "review_cards": 89,
+    "held_above_normal_range": 6,
+    "demoted_at_action": null,
+    "demoted_because": null,
+    "human_decisions_per_100_until_demotion": null
+  },
+  "original_rule": {
+    "rule": "An amount above the bucket's 95th percentile demotes the bucket to L0 at once (F11 as first written).",
+    "human_decisions_per_100": {
+      "before": 100,
+      "after": 79.2
+    },
+    "second_week": {
+      "actions": 120,
+      "human_decisions": 95,
+      "ran_alone": 25,
+      "denied": 7,
+      "review_cards": 25,
+      "held_above_normal_range": 1,
+      "demoted_at_action": 34,
+      "demoted_because": "above the 95th percentile",
+      "human_decisions_per_100_until_demotion": 26.5
+    }
+  },
+  "incident": {
+    "ran_before_incident": true,
+    "incident_to_demotion_ms": 0.55,
+    "level_after": "L0",
+    "next_refund": "hold"
+  },
+  "ledger_verifies": true
+}

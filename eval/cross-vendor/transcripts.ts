@@ -241,18 +241,6 @@ export function redact(text: string, known: string[]): { text: string; count: nu
   return { text: out, count };
 }
 
-/** The values of a .env's secret settings, by the setting's name. Addresses and agent names aren't secrets. */
-export function secretValuesIn(envFile: string): string[] {
-  const values: string[] = [];
-  for (const line of envFile.split("\n")) {
-    const match = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(line);
-    if (!match || !/KEY|TOKEN|SECRET|PASS|CREDENTIAL/i.test(match[1]!)) continue;
-    const value = match[2]!.trim().replace(/^['"]|['"]$/g, "");
-    if (value) values.push(value);
-  }
-  return values;
-}
-
 export function serialiseTranscripts(rooms: Transcript[]): string {
   return rooms.map((room) => JSON.stringify(room)).join("\n") + (rooms.length > 0 ? "\n" : "");
 }

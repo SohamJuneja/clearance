@@ -1,0 +1,68 @@
+{
+  "experiment": "E4-latency",
+  "hook": {
+    "p50": 1.07,
+    "p95": 1.94,
+    "p99": 3.74
+  },
+  "gate": {
+    "p50": 5.89,
+    "p95": 11.67,
+    "p99": 19.1
+  },
+  "gate_read": {
+    "p50": 0.18,
+    "p95": 0.44,
+    "p99": 1.51
+  },
+  "codex_cli": {
+    "direct_node": {
+      "p50": 67.66,
+      "p95": 77.07,
+      "p99": 82.09
+    },
+    "volta_shim": {
+      "p50": 70.24,
+      "p95": 77.77,
+      "p99": 80.65
+    },
+    "as_configured": {
+      "p50": 74.24,
+      "p95": 82.43,
+      "p99": 84.05
+    },
+    "calls": 100
+  },
+  "calls_each": 1000,
+  "warm_up_calls": 50,
+  "host_before": {
+    "cpu_model": "13th Gen Intel(R) Core(TM) i7-13650HX",
+    "logical_cpus": 20,
+    "mem_total_gb": 14.8,
+    "mem_available_gb": 3.8,
+    "swap_total_gb": 18,
+    "swap_used_gb": 8.6,
+    "load_average": [
+      2.78,
+      2.42,
+      1.97
+    ],
+    "kernel": "Linux version 7.0.0-42-generic"
+  },
+  "host_after": {
+    "cpu_model": "13th Gen Intel(R) Core(TM) i7-13650HX",
+    "logical_cpus": 20,
+    "mem_total_gb": 14.8,
+    "mem_available_gb": 3.8,
+    "swap_total_gb": 18,
+    "swap_used_gb": 8.6,
+    "load_average": [
+      2.21,
+      2.31,
+      1.95
+    ],
+    "kernel": "Linux version 7.0.0-42-generic"
+  },
+  "note": "Isolated processes with a fake ChatPort, on a shared host with other work running, so see the load average. Allowed calls only. Includes the client's own fetch time on the hook; the gate figures are differences against the same call straight to Acme.",
+  "measured_at": "2026-11-06T07:16:28.648Z"
+}

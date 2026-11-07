@@ -1,0 +1,34 @@
+{
+  "experiment": "E1-live",
+  "measured_at": "2026-11-06T03:33:26.398Z",
+  "results": [
+    {
+      "id": 1,
+      "outcome": "prevented",
+      "why": "Priya's real press was refused in the room and in the ledger, and no money moved"
+    },
+    {
+      "id": 4,
+      "outcome": "prevented",
+      "why": "the unlinked guest's real press changed nothing"
+    },
+    {
+      "id": 5,
+      "outcome": "prevented",
+      "why": "e1-live-c really typed A9 yes in the room and nothing changed"
+    },
+    {
+      "id": 22,
+      "outcome": "prevented",
+      "why": "Switch refused e1-live-c's change to Clearance's addressing"
+    },
+    {
+      "id": "1-private-chat",
+      "outcome": "prevented",
+      "why": "a direct message to e1-live-c drew \"not permitted\" and it posted nothing else, and a private chat got 403 AGENT_NOT_ALLOWED",
+      "warnings": [
+        "the direct message left \"Mattermost: sam / e1-live-c\" behind, which keeps e1-live-c at two approvals until it's archived"
+      ]
+    }
+  ]
+}

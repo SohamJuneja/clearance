@@ -9,12 +9,12 @@
  * changes what a run measured in Acme, git or the ledger.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import { REPO_ROOT } from "../lib/paths.ts";
+import { knownSecrets } from "../lib/secrets.ts";
 import {
   type AvailabilityMap,
   loadIntents,
@@ -26,7 +26,6 @@ import {
   parseTranscripts,
   redact,
   rescoreAll,
-  secretValuesIn,
   serialiseTranscripts,
   shadowPrediction,
   summariseEnds,
@@ -89,39 +88,6 @@ function postsIn(rooms: string[]): Map<string, DbPost[]> {
     out.get(post.channelid)!.push(post);
   }
   return out;
-}
-
-/** Every value worth keeping out of a public file. The values are only ever compared here, never printed. */
-function knownSecrets(): string[] {
-  const values = new Set<string>();
-  const fromEnvFile = (file: string): void => {
-    if (!existsSync(file)) return;
-    for (const value of secretValuesIn(readFileSync(file, "utf8"))) values.add(value);
-  };
-  fromEnvFile(join(REPO_ROOT, ".env"));
-  const workspaces = join(homedir(), ".switch/agents");
-  if (existsSync(workspaces)) {
-    for (const host of readdirSync(workspaces)) {
-      const hostDir = join(workspaces, host);
-      for (const agent of readdirSync(hostDir, { withFileTypes: true })) {
-        if (!agent.isDirectory()) continue;
-        fromEnvFile(join(hostDir, agent.name, ".env"));
-        const token = join(hostDir, agent.name, ".clearance/gate-token");
-        if (existsSync(token)) values.add(readFileSync(token, "utf8").trim());
-      }
-    }
-  }
-  for (const file of ["data/hook-tokens.json", "data/gate-tokens.json"]) {
-    const path = join(REPO_ROOT, file);
-    if (!existsSync(path)) continue;
-    // One file is token to agent and the other agent to token, so go by length: an agent's name is short.
-    const parsed = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
-    for (const [key, value] of Object.entries(parsed)) {
-      if (key.length >= 24) values.add(key);
-      if (typeof value === "string" && value.length >= 24) values.add(value);
-    }
-  }
-  return [...values];
 }
 
 function toTranscript(run: RunResult, posts: DbPost[], secrets: string[]): { room: Transcript; redactions: number } {

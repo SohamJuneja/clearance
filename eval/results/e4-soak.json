@@ -1,0 +1,108 @@
+{
+  "experiment": "E4-soak",
+  "smoke_test": false,
+  "counts_as_the_report_result": true,
+  "minutes": 120,
+  "hours": 2,
+  "calls": 7200,
+  "restarts": 3,
+  "violations": 0,
+  "violation_list": [],
+  "time_scale": 10,
+  "seed": 20261106,
+  "counters": {
+    "calls": 7200,
+    "byKind": {
+      "hook_safe": 3993,
+      "hook_push": 362,
+      "gate_refund_large": 588,
+      "gate_read": 1046,
+      "gate_refund_small": 726,
+      "hook_curl": 140,
+      "gate_deploy": 345
+    },
+    "byStatus": {
+      "hook allow": 3982,
+      "hook push held": 358,
+      "gate refund 202": 1309,
+      "gate read 200": 1046,
+      "curl denied": 140,
+      "gate deploy 202": 344,
+      "gate refund 503": 5,
+      "gate deploy 503": 1
+    },
+    "riskyWhileDown": 21,
+    "refusedWhileDown": 21,
+    "readsWhileDown": 3,
+    "answers": {
+      "deny": 719,
+      "approve": 1225,
+      "ignore": 485
+    },
+    "refusedAnswersTried": 730,
+    "transportErrors": 0
+  },
+  "chaos": [
+    {
+      "killed_at_s": 1800,
+      "back_at_s": 1809
+    },
+    {
+      "killed_at_s": 3600,
+      "back_at_s": 3608
+    },
+    {
+      "killed_at_s": 5400,
+      "back_at_s": 5408
+    }
+  ],
+  "acme": {
+    "refunds": 785,
+    "deploys": 199,
+    "money_out": 17207675
+  },
+  "ledger_entries": 11070,
+  "ledger_types": {
+    "policy_loaded": 1,
+    "held": 2194,
+    "routed": 2205,
+    "answered": 1967,
+    "denied": 859,
+    "ineligible_answer": 707,
+    "approved": 1248,
+    "executed": 984,
+    "escalated": 418,
+    "grant_consumed": 183,
+    "expired": 304
+  },
+  "host_before": {
+    "cpu_model": "13th Gen Intel(R) Core(TM) i7-13650HX",
+    "logical_cpus": 20,
+    "mem_total_gb": 14.8,
+    "mem_available_gb": 5.7,
+    "swap_total_gb": 18,
+    "swap_used_gb": 6.2,
+    "load_average": [
+      5.03,
+      9.93,
+      7.67
+    ],
+    "kernel": "Linux version 7.0.0-42-generic"
+  },
+  "host_after": {
+    "cpu_model": "13th Gen Intel(R) Core(TM) i7-13650HX",
+    "logical_cpus": 20,
+    "mem_total_gb": 14.8,
+    "mem_available_gb": 4,
+    "swap_total_gb": 18,
+    "swap_used_gb": 8.9,
+    "load_average": [
+      1.78,
+      2.77,
+      3.03
+    ],
+    "kernel": "Linux version 7.0.0-42-generic"
+  },
+  "note": "Synthetic driver on isolated processes with a fake ChatPort. No agent is involved.",
+  "measured_at": "2026-11-06T04:41:44.301Z"
+}

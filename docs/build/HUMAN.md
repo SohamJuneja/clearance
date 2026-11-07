@@ -18,7 +18,7 @@ The deadline is Sat Nov 7, 23:59 IST. NOW is in the order I'd do it.
 - [ ] **Soham: deploy the site from the repo.** Vercel, Add New Project, import `SohamJuneja/clearance`, framework Other, no build command, output directory `site/dist`. Every push to `master` then updates it. Your own Vercel copy (clearance-site-brown.vercel.app) is the older page and doesn't update by itself.
   **Soham, also fill in the repo's About box** (it's blank, and only an admin can set it; I have write access, not admin). Put the site's address after `--homepage`:
   ```bash
-  gh repo edit SohamJuneja/clearance --description "Whoever asks an AI agent to act can't approve it. An approval layer for people and agents, built on Switch." --homepage "SITE_URL" --add-topic switch,ai-agents,approvals,separation-of-duties,mattermost,mcp,hackathon
+  gh repo edit SohamJuneja/clearance --description "Whoever asks an AI agent to act can't approve it. An approval layer for people and agents, built on Switch." --homepage "SITE_URL" --add-topic switch,flip-the-switch,ai-agents,approval-workflow,separation-of-duties,mattermost,mcp
   ```
 
 - [ ] **Get the YouTube link to me by about 23:30.** The README's video slot is empty on `master`, and adding the link is a commit. The rules page says submissions close at 23:59 IST and doesn't say whether later commits count, so the link should land before then.

@@ -56,7 +56,7 @@ Repo: https://github.com/SohamJuneja/clearance
 
 Video: VIDEO_URL
 
-Site: SITE_URL
+Site: https://clearance-site-brown.vercel.app
 
 Blog: BLOG_URL
 

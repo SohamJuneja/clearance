@@ -13,7 +13,7 @@ const clip = (name: string) => {
 };
 
 describe("the #HowISwitch clips", () => {
-  it("post 1 is SC2 then SC3, and post 2 is SC9, as docs/social-draft.md says", () => {
+  it("post 1 is SC2 then SC3, and post 2 is SC9, as docs/build/social-draft.md says", () => {
     expect(clip("post-1").scenes.map((scene) => scene.id)).toEqual(["sc2", "sc3-refused", "sc3-sam"]);
     expect(clip("post-2").scenes.map((scene) => scene.id)).toEqual(["sc9"]);
   });

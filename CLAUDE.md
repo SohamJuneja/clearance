@@ -2,7 +2,7 @@
 
 Read PLAN.md first. It is the source of truth; if a task conflicts with it, stop and say so.
 
-Resume protocol: if you are a fresh session or were interrupted, read `STATUS.md`, `TASKS.md`, `HUMAN.md`, `DECISIONS.md` and `git log -20`, then continue from the first unticked task in the current gate. Never restart work that is already ticked.
+Resume protocol: if you are a fresh session or were interrupted, read `docs/build/STATUS.md`, `docs/build/TASKS.md`, `docs/build/HUMAN.md`, `DECISIONS.md` and `git log -20`, then continue from the first unticked task in the current gate. Never restart work that is already ticked.
 
 ## Hard rules
 - No LLM calls in the decision path (classify, risk, route, grant, escalate, drill, promote). Deterministic code only.
@@ -14,27 +14,27 @@ Resume protocol: if you are a fresh session or were interrupted, read `STATUS.md
 - Do not modify the Switch repo (`vendor/switch`, gitignored, pinned commit recorded in DECISIONS.md) or its bundled example templates for the main project.
 - Secrets: never print, log or commit them. `.env` is gitignored, `.env.example` carries placeholders. Run `gitleaks detect` before every push.
 - No destructive actions outside this repo and its Docker containers. The machine also runs containers from other projects (`sr-prod-pg`, `faultline-falkordb`): leave them alone. No force-push to `main`.
-- Public actions need the human's OK: prepare the text, put it in `HUMAN.md`, and post with `gh` only after he ticks it.
+- Public actions need the human's OK: prepare the text, put it in `docs/build/HUMAN.md`, and post with `gh` only after he ticks it.
 - Demo host has 14 GB RAM and has hit OOM before: never run more than four agent sessions at once.
 
 ## Conventions
 - TypeScript strict, Node 22, pnpm workspaces, Vitest, zod at every boundary. Test-driven: write the PLAN.md section 5 acceptance tests first. A feature is done only when its tests pass and its scenario runs on Mattermost.
 - Commits (see DECISIONS.md for why this differs from the kickoff prompt): conventional prefixes (`feat(router): ...`), each commit covers a whole piece of work, feature and subagent branches come in with `git merge --squash` as one commit, doc and status updates go in the commit of the work they describe, no tiny fix-up commits. No attribution trailers. No "wip" on main after the freeze.
-- Tick acceptance checkboxes in `TASKS.md` only when tests prove them. Update `STATUS.md` when you finish a task.
+- Tick acceptance checkboxes in `docs/build/TASKS.md` only when tests prove them. Update `docs/build/STATUS.md` when you finish a task.
 
 ## Autonomy contract (kickoff prompt section 1)
 1. Do all of the work yourself: code, tests, setup, Docker, Switch stack, scripts, evals, Desk UI, demo automation, video capture and editing, README, blog draft, social drafts, submission pack, and the Track 03 PR code.
 2. Ask the human only for things impossible without him: browser logins and OAuth for agent CLIs and `gh`; typing API keys into `.env`; real people (study participants); posting anything public under his name (issue comments, PRs to other repos, the blog, social posts, Discord messages); signing the CLA; the submission form; spending money beyond the cap.
-3. Never block on the human. Add needs to `HUMAN.md` as a checkbox with exact steps, copy-paste commands or text, why it's needed, and the deadline. Keep working on everything else.
+3. Never block on the human. Add needs to `docs/build/HUMAN.md` as a checkbox with exact steps, copy-paste commands or text, why it's needed, and the deadline. Keep working on everything else.
 4. Batch his tasks.
-5. End of every turn: print a short banner with gate status and open `HUMAN.md` items, marked NOW or LATER.
+5. End of every turn: print a short banner with gate status and open `docs/build/HUMAN.md` items, marked NOW or LATER.
 6. Decide by yourself whenever PLAN.md answers the question or a sensible default exists. Log it in `DECISIONS.md` (`time IST | decision | why`) and move on.
 
 ## Hard rules from the kickoff prompt (section 2), in addition to the above
 - Follow PLAN.md section 6.3 design decisions.
 - Pin the Switch commit and record the SHA.
 - Spikes first (PLAN 4.7). If one fails, take the documented fallback immediately, log it, and do not re-litigate it.
-- Budget: track agent-run spend in `eval/costs.json`. Stop E2 and ask in `HUMAN.md` before passing the cap.
+- Budget: track agent-run spend in `eval/costs.json`. Stop E2 and ask in `docs/build/HUMAN.md` before passing the cap.
 
 ## When you must stop and ask (kickoff prompt section 7, only these)
 - A login, key, CLA or submission step only he can do.

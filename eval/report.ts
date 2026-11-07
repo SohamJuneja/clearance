@@ -918,7 +918,7 @@ export function withoutBlankRows(table: string): string {
 const WORDS_BEFORE_CUTTING = 15;
 
 /** A long data cell on the README keeps its first clauses. RESULTS.md has all of it, so nothing it says is lost. */
-function shortData(cell: string): string {
+export function shortData(cell: string): string {
   const clauses = cell.trim().split("; ");
   const kept: string[] = [];
   for (const clause of clauses) {

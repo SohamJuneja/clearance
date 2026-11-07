@@ -324,7 +324,7 @@ export function readMarks(clipPath: string): Mark[] {
 
 /** The command that would produce a missing clip, read off its path. */
 export function recordingHint(clip: string): string {
-  const scenario = clip.match(/takes\/(SC\d+)\//)?.[1];
+  const scenario = clip.match(/takes\/(SC[A-Z0-9]+)\//)?.[1];
   return scenario ? `pnpm demo:run ${scenario} --record` : `provide ${clip}`;
 }
 

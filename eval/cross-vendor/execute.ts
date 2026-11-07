@@ -32,7 +32,7 @@ export interface ExecuteOptions {
 export interface ExecuteOutcome {
   results: RunResult[];
   skippedBlocked: number;
-  /** Set when the spend cap stopped the run: what to put in HUMAN.md. */
+  /** Set when the spend cap stopped the run: what to put in docs/build/HUMAN.md. */
   stoppedByCap?: string;
 }
 

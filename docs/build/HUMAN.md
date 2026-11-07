@@ -88,10 +88,10 @@ Everything else is being done without you. Tick a box when done (or just tell me
 ## LATER (I'll mark these NOW when their time comes)
 
 - [ ] **The repo must be public when you submit.** Soham's already is. Only if he flips it private for now does this need doing again, and only he can do it, as admin.
-- [ ] **Track 03 is with Soham now.** Nothing for you to do unless he hands it back. `docs/track03.md` has the code, the 15-minute Canva probe that decides go or drop, and the steps. Deadline: PR open by Sat 23:59 IST.
+- [ ] **Track 03 is with Soham now.** Nothing for you to do unless he hands it back. `docs/build/track03.md` has the code, the 15-minute Canva probe that decides go or drop, and the steps. Deadline: PR open by Sat 23:59 IST.
 - [ ] **Voice-over (optional, 15 minutes).** Your voice is better than the offline one if you have time: drop files at `scripts/video/voice/<scene>.wav` and they win over it. The script is in `scripts/video/scenes.yaml`, one `voiceover` per scene.
 - [ ] **Optional, stronger anti-evasion:** needs sudo for `/etc/claude-code/managed-settings.json`, which agents can't edit. Not tested yet. I'd only use it if you want it for the demo host.
 - [ ] **Skip: the `!list-documents` crash** is already reported, with PR #1286 open upstream. Nothing to do.
-- [ ] **Blog:** draft at `docs/blog-draft.md`, written as you, in first person. Please read it, since it speaks for you, and change anything that isn't how you'd say it. `pnpm numbers:fill` fills the `{{...}}` numbers from the eval results at the end. Post on dev.to or Hashnode when I say it's final.
-- [ ] **Three #HowISwitch posts.** Text is in `docs/social-draft.md`, written as you, so change what isn't how you'd say it. The clips are `docs/media/social/post-1.mp4` and `post-2.mp4`. They're ready. Nothing gets posted until you do it or tick this.
-- [ ] **Submission form.** Text is in `docs/submission-draft.md`. `pnpm numbers:fill` turns it into `SUBMISSION.md` with numbers and links filled in, once the repo has a remote. You add the team members, video link, blog link and Wispr screenshots.
+- [ ] **Blog:** draft at `docs/build/blog-draft.md`, written as you, in first person. Please read it, since it speaks for you, and change anything that isn't how you'd say it. `pnpm numbers:fill` fills the `{{...}}` numbers from the eval results at the end. Post on dev.to or Hashnode when I say it's final.
+- [ ] **Three #HowISwitch posts.** Text is in `docs/build/social-draft.md`, written as you, so change what isn't how you'd say it. The clips are `docs/media/social/post-1.mp4` and `post-2.mp4`. They're ready. Nothing gets posted until you do it or tick this.
+- [ ] **Submission form.** Text is in `docs/build/submission-draft.md`. `pnpm numbers:fill` turns it into `SUBMISSION.md` with numbers and links filled in, once the repo has a remote. You add the team members, video link, blog link and Wispr screenshots.

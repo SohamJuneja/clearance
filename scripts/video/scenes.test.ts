@@ -189,7 +189,7 @@ describe("scenes.yaml", () => {
 
   it("plans under the three-minute limit", () => {
     const total = board.scenes.reduce((sum, scene) => sum + scene.planned_s, 0);
-    expect(total).toBe(163);
+    expect(total).toBe(168);
     expect(board.max_duration_s).toBe(180);
     expect(total).toBeLessThan(board.max_duration_s);
   });
@@ -244,25 +244,25 @@ describe("scenes.yaml", () => {
     expect(() => refusalOnScreenBy(wrong)).toThrow(/names nope/);
   });
 
-  it("opens with no title card, and has SC14 set up the drill instead of opening the video", () => {
+  it("opens with no title card, and shows the hand-off before the drill", () => {
     const ids = board.scenes.map((scene) => scene.id);
     expect(ids.slice(0, 2)).toEqual(["sc2", "sc3-refused"]);
     expect(ids).not.toContain("title");
-    expect(ids.indexOf("sc9")).toBe(ids.indexOf("sc14") + 1);
+    expect(ids.indexOf("sc9")).toBe(ids.indexOf("scho") + 1);
     const caption = board.scenes.find((scene) => scene.id === "sc3-refused")?.callouts?.join(" ");
     expect(caption).toContain("Clearance: the approval layer, built on Switch");
   });
 
   it("says the 93% once, on the scene with its source", () => {
     const with93 = board.scenes.filter((scene) => /93%/.test(scene.voiceover ?? ""));
-    expect(with93.map((scene) => scene.id)).toEqual(["sc14"]);
+    expect(with93.map((scene) => scene.id)).toEqual(["sc9"]);
     expect(with93[0]?.notices?.join(" ")).toContain("Anthropic");
   });
 
   it("names only real steps of the recorded scenario wherever a segment names one, split or alone", () => {
     for (const scene of [...board.scenes, ...settleScenes(board, () => false).scenes]) {
       for (const source of sourcesOf(scene)) {
-        const id = /takes\/(SC\d+)\//.exec(source.clip)?.[1] ?? "";
+        const id = /takes\/(SC[A-Z0-9]+)\//.exec(source.clip)?.[1] ?? "";
         const steps = findScenario(id)?.stepNames ?? [];
         for (const segment of source.segments ?? []) {
           for (const point of [segment.from, segment.to]) {
@@ -348,11 +348,6 @@ describe("scenes.yaml", () => {
     expect(typed?.to).toBe(steps.at(-1));
   });
 
-  it("gives no count of cards on SC14's caption or voice-over, since a take may reach fewer than five", () => {
-    const scene = board.scenes.find((one) => one.id === "sc14");
-    expect(`${scene?.voiceover} ${scene?.callouts?.join(" ")}`).not.toMatch(/\bfive\b|\b5\b/i);
-  });
-
   it("says the same rows it shows, with and without each result", () => {
     const numbers = board.scenes.find((scene) => scene.id === "numbers");
     if (numbers?.kind !== "numbers") throw new Error("no numbers scene");
@@ -396,9 +391,8 @@ describe("scenes.yaml", () => {
     expect(board.default_notices.join(" ")).toContain("persona actions are scripted");
   });
 
-  it("labels SC14 staged, SC8 with the clock, and SC11's history as synthetic", () => {
+  it("labels SC8 with the clock, and SC11's history as synthetic", () => {
     const byId = new Map(board.scenes.map((scene) => [scene.id, scene]));
-    expect(byId.get("sc14")?.callouts).toContain("staged illustration, real clicks");
     expect(byId.get("sc8")?.clock10x).toBe(true);
     expect(byId.get("sc11")?.callouts?.join(" ")).toContain("synthetic");
   });
@@ -496,7 +490,7 @@ describe("scenes.yaml", () => {
         scene.kind === "clip" ? [scene.source] : scene.kind === "split" ? scene.sources : [];
       // A number where a take is pinned, as this file's header says to do, because a segment's seconds are that take's.
       for (const clip of clips)
-        expect(clip.clip).toMatch(/^takes\/SC\d+\/(latest|\d+)\/[a-z]+\.mp4$/);
+        expect(clip.clip).toMatch(/^takes\/SC[A-Z0-9]+\/(latest|\d+)\/[a-z]+\.mp4$/);
     }
   });
 });

@@ -40,7 +40,7 @@ The configs for Codex and Cursor are in `acme-mini-app/`, and `scripts/setup-age
 
 ## What works, and what doesn't yet
 
-Working on the real stack: holds, refusals, routing, execute-on-approval and fail-closed behaviour through the gate, the Claude Code and OpenCode hooks, cards with real button presses, the inbox, the ledger mirror, drills, earned autonomy's promotion and demotion, delegation, break-glass, approve with edits (`@clearance counter CLR-0042 4000`), file writes bound to their content, the outcome-unknown message, Switch Trust's flag, the install command, and sending refused work to a role, for the `merges` role. The other three roles are declared and mapped, and haven't been taken live.
+Working on the real stack: holds, refusals, routing, execute-on-approval and fail-closed behaviour through the gate, the Claude Code and OpenCode hooks, cards with real button presses, the inbox, the ledger mirror, drills, earned autonomy's promotion and demotion, delegation, break-glass, approve with edits (`@clearance counter CLR-0042 4000`), file writes bound to their content, the outcome-unknown message, Switch Trust's flag, the install command, and sending refused work to a role, for the `merges` role. `refunds-agent` has also taken the `refunds` role by itself in a live take, with nothing handed to it. `customer-email` and `ops` are declared and mapped, and haven't been taken live.
 
 Proved in tests, not yet on the live stack: signed policy changes, against fakes.
 

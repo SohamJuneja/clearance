@@ -21,7 +21,7 @@ export type CostEntry = z.infer<typeof EntrySchema>;
 
 const CostsSchema = z.object({ entries: z.array(EntrySchema) });
 
-/** The human needs to see this message: it's what goes in HUMAN.md when the cap is reached. */
+/** The human needs to see this message: it's what goes in docs/build/HUMAN.md when the cap is reached. */
 export class SpendCapError extends Error {
   override readonly name = "SpendCapError";
 }
@@ -64,7 +64,7 @@ export function ensureWithinCap(nextUsd = 0, options: CostOptions = {}): void {
   if (spent + nextUsd > cap) {
     throw new SpendCapError(
       `spend cap reached: $${spent.toFixed(2)} spent and $${nextUsd.toFixed(2)} more asked for, cap $${cap.toFixed(2)}. ` +
-        `Stop and ask in HUMAN.md before passing it.`,
+        `Stop and ask in docs/build/HUMAN.md before passing it.`,
     );
   }
 }

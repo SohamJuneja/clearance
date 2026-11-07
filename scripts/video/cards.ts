@@ -4,6 +4,7 @@
  */
 import { join } from "node:path";
 import { launchBrowser } from "./capture.ts";
+import { shortData } from "../../eval/report.ts";
 import { measuredParts, type ResultRow, slideRows } from "./results.ts";
 
 function escapeHtml(text: string): string {
@@ -78,7 +79,7 @@ export function numbersHtml(headline: string, rows: ResultRow[], selectors: stri
         <td class="metric">${slideCell(row.metric)}</td>
         <td>${slideCell(row.baseline)}</td>
         <td class="clearance">${slideCell(row.clearance)}</td>
-        <td class="data">${slideCell(dataOf(rows, row))}</td>
+        <td class="data">${slideCell(shortData(dataOf(rows, row)))}</td>
       </tr>`,
     )
     .join("");

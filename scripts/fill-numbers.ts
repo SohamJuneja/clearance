@@ -111,9 +111,9 @@ export function fill(draft: string, values: Record<string, string>): string {
 }
 
 const PAIRS = [
-  ["docs/blog-draft.md", "docs/blog.md"],
-  ["docs/social-draft.md", "docs/social-posts.md"],
-  ["docs/submission-draft.md", "SUBMISSION.md"],
+  ["docs/build/blog-draft.md", "docs/blog.md"],
+  ["docs/build/social-draft.md", "docs/social-posts.md"],
+  ["docs/build/submission-draft.md", "SUBMISSION.md"],
 ] as const;
 
 function repoUrl(root: string): string {

@@ -1,6 +1,5 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { request as httpRequest } from "node:http";
-import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Fastify, { type FastifyInstance } from "fastify";
@@ -212,13 +211,12 @@ export async function startFakeCore(): Promise<FakeCore> {
 }
 
 /** A port nothing is listening on, for "core is down" and "acme is down". */
+/**
+ * A port nothing listens on. Port 1 on loopback is never open here. Opening a port and closing it isn't enough: a test
+ * running alongside can be handed that same port, and then "core is down" gets an answer.
+ */
 export async function deadUrl(): Promise<string> {
-  const server = createServer();
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const address = server.address();
-  if (address === null || typeof address === "string") throw new Error("no port");
-  await new Promise((resolve) => server.close(resolve));
-  return `http://127.0.0.1:${address.port}`;
+  return "http://127.0.0.1:1";
 }
 
 export type TempDb = { path: string; cleanup: () => void };

@@ -1,7 +1,7 @@
 /**
  * `pnpm video:social` cuts the #HowISwitch clips from the same takes, with the same labels, through the same build. So a
  * clip can't lose "persona actions are scripted" or a scene's own caption, and its numbers pass the same check. Writes
- * docs/media/social/. docs/social-draft.md says which clip goes with which post.
+ * docs/media/social/. docs/build/social-draft.md says which clip goes with which post.
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";

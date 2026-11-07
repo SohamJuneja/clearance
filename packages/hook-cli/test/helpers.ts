@@ -134,8 +134,10 @@ export async function startServer(): Promise<FakeServer> {
 }
 
 /** A port nothing listens on. */
+/**
+ * A port nothing listens on. Port 1 on loopback is never open here. Opening a port and closing it isn't enough: a test
+ * running alongside can be handed that same port, and then "core is down" gets an answer.
+ */
 export async function deadUrl(): Promise<string> {
-  const s = await startServer();
-  await s.close();
-  return s.url;
+  return "http://127.0.0.1:1";
 }

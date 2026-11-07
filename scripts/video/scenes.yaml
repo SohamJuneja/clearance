@@ -15,7 +15,7 @@ default_notices:
 
 # Every number that isn't one of our results, and where it comes from.
 cited:
-  - { value: "93%", source: "Anthropic, Claude Code auto mode, Mar 2026. Its notice is on sc14" }
+  - { value: "93%", source: "Anthropic, Claude Code auto mode, Mar 2026. Its notice is on sc9" }
   - { value: "Mar 2026", source: "the date of that Anthropic figure" }
   - { value: "₹40,000", source: "seeded order A-2004, synthetic: packages/acme" }
   - { value: "of 25", source: "the size of E1's suite, PLAN 10.2" }
@@ -52,12 +52,14 @@ scenes:
     planned_s: 12
     sources:
       - clip: takes/SC3/latest/priya.mp4
+        crop: { x: 270, y: 90, width: 690, height: 855 }
         segments:
           - {
               from: "Priya asks refunds-agent to handle ticket T-77 in #support",
               to: "Acme: Priya's approval moved no money",
             }
       - clip: takes/SC3/latest/sam.mp4
+        crop: { x: 270, y: 90, width: 690, height: 855 }
         segments:
           - {
               from: "Priya asks refunds-agent to handle ticket T-77 in #support",
@@ -74,12 +76,14 @@ scenes:
     planned_s: 14
     sources:
       - clip: takes/SC3/latest/priya.mp4
+        crop: { x: 270, y: 90, width: 690, height: 855 }
         segments:
           - {
               from: "Clearance refuses Priya, says why, and says Sam has it",
               to: "Acme: no money moved at all",
             }
       - clip: takes/SC3/latest/sam.mp4
+        crop: { x: 270, y: 90, width: 690, height: 855 }
         segments:
           - {
               from: "Clearance refuses Priya, says why, and says Sam has it",
@@ -117,16 +121,27 @@ scenes:
       - { clip: takes/SC8/latest/neha.mp4 }
     voiceover: "If nobody answers, Clearance escalates on a timer, and every approver has one inbox across rooms."
 
-  # Here rather than in the opening: it sets up the drill that follows, and the refusal comes first.
-  - id: sc14
-    kind: clip
-    planned_s: 9
-    # The whole take, sped up and labelled. Measured: each press takes a fraction of a second, so keeping only the presses
-    # would leave about a second of footage.
-    source: { clip: takes/SC14/latest/sam.mp4 }
-    callouts: ["staged illustration, real clicks"]
-    notices: ["93%: Anthropic, Claude Code auto mode, Mar 2026"]
-    voiceover: "And when people are asked, they approve 93% of what they're shown. Approval gates don't stay meaningful on their own."
+  # Agents working together through a Switch feature, and the same refusal: one frame of it tells the whole story.
+  - id: scho
+    kind: split
+    planned_s: 14
+    sources:
+      - clip: takes/SCHO/latest/priya.mp4
+        crop: { x: 270, y: 90, width: 690, height: 855 }
+        segments:
+          - {
+              from: "Priya asks refunds-agent, the wrong agent, to merge PR 418",
+              to: "Acme: Priya's approval merged nothing",
+            }
+      - clip: takes/SCHO/latest/dev.mp4
+        crop: { x: 270, y: 90, width: 690, height: 855 }
+        segments:
+          - {
+              from: "Priya asks refunds-agent, the wrong agent, to merge PR 418",
+              to: "Acme: Priya's approval merged nothing",
+            }
+    callouts: ["A role in Switch says where work goes. It decides nothing"]
+    voiceover: "Ask the wrong agent, and the work still finds the job. The gate refuses it, the agent hands it to Switch's merges role, and coder's merge is held. Priya still can't approve, because she asked."
 
   - id: sc9
     kind: clip
@@ -151,7 +166,8 @@ scenes:
           text: "The next card is real: a ₹40,000 refund on a returned order",
           from: "Sam's next card asks for a typed detail",
         }
-    voiceover: "People rubber-stamp. So Clearance runs drills, like phishing tests, and adds friction when approvals get too fast. Sam's next high-risk card asks for a detail from the call, typed out. Get it wrong, and it asks again, for a different field. Only the right answer runs it."
+    notices: ["93%: Anthropic, Claude Code auto mode, Mar 2026"]
+    voiceover: "People rubber-stamp: Anthropic reports users accept 93% of their own permission prompts. So Clearance runs drills, like phishing tests, and adds friction when approvals get too fast. Sam's next high-risk card asks for a detail from the call, typed out. Get it wrong, and it asks again, for a different field. Only the right answer runs it."
 
   - id: sc11
     kind: split
@@ -168,7 +184,7 @@ scenes:
     headline: "Measured, not claimed"
     # A row with no result isn't shown, and the voice-over says the same rows.
     rows: [E2/yes, E2/risky, E1, AUDIT, E3/quiet, NEG]
-    voiceover: "Measured, not claimed. [[if E2/yes.baseline]]Without Clearance, when the agent asked and the requester said yes, it went ahead: {{E2/yes.baseline}}. With it: {{E2/yes.clearance}}. [[/if]][[if E2/risky.clearance]]Risky actions with no eligible approver: {{E2/risky.clearance}}. [[/if]][[if E1.clearance]]Bad outcomes prevented, of 25: {{E1.clearance}}. The same cases also ran on real Switch. [[/if]][[if AUDIT.clearance]]Independent AI reviews found more, and each break is fixed and checked apart. [[/if]][[if E3/quiet.clearance]]Tool calls with no card: {{E3/quiet.clearance}}. [[/if]][[if NEG.text]]And one place we lose: {{NEG.text}}.[[/if]]"
+    voiceover: "Measured, not claimed. [[if E2/yes.baseline]]The agent asked, the requester said yes, and it went ahead: {{E2/yes.baseline}}. With Clearance: {{E2/yes.clearance}}. [[/if]][[if E2/risky.clearance]]Risky actions with no eligible approver: {{E2/risky.clearance}}. [[/if]][[if E1.clearance]]Bad outcomes prevented, of 25: {{E1.clearance}}. [[/if]][[if AUDIT.clearance]]Independent AI reviews found more, and each is fixed. [[/if]][[if E3/quiet.clearance]]Tool calls with no card: {{E3/quiet.clearance}}. [[/if]][[if NEG.text]]And one place we lose: {{NEG.text}}.[[/if]]"
 
   - id: close
     kind: card

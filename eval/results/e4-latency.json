@@ -1,35 +1,35 @@
 {
   "experiment": "E4-latency",
   "hook": {
-    "p50": 1.02,
-    "p95": 2.01,
-    "p99": 2.92
+    "p50": 1.08,
+    "p95": 2.08,
+    "p99": 2.85
   },
   "gate": {
-    "p50": 9.61,
-    "p95": 18.09,
-    "p99": 24.74
+    "p50": 8.34,
+    "p95": 17.76,
+    "p99": 25.57
   },
   "gate_read": {
-    "p50": 0.35,
-    "p95": 0.88,
-    "p99": 1.71
+    "p50": 0.31,
+    "p95": 0.91,
+    "p99": 1.19
   },
   "codex_cli": {
     "direct_node": {
-      "p50": 69.74,
-      "p95": 76.3,
-      "p99": 80.32
+      "p50": 68.86,
+      "p95": 74.25,
+      "p99": 79.52
     },
     "volta_shim": {
-      "p50": 73.86,
-      "p95": 83.65,
-      "p99": 84.62
+      "p50": 74.03,
+      "p95": 80.02,
+      "p99": 81.25
     },
     "as_configured": {
-      "p50": 77.34,
-      "p95": 84.41,
-      "p99": 91.21
+      "p50": 79.3,
+      "p95": 94.85,
+      "p99": 111.33
     },
     "calls": 100
   },
@@ -39,13 +39,13 @@
     "cpu_model": "13th Gen Intel(R) Core(TM) i7-13650HX",
     "logical_cpus": 20,
     "mem_total_gb": 14.8,
-    "mem_available_gb": 5.5,
+    "mem_available_gb": 4.6,
     "swap_total_gb": 18,
-    "swap_used_gb": 14.1,
+    "swap_used_gb": 13.6,
     "load_average": [
-      1.35,
-      3.24,
-      2.97
+      2.52,
+      2.94,
+      2.28
     ],
     "kernel": "Linux version 7.0.0-42-generic"
   },
@@ -53,16 +53,16 @@
     "cpu_model": "13th Gen Intel(R) Core(TM) i7-13650HX",
     "logical_cpus": 20,
     "mem_total_gb": 14.8,
-    "mem_available_gb": 5.3,
+    "mem_available_gb": 4.2,
     "swap_total_gb": 18,
-    "swap_used_gb": 14.1,
+    "swap_used_gb": 13.5,
     "load_average": [
-      1.34,
-      3.01,
-      2.9
+      2.12,
+      2.8,
+      2.26
     ],
     "kernel": "Linux version 7.0.0-42-generic"
   },
   "note": "Isolated processes with a fake ChatPort, on a shared host with other work running, so see the load average. Allowed calls only: each refund has its own amount, and this world's copy of the policy has room in its 24 h totals for them all. Includes the client's own fetch time on the hook; the gate figures are differences against the same call straight to Acme.",
-  "measured_at": "2026-11-07T06:27:34.922Z"
+  "measured_at": "2026-11-07T09:05:35.375Z"
 }
